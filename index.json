@@ -213,7 +213,7 @@
     "owner": "serge-chat",
     "repo": "serge",
     "image": "serge",
-    "pulls": "200K"
+    "pulls": "201K"
   },
   {
     "owner": "telekom-security",
@@ -232,5 +232,71 @@
     "repo": "memos",
     "image": "memos",
     "pulls": "530K"
+  },
+  {
+    "owner": "airtower-luna",
+    "repo": "hello-ghcr",
+    "image": "hello-ghcr-meow",
+    "pulls": "2.96K"
+  },
+  {
+    "owner": "amacneil",
+    "repo": "dbmate",
+    "image": "dbmate",
+    "pulls": "1.3M"
+  },
+  {
+    "owner": "br3ndonland",
+    "repo": "inboard",
+    "image": "inboard",
+    "pulls": "1.06M"
+  },
+  {
+    "owner": "eggplants",
+    "repo": "ghcr-badge",
+    "image": "ghcr-badge",
+    "pulls": "10K"
+  },
+  {
+    "owner": "emissary-ingress",
+    "repo": "emissary",
+    "image": "emissary",
+    "pulls": "228"
+  },
+  {
+    "owner": "home-assistant",
+    "repo": "operating-system",
+    "image": "haos-builder",
+    "pulls": "5.05K"
+  },
+  {
+    "owner": "k3d-io",
+    "repo": "k3d",
+    "image": "k3d-tools",
+    "pulls": "14.2M"
+  },
+  {
+    "owner": "macbre",
+    "repo": "push-to-ghcr",
+    "image": "push-to-ghcr",
+    "pulls": "746"
+  },
+  {
+    "owner": "nginx-proxy",
+    "repo": "docker-gen",
+    "image": "docker-gen",
+    "pulls": "15.1K"
+  },
+  {
+    "owner": "ropenttd",
+    "repo": "docker_openttd",
+    "image": "openttd",
+    "pulls": "1.81K"
+  },
+  {
+    "owner": "TandoorRecipes",
+    "repo": "recipes",
+    "image": "recipes",
+    "pulls": "86.4K"
   }
 ]
