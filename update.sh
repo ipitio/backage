@@ -13,8 +13,8 @@ while IFS= read -r line; do
     owner=$(echo "$line" | cut -d'/' -f1)
     repo=$(echo "$line" | cut -d'/' -f2)
     image=$(echo "$line" | cut -d'/' -f3)
-    pulls=$(curl -sSLNZ https://github.com/"$owner"/"$repo"/pkgs/container/"$image" | grep -Pzo '(?<=Total downloads</span>\n          <h3 title=")\d*')
-    pulls=$(curl -sSLNZ https://github.com/"$owner"/"$repo"/pkgs/container/"$image" | grep -Pzo "(?<=Total downloads</span>\n          <h3 title=\"$pulls\">)[^<]*")
+    pulls=$(curl -sSLN https://github.com/"$owner"/"$repo"/pkgs/container/"$image" | grep -Pzo '(?<=Total downloads</span>\n          <h3 title=")\d*')
+    pulls=$(curl -sSLN https://github.com/"$owner"/"$repo"/pkgs/container/"$image" | grep -Pzo "(?<=Total downloads</span>\n          <h3 title=\"$pulls\">)[^<]*")
 
     if [ -n "$pulls" ]; then
         jq --arg owner "$owner" --arg repo "$repo" --arg image "$image" --arg pulls "$pulls" '
