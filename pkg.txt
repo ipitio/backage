@@ -1,2 +1,8 @@
 arevindh/pihole-speedtest/pihole-speedtest
+gogs/gogs/gogs
+mastodon/mastodon/mastodon
+n8n-io/n8n/n8n
 netdata/netdata/netdata
+QuivrHQ/quivr/quivr
+Stirling-Tools/Stirling-PDF/s-pdf
+vaultwarden/vaultwarden/vaultwarden
