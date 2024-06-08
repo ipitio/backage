@@ -9,9 +9,9 @@ while IFS= read -r line; do
     owner=$(echo "$line" | cut -d'/' -f1)
     repo=$(echo "$line" | cut -d'/' -f2)
     image=$(echo "$line" | cut -d'/' -f3)
-    query='(?<=Total downloads</span>\n          <h3 title=")[^<]*'
+    query='(?<=Total downloads</span>\n          <h3 title=")\d*'
     pulls=$(curl -sSLNZ https://github.com/"$owner"/"$repo"/pkgs/container/"$image" | grep -Pzo "$query")
-    query="${query//\"/\"$pulls\">}"
+    query="(?<=Total downloads</span>\n          <h3 title=\"$pulls\")[^<]*"
     pulls=$(curl -sSLNZ https://github.com/"$owner"/"$repo"/pkgs/container/"$image" | grep -Pzo "$query")
 
     if [ -n "$pulls" ] && [ "$pulls" -eq "$pulls" ] 2>/dev/null && [ "$pulls" -gt 0 ]; then
