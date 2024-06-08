@@ -17,7 +17,7 @@ jobs:
               uses: actions/checkout@v4
 
             - name: Update pulls
-              run: bash fetch.sh
+              run: bash update.sh
 
             - name: Commit and push
               uses: stefanzweifel/git-auto-commit-action@v5
