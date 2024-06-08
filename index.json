@@ -243,7 +243,7 @@
     "owner": "amacneil",
     "repo": "dbmate",
     "image": "dbmate",
-    "pulls": "1.3M"
+    "pulls": "1.31M"
   },
   {
     "owner": "br3ndonland",
@@ -304,5 +304,11 @@
     "repo": "docker-mailserver",
     "image": "docker-mailserver",
     "pulls": "1.38M"
+  },
+  {
+    "owner": "dani-garcia",
+    "repo": "vaultwarden",
+    "image": "vaultwarden",
+    "pulls": "660K"
   }
 ]
