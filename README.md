@@ -9,3 +9,9 @@ If you'd like to use this to add a badge to your repo's README, you can use the 
 ```markdown
 ![ghcr pulls](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fipitio%2Fghcr-pulls%2Fmaster%2Findex.json&query=%24%5B%3F(%40.owner%3D%3D%22<USER>%22%20%26%26%20%40.repo%3D%3D%22<REPO>%22%20%26%26%20%40.image%3D%3D%22<IMAGE>%22)%5D.pulls)
 ```
+
+The JSONPath used to generate this is `$[?(@.owner=="OWNER" && @.repo=="REPO" && @.image=="IMAGE")].pulls`.
+
+Example:
+
+[![pihole-speedtest/pulls](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fipitio%2Fghcr-pulls%2Fmaster%2Findex.json&query=%24%5B%3F(%40.owner%3D%3D%22arevindh%22%20%26%26%20%40.repo%3D%3D%22pihole-speedtest%22%20%26%26%20%40.image%3D%3D%22pihole-speedtest%22)%5D.pulls&label=pulls)](https://github.com/arevindh/pihole-speedtest/pkgs/container/pihole-speedtest)
