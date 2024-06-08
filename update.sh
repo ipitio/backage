@@ -29,4 +29,6 @@ while IFS= read -r line; do
             end' index.json >index.json.tmp
         mv index.json.tmp index.json
     fi
+
+    sleep 5
 done <pkg.txt
