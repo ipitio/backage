@@ -13,6 +13,15 @@ while IFS= read -r line; do
     pulls=$(grep -Pzo '(?<=Total downloads</span>\n          <h3 title=")\d*' <<<"$data")
 
     if [ -n "$pulls" ] && [ "$pulls" -eq "$pulls" ] 2>/dev/null && [ "$pulls" -gt 0 ]; then
-        jq --arg owner "$owner" --arg repo "$repo" --arg image "$image" --arg pulls "$pulls" 'select(.owner == $owner and .repo == $repo and .image == $image) |= . + {"pulls":$pulls}' index.json >tmp.$$.json && mv tmp.$$.json index.json
+        jq --arg owner "$owner" --arg repo "$repo" --arg image "$image" --arg pulls "$pulls" '
+            if . == [] then
+                [{owner: $owner, repo: $repo, image: $image, pulls: $pulls}]
+            else
+                map(if .owner == $owner and .repo == $repo and .image == $image then
+                        .pulls = $pulls
+                    else
+                        .
+                    end)
+            end' index.json >index.json.tmp
     fi
 done <pkg.txt
