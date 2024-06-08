@@ -13,6 +13,7 @@ browserless/browserless/firefox
 containerd/containerd/busybox
 containrrr/watchtower/watchtower
 coollabsio/coolify/coolify
+dani-garcia/vaultwarden/vaultwarden
 docker-mailserver/docker-mailserver/docker-mailserver
 dockur/windows/windows
 drakkan/sftpgo/sftpgo
@@ -49,4 +50,3 @@ TandoorRecipes/recipes/recipes
 telekom-security/tpotce/conpot
 TwiN/gatus/gatus
 usememos/memos/memos
-vaultwarden/vaultwarden/vaultwarden
