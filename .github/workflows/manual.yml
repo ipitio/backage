@@ -6,7 +6,7 @@ on:
             - master
 
 jobs:
-    fetch:
+    update:
         runs-on: ubuntu-latest
 
         permissions:
