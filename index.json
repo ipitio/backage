@@ -4,5 +4,41 @@
     "repo": "pihole-speedtest",
     "image": "pihole-speedtest",
     "pulls": "101"
+  },
+  {
+    "owner": "gogs",
+    "repo": "gogs",
+    "image": "gogs",
+    "pulls": "85.1K"
+  },
+  {
+    "owner": "mastodon",
+    "repo": "mastodon",
+    "image": "mastodon",
+    "pulls": "2.2M"
+  },
+  {
+    "owner": "n8n-io",
+    "repo": "n8n",
+    "image": "n8n",
+    "pulls": "180K"
+  },
+  {
+    "owner": "netdata",
+    "repo": "netdata",
+    "image": "netdata",
+    "pulls": "29.6K"
+  },
+  {
+    "owner": "QuivrHQ",
+    "repo": "quivr",
+    "image": "quivr",
+    "pulls": "674"
+  },
+  {
+    "owner": "Stirling-Tools",
+    "repo": "Stirling-PDF",
+    "image": "s-pdf",
+    "pulls": "33.4K"
   }
 ]
