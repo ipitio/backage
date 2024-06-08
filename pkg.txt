@@ -1,1 +1,2 @@
 arevindh/pihole-speedtest/pihole-speedtest
+netdata/netdata/netdata
