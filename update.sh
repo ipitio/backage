@@ -26,9 +26,19 @@ while IFS= read -r line; do
                     else
                         .
                     end)
-            end' index.json >index.json.tmp
-        mv index.json.tmp index.json
+                + (if any(.[]; .owner == $owner and .repo == $repo and .image == $image) then [] else [{owner: $owner, repo: $repo, image: $image, pulls: $pulls}] end)
+            end' index.json >index.tmp.json
+        mv index.tmp.json index.json
     fi
-
-    sleep 5
 done <pkg.txt
+
+for i in $(jq -r '.[] | @base64' index.json); do
+    _jq() {
+        echo "$i" | base64 --decode | jq -r "$@"
+    }
+    pulls=$(_jq '.pulls')
+    owner=$(_jq '.owner')
+    repo=$(_jq '.repo')
+    image=$(_jq '.image')
+    printf "%s pulls\t\t| %s/%s/%s\n" "$pulls" "$owner" "$repo" "$image"
+done
