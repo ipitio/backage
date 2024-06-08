@@ -298,5 +298,11 @@
     "repo": "recipes",
     "image": "recipes",
     "pulls": "86.4K"
+  },
+  {
+    "owner": "docker-mailserver",
+    "repo": "docker-mailserver",
+    "image": "docker-mailserver",
+    "pulls": "1.38M"
   }
 ]
