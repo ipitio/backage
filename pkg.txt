@@ -13,7 +13,7 @@ browserless/browserless/firefox
 containerd/containerd/busybox
 containrrr/watchtower/watchtower
 coollabsio/coolify/coolify
-docker-mailserver/docker-mailserver
+docker-mailserver/docker-mailserver/docker-mailserver
 dockur/windows/windows
 drakkan/sftpgo/sftpgo
 eggplants/ghcr-badge/ghcr-badge
