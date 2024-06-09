@@ -9,13 +9,13 @@
     "owner": "gogs",
     "repo": "gogs",
     "image": "gogs",
-    "pulls": "85.1K"
+    "pulls": "85.2K"
   },
   {
     "owner": "mastodon",
     "repo": "mastodon",
     "image": "mastodon",
-    "pulls": "2.2M"
+    "pulls": "2.21M"
   },
   {
     "owner": "n8n-io",
@@ -39,13 +39,13 @@
     "owner": "Stirling-Tools",
     "repo": "Stirling-PDF",
     "image": "s-pdf",
-    "pulls": "33.4K"
+    "pulls": "33.7K"
   },
   {
     "owner": "ajnart",
     "repo": "homarr",
     "image": "homarr",
-    "pulls": "7.92M"
+    "pulls": "7.93M"
   },
   {
     "owner": "anchore",
@@ -117,7 +117,7 @@
     "owner": "drakkan",
     "repo": "sftpgo",
     "image": "sftpgo",
-    "pulls": "529M"
+    "pulls": "530M"
   },
   {
     "owner": "fission",
@@ -165,7 +165,7 @@
     "owner": "m1k1o",
     "repo": "neko",
     "image": "neko%2Fxfce",
-    "pulls": "62.3K"
+    "pulls": "62.4K"
   },
   {
     "owner": "Mailu",
@@ -225,13 +225,13 @@
     "owner": "TwiN",
     "repo": "gatus",
     "image": "gatus",
-    "pulls": "757K"
+    "pulls": "758K"
   },
   {
     "owner": "usememos",
     "repo": "memos",
     "image": "memos",
-    "pulls": "530K"
+    "pulls": "531K"
   },
   {
     "owner": "airtower-luna",
@@ -297,7 +297,7 @@
     "owner": "TandoorRecipes",
     "repo": "recipes",
     "image": "recipes",
-    "pulls": "86.4K"
+    "pulls": "86.6K"
   },
   {
     "owner": "docker-mailserver",
@@ -309,6 +309,6 @@
     "owner": "dani-garcia",
     "repo": "vaultwarden",
     "image": "vaultwarden",
-    "pulls": "660K"
+    "pulls": "661K"
   }
 ]
