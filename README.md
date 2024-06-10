@@ -8,8 +8,8 @@ Makes the pull count badge possible for these ghcr.io packages:
 
 If we don't yet follow an image, you can either:
 
-* open an issue or pull request to add it to this master list and/or
-* fork the repository to make your own list.
+* open an issue or pull request to add it to the master `pkg.txt` and/or
+* make a fork to start your own.
 
 ### Custom Badges
 
@@ -39,4 +39,4 @@ $[?(@.owner=="<USER>" && @.repo=="<REPO>" && @.image=="<IMAGE>")].raw_pulls
 
 ### Further Study
 
-GHCR itself doesn't provide an API endpoint for the pull count, so Github Packages is scraped daily for every image in `pkg.txt`. In addition to the latest stats, the index also contains a recent history of the raw pull counts for each image should you find that useful or interesting. Should the pulls for each tag be kept individually as well?
+GHCR itself doesn't provide an API endpoint for the pull count, so Github Packages is scraped daily for every image in `pkg.txt`. In addition to the latest stats, the index also contains a history of the raw pull counts for each image, starting on 2024-06-10, should you find that useful or interesting. Should the pulls for each tag be kept individually as well?

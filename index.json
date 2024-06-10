@@ -1,314 +1,522 @@
 [
   {
-    "owner": "arevindh",
-    "repo": "pihole-speedtest",
-    "image": "pihole-speedtest",
-    "pulls": "101"
-  },
-  {
-    "owner": "gogs",
-    "repo": "gogs",
-    "image": "gogs",
-    "pulls": "85.4K"
-  },
-  {
-    "owner": "mastodon",
-    "repo": "mastodon",
-    "image": "mastodon",
-    "pulls": "2.22M"
-  },
-  {
-    "owner": "n8n-io",
-    "repo": "n8n",
-    "image": "n8n",
-    "pulls": "180K"
-  },
-  {
-    "owner": "netdata",
-    "repo": "netdata",
-    "image": "netdata",
-    "pulls": "29.8K"
-  },
-  {
-    "owner": "QuivrHQ",
-    "repo": "quivr",
-    "image": "quivr",
-    "pulls": "674"
-  },
-  {
-    "owner": "Stirling-Tools",
-    "repo": "Stirling-PDF",
-    "image": "s-pdf",
-    "pulls": "34.2K"
-  },
-  {
-    "owner": "ajnart",
-    "repo": "homarr",
-    "image": "homarr",
-    "pulls": "7.96M"
-  },
-  {
-    "owner": "anchore",
-    "repo": "grype",
-    "image": "grype",
-    "pulls": "95.6K"
-  },
-  {
-    "owner": "anchore",
-    "repo": "syft",
-    "image": "syft",
-    "pulls": "922K"
-  },
-  {
-    "owner": "argoproj",
-    "repo": "argo-cd",
-    "image": "argo-cd%2Fargocd",
-    "pulls": "539K"
+    "owner": "drakkan",
+    "repo": "sftpgo",
+    "image": "sftpgo",
+    "pulls": "533M",
+    "raw_pulls": "533018385",
+    "raw_pulls_all": {
+      "2024-06-10": "533018385"
+    }
   },
   {
     "owner": "aquasecurity",
     "repo": "trivy",
     "image": "trivy",
-    "pulls": "189M"
-  },
-  {
-    "owner": "authelia",
-    "repo": "authelia",
-    "image": "authelia",
-    "pulls": "1.56M"
-  },
-  {
-    "owner": "benbusby",
-    "repo": "whoogle-search",
-    "image": "whoogle-search",
-    "pulls": "120K"
-  },
-  {
-    "owner": "browserless",
-    "repo": "browserless",
-    "image": "firefox",
-    "pulls": "1.79K"
-  },
-  {
-    "owner": "containerd",
-    "repo": "containerd",
-    "image": "busybox",
-    "pulls": "3.31M"
-  },
-  {
-    "owner": "containrrr",
-    "repo": "watchtower",
-    "image": "watchtower",
-    "pulls": "3.06M"
-  },
-  {
-    "owner": "coollabsio",
-    "repo": "coolify",
-    "image": "coolify",
-    "pulls": "2.18M"
-  },
-  {
-    "owner": "dockur",
-    "repo": "windows",
-    "image": "windows",
-    "pulls": "3.57K"
-  },
-  {
-    "owner": "drakkan",
-    "repo": "sftpgo",
-    "image": "sftpgo",
-    "pulls": "532M"
-  },
-  {
-    "owner": "fission",
-    "repo": "fission",
-    "image": "fission-bundle",
-    "pulls": "1.01M"
+    "pulls": "189M",
+    "raw_pulls": "188840357",
+    "raw_pulls_all": {
+      "2024-06-10": "188840357"
+    }
   },
   {
     "owner": "FlareSolverr",
     "repo": "FlareSolverr",
     "image": "flaresolverr",
-    "pulls": "56.8M"
-  },
-  {
-    "owner": "gethomepage",
-    "repo": "homepage",
-    "image": "homepage",
-    "pulls": "11M"
-  },
-  {
-    "owner": "ko-build",
-    "repo": "ko",
-    "image": "ko",
-    "pulls": "578K"
-  },
-  {
-    "owner": "labring",
-    "repo": "sealos",
-    "image": "sealos-patch",
-    "pulls": "156K"
-  },
-  {
-    "owner": "Lissy93",
-    "repo": "dashy",
-    "image": "dashy",
-    "pulls": "791K"
-  },
-  {
-    "owner": "LizardByte",
-    "repo": "Sunshine",
-    "image": "sunshine",
-    "pulls": "358K"
-  },
-  {
-    "owner": "m1k1o",
-    "repo": "neko",
-    "image": "neko%2Fxfce",
-    "pulls": "62.7K"
+    "pulls": "56.8M",
+    "raw_pulls": "56811845",
+    "raw_pulls_all": {
+      "2024-06-10": "56811845"
+    }
   },
   {
     "owner": "Mailu",
     "repo": "Mailu",
     "image": "clamav",
-    "pulls": "15.8M"
-  },
-  {
-    "owner": "nginx-proxy",
-    "repo": "acme-companion",
-    "image": "acme-companion",
-    "pulls": "10.5K"
-  },
-  {
-    "owner": "nginx-proxy",
-    "repo": "nginx-proxy",
-    "image": "nginx-proxy",
-    "pulls": "277K"
-  },
-  {
-    "owner": "nicolaka",
-    "repo": "netshoot",
-    "image": "netshoot",
-    "pulls": "396K"
-  },
-  {
-    "owner": "openfaas",
-    "repo": "faas",
-    "image": "basic-auth",
-    "pulls": "5.44M"
-  },
-  {
-    "owner": "plankanban",
-    "repo": "planka",
-    "image": "planka",
-    "pulls": "3.91M"
-  },
-  {
-    "owner": "screego",
-    "repo": "server",
-    "image": "server",
-    "pulls": "20K"
-  },
-  {
-    "owner": "serge-chat",
-    "repo": "serge",
-    "image": "serge",
-    "pulls": "201K"
-  },
-  {
-    "owner": "telekom-security",
-    "repo": "tpotce",
-    "image": "conpot",
-    "pulls": "48.1K"
-  },
-  {
-    "owner": "TwiN",
-    "repo": "gatus",
-    "image": "gatus",
-    "pulls": "761K"
-  },
-  {
-    "owner": "usememos",
-    "repo": "memos",
-    "image": "memos",
-    "pulls": "533K"
-  },
-  {
-    "owner": "airtower-luna",
-    "repo": "hello-ghcr",
-    "image": "hello-ghcr-meow",
-    "pulls": "2.96K"
-  },
-  {
-    "owner": "amacneil",
-    "repo": "dbmate",
-    "image": "dbmate",
-    "pulls": "1.32M"
-  },
-  {
-    "owner": "br3ndonland",
-    "repo": "inboard",
-    "image": "inboard",
-    "pulls": "1.06M"
-  },
-  {
-    "owner": "eggplants",
-    "repo": "ghcr-badge",
-    "image": "ghcr-badge",
-    "pulls": "10K"
-  },
-  {
-    "owner": "emissary-ingress",
-    "repo": "emissary",
-    "image": "emissary",
-    "pulls": "228"
-  },
-  {
-    "owner": "home-assistant",
-    "repo": "operating-system",
-    "image": "haos-builder",
-    "pulls": "5.05K"
+    "pulls": "15.8M",
+    "raw_pulls": "15849660",
+    "raw_pulls_all": {
+      "2024-06-10": "15849660"
+    }
   },
   {
     "owner": "k3d-io",
     "repo": "k3d",
     "image": "k3d-tools",
-    "pulls": "14.2M"
+    "pulls": "14.2M",
+    "raw_pulls": "14221533",
+    "raw_pulls_all": {
+      "2024-06-10": "14221533"
+    }
   },
   {
-    "owner": "macbre",
-    "repo": "push-to-ghcr",
-    "image": "push-to-ghcr",
-    "pulls": "746"
+    "owner": "gethomepage",
+    "repo": "homepage",
+    "image": "homepage",
+    "pulls": "11M",
+    "raw_pulls": "11024867",
+    "raw_pulls_all": {
+      "2024-06-10": "11024867"
+    }
   },
   {
-    "owner": "nginx-proxy",
-    "repo": "docker-gen",
-    "image": "docker-gen",
-    "pulls": "15.1K"
+    "owner": "ajnart",
+    "repo": "homarr",
+    "image": "homarr",
+    "pulls": "7.96M",
+    "raw_pulls": "7962353",
+    "raw_pulls_all": {
+      "2024-06-10": "7962353"
+    }
   },
   {
-    "owner": "ropenttd",
-    "repo": "docker_openttd",
-    "image": "openttd",
-    "pulls": "1.81K"
+    "owner": "openfaas",
+    "repo": "faas",
+    "image": "basic-auth",
+    "pulls": "5.44M",
+    "raw_pulls": "5440867",
+    "raw_pulls_all": {
+      "2024-06-10": "5440867"
+    }
   },
   {
-    "owner": "TandoorRecipes",
-    "repo": "recipes",
-    "image": "recipes",
-    "pulls": "87K"
+    "owner": "plankanban",
+    "repo": "planka",
+    "image": "planka",
+    "pulls": "3.91M",
+    "raw_pulls": "3908230",
+    "raw_pulls_all": {
+      "2024-06-10": "3908230"
+    }
+  },
+  {
+    "owner": "containerd",
+    "repo": "containerd",
+    "image": "busybox",
+    "pulls": "3.31M",
+    "raw_pulls": "3307189",
+    "raw_pulls_all": {
+      "2024-06-10": "3307189"
+    }
+  },
+  {
+    "owner": "containrrr",
+    "repo": "watchtower",
+    "image": "watchtower",
+    "pulls": "3.06M",
+    "raw_pulls": "3057506",
+    "raw_pulls_all": {
+      "2024-06-10": "3057506"
+    }
+  },
+  {
+    "owner": "mastodon",
+    "repo": "mastodon",
+    "image": "mastodon",
+    "pulls": "2.22M",
+    "raw_pulls": "2218628",
+    "raw_pulls_all": {
+      "2024-06-10": "2218628"
+    }
+  },
+  {
+    "owner": "coollabsio",
+    "repo": "coolify",
+    "image": "coolify",
+    "pulls": "2.18M",
+    "raw_pulls": "2181497",
+    "raw_pulls_all": {
+      "2024-06-10": "2181497"
+    }
+  },
+  {
+    "owner": "authelia",
+    "repo": "authelia",
+    "image": "authelia",
+    "pulls": "1.56M",
+    "raw_pulls": "1562221",
+    "raw_pulls_all": {
+      "2024-06-10": "1562221"
+    }
   },
   {
     "owner": "docker-mailserver",
     "repo": "docker-mailserver",
     "image": "docker-mailserver",
-    "pulls": "1.39M"
+    "pulls": "1.39M",
+    "raw_pulls": "1386033",
+    "raw_pulls_all": {
+      "2024-06-10": "1386033"
+    }
+  },
+  {
+    "owner": "amacneil",
+    "repo": "dbmate",
+    "image": "dbmate",
+    "pulls": "1.32M",
+    "raw_pulls": "1317435",
+    "raw_pulls_all": {
+      "2024-06-10": "1317435"
+    }
+  },
+  {
+    "owner": "br3ndonland",
+    "repo": "inboard",
+    "image": "inboard",
+    "pulls": "1.06M",
+    "raw_pulls": "1063284",
+    "raw_pulls_all": {
+      "2024-06-10": "1063284"
+    }
+  },
+  {
+    "owner": "fission",
+    "repo": "fission",
+    "image": "fission-bundle",
+    "pulls": "1.01M",
+    "raw_pulls": "1012121",
+    "raw_pulls_all": {
+      "2024-06-10": "1012121"
+    }
+  },
+  {
+    "owner": "anchore",
+    "repo": "syft",
+    "image": "syft",
+    "pulls": "924K",
+    "raw_pulls": "924074",
+    "raw_pulls_all": {
+      "2024-06-10": "924074"
+    }
+  },
+  {
+    "owner": "Lissy93",
+    "repo": "dashy",
+    "image": "dashy",
+    "pulls": "791K",
+    "raw_pulls": "790955",
+    "raw_pulls_all": {
+      "2024-06-10": "790955"
+    }
+  },
+  {
+    "owner": "TwiN",
+    "repo": "gatus",
+    "image": "gatus",
+    "pulls": "761K",
+    "raw_pulls": "761493",
+    "raw_pulls_all": {
+      "2024-06-10": "761493"
+    }
   },
   {
     "owner": "dani-garcia",
     "repo": "vaultwarden",
     "image": "vaultwarden",
-    "pulls": "663K"
+    "pulls": "664K",
+    "raw_pulls": "663780",
+    "raw_pulls_all": {
+      "2024-06-10": "663780"
+    }
+  },
+  {
+    "owner": "ko-build",
+    "repo": "ko",
+    "image": "ko",
+    "pulls": "578K",
+    "raw_pulls": "577773",
+    "raw_pulls_all": {
+      "2024-06-10": "577773"
+    }
+  },
+  {
+    "owner": "argoproj",
+    "repo": "argo-cd",
+    "image": "argo-cd%2Fargocd",
+    "pulls": "539K",
+    "raw_pulls": "538774",
+    "raw_pulls_all": {
+      "2024-06-10": "538774"
+    }
+  },
+  {
+    "owner": "usememos",
+    "repo": "memos",
+    "image": "memos",
+    "pulls": "533K",
+    "raw_pulls": "533438",
+    "raw_pulls_all": {
+      "2024-06-10": "533438"
+    }
+  },
+  {
+    "owner": "nicolaka",
+    "repo": "netshoot",
+    "image": "netshoot",
+    "pulls": "397K",
+    "raw_pulls": "396532",
+    "raw_pulls_all": {
+      "2024-06-10": "396532"
+    }
+  },
+  {
+    "owner": "LizardByte",
+    "repo": "Sunshine",
+    "image": "sunshine",
+    "pulls": "358K",
+    "raw_pulls": "358154",
+    "raw_pulls_all": {
+      "2024-06-10": "358154"
+    }
+  },
+  {
+    "owner": "nginx-proxy",
+    "repo": "nginx-proxy",
+    "image": "nginx-proxy",
+    "pulls": "277K",
+    "raw_pulls": "276974",
+    "raw_pulls_all": {
+      "2024-06-10": "276974"
+    }
+  },
+  {
+    "owner": "serge-chat",
+    "repo": "serge",
+    "image": "serge",
+    "pulls": "201K",
+    "raw_pulls": "201225",
+    "raw_pulls_all": {
+      "2024-06-10": "201225"
+    }
+  },
+  {
+    "owner": "n8n-io",
+    "repo": "n8n",
+    "image": "n8n",
+    "pulls": "180K",
+    "raw_pulls": "180080",
+    "raw_pulls_all": {
+      "2024-06-10": "180080"
+    }
+  },
+  {
+    "owner": "labring",
+    "repo": "sealos",
+    "image": "sealos-patch",
+    "pulls": "156K",
+    "raw_pulls": "155786",
+    "raw_pulls_all": {
+      "2024-06-10": "155786"
+    }
+  },
+  {
+    "owner": "benbusby",
+    "repo": "whoogle-search",
+    "image": "whoogle-search",
+    "pulls": "120K",
+    "raw_pulls": "120018",
+    "raw_pulls_all": {
+      "2024-06-10": "120018"
+    }
+  },
+  {
+    "owner": "anchore",
+    "repo": "grype",
+    "image": "grype",
+    "pulls": "95.7K",
+    "raw_pulls": "95650",
+    "raw_pulls_all": {
+      "2024-06-10": "95650"
+    }
+  },
+  {
+    "owner": "TandoorRecipes",
+    "repo": "recipes",
+    "image": "recipes",
+    "pulls": "87.2K",
+    "raw_pulls": "87178",
+    "raw_pulls_all": {
+      "2024-06-10": "87178"
+    }
+  },
+  {
+    "owner": "gogs",
+    "repo": "gogs",
+    "image": "gogs",
+    "pulls": "85.4K",
+    "raw_pulls": "85402",
+    "raw_pulls_all": {
+      "2024-06-10": "85402"
+    }
+  },
+  {
+    "owner": "m1k1o",
+    "repo": "neko",
+    "image": "neko%2Fxfce",
+    "pulls": "62.7K",
+    "raw_pulls": "62732",
+    "raw_pulls_all": {
+      "2024-06-10": "62732"
+    }
+  },
+  {
+    "owner": "telekom-security",
+    "repo": "tpotce",
+    "image": "conpot",
+    "pulls": "48.1K",
+    "raw_pulls": "48097",
+    "raw_pulls_all": {
+      "2024-06-10": "48097"
+    }
+  },
+  {
+    "owner": "Stirling-Tools",
+    "repo": "Stirling-PDF",
+    "image": "s-pdf",
+    "pulls": "34.4K",
+    "raw_pulls": "34352",
+    "raw_pulls_all": {
+      "2024-06-10": "34352"
+    }
+  },
+  {
+    "owner": "netdata",
+    "repo": "netdata",
+    "image": "netdata",
+    "pulls": "29.8K",
+    "raw_pulls": "29793",
+    "raw_pulls_all": {
+      "2024-06-10": "29793"
+    }
+  },
+  {
+    "owner": "screego",
+    "repo": "server",
+    "image": "server",
+    "pulls": "20K",
+    "raw_pulls": "20040",
+    "raw_pulls_all": {
+      "2024-06-10": "20040"
+    }
+  },
+  {
+    "owner": "nginx-proxy",
+    "repo": "docker-gen",
+    "image": "docker-gen",
+    "pulls": "15.1K",
+    "raw_pulls": "15129",
+    "raw_pulls_all": {
+      "2024-06-10": "15129"
+    }
+  },
+  {
+    "owner": "nginx-proxy",
+    "repo": "acme-companion",
+    "image": "acme-companion",
+    "pulls": "10.5K",
+    "raw_pulls": "10470",
+    "raw_pulls_all": {
+      "2024-06-10": "10470"
+    }
+  },
+  {
+    "owner": "eggplants",
+    "repo": "ghcr-badge",
+    "image": "ghcr-badge",
+    "pulls": "10K",
+    "raw_pulls": "10042",
+    "raw_pulls_all": {
+      "2024-06-10": "10042"
+    }
+  },
+  {
+    "owner": "home-assistant",
+    "repo": "operating-system",
+    "image": "haos-builder",
+    "pulls": "5.05K",
+    "raw_pulls": "5049",
+    "raw_pulls_all": {
+      "2024-06-10": "5049"
+    }
+  },
+  {
+    "owner": "dockur",
+    "repo": "windows",
+    "image": "windows",
+    "pulls": "3.58K",
+    "raw_pulls": "3580",
+    "raw_pulls_all": {
+      "2024-06-10": "3580"
+    }
+  },
+  {
+    "owner": "airtower-luna",
+    "repo": "hello-ghcr",
+    "image": "hello-ghcr-meow",
+    "pulls": "2.96K",
+    "raw_pulls": "2956",
+    "raw_pulls_all": {
+      "2024-06-10": "2956"
+    }
+  },
+  {
+    "owner": "ropenttd",
+    "repo": "docker_openttd",
+    "image": "openttd",
+    "pulls": "1.81K",
+    "raw_pulls": "1810",
+    "raw_pulls_all": {
+      "2024-06-10": "1810"
+    }
+  },
+  {
+    "owner": "browserless",
+    "repo": "browserless",
+    "image": "firefox",
+    "pulls": "1.79K",
+    "raw_pulls": "1790",
+    "raw_pulls_all": {
+      "2024-06-10": "1790"
+    }
+  },
+  {
+    "owner": "macbre",
+    "repo": "push-to-ghcr",
+    "image": "push-to-ghcr",
+    "pulls": "746",
+    "raw_pulls": "746",
+    "raw_pulls_all": {
+      "2024-06-10": "746"
+    }
+  },
+  {
+    "owner": "QuivrHQ",
+    "repo": "quivr",
+    "image": "quivr",
+    "pulls": "674",
+    "raw_pulls": "674",
+    "raw_pulls_all": {
+      "2024-06-10": "674"
+    }
+  },
+  {
+    "owner": "emissary-ingress",
+    "repo": "emissary",
+    "image": "emissary",
+    "pulls": "228",
+    "raw_pulls": "228",
+    "raw_pulls_all": {
+      "2024-06-10": "228"
+    }
+  },
+  {
+    "owner": "arevindh",
+    "repo": "pihole-speedtest",
+    "image": "pihole-speedtest",
+    "pulls": "101",
+    "raw_pulls": "101",
+    "raw_pulls_all": {
+      "2024-06-10": "101"
+    }
   }
 ]
