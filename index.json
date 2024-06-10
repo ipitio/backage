@@ -9,13 +9,13 @@
     "owner": "gogs",
     "repo": "gogs",
     "image": "gogs",
-    "pulls": "85.2K"
+    "pulls": "85.4K"
   },
   {
     "owner": "mastodon",
     "repo": "mastodon",
     "image": "mastodon",
-    "pulls": "2.21M"
+    "pulls": "2.22M"
   },
   {
     "owner": "n8n-io",
@@ -27,7 +27,7 @@
     "owner": "netdata",
     "repo": "netdata",
     "image": "netdata",
-    "pulls": "29.6K"
+    "pulls": "29.8K"
   },
   {
     "owner": "QuivrHQ",
@@ -39,13 +39,13 @@
     "owner": "Stirling-Tools",
     "repo": "Stirling-PDF",
     "image": "s-pdf",
-    "pulls": "33.7K"
+    "pulls": "34.2K"
   },
   {
     "owner": "ajnart",
     "repo": "homarr",
     "image": "homarr",
-    "pulls": "7.93M"
+    "pulls": "7.96M"
   },
   {
     "owner": "anchore",
@@ -63,13 +63,13 @@
     "owner": "argoproj",
     "repo": "argo-cd",
     "image": "argo-cd%2Fargocd",
-    "pulls": "538K"
+    "pulls": "539K"
   },
   {
     "owner": "aquasecurity",
     "repo": "trivy",
     "image": "trivy",
-    "pulls": "188M"
+    "pulls": "189M"
   },
   {
     "owner": "authelia",
@@ -81,19 +81,19 @@
     "owner": "benbusby",
     "repo": "whoogle-search",
     "image": "whoogle-search",
-    "pulls": "119K"
+    "pulls": "120K"
   },
   {
     "owner": "browserless",
     "repo": "browserless",
     "image": "firefox",
-    "pulls": "1.78K"
+    "pulls": "1.79K"
   },
   {
     "owner": "containerd",
     "repo": "containerd",
     "image": "busybox",
-    "pulls": "3.3M"
+    "pulls": "3.31M"
   },
   {
     "owner": "containrrr",
@@ -111,13 +111,13 @@
     "owner": "dockur",
     "repo": "windows",
     "image": "windows",
-    "pulls": "3.56K"
+    "pulls": "3.57K"
   },
   {
     "owner": "drakkan",
     "repo": "sftpgo",
     "image": "sftpgo",
-    "pulls": "530M"
+    "pulls": "532M"
   },
   {
     "owner": "fission",
@@ -135,13 +135,13 @@
     "owner": "gethomepage",
     "repo": "homepage",
     "image": "homepage",
-    "pulls": "10.9M"
+    "pulls": "11M"
   },
   {
     "owner": "ko-build",
     "repo": "ko",
     "image": "ko",
-    "pulls": "577K"
+    "pulls": "578K"
   },
   {
     "owner": "labring",
@@ -153,7 +153,7 @@
     "owner": "Lissy93",
     "repo": "dashy",
     "image": "dashy",
-    "pulls": "790K"
+    "pulls": "791K"
   },
   {
     "owner": "LizardByte",
@@ -165,7 +165,7 @@
     "owner": "m1k1o",
     "repo": "neko",
     "image": "neko%2Fxfce",
-    "pulls": "62.4K"
+    "pulls": "62.7K"
   },
   {
     "owner": "Mailu",
@@ -195,13 +195,13 @@
     "owner": "openfaas",
     "repo": "faas",
     "image": "basic-auth",
-    "pulls": "5.43M"
+    "pulls": "5.44M"
   },
   {
     "owner": "plankanban",
     "repo": "planka",
     "image": "planka",
-    "pulls": "3.9M"
+    "pulls": "3.91M"
   },
   {
     "owner": "screego",
@@ -225,13 +225,13 @@
     "owner": "TwiN",
     "repo": "gatus",
     "image": "gatus",
-    "pulls": "758K"
+    "pulls": "761K"
   },
   {
     "owner": "usememos",
     "repo": "memos",
     "image": "memos",
-    "pulls": "531K"
+    "pulls": "533K"
   },
   {
     "owner": "airtower-luna",
@@ -243,7 +243,7 @@
     "owner": "amacneil",
     "repo": "dbmate",
     "image": "dbmate",
-    "pulls": "1.31M"
+    "pulls": "1.32M"
   },
   {
     "owner": "br3ndonland",
@@ -297,18 +297,18 @@
     "owner": "TandoorRecipes",
     "repo": "recipes",
     "image": "recipes",
-    "pulls": "86.6K"
+    "pulls": "87K"
   },
   {
     "owner": "docker-mailserver",
     "repo": "docker-mailserver",
     "image": "docker-mailserver",
-    "pulls": "1.38M"
+    "pulls": "1.39M"
   },
   {
     "owner": "dani-garcia",
     "repo": "vaultwarden",
     "image": "vaultwarden",
-    "pulls": "661K"
+    "pulls": "663K"
   }
 ]
