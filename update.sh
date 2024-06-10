@@ -12,6 +12,31 @@ fi
 rm -f README.md
 \cp .README.md README.md
 
+while IFS= read -r line; do
+    owner=$(echo "$line" | cut -d'/' -f1)
+    repo=$(echo "$line" | cut -d'/' -f2)
+    image=$(echo "$line" | cut -d'/' -f3)
+    raw_pulls=$(curl -sSLN https://github.com/"$owner"/"$repo"/pkgs/container/"$image" | grep -Pzo '(?<=Total downloads</span>\n          <h3 title=")\d*')
+    pulls=$(curl -sSLN https://github.com/"$owner"/"$repo"/pkgs/container/"$image" | grep -Pzo "(?<=Total downloads</span>\n          <h3 title=\"$raw_pulls\">)[^<]*")
+    date=$(date -u +"%Y-%m-%d")
+
+    if [ -n "$pulls" ]; then
+        # Update the index with the new pulls
+        jq --arg owner "$owner" --arg repo "$repo" --arg image "$image" --arg pulls "$pulls" --arg raw_pulls "$raw_pulls" --arg date "$date" '
+            if . == [] then
+                [{owner: $owner, repo: $repo, image: $image, pulls: $pulls, raw_pulls: $raw_pulls, raw_pulls_all: {($date): $raw_pulls}}]
+            else
+                map(if .owner == $owner and .repo == $repo and .image == $image then .pulls = $pulls | .raw_pulls = $raw_pulls | .raw_pulls_all[($date)] = $raw_pulls else . end)
+                + (if any(.[]; .owner == $owner and .repo == $repo and .image == $image) then [] else [{owner: $owner, repo: $repo, image: $image, pulls: $pulls, raw_pulls: $raw_pulls, raw_pulls_all: {($date): $raw_pulls}}] end)
+            end' index.json >index.tmp.json
+        mv index.tmp.json index.json
+    fi
+done <pkg.txt
+
+# sort the index by the number of raw_pulls and remove the latest date if it is the same as the previous
+jq 'sort_by(.raw_pulls | tonumber) | reverse | map(.raw_pulls_all |= with_entries(select(.key != keys[-1])))' index.json >index.tmp.json
+mv index.tmp.json index.json
+
 for i in $(jq -r '.[] | @base64' index.json); do
     _jq() {
         echo "$i" | base64 --decode | jq -r "$@"
