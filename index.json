@@ -450,16 +450,6 @@
     }
   },
   {
-    "owner": "airtower-luna",
-    "repo": "hello-ghcr",
-    "image": "hello-ghcr-meow",
-    "pulls": "2.96K",
-    "raw_pulls": "2956",
-    "raw_pulls_all": {
-      "2024-06-10": "2956"
-    }
-  },
-  {
     "owner": "ropenttd",
     "repo": "docker_openttd",
     "image": "openttd",

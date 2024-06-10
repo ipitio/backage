@@ -1,4 +1,3 @@
-airtower-luna/hello-ghcr/hello-ghcr-meow
 ajnart/homarr/homarr
 amacneil/dbmate/dbmate
 anchore/grype/grype
