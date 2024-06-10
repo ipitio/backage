@@ -1,29 +1,36 @@
-# ghcr pulls
+# ghcr.io pulls
 
-## JSON Endpoint for GHCR Total Downloads
+## JSON Endpoint for GHCR Badge
 
-This is a free service that you can use to get the total number of downloads for a GitHub Container Registry (GHCR) image, since they don't provide one. If we don't yet follow the image you're interested in, simply open an issue or pull request to add it to `pkg.txt`.
+Makes the pull count badge possible for these ghcr.io packages:
 
-If you'd like to use this to add a badge to your repo's README, you can use the following Markdown snippet. Be sure to replace `<USER>`, `<REPO>`, and `<IMAGE>` with the values from `github.com/<USER>/<REPO>/pkgs/container/<IMAGE>`.
 
-```markdown
-![ghcr pulls](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fipitio%2Fghcr-pulls%2Fmaster%2Findex.json&query=%24%5B%3F(%40.owner%3D%3D%22<USER>%22%20%26%26%20%40.repo%3D%3D%22<REPO>%22%20%26%26%20%40.image%3D%3D%22<IMAGE>%22)%5D.pulls&logo=github&label=pulls)
-```
+[//]: # (new ones will be added here)
 
-Example:
+Do you wish that you could make a badge that shows the number of GHCR pulls, like you can for Docker Hub? Now you can! GHCR itself doesn't provide an API endpoint for the pull count, so this repo scrapes the data from Github Packages for every image in `pkg.txt` daily. If we don't yet follow the image you're interested in, open an issue or pull request to add it (or just make a fork).
 
-[![pihole-speedtest/pulls](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fipitio%2Fghcr-pulls%2Fmaster%2Findex.json&query=%24%5B%3F(%40.owner%3D%3D%22arevindh%22%20%26%26%20%40.repo%3D%3D%22pihole-speedtest%22%20%26%26%20%40.image%3D%3D%22pihole-speedtest%22)%5D.pulls&logo=github&label=pulls)](https://github.com/arevindh/pihole-speedtest/pkgs/container/pihole-speedtest)
+### Custom Badges
 
-You can generate this yourself [here](https://shields.io/badges/dynamic-json-badge) with whatever custom options you want and the following:
+To make a badge, you can modify one of above ones or generate one with something like [shields.io](https://shields.io/badges/dynamic-json-badge) and these parameters:
 
-URL
+#### URL
 
 ```markdown
 https://raw.githubusercontent.com/ipitio/ghcr-pulls/master/index.json
 ```
 
-JSONPath
+#### JSONPath
+
+You can show either a pretty value like 12K or the raw number like 12345.
+
+##### Pretty Count
 
 ```markdown
 $[?(@.owner=="<USER>" && @.repo=="<REPO>" && @.image=="<IMAGE>")].pulls
+```
+
+##### Raw Count
+
+```markdown
+$[?(@.owner=="<USER>" && @.repo=="<REPO>" && @.image=="<IMAGE>")].raw_pulls
 ```
