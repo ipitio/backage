@@ -21,3 +21,5 @@ jobs:
 
             - name: Commit and push
               uses: stefanzweifel/git-auto-commit-action@v5
+              with:
+                  commit_message: 'update pulls'
