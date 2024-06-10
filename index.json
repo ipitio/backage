@@ -4,9 +4,9 @@
     "repo": "sftpgo",
     "image": "sftpgo",
     "pulls": "533M",
-    "raw_pulls": "533018385",
+    "raw_pulls": "533079526",
     "raw_pulls_all": {
-      "2024-06-10": "533018385"
+      "2024-06-10": "533079526"
     }
   },
   {
@@ -14,9 +14,9 @@
     "repo": "trivy",
     "image": "trivy",
     "pulls": "189M",
-    "raw_pulls": "188840357",
+    "raw_pulls": "188862428",
     "raw_pulls_all": {
-      "2024-06-10": "188840357"
+      "2024-06-10": "188862428"
     }
   },
   {
@@ -24,9 +24,9 @@
     "repo": "FlareSolverr",
     "image": "flaresolverr",
     "pulls": "56.8M",
-    "raw_pulls": "56811845",
+    "raw_pulls": "56812571",
     "raw_pulls_all": {
-      "2024-06-10": "56811845"
+      "2024-06-10": "56812571"
     }
   },
   {
@@ -34,9 +34,9 @@
     "repo": "Mailu",
     "image": "clamav",
     "pulls": "15.8M",
-    "raw_pulls": "15849660",
+    "raw_pulls": "15849695",
     "raw_pulls_all": {
-      "2024-06-10": "15849660"
+      "2024-06-10": "15849695"
     }
   },
   {
@@ -44,9 +44,9 @@
     "repo": "k3d",
     "image": "k3d-tools",
     "pulls": "14.2M",
-    "raw_pulls": "14221533",
+    "raw_pulls": "14222721",
     "raw_pulls_all": {
-      "2024-06-10": "14221533"
+      "2024-06-10": "14222721"
     }
   },
   {
@@ -54,9 +54,9 @@
     "repo": "homepage",
     "image": "homepage",
     "pulls": "11M",
-    "raw_pulls": "11024867",
+    "raw_pulls": "11026425",
     "raw_pulls_all": {
-      "2024-06-10": "11024867"
+      "2024-06-10": "11026425"
     }
   },
   {
@@ -64,9 +64,9 @@
     "repo": "homarr",
     "image": "homarr",
     "pulls": "7.96M",
-    "raw_pulls": "7962353",
+    "raw_pulls": "7962810",
     "raw_pulls_all": {
-      "2024-06-10": "7962353"
+      "2024-06-10": "7962810"
     }
   },
   {
@@ -74,9 +74,9 @@
     "repo": "faas",
     "image": "basic-auth",
     "pulls": "5.44M",
-    "raw_pulls": "5440867",
+    "raw_pulls": "5441119",
     "raw_pulls_all": {
-      "2024-06-10": "5440867"
+      "2024-06-10": "5441119"
     }
   },
   {
@@ -84,9 +84,9 @@
     "repo": "planka",
     "image": "planka",
     "pulls": "3.91M",
-    "raw_pulls": "3908230",
+    "raw_pulls": "3908271",
     "raw_pulls_all": {
-      "2024-06-10": "3908230"
+      "2024-06-10": "3908271"
     }
   },
   {
@@ -104,9 +104,9 @@
     "repo": "watchtower",
     "image": "watchtower",
     "pulls": "3.06M",
-    "raw_pulls": "3057506",
+    "raw_pulls": "3057524",
     "raw_pulls_all": {
-      "2024-06-10": "3057506"
+      "2024-06-10": "3057524"
     }
   },
   {
@@ -114,9 +114,9 @@
     "repo": "mastodon",
     "image": "mastodon",
     "pulls": "2.22M",
-    "raw_pulls": "2218628",
+    "raw_pulls": "2218884",
     "raw_pulls_all": {
-      "2024-06-10": "2218628"
+      "2024-06-10": "2218884"
     }
   },
   {
@@ -124,9 +124,9 @@
     "repo": "coolify",
     "image": "coolify",
     "pulls": "2.18M",
-    "raw_pulls": "2181497",
+    "raw_pulls": "2181605",
     "raw_pulls_all": {
-      "2024-06-10": "2181497"
+      "2024-06-10": "2181605"
     }
   },
   {
@@ -134,9 +134,9 @@
     "repo": "authelia",
     "image": "authelia",
     "pulls": "1.56M",
-    "raw_pulls": "1562221",
+    "raw_pulls": "1562325",
     "raw_pulls_all": {
-      "2024-06-10": "1562221"
+      "2024-06-10": "1562325"
     }
   },
   {
@@ -144,9 +144,9 @@
     "repo": "docker-mailserver",
     "image": "docker-mailserver",
     "pulls": "1.39M",
-    "raw_pulls": "1386033",
+    "raw_pulls": "1386055",
     "raw_pulls_all": {
-      "2024-06-10": "1386033"
+      "2024-06-10": "1386055"
     }
   },
   {
@@ -154,9 +154,9 @@
     "repo": "dbmate",
     "image": "dbmate",
     "pulls": "1.32M",
-    "raw_pulls": "1317435",
+    "raw_pulls": "1317713",
     "raw_pulls_all": {
-      "2024-06-10": "1317435"
+      "2024-06-10": "1317713"
     }
   },
   {
@@ -164,9 +164,9 @@
     "repo": "inboard",
     "image": "inboard",
     "pulls": "1.06M",
-    "raw_pulls": "1063284",
+    "raw_pulls": "1063285",
     "raw_pulls_all": {
-      "2024-06-10": "1063284"
+      "2024-06-10": "1063285"
     }
   },
   {
@@ -174,9 +174,9 @@
     "repo": "fission",
     "image": "fission-bundle",
     "pulls": "1.01M",
-    "raw_pulls": "1012121",
+    "raw_pulls": "1012139",
     "raw_pulls_all": {
-      "2024-06-10": "1012121"
+      "2024-06-10": "1012139"
     }
   },
   {
@@ -184,9 +184,9 @@
     "repo": "syft",
     "image": "syft",
     "pulls": "924K",
-    "raw_pulls": "924074",
+    "raw_pulls": "924080",
     "raw_pulls_all": {
-      "2024-06-10": "924074"
+      "2024-06-10": "924080"
     }
   },
   {
@@ -194,19 +194,19 @@
     "repo": "dashy",
     "image": "dashy",
     "pulls": "791K",
-    "raw_pulls": "790955",
+    "raw_pulls": "790986",
     "raw_pulls_all": {
-      "2024-06-10": "790955"
+      "2024-06-10": "790986"
     }
   },
   {
     "owner": "TwiN",
     "repo": "gatus",
     "image": "gatus",
-    "pulls": "761K",
-    "raw_pulls": "761493",
+    "pulls": "762K",
+    "raw_pulls": "761567",
     "raw_pulls_all": {
-      "2024-06-10": "761493"
+      "2024-06-10": "761567"
     }
   },
   {
@@ -214,9 +214,9 @@
     "repo": "vaultwarden",
     "image": "vaultwarden",
     "pulls": "664K",
-    "raw_pulls": "663780",
+    "raw_pulls": "663836",
     "raw_pulls_all": {
-      "2024-06-10": "663780"
+      "2024-06-10": "663836"
     }
   },
   {
@@ -224,9 +224,9 @@
     "repo": "ko",
     "image": "ko",
     "pulls": "578K",
-    "raw_pulls": "577773",
+    "raw_pulls": "577783",
     "raw_pulls_all": {
-      "2024-06-10": "577773"
+      "2024-06-10": "577783"
     }
   },
   {
@@ -234,9 +234,9 @@
     "repo": "argo-cd",
     "image": "argo-cd%2Fargocd",
     "pulls": "539K",
-    "raw_pulls": "538774",
+    "raw_pulls": "538803",
     "raw_pulls_all": {
-      "2024-06-10": "538774"
+      "2024-06-10": "538803"
     }
   },
   {
@@ -244,9 +244,9 @@
     "repo": "memos",
     "image": "memos",
     "pulls": "533K",
-    "raw_pulls": "533438",
+    "raw_pulls": "533448",
     "raw_pulls_all": {
-      "2024-06-10": "533438"
+      "2024-06-10": "533448"
     }
   },
   {
@@ -254,9 +254,9 @@
     "repo": "netshoot",
     "image": "netshoot",
     "pulls": "397K",
-    "raw_pulls": "396532",
+    "raw_pulls": "396551",
     "raw_pulls_all": {
-      "2024-06-10": "396532"
+      "2024-06-10": "396551"
     }
   },
   {
@@ -264,9 +264,9 @@
     "repo": "Sunshine",
     "image": "sunshine",
     "pulls": "358K",
-    "raw_pulls": "358154",
+    "raw_pulls": "358155",
     "raw_pulls_all": {
-      "2024-06-10": "358154"
+      "2024-06-10": "358155"
     }
   },
   {
@@ -294,9 +294,9 @@
     "repo": "n8n",
     "image": "n8n",
     "pulls": "180K",
-    "raw_pulls": "180080",
+    "raw_pulls": "180084",
     "raw_pulls_all": {
-      "2024-06-10": "180080"
+      "2024-06-10": "180084"
     }
   },
   {
@@ -314,9 +314,9 @@
     "repo": "whoogle-search",
     "image": "whoogle-search",
     "pulls": "120K",
-    "raw_pulls": "120018",
+    "raw_pulls": "120034",
     "raw_pulls_all": {
-      "2024-06-10": "120018"
+      "2024-06-10": "120034"
     }
   },
   {
@@ -324,9 +324,9 @@
     "repo": "grype",
     "image": "grype",
     "pulls": "95.7K",
-    "raw_pulls": "95650",
+    "raw_pulls": "95656",
     "raw_pulls_all": {
-      "2024-06-10": "95650"
+      "2024-06-10": "95656"
     }
   },
   {
@@ -334,9 +334,9 @@
     "repo": "recipes",
     "image": "recipes",
     "pulls": "87.2K",
-    "raw_pulls": "87178",
+    "raw_pulls": "87188",
     "raw_pulls_all": {
-      "2024-06-10": "87178"
+      "2024-06-10": "87188"
     }
   },
   {
@@ -344,9 +344,9 @@
     "repo": "gogs",
     "image": "gogs",
     "pulls": "85.4K",
-    "raw_pulls": "85402",
+    "raw_pulls": "85408",
     "raw_pulls_all": {
-      "2024-06-10": "85402"
+      "2024-06-10": "85408"
     }
   },
   {
@@ -354,9 +354,9 @@
     "repo": "neko",
     "image": "neko%2Fxfce",
     "pulls": "62.7K",
-    "raw_pulls": "62732",
+    "raw_pulls": "62742",
     "raw_pulls_all": {
-      "2024-06-10": "62732"
+      "2024-06-10": "62742"
     }
   },
   {
@@ -374,9 +374,9 @@
     "repo": "Stirling-PDF",
     "image": "s-pdf",
     "pulls": "34.4K",
-    "raw_pulls": "34352",
+    "raw_pulls": "34358",
     "raw_pulls_all": {
-      "2024-06-10": "34352"
+      "2024-06-10": "34358"
     }
   },
   {
@@ -384,9 +384,9 @@
     "repo": "netdata",
     "image": "netdata",
     "pulls": "29.8K",
-    "raw_pulls": "29793",
+    "raw_pulls": "29797",
     "raw_pulls_all": {
-      "2024-06-10": "29793"
+      "2024-06-10": "29797"
     }
   },
   {
