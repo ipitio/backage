@@ -32,6 +32,7 @@ m1k1o/neko/neko%2Fxfce
 macbre/push-to-ghcr/push-to-ghcr
 Mailu/Mailu/clamav
 mastodon/mastodon/mastodon
+mealie-recipes/mealie/mealie
 n8n-io/n8n/n8n
 netdata/netdata/netdata
 nginx-proxy/acme-companion/acme-companion
