@@ -9,9 +9,17 @@ if ! command -v curl &>/dev/null || ! command -v jq &>/dev/null; then
     sudo apt-get install curl jq -y
 fi
 
-rm -f README.md
+# sort pkg.txt and remove duplicates
+sort -u pkg.txt -o pkg.txt
+
+# create the index if it does not exist
+[ -f index.json ] || echo "[]" >index.json
+
+# setup the README template
+[ ! -f README.md ] || rm -f README.md
 \cp .README.md README.md
 
+# loop through each package in pkg.txt
 while IFS= read -r line; do
     owner=$(echo "$line" | cut -d'/' -f1)
     repo=$(echo "$line" | cut -d'/' -f2)
@@ -20,8 +28,8 @@ while IFS= read -r line; do
     pulls=$(curl -sSLN https://github.com/"$owner"/"$repo"/pkgs/container/"$image" | grep -Pzo "(?<=Total downloads</span>\n          <h3 title=\"$raw_pulls\">)[^<]*")
     date=$(date -u +"%Y-%m-%d")
 
+    # update the index with the new counts if we got a response
     if [ -n "$pulls" ]; then
-        # Update the index with the new pulls
         jq --arg owner "$owner" --arg repo "$repo" --arg image "$image" --arg pulls "$pulls" --arg raw_pulls "$raw_pulls" --arg date "$date" '
             if . == [] then
                 [{owner: $owner, repo: $repo, image: $image, pulls: $pulls, raw_pulls: $raw_pulls, raw_pulls_all: {($date): $raw_pulls}}]
@@ -37,6 +45,7 @@ done <pkg.txt
 jq 'sort_by(.raw_pulls | tonumber) | reverse | map(.raw_pulls_all |= with_entries(select(.key != keys[-1])))' index.json >index.tmp.json
 mv index.tmp.json index.json
 
+# loop through each package in the index
 for i in $(jq -r '.[] | @base64' index.json); do
     _jq() {
         echo "$i" | base64 --decode | jq -r "$@"
@@ -49,8 +58,8 @@ for i in $(jq -r '.[] | @base64' index.json); do
     raw_pulls=$(_jq '.raw_pulls')
     export owner repo image
 
-    # add to the README with all the new badges that were not in the README
-    # if none of $owner/$repo/$image contains "%2F" then badge is safe
+    # update the README template with all working badges
+    # if none of $owner/$repo/$image contains "%2F" then badge works with shields.io
     if ! echo "$owner/$repo/$image" | grep -q "%2F"; then
         grep -q "$owner/$repo/$image" README.md || perl -0777 -pe '
     my $owner = $ENV{"owner"};
