@@ -1,11 +1,3 @@
-FlareSolverr/FlareSolverr/flaresolverr
-Lissy93/dashy/dashy
-LizardByte/Sunshine/sunshine
-Mailu/Mailu/clamav
-QuivrHQ/quivr/quivr
-Stirling-Tools/Stirling-PDF/s-pdf
-TandoorRecipes/recipes/recipes
-TwiN/gatus/gatus
 ajnart/homarr/homarr
 amacneil/dbmate/dbmate
 anchore/grype/grype
@@ -27,6 +19,7 @@ drakkan/sftpgo/sftpgo
 eggplants/ghcr-badge/ghcr-badge
 emissary-ingress/emissary/emissary
 fission/fission/fission-bundle
+FlareSolverr/FlareSolverr/flaresolverr
 gethomepage/homepage/homepage
 gogs/gogs/gogs
 home-assistant/operating-system/haos-builder
@@ -34,8 +27,11 @@ hugomods/docker/hugo
 k3d-io/k3d/k3d-tools
 ko-build/ko/ko
 labring/sealos/sealos-patch
+Lissy93/dashy/dashy
+LizardByte/Sunshine/sunshine
 m1k1o/neko/neko%2Fxfce
 macbre/push-to-ghcr/push-to-ghcr
+Mailu/Mailu/clamav
 mastodon/mastodon/mastodon
 mealie-recipes/mealie/mealie
 n8n-io/n8n/n8n
@@ -47,9 +43,13 @@ nicolaka/netshoot/netshoot
 openfaas/faas/basic-auth
 pi-hole/docker-pi-hole/pihole
 plankanban/planka/planka
+QuivrHQ/quivr/quivr
 ropenttd/docker_openttd/openttd
 screego/server/server
 serge-chat/serge/serge
+Stirling-Tools/Stirling-PDF/s-pdf
+TandoorRecipes/recipes/recipes
 telekom-security/tpotce/conpot
 timeplus-io/proton/proton
+TwiN/gatus/gatus
 usememos/memos/memos
