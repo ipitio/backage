@@ -39,4 +39,4 @@ $[?(@.owner=="<USER>" && @.repo=="<REPO>" && @.image=="<IMAGE>")].raw_pulls
 
 ### Further Study
 
-GHCR itself doesn't provide an API endpoint for the pull count, so Github Packages is scraped daily for every image in `pkg.txt`. In addition to the latest stats, the index also contains a history of the raw pull counts for each image, starting on 2024-06-10, should you find that useful or interesting. Should the pulls for each tag be kept individually as well?
+GHCR itself doesn't provide an API endpoint for the pull count, so Github Packages is scraped twice daily for every image in `pkg.txt`. In addition to the latest stats, the index also contains a history of the raw pull counts for each image, starting on 2024-06-10, should you find that useful or interesting. Should the pulls for each tag be kept individually as well?
