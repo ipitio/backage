@@ -10,7 +10,10 @@ if ! command -v curl &>/dev/null || ! command -v jq &>/dev/null; then
 fi
 
 # clean pkg.txt
-sort -u pkg.txt -o pkg.txt
+awk '{print tolower($0)}' pkg.txt | sort -u | while read -r line; do
+    grep -i "^$line$" pkg.txt
+done >pkg.tmp.txt
+mv pkg.tmp.txt pkg.txt
 [ -z "$(tail -c 1 pkg.txt)" ] || echo >>pkg.txt
 
 # setup templates
