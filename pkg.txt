@@ -23,6 +23,7 @@ FlareSolverr/FlareSolverr/flaresolverr
 gethomepage/homepage/homepage
 gogs/gogs/gogs
 home-assistant/operating-system/haos-builder
+hugomods/docker/hugo
 k3d-io/k3d/k3d-tools
 ko-build/ko/ko
 labring/sealos/sealos-patch
