@@ -8,8 +8,8 @@ Makes the pull count badge possible for these ghcr.io packages:
 
 If we don't yet follow an image, you can either:
 
-* open an issue or pull request to add it to the master `pkg.txt` and/or
-* make a fork to start your own.
+* open an issue or
+* add it on a new line in `pkg.txt` on your own fork [here](https://github.com/ipitio/ghcr-pulls/edit/master/pkg.txt) and make a pull request.
 
 ### Custom Badges
 
@@ -55,7 +55,7 @@ Feel free to help with any of these:
         "<version>": {
             "raw_pulls": "365",
             "raw_pulls_day": "1",
-            "raw_pulls_week": "07",
+            "raw_pulls_week": "7",
             "raw_pulls_month": "30",
             "raw_pulls_all": {
                 "<date>": "365"
