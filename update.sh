@@ -35,13 +35,24 @@ while IFS= read -r line; do
 
     # ...if we get a response
     if [ -n "$pulls" ]; then
-        jq --arg owner "$owner" --arg repo "$repo" --arg image "$image" --arg pulls "$pulls" --arg raw_pulls "$raw_pulls" --arg date "$date" '
-            if . == [] then
-                [{owner: $owner, repo: $repo, image: $image, pulls: $pulls, raw_pulls: $raw_pulls, raw_pulls_all: {($date): $raw_pulls}}]
-            else
-                map(if .owner == $owner and .repo == $repo and .image == $image then .pulls = $pulls | .raw_pulls = $raw_pulls | .raw_pulls_all[($date)] = $raw_pulls else . end)
-                + (if any(.[]; .owner == $owner and .repo == $repo and .image == $image) then [] else [{owner: $owner, repo: $repo, image: $image, pulls: $pulls, raw_pulls: $raw_pulls, raw_pulls_all: {($date): $raw_pulls}}] end)
-            end' index.json >index.tmp.json
+        if [ "$1" = "1" ]; then # manual update
+            jq --arg owner "$owner" --arg repo "$repo" --arg image "$image" --arg pulls "$pulls" --arg raw_pulls "$raw_pulls" --arg date "$date" '
+                if . == [] then
+                    [{owner: $owner, repo: $repo, image: $image, pulls: $pulls, raw_pulls: $raw_pulls, raw_pulls_all: {($date): $raw_pulls}}]
+                else
+                    map(if .owner == $owner and .repo == $repo and .image == $image then . else . end)
+                    + (if any(.[]; .owner == $owner and .repo == $repo and .image == $image) then [] else [{owner: $owner, repo: $repo, image: $image, pulls: $pulls, raw_pulls: $raw_pulls, raw_pulls_all: {($date): $raw_pulls}}] end)
+                end' index.json >index.tmp.json
+        else
+            jq --arg owner "$owner" --arg repo "$repo" --arg image "$image" --arg pulls "$pulls" --arg raw_pulls "$raw_pulls" --arg date "$date" '
+                if . == [] then
+                    [{owner: $owner, repo: $repo, image: $image, pulls: $pulls, raw_pulls: $raw_pulls, raw_pulls_all: {($date): $raw_pulls}}]
+                else
+                    map(if .owner == $owner and .repo == $repo and .image == $image then .pulls = $pulls | .raw_pulls = $raw_pulls | .raw_pulls_all[($date)] = $raw_pulls else . end)
+                    + (if any(.[]; .owner == $owner and .repo == $repo and .image == $image) then [] else [{owner: $owner, repo: $repo, image: $image, pulls: $pulls, raw_pulls: $raw_pulls, raw_pulls_all: {($date): $raw_pulls}}] end)
+                end' index.json >index.tmp.json
+        fi
+
         mv index.tmp.json index.json
     fi
 done <pkg.txt
