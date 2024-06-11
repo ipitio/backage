@@ -31,6 +31,7 @@ while IFS= read -r line; do
     html=$(curl -sSLNZ "https://github.com/$owner/$repo/pkgs/container/$image")
     raw_pulls=$(echo -e "$html" | grep -Pzo '(?<=Total downloads</span>\n          <h3 title=")\d*')
     pulls=$(echo -e "$html" | grep -Pzo "(?<=Total downloads</span>\n          <h3 title=\"$raw_pulls\">)[^<]*")
+    pulls="${pulls,,}"
     date=$(date -u +"%Y-%m-%d")
 
     # ...if we get a response
