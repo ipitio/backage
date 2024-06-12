@@ -575,6 +575,16 @@
     }
   },
   {
+    "owner": "vdsm",
+    "repo": "virtual-dsm",
+    "image": "virtual-dsm",
+    "pulls": "7.13K",
+    "raw_pulls": "7129",
+    "raw_pulls_all": {
+      "2024-06-12": "7129"
+    }
+  },
+  {
     "owner": "home-assistant",
     "repo": "operating-system",
     "image": "haos-builder",
