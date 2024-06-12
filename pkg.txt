@@ -72,4 +72,4 @@ telekom-security/tpotce/conpot
 timeplus-io/proton/proton
 TwiN/gatus/gatus
 usememos/memos/memos
-vdsm/virtual-dsm
+vdsm/virtual-dsm/virtual-dsm
