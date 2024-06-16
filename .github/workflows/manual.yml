@@ -4,6 +4,7 @@ on:
     push:
         branches:
             - master
+            - dev
 
 jobs:
     update:
@@ -16,10 +17,12 @@ jobs:
             - name: Checkout repository
               uses: actions/checkout@v4
 
-            - name: Update pulls
+            - name: Update stats
               run: bash update.sh 1
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
             - name: Commit and push
               uses: stefanzweifel/git-auto-commit-action@v5
               with:
-                  commit_message: 'update pulls'
+                  commit_message: 'update stats'
