@@ -97,7 +97,6 @@ while IFS= read -r line; do
             -H "X-GitHub-Api-Version: 2022-11-28" \
             "https://api.github.com/$owner_type/$owner/packages/$package_type/$package/versions")
         ((calls_to_api++))
-        jq . <<<"$versions_json"
     fi
 
     # decode percent-encoded characters and make lowercase for docker manifest
@@ -125,20 +124,14 @@ while IFS= read -r line; do
 
         # get the size
         if [ "$package_type" = "container" ]; then
-            set -x
-            manifest=$(docker manifest inspect -v ghcr.io/"$lower_owner"/"$lower_package":"$version_name")
-            set +x
-            ! grep -q "size" <<<"$manifest" || version_size=$(grep size <<<"$manifest" | awk -F ':' '{sum+=$NF} END {print sum}')
-
-            if [[ ! "$version_size" =~ ^[0-9]+$ ]] && [ -n "$GITHUB_TOKEN" ]; then
-                manifest=$(curl -L \
-                    -H "Accept: application/vnd.docker.distribution.manifest.v2+json" \
-                    -H "Authorization: Bearer $GITHUB_TOKEN" \
-                    "https://ghcr.io/v2/$owner/$package/manifests/$version_name")
-                ((calls_to_api++))
-                version_size=$(jq '.layers[].size' <<<"$manifest" | awk '{sum+=$1} END {print sum}')
-                echo "$version_size"
+            # if version_name begins with sha256:, it's a digest
+            if [[ "$version_name" =~ ^sha256: ]]; then
+                version_size=$(docker manifest inspect -v ghcr.io/"$lower_owner"/"$lower_package"@"$version_name" | jq '.Descriptor.size')
+            else
+                version_size=$(docker manifest inspect -v ghcr.io/"$lower_owner"/"$lower_package":"$version_name" | grep size | awk -F ':' '{sum+=$NF} END {print sum}')
             fi
+
+            [[ "$version_size" =~ ^[0-9]+$ ]] || version_size="0"
         fi
 
         # get the downloads
