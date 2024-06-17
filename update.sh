@@ -18,7 +18,7 @@ numfmt() {
 
 # format bytes to KB, MB, GB, etc.
 numfmtSize() {
-    awk '{ split("B kB MB GB TB PB EB ZB YB", v); s=0; while( $1>999.9 ) { $1/=1000; s++ } print int($1*10)/10 " " v[s] }'
+    awk '{ split("kB MB GB TB PB EB ZB YB", v); s=0; while( $1>999.9 ) { $1/=1000; s++ } print int($1*10)/10 " " v[s] }'
 }
 
 # check if curl and jq are installed
