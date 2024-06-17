@@ -94,7 +94,7 @@ while IFS= read -r line; do
 
     # if the repo is piblic the api request should succeed
     if [ -n "$GITHUB_TOKEN" ] && [ -n "$is_public" ]; then
-        versions_json=$(curl -L \
+        versions_json=$(curl -sSL \
             -H "Accept: application/vnd.github+json" \
             -H "Authorization: Bearer $GITHUB_TOKEN" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
@@ -217,7 +217,7 @@ while IFS= read -r line; do
     # api rate limit, the next run will take care of the rest
     rate_limit_end=$(date +%s)
     rate_limit_diff=$((rate_limit_end - rate_limit_start))
-    [[ "$rate_limit_diff" -lt 3500 && "$calls_to_api" -lt 1000 ]] || break
+    [[ "$rate_limit_diff" -lt 3000 && "$calls_to_api" -lt 900 ]] || break
 done <pkg.txt
 
 # update index.json:
