@@ -21,8 +21,8 @@ users/container/dobtc/lndmanage/lndmanage
 users/container/docker-mailserver/docker-mailserver/docker-mailserver
 users/container/dockur/chrony/chrony
 users/container/dockur/dnsmasq/dnsmasq
-users/container/dockur/lemmy/lemmy
 users/container/dockur/lemmy-ui/lemmy-ui
+users/container/dockur/lemmy/lemmy
 users/container/dockur/macos/macos
 users/container/dockur/munin/munin
 users/container/dockur/portainer-backup/portainer-backup
