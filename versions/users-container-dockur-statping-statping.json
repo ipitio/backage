@@ -1,0 +1,156 @@
+[
+  {
+    "id": 163763214,
+    "name": "sha256:6f8d94124f4a1b70dc876b3761ff608488f85b5f09e362bc825c01e5f0288721",
+    "url": "https://api.github.com/orgs/dockur/packages/container/statping/versions/163763214",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/statping",
+    "created_at": "2024-01-04T18:26:35Z",
+    "updated_at": "2024-01-04T18:26:35Z",
+    "html_url": "https://github.com/orgs/dockur/packages/container/statping/163763214",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "0.91.0",
+          "latest"
+        ]
+      }
+    }
+  },
+  {
+    "id": 163763212,
+    "name": "sha256:7b8c823934f0fbc143955c28a62bd022808879581ee5d3641e6b0485a15ba2f8",
+    "url": "https://api.github.com/orgs/dockur/packages/container/statping/versions/163763212",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/statping",
+    "license": "GPL-3.0",
+    "created_at": "2024-01-04T18:26:35Z",
+    "updated_at": "2024-01-04T18:26:35Z",
+    "description": "A status page for monitoring your websites and applications with beautiful graphs, analytics, and plugins.",
+    "html_url": "https://github.com/orgs/dockur/packages/container/statping/163763212",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 163763208,
+    "name": "sha256:6e36d1bf1dfa66bdd6b4a1b21240f9bad1fc3c21aafb015cee0e14e30a7d0339",
+    "url": "https://api.github.com/orgs/dockur/packages/container/statping/versions/163763208",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/statping",
+    "license": "GPL-3.0",
+    "created_at": "2024-01-04T18:26:35Z",
+    "updated_at": "2024-01-04T18:26:35Z",
+    "description": "A status page for monitoring your websites and applications with beautiful graphs, analytics, and plugins.",
+    "html_url": "https://github.com/orgs/dockur/packages/container/statping/163763208",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 163763204,
+    "name": "sha256:2adc674098306b0165b0ed4761e9fa43dda6fad1976cefaece23606af8ce890d",
+    "url": "https://api.github.com/orgs/dockur/packages/container/statping/versions/163763204",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/statping",
+    "license": "GPL-3.0",
+    "created_at": "2024-01-04T18:26:34Z",
+    "updated_at": "2024-01-04T18:26:34Z",
+    "description": "A status page for monitoring your websites and applications with beautiful graphs, analytics, and plugins.",
+    "html_url": "https://github.com/orgs/dockur/packages/container/statping/163763204",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 156989279,
+    "name": "sha256:227ff4da85d8c66bf421c6513a08e5ac51e20c9b6d4ecca4a5bb7de4f8d9778f",
+    "url": "https://api.github.com/orgs/dockur/packages/container/statping/versions/156989279",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/statping",
+    "created_at": "2023-12-12T04:54:11Z",
+    "updated_at": "2023-12-12T04:54:11Z",
+    "html_url": "https://github.com/orgs/dockur/packages/container/statping/156989279",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "0.91.0-rc3"
+        ]
+      }
+    }
+  },
+  {
+    "id": 156989276,
+    "name": "sha256:c970f21f196965ae77bb85ebc9dc32d665161ae1ea1d02f9def0f6e47437716b",
+    "url": "https://api.github.com/orgs/dockur/packages/container/statping/versions/156989276",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/statping",
+    "license": "GPL-3.0",
+    "created_at": "2023-12-12T04:54:11Z",
+    "updated_at": "2023-12-12T04:54:11Z",
+    "description": "A status page for monitoring your websites and applications with beautiful graphs, analytics, and plugins.",
+    "html_url": "https://github.com/orgs/dockur/packages/container/statping/156989276",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 156989275,
+    "name": "sha256:1b1efcd0720ed6a77275403626b1e133ccdb69d966bbb1f859bef4acc444eced",
+    "url": "https://api.github.com/orgs/dockur/packages/container/statping/versions/156989275",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/statping",
+    "license": "GPL-3.0",
+    "created_at": "2023-12-12T04:54:10Z",
+    "updated_at": "2023-12-12T04:54:10Z",
+    "description": "A status page for monitoring your websites and applications with beautiful graphs, analytics, and plugins.",
+    "html_url": "https://github.com/orgs/dockur/packages/container/statping/156989275",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 156989274,
+    "name": "sha256:d023e1372a8502e066d3557c13f2dd792d814e570219ae6cdc307c9cfb2f1b25",
+    "url": "https://api.github.com/orgs/dockur/packages/container/statping/versions/156989274",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/statping",
+    "license": "GPL-3.0",
+    "created_at": "2023-12-12T04:54:10Z",
+    "updated_at": "2023-12-12T04:54:10Z",
+    "description": "A status page for monitoring your websites and applications with beautiful graphs, analytics, and plugins.",
+    "html_url": "https://github.com/orgs/dockur/packages/container/statping/156989274",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 156979855,
+    "name": "sha256:e2b42fb82a0a1a93d5f1b5022f6ce338f5d43902e6b840bc413ce235e7857507",
+    "url": "https://api.github.com/orgs/dockur/packages/container/statping/versions/156979855",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/statping",
+    "license": "GPL-3.0",
+    "created_at": "2023-12-12T03:57:51Z",
+    "updated_at": "2023-12-12T03:57:51Z",
+    "description": "A status page for monitoring your websites and applications with beautiful graphs, analytics, and plugins.",
+    "html_url": "https://github.com/orgs/dockur/packages/container/statping/156979855",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  }
+]

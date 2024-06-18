@@ -1,0 +1,459 @@
+[
+  {
+    "id": 130687202,
+    "name": "sha256:13f8b329e0c98cd0264e4edd43ab367be09ee6cf3f51652082b78e7b6829763b",
+    "url": "https://api.github.com/orgs/dockur/packages/container/strfry/versions/130687202",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/strfry",
+    "created_at": "2023-09-22T22:55:16Z",
+    "updated_at": "2023-09-22T22:55:16Z",
+    "html_url": "https://github.com/orgs/dockur/packages/container/strfry/130687202",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "0.9.6",
+          "latest"
+        ]
+      }
+    }
+  },
+  {
+    "id": 130687197,
+    "name": "sha256:50aab9744048ad76131a0184e54afe82ca217ee2aa6327e7471c775eff4ae6dd",
+    "url": "https://api.github.com/orgs/dockur/packages/container/strfry/versions/130687197",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/strfry",
+    "created_at": "2023-09-22T22:55:15Z",
+    "updated_at": "2023-09-22T22:55:15Z",
+    "html_url": "https://github.com/orgs/dockur/packages/container/strfry/130687197",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 130687191,
+    "name": "sha256:2683e55833b683d7b2c8466e426a9e1718b779ab9b69220ffa5885ddafc95ebf",
+    "url": "https://api.github.com/orgs/dockur/packages/container/strfry/versions/130687191",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/strfry",
+    "created_at": "2023-09-22T22:55:15Z",
+    "updated_at": "2023-09-22T22:55:15Z",
+    "html_url": "https://github.com/orgs/dockur/packages/container/strfry/130687191",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 130687186,
+    "name": "sha256:54fe1feb7473284bc2dae35476e49997954aabb90629b2c7079d6a573ebb7786",
+    "url": "https://api.github.com/orgs/dockur/packages/container/strfry/versions/130687186",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/strfry",
+    "created_at": "2023-09-22T22:55:14Z",
+    "updated_at": "2023-09-22T22:55:14Z",
+    "html_url": "https://github.com/orgs/dockur/packages/container/strfry/130687186",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 130687185,
+    "name": "sha256:12428bae7dc69b794fa3407c75ac04b6c173a47f7887784f029727ec8a307a4d",
+    "url": "https://api.github.com/orgs/dockur/packages/container/strfry/versions/130687185",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/strfry",
+    "created_at": "2023-09-22T22:55:14Z",
+    "updated_at": "2023-09-22T22:55:14Z",
+    "html_url": "https://github.com/orgs/dockur/packages/container/strfry/130687185",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 129088197,
+    "name": "sha256:331a4819cdd9c39df4488aa908a823b62b686a8e118995e973a4820cb43fdc93",
+    "url": "https://api.github.com/orgs/dockur/packages/container/strfry/versions/129088197",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/strfry",
+    "created_at": "2023-09-18T20:50:59Z",
+    "updated_at": "2023-09-18T20:50:59Z",
+    "html_url": "https://github.com/orgs/dockur/packages/container/strfry/129088197",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "0.9.5"
+        ]
+      }
+    }
+  },
+  {
+    "id": 129088190,
+    "name": "sha256:e4555da18e90f9248e8e9fe287ca71ecbabdb712c7e80c2aa8fb370c8f253be0",
+    "url": "https://api.github.com/orgs/dockur/packages/container/strfry/versions/129088190",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/strfry",
+    "created_at": "2023-09-18T20:50:58Z",
+    "updated_at": "2023-09-18T20:50:58Z",
+    "html_url": "https://github.com/orgs/dockur/packages/container/strfry/129088190",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 129088185,
+    "name": "sha256:c10714c209609a964ec56ad211533aa7d70ae025d18e1b4c7eac795069a6f780",
+    "url": "https://api.github.com/orgs/dockur/packages/container/strfry/versions/129088185",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/strfry",
+    "created_at": "2023-09-18T20:50:58Z",
+    "updated_at": "2023-09-18T20:50:58Z",
+    "html_url": "https://github.com/orgs/dockur/packages/container/strfry/129088185",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 129088182,
+    "name": "sha256:155d439cfd17998466777e01c52572870992833c1ed64742343f267a3125b172",
+    "url": "https://api.github.com/orgs/dockur/packages/container/strfry/versions/129088182",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/strfry",
+    "created_at": "2023-09-18T20:50:57Z",
+    "updated_at": "2023-09-18T20:50:57Z",
+    "html_url": "https://github.com/orgs/dockur/packages/container/strfry/129088182",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 129088178,
+    "name": "sha256:391de76275d72543903288d8a44ea39718239f5bd660bad820d86837cacf2621",
+    "url": "https://api.github.com/orgs/dockur/packages/container/strfry/versions/129088178",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/strfry",
+    "created_at": "2023-09-18T20:50:57Z",
+    "updated_at": "2023-09-18T20:50:57Z",
+    "html_url": "https://github.com/orgs/dockur/packages/container/strfry/129088178",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 129038514,
+    "name": "sha256:919ee44ef622364bbf1cb2344b9530abd0d689a0d218ed9b22c115a368766d50",
+    "url": "https://api.github.com/orgs/dockur/packages/container/strfry/versions/129038514",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/strfry",
+    "created_at": "2023-09-18T17:43:43Z",
+    "updated_at": "2023-09-18T17:43:43Z",
+    "html_url": "https://github.com/orgs/dockur/packages/container/strfry/129038514",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 129038512,
+    "name": "sha256:7907d9d1327a433970dacf3a382ee9d38341882f5531d80696c52d7a96f23490",
+    "url": "https://api.github.com/orgs/dockur/packages/container/strfry/versions/129038512",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/strfry",
+    "created_at": "2023-09-18T17:43:43Z",
+    "updated_at": "2023-09-18T17:43:43Z",
+    "html_url": "https://github.com/orgs/dockur/packages/container/strfry/129038512",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 129038510,
+    "name": "sha256:6c72493e582d4b89e392aceec0c10e74817abbcfc1d323cc2f402ba3f5bdc043",
+    "url": "https://api.github.com/orgs/dockur/packages/container/strfry/versions/129038510",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/strfry",
+    "created_at": "2023-09-18T17:43:42Z",
+    "updated_at": "2023-09-18T17:43:42Z",
+    "html_url": "https://github.com/orgs/dockur/packages/container/strfry/129038510",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 129038508,
+    "name": "sha256:69ed8719a7da3687af8879c0809823162916765568194e1e4355111a2bf224a9",
+    "url": "https://api.github.com/orgs/dockur/packages/container/strfry/versions/129038508",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/strfry",
+    "created_at": "2023-09-18T17:43:41Z",
+    "updated_at": "2023-09-18T17:43:41Z",
+    "html_url": "https://github.com/orgs/dockur/packages/container/strfry/129038508",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 129038506,
+    "name": "sha256:901a1adaca083615f118fc8ac122c0ebf90372fac41758217cc37dedc3ed3127",
+    "url": "https://api.github.com/orgs/dockur/packages/container/strfry/versions/129038506",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/strfry",
+    "created_at": "2023-09-18T17:43:41Z",
+    "updated_at": "2023-09-18T17:43:41Z",
+    "html_url": "https://github.com/orgs/dockur/packages/container/strfry/129038506",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 129031243,
+    "name": "sha256:69944cd6c479b8643eb025461c6db153cadee29831af77a53ab950d95ef55708",
+    "url": "https://api.github.com/orgs/dockur/packages/container/strfry/versions/129031243",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/strfry",
+    "created_at": "2023-09-18T17:17:35Z",
+    "updated_at": "2023-09-18T17:17:35Z",
+    "html_url": "https://github.com/orgs/dockur/packages/container/strfry/129031243",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 129031241,
+    "name": "sha256:59832e0e2c65f8264a7b17ba0588ed18f614232ff791a70c85b3a8d893167597",
+    "url": "https://api.github.com/orgs/dockur/packages/container/strfry/versions/129031241",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/strfry",
+    "created_at": "2023-09-18T17:17:35Z",
+    "updated_at": "2023-09-18T17:17:35Z",
+    "html_url": "https://github.com/orgs/dockur/packages/container/strfry/129031241",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 129031239,
+    "name": "sha256:2dbf8654577eb5412db750838288b42bda06d3655efe2e9124874cd32ca0557e",
+    "url": "https://api.github.com/orgs/dockur/packages/container/strfry/versions/129031239",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/strfry",
+    "created_at": "2023-09-18T17:17:34Z",
+    "updated_at": "2023-09-18T17:17:34Z",
+    "html_url": "https://github.com/orgs/dockur/packages/container/strfry/129031239",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 129031236,
+    "name": "sha256:7c7ab1b4ccfc23627b4adca675127a23f246cf107418c574b64f64abdb43b635",
+    "url": "https://api.github.com/orgs/dockur/packages/container/strfry/versions/129031236",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/strfry",
+    "created_at": "2023-09-18T17:17:34Z",
+    "updated_at": "2023-09-18T17:17:34Z",
+    "html_url": "https://github.com/orgs/dockur/packages/container/strfry/129031236",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 124834211,
+    "name": "sha256:eb5c4054e08999a3a1919f3d496770b4ee3deada05ff0359622332b9cdf23bb4",
+    "url": "https://api.github.com/orgs/dockur/packages/container/strfry/versions/124834211",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/strfry",
+    "created_at": "2023-09-05T03:12:09Z",
+    "updated_at": "2023-09-05T03:12:09Z",
+    "html_url": "https://github.com/orgs/dockur/packages/container/strfry/124834211",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "0.9.4"
+        ]
+      }
+    }
+  },
+  {
+    "id": 124834210,
+    "name": "sha256:cf60ea0eb0bd011afccba617f215b03ac085c2a479217fa3771457b1d4b5e395",
+    "url": "https://api.github.com/orgs/dockur/packages/container/strfry/versions/124834210",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/strfry",
+    "created_at": "2023-09-05T03:12:09Z",
+    "updated_at": "2023-09-05T03:12:09Z",
+    "html_url": "https://github.com/orgs/dockur/packages/container/strfry/124834210",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 124834209,
+    "name": "sha256:a5a2f5e6e7fd10db150b1f08b639ad4b3e3fbcf94cbb05ff3b034825f71a4802",
+    "url": "https://api.github.com/orgs/dockur/packages/container/strfry/versions/124834209",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/strfry",
+    "created_at": "2023-09-05T03:12:08Z",
+    "updated_at": "2023-09-05T03:12:08Z",
+    "html_url": "https://github.com/orgs/dockur/packages/container/strfry/124834209",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 124834206,
+    "name": "sha256:8680b13d6562634a6fc0b9e7831b55309a91a8f89b3bda0e961395a2ea1c082d",
+    "url": "https://api.github.com/orgs/dockur/packages/container/strfry/versions/124834206",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/strfry",
+    "created_at": "2023-09-05T03:12:08Z",
+    "updated_at": "2023-09-05T03:12:08Z",
+    "html_url": "https://github.com/orgs/dockur/packages/container/strfry/124834206",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 124834204,
+    "name": "sha256:704ee472b6d03f320e229fe1b9f0717f83207d80b9d3e0680950b7cbf81e1294",
+    "url": "https://api.github.com/orgs/dockur/packages/container/strfry/versions/124834204",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/strfry",
+    "created_at": "2023-09-05T03:12:07Z",
+    "updated_at": "2023-09-05T03:12:07Z",
+    "html_url": "https://github.com/orgs/dockur/packages/container/strfry/124834204",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 124828367,
+    "name": "sha256:0e3a6ba5da83485e2412f6f8b667537ee69f0c292fd8e1a9a613d00774fe989f",
+    "url": "https://api.github.com/orgs/dockur/packages/container/strfry/versions/124828367",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/strfry",
+    "created_at": "2023-09-05T02:22:06Z",
+    "updated_at": "2023-09-05T02:22:06Z",
+    "html_url": "https://github.com/orgs/dockur/packages/container/strfry/124828367",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 124828366,
+    "name": "sha256:02c28bffce59f568acf6ffbcda3a005683c09d4a05d8ce8b4eae51ac7934250c",
+    "url": "https://api.github.com/orgs/dockur/packages/container/strfry/versions/124828366",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/strfry",
+    "created_at": "2023-09-05T02:22:05Z",
+    "updated_at": "2023-09-05T02:22:05Z",
+    "html_url": "https://github.com/orgs/dockur/packages/container/strfry/124828366",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 124828364,
+    "name": "sha256:7a991d824b9a5d494f24b8ea5d053a6538f7dab625168f8ef58058723f719d37",
+    "url": "https://api.github.com/orgs/dockur/packages/container/strfry/versions/124828364",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/strfry",
+    "created_at": "2023-09-05T02:22:04Z",
+    "updated_at": "2023-09-05T02:22:04Z",
+    "html_url": "https://github.com/orgs/dockur/packages/container/strfry/124828364",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 124828363,
+    "name": "sha256:f12f7170345957537fb517853d1390b79f28f519e360f9893db157eaa145d8a1",
+    "url": "https://api.github.com/orgs/dockur/packages/container/strfry/versions/124828363",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/strfry",
+    "created_at": "2023-09-05T02:22:04Z",
+    "updated_at": "2023-09-05T02:22:04Z",
+    "html_url": "https://github.com/orgs/dockur/packages/container/strfry/124828363",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 124815809,
+    "name": "sha256:bcbe301449c97d87a14d91eb55c52186c21556bc34d8e7a3c8758f0c94c7f946",
+    "url": "https://api.github.com/orgs/dockur/packages/container/strfry/versions/124815809",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/strfry",
+    "created_at": "2023-09-05T01:02:05Z",
+    "updated_at": "2023-09-05T01:02:05Z",
+    "html_url": "https://github.com/orgs/dockur/packages/container/strfry/124815809",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 124815808,
+    "name": "sha256:81f25b573a6c5f69b1a7c2fd6ecf7585653b1374a109e71a154d7017f211ac24",
+    "url": "https://api.github.com/orgs/dockur/packages/container/strfry/versions/124815808",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/strfry",
+    "created_at": "2023-09-05T01:02:05Z",
+    "updated_at": "2023-09-05T01:02:05Z",
+    "html_url": "https://github.com/orgs/dockur/packages/container/strfry/124815808",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  }
+]

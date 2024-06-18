@@ -1,0 +1,479 @@
+[
+  {
+    "id": 163238527,
+    "name": "sha256:135de872db3b1a80befa2f7dd5ab85ff373dfb2c5e6741e28632c693fee2da12",
+    "url": "https://api.github.com/orgs/containrrr/packages/container/watchtower/versions/163238527",
+    "package_html_url": "https://github.com/orgs/containrrr/packages/container/package/watchtower",
+    "created_at": "2024-01-03T11:29:07Z",
+    "updated_at": "2024-01-03T11:29:07Z",
+    "html_url": "https://github.com/orgs/containrrr/packages/container/watchtower/163238527",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "latest-dev"
+        ]
+      }
+    }
+  },
+  {
+    "id": 159498182,
+    "name": "sha256:4b52473bbb2ee799a6fbfc6b227ecad1282feb51de563f16ccdd8bff19d9234f",
+    "url": "https://api.github.com/orgs/containrrr/packages/container/watchtower/versions/159498182",
+    "package_html_url": "https://github.com/orgs/containrrr/packages/container/package/watchtower",
+    "created_at": "2023-12-19T08:50:04Z",
+    "updated_at": "2023-12-19T08:50:04Z",
+    "html_url": "https://github.com/orgs/containrrr/packages/container/watchtower/159498182",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 159400200,
+    "name": "sha256:24c3c4d46ebde0d067140a6fdf73bf27fc17b8dd16e115df9ed7c41e31628c43",
+    "url": "https://api.github.com/orgs/containrrr/packages/container/watchtower/versions/159400200",
+    "package_html_url": "https://github.com/orgs/containrrr/packages/container/package/watchtower",
+    "created_at": "2023-12-19T00:58:06Z",
+    "updated_at": "2023-12-19T00:58:06Z",
+    "html_url": "https://github.com/orgs/containrrr/packages/container/watchtower/159400200",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 156857198,
+    "name": "sha256:3c2beacecfa1bb8552db661d22c18a72dac5c8954aed42b52c25bf5a1a5ee418",
+    "url": "https://api.github.com/orgs/containrrr/packages/container/watchtower/versions/156857198",
+    "package_html_url": "https://github.com/orgs/containrrr/packages/container/package/watchtower",
+    "created_at": "2023-12-11T19:15:56Z",
+    "updated_at": "2023-12-11T19:15:56Z",
+    "html_url": "https://github.com/orgs/containrrr/packages/container/watchtower/156857198",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 156856576,
+    "name": "sha256:9b26b1ddb3b6f0ac47f3f89f535271f3b0a54a9b3721a70375575ba0aa1dda1d",
+    "url": "https://api.github.com/orgs/containrrr/packages/container/watchtower/versions/156856576",
+    "package_html_url": "https://github.com/orgs/containrrr/packages/container/package/watchtower",
+    "created_at": "2023-12-11T19:14:26Z",
+    "updated_at": "2023-12-11T19:14:26Z",
+    "html_url": "https://github.com/orgs/containrrr/packages/container/watchtower/156856576",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 156856543,
+    "name": "sha256:6273441ee72f1a4c268e868f2358d657fffdce6e8dcdb45612ef532e1d05693d",
+    "url": "https://api.github.com/orgs/containrrr/packages/container/watchtower/versions/156856543",
+    "package_html_url": "https://github.com/orgs/containrrr/packages/container/package/watchtower",
+    "created_at": "2023-12-11T19:14:22Z",
+    "updated_at": "2023-12-11T19:14:22Z",
+    "html_url": "https://github.com/orgs/containrrr/packages/container/watchtower/156856543",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 155966216,
+    "name": "sha256:774f47da05392a9f2c26ed420f631a9e85a56fdac379140e2f5e5804d255fb48",
+    "url": "https://api.github.com/orgs/containrrr/packages/container/watchtower/versions/155966216",
+    "package_html_url": "https://github.com/orgs/containrrr/packages/container/package/watchtower",
+    "created_at": "2023-12-08T11:00:13Z",
+    "updated_at": "2023-12-08T11:00:13Z",
+    "html_url": "https://github.com/orgs/containrrr/packages/container/watchtower/155966216",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 146793911,
+    "name": "sha256:52ad0b788c33e002690d47360cc5c40be37c5eb0263cc7890307460d7694187b",
+    "url": "https://api.github.com/orgs/containrrr/packages/container/watchtower/versions/146793911",
+    "package_html_url": "https://github.com/orgs/containrrr/packages/container/package/watchtower",
+    "created_at": "2023-11-12T20:49:48Z",
+    "updated_at": "2023-11-12T20:49:48Z",
+    "html_url": "https://github.com/orgs/containrrr/packages/container/watchtower/146793911",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 146787620,
+    "name": "sha256:f3109a07e44853b971b9bc017fa41d378f8b41a4f153dbc16d50830f9cb2db5d",
+    "url": "https://api.github.com/orgs/containrrr/packages/container/watchtower/versions/146787620",
+    "package_html_url": "https://github.com/orgs/containrrr/packages/container/package/watchtower",
+    "created_at": "2023-11-12T19:59:23Z",
+    "updated_at": "2023-11-12T19:59:23Z",
+    "html_url": "https://github.com/orgs/containrrr/packages/container/watchtower/146787620",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 146744497,
+    "name": "sha256:53f9611fae759ca41bf0794eb3a818a3c77d2116eb00a2cf8b67d2fd91f67ecf",
+    "url": "https://api.github.com/orgs/containrrr/packages/container/watchtower/versions/146744497",
+    "package_html_url": "https://github.com/orgs/containrrr/packages/container/package/watchtower",
+    "created_at": "2023-11-12T12:48:38Z",
+    "updated_at": "2023-11-12T12:48:38Z",
+    "html_url": "https://github.com/orgs/containrrr/packages/container/watchtower/146744497",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 146744453,
+    "name": "sha256:8dc5f64f4a50a7399ece0ec84570b326af7b8d37fadc6a1e2fa57fc63796c96c",
+    "url": "https://api.github.com/orgs/containrrr/packages/container/watchtower/versions/146744453",
+    "package_html_url": "https://github.com/orgs/containrrr/packages/container/package/watchtower",
+    "created_at": "2023-11-12T12:48:13Z",
+    "updated_at": "2023-11-12T12:48:13Z",
+    "html_url": "https://github.com/orgs/containrrr/packages/container/watchtower/146744453",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 146636023,
+    "name": "sha256:6dd50763bbd632a83cb154d5451700530d1e44200b268a4e9488fefdfcf2b038",
+    "url": "https://api.github.com/orgs/containrrr/packages/container/watchtower/versions/146636023",
+    "package_html_url": "https://github.com/orgs/containrrr/packages/container/package/watchtower",
+    "created_at": "2023-11-11T18:52:13Z",
+    "updated_at": "2023-11-11T18:52:13Z",
+    "html_url": "https://github.com/orgs/containrrr/packages/container/watchtower/146636023",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "1.7.1",
+          "latest"
+        ]
+      }
+    }
+  },
+  {
+    "id": 146636010,
+    "name": "sha256:f14f090fcc8235449da45ccbb1aea3b424ed3b101bcbd3de56526909397c2369",
+    "url": "https://api.github.com/orgs/containrrr/packages/container/watchtower/versions/146636010",
+    "package_html_url": "https://github.com/orgs/containrrr/packages/container/package/watchtower",
+    "created_at": "2023-11-11T18:52:04Z",
+    "updated_at": "2023-11-11T18:52:04Z",
+    "html_url": "https://github.com/orgs/containrrr/packages/container/watchtower/146636010",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "arm64v8-1.7.1",
+          "arm64v8-latest"
+        ]
+      }
+    }
+  },
+  {
+    "id": 146635999,
+    "name": "sha256:9688393704cde36c0ca0e09ddfee3f4fbbfab9c0d751488f6a2a58d5d5734066",
+    "url": "https://api.github.com/orgs/containrrr/packages/container/watchtower/versions/146635999",
+    "package_html_url": "https://github.com/orgs/containrrr/packages/container/package/watchtower",
+    "created_at": "2023-11-11T18:51:58Z",
+    "updated_at": "2023-11-11T18:51:58Z",
+    "html_url": "https://github.com/orgs/containrrr/packages/container/watchtower/146635999",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "armhf-1.7.1",
+          "armhf-latest"
+        ]
+      }
+    }
+  },
+  {
+    "id": 146635987,
+    "name": "sha256:f9086bfda061100361fc2bacf069585678d760d705cf390918ccdbda8a00980b",
+    "url": "https://api.github.com/orgs/containrrr/packages/container/watchtower/versions/146635987",
+    "package_html_url": "https://github.com/orgs/containrrr/packages/container/package/watchtower",
+    "created_at": "2023-11-11T18:51:51Z",
+    "updated_at": "2023-11-11T18:51:51Z",
+    "html_url": "https://github.com/orgs/containrrr/packages/container/watchtower/146635987",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "amd64-1.7.1",
+          "amd64-latest"
+        ]
+      }
+    }
+  },
+  {
+    "id": 146635952,
+    "name": "sha256:f772af6854833009c203b1f5d816714b307213989cdfdc0a1797a9e60e5f6cc7",
+    "url": "https://api.github.com/orgs/containrrr/packages/container/watchtower/versions/146635952",
+    "package_html_url": "https://github.com/orgs/containrrr/packages/container/package/watchtower",
+    "created_at": "2023-11-11T18:51:44Z",
+    "updated_at": "2023-11-11T18:51:44Z",
+    "html_url": "https://github.com/orgs/containrrr/packages/container/watchtower/146635952",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "i386-1.7.1",
+          "i386-latest"
+        ]
+      }
+    }
+  },
+  {
+    "id": 146635651,
+    "name": "sha256:03d37d00d96d9de5a838a9ca8e7c15a3e09cb8bbeb047178ac2f27be9669d171",
+    "url": "https://api.github.com/orgs/containrrr/packages/container/watchtower/versions/146635651",
+    "package_html_url": "https://github.com/orgs/containrrr/packages/container/package/watchtower",
+    "created_at": "2023-11-11T18:46:20Z",
+    "updated_at": "2023-11-11T18:46:20Z",
+    "html_url": "https://github.com/orgs/containrrr/packages/container/watchtower/146635651",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 146623724,
+    "name": "sha256:407c889c3f36eeaf07c07d7955ba36070815afaf579dbaab4de1a28232c84649",
+    "url": "https://api.github.com/orgs/containrrr/packages/container/watchtower/versions/146623724",
+    "package_html_url": "https://github.com/orgs/containrrr/packages/container/package/watchtower",
+    "created_at": "2023-11-11T15:24:09Z",
+    "updated_at": "2023-11-11T15:24:09Z",
+    "html_url": "https://github.com/orgs/containrrr/packages/container/watchtower/146623724",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "1.7.0"
+        ]
+      }
+    }
+  },
+  {
+    "id": 146623695,
+    "name": "sha256:baa8c51e7ace08e2a5017cca7214cce432fd81f510c9964a1f3baac08a7e6280",
+    "url": "https://api.github.com/orgs/containrrr/packages/container/watchtower/versions/146623695",
+    "package_html_url": "https://github.com/orgs/containrrr/packages/container/package/watchtower",
+    "created_at": "2023-11-11T15:23:45Z",
+    "updated_at": "2023-11-11T15:23:45Z",
+    "html_url": "https://github.com/orgs/containrrr/packages/container/watchtower/146623695",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "amd64-1.7.0"
+        ]
+      }
+    }
+  },
+  {
+    "id": 146623678,
+    "name": "sha256:1612c0c693aaa0fc59691f5a061744bcbbe921c3202c3a45ac100ba923685498",
+    "url": "https://api.github.com/orgs/containrrr/packages/container/watchtower/versions/146623678",
+    "package_html_url": "https://github.com/orgs/containrrr/packages/container/package/watchtower",
+    "created_at": "2023-11-11T15:23:31Z",
+    "updated_at": "2023-11-11T15:23:31Z",
+    "html_url": "https://github.com/orgs/containrrr/packages/container/watchtower/146623678",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "i386-1.7.0"
+        ]
+      }
+    }
+  },
+  {
+    "id": 146623651,
+    "name": "sha256:cf5751dbd6e18caa8190d98763b112a66e4fe9ec8dbba567c349ab2bcc7d5a86",
+    "url": "https://api.github.com/orgs/containrrr/packages/container/watchtower/versions/146623651",
+    "package_html_url": "https://github.com/orgs/containrrr/packages/container/package/watchtower",
+    "created_at": "2023-11-11T15:23:18Z",
+    "updated_at": "2023-11-11T15:23:18Z",
+    "html_url": "https://github.com/orgs/containrrr/packages/container/watchtower/146623651",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "armhf-1.7.0"
+        ]
+      }
+    }
+  },
+  {
+    "id": 146623633,
+    "name": "sha256:347540ad419d115825577005488621f74fb8cd2f4c8978a077646bf151450e41",
+    "url": "https://api.github.com/orgs/containrrr/packages/container/watchtower/versions/146623633",
+    "package_html_url": "https://github.com/orgs/containrrr/packages/container/package/watchtower",
+    "created_at": "2023-11-11T15:23:04Z",
+    "updated_at": "2023-11-11T15:23:04Z",
+    "html_url": "https://github.com/orgs/containrrr/packages/container/watchtower/146623633",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "arm64v8-1.7.0"
+        ]
+      }
+    }
+  },
+  {
+    "id": 146622970,
+    "name": "sha256:c346aa08e579df4120203b0a6c127ef43d23303ad6bb7cd87a5d250054a9f0a2",
+    "url": "https://api.github.com/orgs/containrrr/packages/container/watchtower/versions/146622970",
+    "package_html_url": "https://github.com/orgs/containrrr/packages/container/package/watchtower",
+    "created_at": "2023-11-11T15:15:59Z",
+    "updated_at": "2023-11-11T15:15:59Z",
+    "html_url": "https://github.com/orgs/containrrr/packages/container/watchtower/146622970",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 146622951,
+    "name": "sha256:5d819655f887327322dff3a990817155447dbb02e429181e798522080db90d7a",
+    "url": "https://api.github.com/orgs/containrrr/packages/container/watchtower/versions/146622951",
+    "package_html_url": "https://github.com/orgs/containrrr/packages/container/package/watchtower",
+    "created_at": "2023-11-11T15:15:48Z",
+    "updated_at": "2023-11-11T15:15:48Z",
+    "html_url": "https://github.com/orgs/containrrr/packages/container/watchtower/146622951",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 146622941,
+    "name": "sha256:23a23e47b0912931451373d1f0bd925bef2eef9f6e8a061fbf2571ac49ae34ec",
+    "url": "https://api.github.com/orgs/containrrr/packages/container/watchtower/versions/146622941",
+    "package_html_url": "https://github.com/orgs/containrrr/packages/container/package/watchtower",
+    "created_at": "2023-11-11T15:15:37Z",
+    "updated_at": "2023-11-11T15:15:37Z",
+    "html_url": "https://github.com/orgs/containrrr/packages/container/watchtower/146622941",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 146622928,
+    "name": "sha256:7ceef338a2273f9f2c0624614d6edc5a00efef5fd588a5fc8c7d4f61f25236ca",
+    "url": "https://api.github.com/orgs/containrrr/packages/container/watchtower/versions/146622928",
+    "package_html_url": "https://github.com/orgs/containrrr/packages/container/package/watchtower",
+    "created_at": "2023-11-11T15:15:26Z",
+    "updated_at": "2023-11-11T15:15:26Z",
+    "html_url": "https://github.com/orgs/containrrr/packages/container/watchtower/146622928",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 146621903,
+    "name": "sha256:b80f36e3328a93960b7c4949c10033d56eac49e2051838ed1f84b506e47be3c4",
+    "url": "https://api.github.com/orgs/containrrr/packages/container/watchtower/versions/146621903",
+    "package_html_url": "https://github.com/orgs/containrrr/packages/container/package/watchtower",
+    "created_at": "2023-11-11T15:05:05Z",
+    "updated_at": "2023-11-11T15:05:05Z",
+    "html_url": "https://github.com/orgs/containrrr/packages/container/watchtower/146621903",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 146620463,
+    "name": "sha256:0dd2b4e6fd86110ca8ba55d99c5c32f10561c1aee3e955ccde89e17429dcaf53",
+    "url": "https://api.github.com/orgs/containrrr/packages/container/watchtower/versions/146620463",
+    "package_html_url": "https://github.com/orgs/containrrr/packages/container/package/watchtower",
+    "created_at": "2023-11-11T14:48:53Z",
+    "updated_at": "2023-11-11T14:48:53Z",
+    "html_url": "https://github.com/orgs/containrrr/packages/container/watchtower/146620463",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 146620459,
+    "name": "sha256:56ef43fe66ce226acb3c7fd09f7a19f472ad8e287a68a7a75aaf8a7da21e9848",
+    "url": "https://api.github.com/orgs/containrrr/packages/container/watchtower/versions/146620459",
+    "package_html_url": "https://github.com/orgs/containrrr/packages/container/package/watchtower",
+    "created_at": "2023-11-11T14:48:44Z",
+    "updated_at": "2023-11-11T14:48:44Z",
+    "html_url": "https://github.com/orgs/containrrr/packages/container/watchtower/146620459",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 146620440,
+    "name": "sha256:bc0fd3b42ccbb1fde9547f06d0d032c51d82be6f851b251ce88a54a7f44e0a8c",
+    "url": "https://api.github.com/orgs/containrrr/packages/container/watchtower/versions/146620440",
+    "package_html_url": "https://github.com/orgs/containrrr/packages/container/package/watchtower",
+    "created_at": "2023-11-11T14:48:33Z",
+    "updated_at": "2023-11-11T14:48:33Z",
+    "html_url": "https://github.com/orgs/containrrr/packages/container/watchtower/146620440",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  }
+]

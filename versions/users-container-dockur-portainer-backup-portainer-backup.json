@@ -1,0 +1,517 @@
+[
+  {
+    "id": 199688088,
+    "name": "sha256:bffa06ed2efffc66bd50d72b0045b194fff4ceebf2ab1e6778b95692b302cda6",
+    "url": "https://api.github.com/orgs/dockur/packages/container/portainer-backup/versions/199688088",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/portainer-backup",
+    "license": "Apache-2.0",
+    "created_at": "2024-04-04T15:18:14Z",
+    "updated_at": "2024-04-04T15:18:14Z",
+    "description": "Portainer Backup Utility",
+    "html_url": "https://github.com/orgs/dockur/packages/container/portainer-backup/199688088",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "1.08",
+          "latest"
+        ]
+      }
+    }
+  },
+  {
+    "id": 199688084,
+    "name": "sha256:e88689e0ba8ecac5793e44094966d6d64806a2f998413e3a23088d56d0db392b",
+    "url": "https://api.github.com/orgs/dockur/packages/container/portainer-backup/versions/199688084",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/portainer-backup",
+    "license": "Apache-2.0",
+    "created_at": "2024-04-04T15:18:14Z",
+    "updated_at": "2024-04-04T15:18:14Z",
+    "description": "Portainer Backup Utility",
+    "html_url": "https://github.com/orgs/dockur/packages/container/portainer-backup/199688084",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 199688081,
+    "name": "sha256:ca2c69b4990a4260c1278e800a6aec2ab4c3fbe3f053701783e039e6a790c2dc",
+    "url": "https://api.github.com/orgs/dockur/packages/container/portainer-backup/versions/199688081",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/portainer-backup",
+    "license": "Apache-2.0",
+    "created_at": "2024-04-04T15:18:13Z",
+    "updated_at": "2024-04-04T15:18:13Z",
+    "description": "Portainer Backup Utility",
+    "html_url": "https://github.com/orgs/dockur/packages/container/portainer-backup/199688081",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 199688077,
+    "name": "sha256:7a2b5ef377e558d6f0a09f0dab0b4933515031ba43f872750f52b8fd3faa5eb0",
+    "url": "https://api.github.com/orgs/dockur/packages/container/portainer-backup/versions/199688077",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/portainer-backup",
+    "license": "Apache-2.0",
+    "created_at": "2024-04-04T15:18:13Z",
+    "updated_at": "2024-04-04T15:18:13Z",
+    "description": "Portainer Backup Utility",
+    "html_url": "https://github.com/orgs/dockur/packages/container/portainer-backup/199688077",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 177147863,
+    "name": "sha256:ca8878884ce868eda7d4bb3f351ea27c435a3dd823b76722b47fb61f2692fb02",
+    "url": "https://api.github.com/orgs/dockur/packages/container/portainer-backup/versions/177147863",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/portainer-backup",
+    "license": "Apache-2.0",
+    "created_at": "2024-02-09T20:01:49Z",
+    "updated_at": "2024-02-09T20:01:49Z",
+    "description": "Portainer Backup Utility",
+    "html_url": "https://github.com/orgs/dockur/packages/container/portainer-backup/177147863",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "1.07"
+        ]
+      }
+    }
+  },
+  {
+    "id": 177147862,
+    "name": "sha256:7ed35ffd8b62015ed239ca3383d6b49866ce0cbe9b45a1b43d452a80a8fed74a",
+    "url": "https://api.github.com/orgs/dockur/packages/container/portainer-backup/versions/177147862",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/portainer-backup",
+    "license": "Apache-2.0",
+    "created_at": "2024-02-09T20:01:48Z",
+    "updated_at": "2024-02-09T20:01:48Z",
+    "description": "Portainer Backup Utility",
+    "html_url": "https://github.com/orgs/dockur/packages/container/portainer-backup/177147862",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 177147860,
+    "name": "sha256:6c9d0e2ca77207061eb80230f80f89325d3a82c80e44ed86e2d32c6acf3ba910",
+    "url": "https://api.github.com/orgs/dockur/packages/container/portainer-backup/versions/177147860",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/portainer-backup",
+    "license": "Apache-2.0",
+    "created_at": "2024-02-09T20:01:47Z",
+    "updated_at": "2024-02-09T20:01:47Z",
+    "description": "Portainer Backup Utility",
+    "html_url": "https://github.com/orgs/dockur/packages/container/portainer-backup/177147860",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 177147857,
+    "name": "sha256:2ed281165087c685b5eddf9c8940faa3ccb787833266b5d2ec3075fe51666fb9",
+    "url": "https://api.github.com/orgs/dockur/packages/container/portainer-backup/versions/177147857",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/portainer-backup",
+    "license": "Apache-2.0",
+    "created_at": "2024-02-09T20:01:47Z",
+    "updated_at": "2024-02-09T20:01:47Z",
+    "description": "Portainer Backup Utility",
+    "html_url": "https://github.com/orgs/dockur/packages/container/portainer-backup/177147857",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 156355971,
+    "name": "sha256:3006c53cf3d681967c3bda42490ae852939b4fbd5fd588ccf90fb3d8a4a0c3df",
+    "url": "https://api.github.com/orgs/dockur/packages/container/portainer-backup/versions/156355971",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/portainer-backup",
+    "created_at": "2023-12-10T02:33:05Z",
+    "updated_at": "2023-12-10T02:33:05Z",
+    "html_url": "https://github.com/orgs/dockur/packages/container/portainer-backup/156355971",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "1.06"
+        ]
+      }
+    }
+  },
+  {
+    "id": 156355970,
+    "name": "sha256:60c1a637d0e4121fb9b594890a6b57df37798163a02bda83ce05fa224205579c",
+    "url": "https://api.github.com/orgs/dockur/packages/container/portainer-backup/versions/156355970",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/portainer-backup",
+    "license": "Apache-2.0",
+    "created_at": "2023-12-10T02:33:04Z",
+    "updated_at": "2023-12-10T02:33:04Z",
+    "description": "Portainer Backup Utility",
+    "html_url": "https://github.com/orgs/dockur/packages/container/portainer-backup/156355970",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 156355969,
+    "name": "sha256:510066e4ae6c624911c86df5e57d111aac910acee785fd16a9581567ff02c2cf",
+    "url": "https://api.github.com/orgs/dockur/packages/container/portainer-backup/versions/156355969",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/portainer-backup",
+    "license": "Apache-2.0",
+    "created_at": "2023-12-10T02:33:04Z",
+    "updated_at": "2023-12-10T02:33:04Z",
+    "description": "Portainer Backup Utility",
+    "html_url": "https://github.com/orgs/dockur/packages/container/portainer-backup/156355969",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 156355968,
+    "name": "sha256:76d2bee870d3c34ef6957efcd0397e74061f1bc50e083bcacbf678025638dcfb",
+    "url": "https://api.github.com/orgs/dockur/packages/container/portainer-backup/versions/156355968",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/portainer-backup",
+    "license": "Apache-2.0",
+    "created_at": "2023-12-10T02:33:03Z",
+    "updated_at": "2023-12-10T02:33:03Z",
+    "description": "Portainer Backup Utility",
+    "html_url": "https://github.com/orgs/dockur/packages/container/portainer-backup/156355968",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 155568325,
+    "name": "sha256:b96d2184ce566c6ffd6e7478357eb38b587ba6a315a2369d58bc432f64e7dba7",
+    "url": "https://api.github.com/orgs/dockur/packages/container/portainer-backup/versions/155568325",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/portainer-backup",
+    "created_at": "2023-12-07T11:53:52Z",
+    "updated_at": "2023-12-07T11:53:52Z",
+    "html_url": "https://github.com/orgs/dockur/packages/container/portainer-backup/155568325",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "1.05"
+        ]
+      }
+    }
+  },
+  {
+    "id": 155568322,
+    "name": "sha256:169d8573b18802250c37a91fc64eda65560699ea5bdd61ee44d3239b9bf22f86",
+    "url": "https://api.github.com/orgs/dockur/packages/container/portainer-backup/versions/155568322",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/portainer-backup",
+    "license": "Apache-2.0",
+    "created_at": "2023-12-07T11:53:51Z",
+    "updated_at": "2023-12-07T11:53:51Z",
+    "description": "Portainer Backup Utility",
+    "html_url": "https://github.com/orgs/dockur/packages/container/portainer-backup/155568322",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 155568320,
+    "name": "sha256:e7bf519e0b982c331ee69999abfc2d215f4be91e47f18ff9454fd3f0cf1ac4c4",
+    "url": "https://api.github.com/orgs/dockur/packages/container/portainer-backup/versions/155568320",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/portainer-backup",
+    "license": "Apache-2.0",
+    "created_at": "2023-12-07T11:53:51Z",
+    "updated_at": "2023-12-07T11:53:51Z",
+    "description": "Portainer Backup Utility",
+    "html_url": "https://github.com/orgs/dockur/packages/container/portainer-backup/155568320",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 155568316,
+    "name": "sha256:980ec302f857277f45e4a90ca455f3ba8099022e6358f3a858e65bc3633e2e12",
+    "url": "https://api.github.com/orgs/dockur/packages/container/portainer-backup/versions/155568316",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/portainer-backup",
+    "license": "Apache-2.0",
+    "created_at": "2023-12-07T11:53:50Z",
+    "updated_at": "2023-12-07T11:53:50Z",
+    "description": "Portainer Backup Utility",
+    "html_url": "https://github.com/orgs/dockur/packages/container/portainer-backup/155568316",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 153399391,
+    "name": "sha256:a6eb7b9a24ea2f51db3f8ecb5eee309b05e5c4b0a34a6f8b17514a8d186d9564",
+    "url": "https://api.github.com/orgs/dockur/packages/container/portainer-backup/versions/153399391",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/portainer-backup",
+    "created_at": "2023-12-01T06:05:39Z",
+    "updated_at": "2023-12-01T06:05:39Z",
+    "html_url": "https://github.com/orgs/dockur/packages/container/portainer-backup/153399391",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "1.04"
+        ]
+      }
+    }
+  },
+  {
+    "id": 153399389,
+    "name": "sha256:6123c6f2d4e43ccdd229f31e5b5dfd4bfd83c27e8984a28aad659083ea377488",
+    "url": "https://api.github.com/orgs/dockur/packages/container/portainer-backup/versions/153399389",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/portainer-backup",
+    "license": "Apache-2.0",
+    "created_at": "2023-12-01T06:05:39Z",
+    "updated_at": "2023-12-01T06:05:39Z",
+    "description": "Portainer Backup Utility",
+    "html_url": "https://github.com/orgs/dockur/packages/container/portainer-backup/153399389",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 153399388,
+    "name": "sha256:3e9f1a51f74505a43d656637e3cef8ed9ec32c500ff3afae313b6ba55609e3e9",
+    "url": "https://api.github.com/orgs/dockur/packages/container/portainer-backup/versions/153399388",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/portainer-backup",
+    "license": "Apache-2.0",
+    "created_at": "2023-12-01T06:05:39Z",
+    "updated_at": "2023-12-01T06:05:39Z",
+    "description": "Portainer Backup Utility",
+    "html_url": "https://github.com/orgs/dockur/packages/container/portainer-backup/153399388",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 153399385,
+    "name": "sha256:8077b2fc90e9344b4f9f87662a35bf88520dbe3b0941293bccc45005707eee04",
+    "url": "https://api.github.com/orgs/dockur/packages/container/portainer-backup/versions/153399385",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/portainer-backup",
+    "license": "Apache-2.0",
+    "created_at": "2023-12-01T06:05:38Z",
+    "updated_at": "2023-12-01T06:05:38Z",
+    "description": "Portainer Backup Utility",
+    "html_url": "https://github.com/orgs/dockur/packages/container/portainer-backup/153399385",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 153397713,
+    "name": "sha256:446b5c1dba57c029c30c0686aa118742fe15335122af7552be00447e2454b643",
+    "url": "https://api.github.com/orgs/dockur/packages/container/portainer-backup/versions/153397713",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/portainer-backup",
+    "created_at": "2023-12-01T05:54:45Z",
+    "updated_at": "2023-12-01T05:54:45Z",
+    "html_url": "https://github.com/orgs/dockur/packages/container/portainer-backup/153397713",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "1.03"
+        ]
+      }
+    }
+  },
+  {
+    "id": 153397712,
+    "name": "sha256:f3617c477733a506b7791068b807ec4197ff700d2965930fce267d768b254a7c",
+    "url": "https://api.github.com/orgs/dockur/packages/container/portainer-backup/versions/153397712",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/portainer-backup",
+    "license": "Apache-2.0",
+    "created_at": "2023-12-01T05:54:45Z",
+    "updated_at": "2023-12-01T05:54:45Z",
+    "description": "Portainer Backup Utility",
+    "html_url": "https://github.com/orgs/dockur/packages/container/portainer-backup/153397712",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 153397708,
+    "name": "sha256:e04d38c25f7c5207a684de11df4ca2e0439f7f48ac835e5daf50e24b96a2c7ca",
+    "url": "https://api.github.com/orgs/dockur/packages/container/portainer-backup/versions/153397708",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/portainer-backup",
+    "license": "Apache-2.0",
+    "created_at": "2023-12-01T05:54:44Z",
+    "updated_at": "2023-12-01T05:54:44Z",
+    "description": "Portainer Backup Utility",
+    "html_url": "https://github.com/orgs/dockur/packages/container/portainer-backup/153397708",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 153397705,
+    "name": "sha256:5be64e1cc6483d637bdda56d44bf0fc931c9517ccf1c30c61ace2a88c829d3a1",
+    "url": "https://api.github.com/orgs/dockur/packages/container/portainer-backup/versions/153397705",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/portainer-backup",
+    "license": "Apache-2.0",
+    "created_at": "2023-12-01T05:54:44Z",
+    "updated_at": "2023-12-01T05:54:44Z",
+    "description": "Portainer Backup Utility",
+    "html_url": "https://github.com/orgs/dockur/packages/container/portainer-backup/153397705",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 153355111,
+    "name": "sha256:a7b8e8cecc8b91a5a09056616426f0fa18986d353f1d88d78166f412740dbfd4",
+    "url": "https://api.github.com/orgs/dockur/packages/container/portainer-backup/versions/153355111",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/portainer-backup",
+    "created_at": "2023-12-01T02:03:57Z",
+    "updated_at": "2023-12-01T02:03:57Z",
+    "html_url": "https://github.com/orgs/dockur/packages/container/portainer-backup/153355111",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "1.02"
+        ]
+      }
+    }
+  },
+  {
+    "id": 153355109,
+    "name": "sha256:b428487f0c18aaf081003015ffdd7a9f0a1cd2b20faafc8578d746d6d0ef81cd",
+    "url": "https://api.github.com/orgs/dockur/packages/container/portainer-backup/versions/153355109",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/portainer-backup",
+    "license": "Apache-2.0",
+    "created_at": "2023-12-01T02:03:56Z",
+    "updated_at": "2023-12-01T02:03:56Z",
+    "description": "Portainer Backup Utility",
+    "html_url": "https://github.com/orgs/dockur/packages/container/portainer-backup/153355109",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 153355106,
+    "name": "sha256:b7fc5d46694f06d8d111ec5935029a39d072e5ddc8d1b6acb7d38d34de2b00f2",
+    "url": "https://api.github.com/orgs/dockur/packages/container/portainer-backup/versions/153355106",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/portainer-backup",
+    "license": "Apache-2.0",
+    "created_at": "2023-12-01T02:03:56Z",
+    "updated_at": "2023-12-01T02:03:56Z",
+    "description": "Portainer Backup Utility",
+    "html_url": "https://github.com/orgs/dockur/packages/container/portainer-backup/153355106",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 153355102,
+    "name": "sha256:a15cd448098c37f760f8ab732cd0bc4124906047f20f6649965efe12139018e8",
+    "url": "https://api.github.com/orgs/dockur/packages/container/portainer-backup/versions/153355102",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/portainer-backup",
+    "license": "Apache-2.0",
+    "created_at": "2023-12-01T02:03:55Z",
+    "updated_at": "2023-12-01T02:03:55Z",
+    "description": "Portainer Backup Utility",
+    "html_url": "https://github.com/orgs/dockur/packages/container/portainer-backup/153355102",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 153341103,
+    "name": "sha256:8ffbc513bebcf63f7bcef19f6c92d1393b92f197ef021e5588d28ca714686224",
+    "url": "https://api.github.com/orgs/dockur/packages/container/portainer-backup/versions/153341103",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/portainer-backup",
+    "created_at": "2023-12-01T01:08:05Z",
+    "updated_at": "2023-12-01T01:08:05Z",
+    "html_url": "https://github.com/orgs/dockur/packages/container/portainer-backup/153341103",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "1.01"
+        ]
+      }
+    }
+  },
+  {
+    "id": 153341102,
+    "name": "sha256:47c3100e0a0d8f52385adcef9452b154e5bb9b61667714da578db2534f4b77fd",
+    "url": "https://api.github.com/orgs/dockur/packages/container/portainer-backup/versions/153341102",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/portainer-backup",
+    "license": "Apache-2.0",
+    "created_at": "2023-12-01T01:08:05Z",
+    "updated_at": "2023-12-01T01:08:05Z",
+    "description": "Portainer Backup Utility",
+    "html_url": "https://github.com/orgs/dockur/packages/container/portainer-backup/153341102",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  }
+]

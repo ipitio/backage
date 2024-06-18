@@ -1,0 +1,474 @@
+[
+  {
+    "id": 216758080,
+    "name": "sha256:a20c2531bf35436ed3766cd6cfe89d352b050ccc4d7005ce6400adf97503da1b",
+    "url": "https://api.github.com/users/nicolaka/packages/container/netshoot/versions/216758080",
+    "package_html_url": "https://github.com/users/nicolaka/packages/container/package/netshoot",
+    "created_at": "2024-05-15T20:20:35Z",
+    "updated_at": "2024-05-15T20:20:35Z",
+    "html_url": "https://github.com/users/nicolaka/packages/container/netshoot/216758080",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "v0.13",
+          "e1fbbfaf1a3f874a57103c4317f43444d8aae75d",
+          "latest"
+        ]
+      }
+    }
+  },
+  {
+    "id": 216758079,
+    "name": "sha256:6333ed49a2769173f42ce1f4d5f43e8c0c3adbe59f487192f1e04ad99b72e91a",
+    "url": "https://api.github.com/users/nicolaka/packages/container/netshoot/versions/216758079",
+    "package_html_url": "https://github.com/users/nicolaka/packages/container/package/netshoot",
+    "created_at": "2024-05-15T20:20:35Z",
+    "updated_at": "2024-05-15T20:20:35Z",
+    "html_url": "https://github.com/users/nicolaka/packages/container/netshoot/216758079",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 216758077,
+    "name": "sha256:1445e6a86241f3b1267503388b52f68a17a582c97aae8e80d9aa287939757c97",
+    "url": "https://api.github.com/users/nicolaka/packages/container/netshoot/versions/216758077",
+    "package_html_url": "https://github.com/users/nicolaka/packages/container/package/netshoot",
+    "created_at": "2024-05-15T20:20:34Z",
+    "updated_at": "2024-05-15T20:20:34Z",
+    "html_url": "https://github.com/users/nicolaka/packages/container/netshoot/216758077",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 216758075,
+    "name": "sha256:49c6c99cd2465ac7ac32de971f42a40f2574e825c24e9f6504d9051c0a538fd7",
+    "url": "https://api.github.com/users/nicolaka/packages/container/netshoot/versions/216758075",
+    "package_html_url": "https://github.com/users/nicolaka/packages/container/package/netshoot",
+    "created_at": "2024-05-15T20:20:34Z",
+    "updated_at": "2024-05-15T20:20:34Z",
+    "html_url": "https://github.com/users/nicolaka/packages/container/netshoot/216758075",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 216758074,
+    "name": "sha256:5a21d467fed653554bdc483ca5e7e866805c5b4c8f7ecb195a43f778c8d02fb8",
+    "url": "https://api.github.com/users/nicolaka/packages/container/netshoot/versions/216758074",
+    "package_html_url": "https://github.com/users/nicolaka/packages/container/package/netshoot",
+    "created_at": "2024-05-15T20:20:33Z",
+    "updated_at": "2024-05-15T20:20:33Z",
+    "html_url": "https://github.com/users/nicolaka/packages/container/netshoot/216758074",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 178068201,
+    "name": "sha256:b569665f0c32391b93f4de344f07bf6353ddff9d8c801ac3318d996db848a64c",
+    "url": "https://api.github.com/users/nicolaka/packages/container/netshoot/versions/178068201",
+    "package_html_url": "https://github.com/users/nicolaka/packages/container/package/netshoot",
+    "created_at": "2024-02-13T03:19:09Z",
+    "updated_at": "2024-02-13T03:19:09Z",
+    "html_url": "https://github.com/users/nicolaka/packages/container/netshoot/178068201",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "v0.12",
+          "b2f26ec9a306e27037573443b63f00e2e94a82dd"
+        ]
+      }
+    }
+  },
+  {
+    "id": 178068200,
+    "name": "sha256:ea6ec38d6e9fb837df8960d00c2ab35e43da930cde7aac06b24d04ba211d27d1",
+    "url": "https://api.github.com/users/nicolaka/packages/container/netshoot/versions/178068200",
+    "package_html_url": "https://github.com/users/nicolaka/packages/container/package/netshoot",
+    "created_at": "2024-02-13T03:19:08Z",
+    "updated_at": "2024-02-13T03:19:08Z",
+    "html_url": "https://github.com/users/nicolaka/packages/container/netshoot/178068200",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 178068198,
+    "name": "sha256:8eceb198075829d9602f514a15b2badfcc5665ec6bc901ee63b876e2d0220c6b",
+    "url": "https://api.github.com/users/nicolaka/packages/container/netshoot/versions/178068198",
+    "package_html_url": "https://github.com/users/nicolaka/packages/container/package/netshoot",
+    "created_at": "2024-02-13T03:19:08Z",
+    "updated_at": "2024-02-13T03:19:08Z",
+    "html_url": "https://github.com/users/nicolaka/packages/container/netshoot/178068198",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 178068197,
+    "name": "sha256:49dd3b2d303468996db4bde350285ea155338fe51b2fb0f44887a19acd3e6847",
+    "url": "https://api.github.com/users/nicolaka/packages/container/netshoot/versions/178068197",
+    "package_html_url": "https://github.com/users/nicolaka/packages/container/package/netshoot",
+    "created_at": "2024-02-13T03:19:07Z",
+    "updated_at": "2024-02-13T03:19:07Z",
+    "html_url": "https://github.com/users/nicolaka/packages/container/netshoot/178068197",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 178068196,
+    "name": "sha256:9f0abe9aa5831bee9ec3fafb272020656de86619cc0b10fb5b1f162a59a14010",
+    "url": "https://api.github.com/users/nicolaka/packages/container/netshoot/versions/178068196",
+    "package_html_url": "https://github.com/users/nicolaka/packages/container/package/netshoot",
+    "created_at": "2024-02-13T03:19:06Z",
+    "updated_at": "2024-02-13T03:19:06Z",
+    "html_url": "https://github.com/users/nicolaka/packages/container/netshoot/178068196",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 91995463,
+    "name": "sha256:a7c92e1a2fb9287576a16e107166fee7f9925e15d2c1a683dbb1f4370ba9bfe8",
+    "url": "https://api.github.com/users/nicolaka/packages/container/netshoot/versions/91995463",
+    "package_html_url": "https://github.com/users/nicolaka/packages/container/package/netshoot",
+    "created_at": "2023-05-10T01:42:35Z",
+    "updated_at": "2023-05-10T01:42:35Z",
+    "html_url": "https://github.com/users/nicolaka/packages/container/netshoot/91995463",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "v0.11",
+          "d8d955859dd0afabfdf5649d5ac1cec74d693331"
+        ]
+      }
+    }
+  },
+  {
+    "id": 91995462,
+    "name": "sha256:62e5f8d593d3517b8bc3e4378f3f7cca4e4f65e171d6feaa01d99f0b7c02d685",
+    "url": "https://api.github.com/users/nicolaka/packages/container/netshoot/versions/91995462",
+    "package_html_url": "https://github.com/users/nicolaka/packages/container/package/netshoot",
+    "created_at": "2023-05-10T01:42:34Z",
+    "updated_at": "2023-05-10T01:42:34Z",
+    "html_url": "https://github.com/users/nicolaka/packages/container/netshoot/91995462",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 91995461,
+    "name": "sha256:dd1d66342b23a2084dac5c522756161cfc446983ccb3b2052ed44cd6bb62f20b",
+    "url": "https://api.github.com/users/nicolaka/packages/container/netshoot/versions/91995461",
+    "package_html_url": "https://github.com/users/nicolaka/packages/container/package/netshoot",
+    "created_at": "2023-05-10T01:42:34Z",
+    "updated_at": "2023-05-10T01:42:34Z",
+    "html_url": "https://github.com/users/nicolaka/packages/container/netshoot/91995461",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 91995460,
+    "name": "sha256:4b494b0ea553b59cdb15463834181ca49d0e7a9468086b5636174a82642aad50",
+    "url": "https://api.github.com/users/nicolaka/packages/container/netshoot/versions/91995460",
+    "package_html_url": "https://github.com/users/nicolaka/packages/container/package/netshoot",
+    "created_at": "2023-05-10T01:42:34Z",
+    "updated_at": "2023-05-10T01:42:34Z",
+    "html_url": "https://github.com/users/nicolaka/packages/container/netshoot/91995460",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 91995458,
+    "name": "sha256:221c452126ce7215d605e0d0dcd46d304da0fdd1416e9417884a776f26a281d3",
+    "url": "https://api.github.com/users/nicolaka/packages/container/netshoot/versions/91995458",
+    "package_html_url": "https://github.com/users/nicolaka/packages/container/package/netshoot",
+    "created_at": "2023-05-10T01:42:33Z",
+    "updated_at": "2023-05-10T01:42:33Z",
+    "html_url": "https://github.com/users/nicolaka/packages/container/netshoot/91995458",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 86799501,
+    "name": "sha256:e24a40a7326401edcd469b859a16e13ce1e772e0a5d93f4acef172963b50d538",
+    "url": "https://api.github.com/users/nicolaka/packages/container/netshoot/versions/86799501",
+    "package_html_url": "https://github.com/users/nicolaka/packages/container/package/netshoot",
+    "created_at": "2023-04-19T19:52:19Z",
+    "updated_at": "2023-04-19T19:52:19Z",
+    "html_url": "https://github.com/users/nicolaka/packages/container/netshoot/86799501",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "v0.10",
+          "6e83b8ec9533f6576cdf9900fc04fde00e169bed"
+        ]
+      }
+    }
+  },
+  {
+    "id": 86799498,
+    "name": "sha256:21fe2a5b890b007c26fadd20fd2fe62ff7b96cbea265a2e550832867b4666d23",
+    "url": "https://api.github.com/users/nicolaka/packages/container/netshoot/versions/86799498",
+    "package_html_url": "https://github.com/users/nicolaka/packages/container/package/netshoot",
+    "created_at": "2023-04-19T19:52:18Z",
+    "updated_at": "2023-04-19T19:52:18Z",
+    "html_url": "https://github.com/users/nicolaka/packages/container/netshoot/86799498",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 86799495,
+    "name": "sha256:51705f24ce925622e153cb7c58808acffce353446c95d414ab755f678167ed91",
+    "url": "https://api.github.com/users/nicolaka/packages/container/netshoot/versions/86799495",
+    "package_html_url": "https://github.com/users/nicolaka/packages/container/package/netshoot",
+    "created_at": "2023-04-19T19:52:18Z",
+    "updated_at": "2023-04-19T19:52:18Z",
+    "html_url": "https://github.com/users/nicolaka/packages/container/netshoot/86799495",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 86799492,
+    "name": "sha256:8be330aa78641ca8d04aa9405f316b08c948dfd0a55d29892ef4d7a77b2dc191",
+    "url": "https://api.github.com/users/nicolaka/packages/container/netshoot/versions/86799492",
+    "package_html_url": "https://github.com/users/nicolaka/packages/container/package/netshoot",
+    "created_at": "2023-04-19T19:52:16Z",
+    "updated_at": "2023-04-19T19:52:16Z",
+    "html_url": "https://github.com/users/nicolaka/packages/container/netshoot/86799492",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 86799488,
+    "name": "sha256:63c113b3ec8f2e3269fb614f6dab9fce1db14b93096806717b6877b1505e7fbe",
+    "url": "https://api.github.com/users/nicolaka/packages/container/netshoot/versions/86799488",
+    "package_html_url": "https://github.com/users/nicolaka/packages/container/package/netshoot",
+    "created_at": "2023-04-19T19:52:15Z",
+    "updated_at": "2023-04-19T19:52:15Z",
+    "html_url": "https://github.com/users/nicolaka/packages/container/netshoot/86799488",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 68956275,
+    "name": "sha256:6032c4e72f58800ff13d89c801d793020d7a91bf33b39fa9a5531635a65c42ee",
+    "url": "https://api.github.com/users/nicolaka/packages/container/netshoot/versions/68956275",
+    "package_html_url": "https://github.com/users/nicolaka/packages/container/package/netshoot",
+    "created_at": "2023-02-08T03:07:33Z",
+    "updated_at": "2023-02-08T03:07:33Z",
+    "html_url": "https://github.com/users/nicolaka/packages/container/netshoot/68956275",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "v0.9",
+          "d61507f29a1ea2cd27acf6facde09f8e50ba7372"
+        ]
+      }
+    }
+  },
+  {
+    "id": 68956273,
+    "name": "sha256:eaf9e3e7bce8fae670b9296bccc434c23e2945c2471988d68d602e8b87f71975",
+    "url": "https://api.github.com/users/nicolaka/packages/container/netshoot/versions/68956273",
+    "package_html_url": "https://github.com/users/nicolaka/packages/container/package/netshoot",
+    "created_at": "2023-02-08T03:07:33Z",
+    "updated_at": "2023-02-08T03:07:33Z",
+    "html_url": "https://github.com/users/nicolaka/packages/container/netshoot/68956273",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 68956271,
+    "name": "sha256:5b63ca48af9097d62fe834af74b58baf239275d00b2628bf198a5ea298b57127",
+    "url": "https://api.github.com/users/nicolaka/packages/container/netshoot/versions/68956271",
+    "package_html_url": "https://github.com/users/nicolaka/packages/container/package/netshoot",
+    "created_at": "2023-02-08T03:07:32Z",
+    "updated_at": "2023-02-08T03:07:32Z",
+    "html_url": "https://github.com/users/nicolaka/packages/container/netshoot/68956271",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 68956269,
+    "name": "sha256:ce1f01a3ffd25a535807c9408bf2728f264de8d3213bd60e574acfa73f758f5a",
+    "url": "https://api.github.com/users/nicolaka/packages/container/netshoot/versions/68956269",
+    "package_html_url": "https://github.com/users/nicolaka/packages/container/package/netshoot",
+    "created_at": "2023-02-08T03:07:31Z",
+    "updated_at": "2023-02-08T03:07:31Z",
+    "html_url": "https://github.com/users/nicolaka/packages/container/netshoot/68956269",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 68956263,
+    "name": "sha256:5f6251d24f59ca3fb7da350acfd14fe3c706f5c9147742e8846cef4f74c029c0",
+    "url": "https://api.github.com/users/nicolaka/packages/container/netshoot/versions/68956263",
+    "package_html_url": "https://github.com/users/nicolaka/packages/container/package/netshoot",
+    "created_at": "2023-02-08T03:07:29Z",
+    "updated_at": "2023-02-08T03:07:29Z",
+    "html_url": "https://github.com/users/nicolaka/packages/container/netshoot/68956263",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 48705347,
+    "name": "sha256:c9ec07904a19f3e746cb4823758c287ec370b1d8e9409db27618018bd7049238",
+    "url": "https://api.github.com/users/nicolaka/packages/container/netshoot/versions/48705347",
+    "package_html_url": "https://github.com/users/nicolaka/packages/container/package/netshoot",
+    "created_at": "2022-11-03T14:18:19Z",
+    "updated_at": "2022-11-03T14:18:19Z",
+    "html_url": "https://github.com/users/nicolaka/packages/container/netshoot/48705347",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "v0.8",
+          "ab99ff0a616485b3afa67b7c1f52d6535f68ff00"
+        ]
+      }
+    }
+  },
+  {
+    "id": 48705344,
+    "name": "sha256:91b117ef7f7496f5c5be9d57d9860f1e039c89930abc1b7bf8d529fab3c1caaa",
+    "url": "https://api.github.com/users/nicolaka/packages/container/netshoot/versions/48705344",
+    "package_html_url": "https://github.com/users/nicolaka/packages/container/package/netshoot",
+    "created_at": "2022-11-03T14:18:18Z",
+    "updated_at": "2022-11-03T14:18:18Z",
+    "html_url": "https://github.com/users/nicolaka/packages/container/netshoot/48705344",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 48705342,
+    "name": "sha256:0169cc5887318bc2af5427babf0015716ac6bea7a6853a1883dc3f34fdb6fac4",
+    "url": "https://api.github.com/users/nicolaka/packages/container/netshoot/versions/48705342",
+    "package_html_url": "https://github.com/users/nicolaka/packages/container/package/netshoot",
+    "created_at": "2022-11-03T14:18:18Z",
+    "updated_at": "2022-11-03T14:18:18Z",
+    "html_url": "https://github.com/users/nicolaka/packages/container/netshoot/48705342",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 26814045,
+    "name": "sha256:aeafd567d7f7f1edb5127ec311599bb2b8a9c0fb31d7a53e9cff26af6d29fd4e",
+    "url": "https://api.github.com/users/nicolaka/packages/container/netshoot/versions/26814045",
+    "package_html_url": "https://github.com/users/nicolaka/packages/container/package/netshoot",
+    "created_at": "2022-06-27T23:02:04Z",
+    "updated_at": "2022-06-27T23:02:04Z",
+    "html_url": "https://github.com/users/nicolaka/packages/container/netshoot/26814045",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "v0.7",
+          "4a728d215b05142c0dce5e3abd5f746ebca70d49"
+        ]
+      }
+    }
+  },
+  {
+    "id": 26814044,
+    "name": "sha256:56295661f1bc1aea1d8acd8becc10ec99ede2e2be1ab766da5e2009df2ec6831",
+    "url": "https://api.github.com/users/nicolaka/packages/container/netshoot/versions/26814044",
+    "package_html_url": "https://github.com/users/nicolaka/packages/container/package/netshoot",
+    "created_at": "2022-06-27T23:02:03Z",
+    "updated_at": "2022-06-27T23:02:03Z",
+    "html_url": "https://github.com/users/nicolaka/packages/container/netshoot/26814044",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  }
+]

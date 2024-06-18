@@ -1,0 +1,554 @@
+[
+  {
+    "id": 230303551,
+    "name": "sha256:33f4c1303043a487a6d09be3c54f7073b7ed4f1d08a5018b4776d74224fb92b0",
+    "url": "https://api.github.com/orgs/anchore/packages/container/syft/versions/230303551",
+    "package_html_url": "https://github.com/orgs/anchore/packages/container/package/syft",
+    "created_at": "2024-06-14T19:54:39Z",
+    "updated_at": "2024-06-14T19:54:39Z",
+    "html_url": "https://github.com/orgs/anchore/packages/container/syft/230303551",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "debug"
+        ]
+      }
+    }
+  },
+  {
+    "id": 230303544,
+    "name": "sha256:35372cf4e44776927f9222f620ab7dcfb78fa422685d02e10240255feee3c00c",
+    "url": "https://api.github.com/orgs/anchore/packages/container/syft/versions/230303544",
+    "package_html_url": "https://github.com/orgs/anchore/packages/container/package/syft",
+    "created_at": "2024-06-14T19:54:38Z",
+    "updated_at": "2024-06-14T19:54:38Z",
+    "html_url": "https://github.com/orgs/anchore/packages/container/syft/230303544",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "v1.7.0",
+          "latest"
+        ]
+      }
+    }
+  },
+  {
+    "id": 230303528,
+    "name": "sha256:94c5a6e58b1001005ee314f9ff0806b3e73d1ed5c65f6695f533fed733ec1559",
+    "url": "https://api.github.com/orgs/anchore/packages/container/syft/versions/230303528",
+    "package_html_url": "https://github.com/orgs/anchore/packages/container/package/syft",
+    "license": "Apache-2.0",
+    "created_at": "2024-06-14T19:54:35Z",
+    "updated_at": "2024-06-14T19:54:35Z",
+    "description": "CLI tool and library for generating a Software Bill of Materials from container images and filesystems",
+    "html_url": "https://github.com/orgs/anchore/packages/container/syft/230303528",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "v1.7.0-ppc64le"
+        ]
+      }
+    }
+  },
+  {
+    "id": 230303479,
+    "name": "sha256:4ea32eda8c02243f372e762aa532a655dee07bc6a79062b85a3afd2f3d0be7ff",
+    "url": "https://api.github.com/orgs/anchore/packages/container/syft/versions/230303479",
+    "package_html_url": "https://github.com/orgs/anchore/packages/container/package/syft",
+    "license": "Apache-2.0",
+    "created_at": "2024-06-14T19:54:27Z",
+    "updated_at": "2024-06-14T19:54:27Z",
+    "description": "CLI tool and library for generating a Software Bill of Materials from container images and filesystems",
+    "html_url": "https://github.com/orgs/anchore/packages/container/syft/230303479",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "v1.7.0-s390x"
+        ]
+      }
+    }
+  },
+  {
+    "id": 230303441,
+    "name": "sha256:3ab7ca63d0051f87b4c013a175c4e6ac39285b4e01166a017e20bc8cd6a5d1d7",
+    "url": "https://api.github.com/orgs/anchore/packages/container/syft/versions/230303441",
+    "package_html_url": "https://github.com/orgs/anchore/packages/container/package/syft",
+    "license": "Apache-2.0",
+    "created_at": "2024-06-14T19:54:19Z",
+    "updated_at": "2024-06-14T19:54:19Z",
+    "description": "CLI tool and library for generating a Software Bill of Materials from container images and filesystems",
+    "html_url": "https://github.com/orgs/anchore/packages/container/syft/230303441",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "v1.7.0-arm64v8"
+        ]
+      }
+    }
+  },
+  {
+    "id": 230303400,
+    "name": "sha256:d9f149eae2d25b7367d551be628a4c1b46be116cd25eef3737918454f2169691",
+    "url": "https://api.github.com/orgs/anchore/packages/container/syft/versions/230303400",
+    "package_html_url": "https://github.com/orgs/anchore/packages/container/package/syft",
+    "license": "Apache-2.0",
+    "created_at": "2024-06-14T19:54:11Z",
+    "updated_at": "2024-06-14T19:54:11Z",
+    "description": "CLI tool and library for generating a Software Bill of Materials from container images and filesystems",
+    "html_url": "https://github.com/orgs/anchore/packages/container/syft/230303400",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 230303342,
+    "name": "sha256:106be14bf15d4ee61644296f808fdd847a42e60366cf5f3ad1104def8e83340b",
+    "url": "https://api.github.com/orgs/anchore/packages/container/syft/versions/230303342",
+    "package_html_url": "https://github.com/orgs/anchore/packages/container/package/syft",
+    "license": "Apache-2.0",
+    "created_at": "2024-06-14T19:53:58Z",
+    "updated_at": "2024-06-14T19:53:58Z",
+    "description": "CLI tool and library for generating a Software Bill of Materials from container images and filesystems",
+    "html_url": "https://github.com/orgs/anchore/packages/container/syft/230303342",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "v1.7.0-debug-ppc64le",
+          "debug-ppc64le"
+        ]
+      }
+    }
+  },
+  {
+    "id": 230303294,
+    "name": "sha256:459ebed94c195324564df622b2d9814399ba95cd5850c879ae8a75a008a04275",
+    "url": "https://api.github.com/orgs/anchore/packages/container/syft/versions/230303294",
+    "package_html_url": "https://github.com/orgs/anchore/packages/container/package/syft",
+    "license": "Apache-2.0",
+    "created_at": "2024-06-14T19:53:50Z",
+    "updated_at": "2024-06-14T19:53:50Z",
+    "description": "CLI tool and library for generating a Software Bill of Materials from container images and filesystems",
+    "html_url": "https://github.com/orgs/anchore/packages/container/syft/230303294",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "v1.7.0-debug-arm64v8",
+          "debug-arm64v8"
+        ]
+      }
+    }
+  },
+  {
+    "id": 230303261,
+    "name": "sha256:b1818ecf80972cbe085de8dbdcf1b0ff6e994cb8e1d2c334a1df1428536cb867",
+    "url": "https://api.github.com/orgs/anchore/packages/container/syft/versions/230303261",
+    "package_html_url": "https://github.com/orgs/anchore/packages/container/package/syft",
+    "license": "Apache-2.0",
+    "created_at": "2024-06-14T19:53:40Z",
+    "updated_at": "2024-06-14T19:53:40Z",
+    "description": "CLI tool and library for generating a Software Bill of Materials from container images and filesystems",
+    "html_url": "https://github.com/orgs/anchore/packages/container/syft/230303261",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "v1.7.0-debug"
+        ]
+      }
+    }
+  },
+  {
+    "id": 230303202,
+    "name": "sha256:ac2bb8298e157f5d0728733272de4a84d4f2ff87634ab85873c3835708474e00",
+    "url": "https://api.github.com/orgs/anchore/packages/container/syft/versions/230303202",
+    "package_html_url": "https://github.com/orgs/anchore/packages/container/package/syft",
+    "license": "Apache-2.0",
+    "created_at": "2024-06-14T19:53:31Z",
+    "updated_at": "2024-06-14T19:53:31Z",
+    "description": "CLI tool and library for generating a Software Bill of Materials from container images and filesystems",
+    "html_url": "https://github.com/orgs/anchore/packages/container/syft/230303202",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "v1.7.0-debug-s390x",
+          "debug-s390x"
+        ]
+      }
+    }
+  },
+  {
+    "id": 227989280,
+    "name": "sha256:f969b2d46cdb0beaf9f96116040f29782e6cf23ff6aa7562a31ee0cf4145268f",
+    "url": "https://api.github.com/orgs/anchore/packages/container/syft/versions/227989280",
+    "package_html_url": "https://github.com/orgs/anchore/packages/container/package/syft",
+    "created_at": "2024-06-10T15:47:33Z",
+    "updated_at": "2024-06-10T15:47:33Z",
+    "html_url": "https://github.com/orgs/anchore/packages/container/syft/227989280",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 227989243,
+    "name": "sha256:c08a4abac5e4abe6dc1939a2b7f12cfa8636f13defecf6476b854f1a0dcc9c84",
+    "url": "https://api.github.com/orgs/anchore/packages/container/syft/versions/227989243",
+    "package_html_url": "https://github.com/orgs/anchore/packages/container/package/syft",
+    "created_at": "2024-06-10T15:47:28Z",
+    "updated_at": "2024-06-10T15:47:28Z",
+    "html_url": "https://github.com/orgs/anchore/packages/container/syft/227989243",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "v1.6.0"
+        ]
+      }
+    }
+  },
+  {
+    "id": 227989112,
+    "name": "sha256:e0a7f0a7da20e8cd4b60d3b697f5841ef0e0698589763ad8b19a95660bbe45af",
+    "url": "https://api.github.com/orgs/anchore/packages/container/syft/versions/227989112",
+    "package_html_url": "https://github.com/orgs/anchore/packages/container/package/syft",
+    "license": "Apache-2.0",
+    "created_at": "2024-06-10T15:47:15Z",
+    "updated_at": "2024-06-10T15:47:15Z",
+    "description": "CLI tool and library for generating a Software Bill of Materials from container images and filesystems",
+    "html_url": "https://github.com/orgs/anchore/packages/container/syft/227989112",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "v1.6.0-s390x"
+        ]
+      }
+    }
+  },
+  {
+    "id": 227988974,
+    "name": "sha256:8d1529506d616cc634f2b6f7586c0fa0798d7c5b96f21c206486a1221105e9d7",
+    "url": "https://api.github.com/orgs/anchore/packages/container/syft/versions/227988974",
+    "package_html_url": "https://github.com/orgs/anchore/packages/container/package/syft",
+    "license": "Apache-2.0",
+    "created_at": "2024-06-10T15:47:01Z",
+    "updated_at": "2024-06-10T15:47:01Z",
+    "description": "CLI tool and library for generating a Software Bill of Materials from container images and filesystems",
+    "html_url": "https://github.com/orgs/anchore/packages/container/syft/227988974",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "v1.6.0-ppc64le"
+        ]
+      }
+    }
+  },
+  {
+    "id": 227988863,
+    "name": "sha256:eee9cfcf2a1ef2c7667bfe589faa535178c6aebf2f4c948203ab6cfb954f6000",
+    "url": "https://api.github.com/orgs/anchore/packages/container/syft/versions/227988863",
+    "package_html_url": "https://github.com/orgs/anchore/packages/container/package/syft",
+    "license": "Apache-2.0",
+    "created_at": "2024-06-10T15:46:50Z",
+    "updated_at": "2024-06-10T15:46:50Z",
+    "description": "CLI tool and library for generating a Software Bill of Materials from container images and filesystems",
+    "html_url": "https://github.com/orgs/anchore/packages/container/syft/227988863",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "v1.6.0-arm64v8"
+        ]
+      }
+    }
+  },
+  {
+    "id": 227988718,
+    "name": "sha256:0cde53bf37385c3d4deb13093a5ebb19000b35c22678b7f8afdbf19a159d5872",
+    "url": "https://api.github.com/orgs/anchore/packages/container/syft/versions/227988718",
+    "package_html_url": "https://github.com/orgs/anchore/packages/container/package/syft",
+    "license": "Apache-2.0",
+    "created_at": "2024-06-10T15:46:37Z",
+    "updated_at": "2024-06-10T15:46:37Z",
+    "description": "CLI tool and library for generating a Software Bill of Materials from container images and filesystems",
+    "html_url": "https://github.com/orgs/anchore/packages/container/syft/227988718",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 227988597,
+    "name": "sha256:f83e8650677b6a5771b879ebb34d126b180a215e17d6ec6e6e504aab7ea93fec",
+    "url": "https://api.github.com/orgs/anchore/packages/container/syft/versions/227988597",
+    "package_html_url": "https://github.com/orgs/anchore/packages/container/package/syft",
+    "license": "Apache-2.0",
+    "created_at": "2024-06-10T15:46:21Z",
+    "updated_at": "2024-06-10T15:46:21Z",
+    "description": "CLI tool and library for generating a Software Bill of Materials from container images and filesystems",
+    "html_url": "https://github.com/orgs/anchore/packages/container/syft/227988597",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "v1.6.0-debug-s390x"
+        ]
+      }
+    }
+  },
+  {
+    "id": 227988489,
+    "name": "sha256:5e6c9519f137a22d05fca6681a154dedec59201106f5fab73d37eae2e3582d06",
+    "url": "https://api.github.com/orgs/anchore/packages/container/syft/versions/227988489",
+    "package_html_url": "https://github.com/orgs/anchore/packages/container/package/syft",
+    "license": "Apache-2.0",
+    "created_at": "2024-06-10T15:46:05Z",
+    "updated_at": "2024-06-10T15:46:05Z",
+    "description": "CLI tool and library for generating a Software Bill of Materials from container images and filesystems",
+    "html_url": "https://github.com/orgs/anchore/packages/container/syft/227988489",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "v1.6.0-debug-arm64v8"
+        ]
+      }
+    }
+  },
+  {
+    "id": 227988174,
+    "name": "sha256:2246062f527527e3f442e0a139450e4a361306346cf8df3531d843534bf7bde8",
+    "url": "https://api.github.com/orgs/anchore/packages/container/syft/versions/227988174",
+    "package_html_url": "https://github.com/orgs/anchore/packages/container/package/syft",
+    "license": "Apache-2.0",
+    "created_at": "2024-06-10T15:45:19Z",
+    "updated_at": "2024-06-10T15:45:19Z",
+    "description": "CLI tool and library for generating a Software Bill of Materials from container images and filesystems",
+    "html_url": "https://github.com/orgs/anchore/packages/container/syft/227988174",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "v1.6.0-debug"
+        ]
+      }
+    }
+  },
+  {
+    "id": 227988032,
+    "name": "sha256:50a3bad69f6235069099fc87bc3875cb1797a7084a2fba2f19d2466c247f22ec",
+    "url": "https://api.github.com/orgs/anchore/packages/container/syft/versions/227988032",
+    "package_html_url": "https://github.com/orgs/anchore/packages/container/package/syft",
+    "license": "Apache-2.0",
+    "created_at": "2024-06-10T15:45:02Z",
+    "updated_at": "2024-06-10T15:45:02Z",
+    "description": "CLI tool and library for generating a Software Bill of Materials from container images and filesystems",
+    "html_url": "https://github.com/orgs/anchore/packages/container/syft/227988032",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "v1.6.0-debug-ppc64le"
+        ]
+      }
+    }
+  },
+  {
+    "id": 222011238,
+    "name": "sha256:3e43a5998ed68b6951b7c809fa4332c3aa278fbccda83a59816660c88b5c0d9a",
+    "url": "https://api.github.com/orgs/anchore/packages/container/syft/versions/222011238",
+    "package_html_url": "https://github.com/orgs/anchore/packages/container/package/syft",
+    "created_at": "2024-05-28T15:19:18Z",
+    "updated_at": "2024-05-28T15:19:18Z",
+    "html_url": "https://github.com/orgs/anchore/packages/container/syft/222011238",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 222011206,
+    "name": "sha256:7e622b5d92a6ec0727fb4bd48046b644f459c33b54e9ea9025a764d324177cd2",
+    "url": "https://api.github.com/orgs/anchore/packages/container/syft/versions/222011206",
+    "package_html_url": "https://github.com/orgs/anchore/packages/container/package/syft",
+    "created_at": "2024-05-28T15:19:14Z",
+    "updated_at": "2024-05-28T15:19:14Z",
+    "html_url": "https://github.com/orgs/anchore/packages/container/syft/222011206",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "v1.5.0"
+        ]
+      }
+    }
+  },
+  {
+    "id": 222011084,
+    "name": "sha256:c9e6f24e682a3318578e1b1456d18e61fec4f953ca748ee217d328f4fa745524",
+    "url": "https://api.github.com/orgs/anchore/packages/container/syft/versions/222011084",
+    "package_html_url": "https://github.com/orgs/anchore/packages/container/package/syft",
+    "license": "Apache-2.0",
+    "created_at": "2024-05-28T15:18:59Z",
+    "updated_at": "2024-05-28T15:18:59Z",
+    "description": "CLI tool and library for generating a Software Bill of Materials from container images and filesystems",
+    "html_url": "https://github.com/orgs/anchore/packages/container/syft/222011084",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "v1.5.0-debug"
+        ]
+      }
+    }
+  },
+  {
+    "id": 222010869,
+    "name": "sha256:22347d8939cde79e0296123718f7dae3e3ef7b11aba6716a44c6a7c0e17a7f90",
+    "url": "https://api.github.com/orgs/anchore/packages/container/syft/versions/222010869",
+    "package_html_url": "https://github.com/orgs/anchore/packages/container/package/syft",
+    "license": "Apache-2.0",
+    "created_at": "2024-05-28T15:18:44Z",
+    "updated_at": "2024-05-28T15:18:44Z",
+    "description": "CLI tool and library for generating a Software Bill of Materials from container images and filesystems",
+    "html_url": "https://github.com/orgs/anchore/packages/container/syft/222010869",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 222010751,
+    "name": "sha256:eb63aea6350b8737d5e89a74611c0ef3e0536db9106a76f20d776d893fa10412",
+    "url": "https://api.github.com/orgs/anchore/packages/container/syft/versions/222010751",
+    "package_html_url": "https://github.com/orgs/anchore/packages/container/package/syft",
+    "license": "Apache-2.0",
+    "created_at": "2024-05-28T15:18:30Z",
+    "updated_at": "2024-05-28T15:18:30Z",
+    "description": "CLI tool and library for generating a Software Bill of Materials from container images and filesystems",
+    "html_url": "https://github.com/orgs/anchore/packages/container/syft/222010751",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "v1.5.0-s390x"
+        ]
+      }
+    }
+  },
+  {
+    "id": 222010668,
+    "name": "sha256:764d2efb8bc1150527f51063131e85423ff82760dc3c4ca842d52701ca8f19be",
+    "url": "https://api.github.com/orgs/anchore/packages/container/syft/versions/222010668",
+    "package_html_url": "https://github.com/orgs/anchore/packages/container/package/syft",
+    "license": "Apache-2.0",
+    "created_at": "2024-05-28T15:18:17Z",
+    "updated_at": "2024-05-28T15:18:17Z",
+    "description": "CLI tool and library for generating a Software Bill of Materials from container images and filesystems",
+    "html_url": "https://github.com/orgs/anchore/packages/container/syft/222010668",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "v1.5.0-ppc64le"
+        ]
+      }
+    }
+  },
+  {
+    "id": 222010551,
+    "name": "sha256:94bb3926e588433c7fd8249b2e96186cb73e20afacd64bd5881abe60bae2011b",
+    "url": "https://api.github.com/orgs/anchore/packages/container/syft/versions/222010551",
+    "package_html_url": "https://github.com/orgs/anchore/packages/container/package/syft",
+    "license": "Apache-2.0",
+    "created_at": "2024-05-28T15:18:03Z",
+    "updated_at": "2024-05-28T15:18:03Z",
+    "description": "CLI tool and library for generating a Software Bill of Materials from container images and filesystems",
+    "html_url": "https://github.com/orgs/anchore/packages/container/syft/222010551",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "v1.5.0-debug-ppc64le"
+        ]
+      }
+    }
+  },
+  {
+    "id": 222010460,
+    "name": "sha256:d9080fe1d6a396dd7cd6467d979e15fbead3010755e0ec38d180c8da80d31e91",
+    "url": "https://api.github.com/orgs/anchore/packages/container/syft/versions/222010460",
+    "package_html_url": "https://github.com/orgs/anchore/packages/container/package/syft",
+    "license": "Apache-2.0",
+    "created_at": "2024-05-28T15:17:49Z",
+    "updated_at": "2024-05-28T15:17:49Z",
+    "description": "CLI tool and library for generating a Software Bill of Materials from container images and filesystems",
+    "html_url": "https://github.com/orgs/anchore/packages/container/syft/222010460",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "v1.5.0-arm64v8"
+        ]
+      }
+    }
+  },
+  {
+    "id": 222010332,
+    "name": "sha256:cb22c31d1e1fe2551be252beae612d3374caa943a882077ca477e90aeca9a94b",
+    "url": "https://api.github.com/orgs/anchore/packages/container/syft/versions/222010332",
+    "package_html_url": "https://github.com/orgs/anchore/packages/container/package/syft",
+    "license": "Apache-2.0",
+    "created_at": "2024-05-28T15:17:36Z",
+    "updated_at": "2024-05-28T15:17:36Z",
+    "description": "CLI tool and library for generating a Software Bill of Materials from container images and filesystems",
+    "html_url": "https://github.com/orgs/anchore/packages/container/syft/222010332",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "v1.5.0-debug-arm64v8"
+        ]
+      }
+    }
+  },
+  {
+    "id": 222010163,
+    "name": "sha256:8160f70436eb745c8da6976519045919695c47da8e997f5237452ce000bd9881",
+    "url": "https://api.github.com/orgs/anchore/packages/container/syft/versions/222010163",
+    "package_html_url": "https://github.com/orgs/anchore/packages/container/package/syft",
+    "license": "Apache-2.0",
+    "created_at": "2024-05-28T15:17:20Z",
+    "updated_at": "2024-05-28T15:17:20Z",
+    "description": "CLI tool and library for generating a Software Bill of Materials from container images and filesystems",
+    "html_url": "https://github.com/orgs/anchore/packages/container/syft/222010163",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "v1.5.0-debug-s390x"
+        ]
+      }
+    }
+  }
+]

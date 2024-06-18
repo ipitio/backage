@@ -1,0 +1,497 @@
+[
+  {
+    "id": 229885086,
+    "name": "sha256:38c4cacb167e2d2c630fcbe114ef0a6140c64195dad3c5ae69e16304e1083fd9",
+    "url": "https://api.github.com/orgs/docker-mailserver/packages/container/docker-mailserver/versions/229885086",
+    "package_html_url": "https://github.com/orgs/docker-mailserver/packages/container/package/docker-mailserver",
+    "created_at": "2024-06-14T00:50:06Z",
+    "updated_at": "2024-06-14T00:50:06Z",
+    "html_url": "https://github.com/orgs/docker-mailserver/packages/container/docker-mailserver/229885086",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "edge"
+        ]
+      }
+    }
+  },
+  {
+    "id": 229885082,
+    "name": "sha256:079c8d69809446b31e5ce47ce4600ef9e2c5baadd4e4733dabe1b7f3459c36c5",
+    "url": "https://api.github.com/orgs/docker-mailserver/packages/container/docker-mailserver/versions/229885082",
+    "package_html_url": "https://github.com/orgs/docker-mailserver/packages/container/package/docker-mailserver",
+    "license": "MIT",
+    "created_at": "2024-06-14T00:50:06Z",
+    "updated_at": "2024-06-14T00:50:06Z",
+    "description": "A fullstack but simple mail server (SMTP, IMAP, LDAP, Anti-spam, Anti-virus, etc.). Only configuration files, no SQL database.",
+    "html_url": "https://github.com/orgs/docker-mailserver/packages/container/docker-mailserver/229885082",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 229885079,
+    "name": "sha256:29ff99f74a3e1c0a046e0efbf199f5b83402ad1d8e999e03ba6913102f33c2f3",
+    "url": "https://api.github.com/orgs/docker-mailserver/packages/container/docker-mailserver/versions/229885079",
+    "package_html_url": "https://github.com/orgs/docker-mailserver/packages/container/package/docker-mailserver",
+    "license": "MIT",
+    "created_at": "2024-06-14T00:50:05Z",
+    "updated_at": "2024-06-14T00:50:05Z",
+    "description": "A fullstack but simple mail server (SMTP, IMAP, LDAP, Anti-spam, Anti-virus, etc.). Only configuration files, no SQL database.",
+    "html_url": "https://github.com/orgs/docker-mailserver/packages/container/docker-mailserver/229885079",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 227521832,
+    "name": "sha256:ed7e2908ab4f293305d749450c9686481c62f908ffb4332257a451f9b825255f",
+    "url": "https://api.github.com/orgs/docker-mailserver/packages/container/docker-mailserver/versions/227521832",
+    "package_html_url": "https://github.com/orgs/docker-mailserver/packages/container/package/docker-mailserver",
+    "created_at": "2024-06-09T13:34:27Z",
+    "updated_at": "2024-06-09T13:34:27Z",
+    "html_url": "https://github.com/orgs/docker-mailserver/packages/container/docker-mailserver/227521832",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 227521829,
+    "name": "sha256:9a812539ad1085c5e1568930883a7b98a85c6b13e7ffda73361734e7d2591aa7",
+    "url": "https://api.github.com/orgs/docker-mailserver/packages/container/docker-mailserver/versions/227521829",
+    "package_html_url": "https://github.com/orgs/docker-mailserver/packages/container/package/docker-mailserver",
+    "license": "MIT",
+    "created_at": "2024-06-09T13:34:27Z",
+    "updated_at": "2024-06-09T13:34:27Z",
+    "description": "A fullstack but simple mail server (SMTP, IMAP, LDAP, Anti-spam, Anti-virus, etc.). Only configuration files, no SQL database.",
+    "html_url": "https://github.com/orgs/docker-mailserver/packages/container/docker-mailserver/227521829",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 227521827,
+    "name": "sha256:fb161683a684ae53d95215c8deaf20d07f0ac39d531c7310c638a77137f36314",
+    "url": "https://api.github.com/orgs/docker-mailserver/packages/container/docker-mailserver/versions/227521827",
+    "package_html_url": "https://github.com/orgs/docker-mailserver/packages/container/package/docker-mailserver",
+    "license": "MIT",
+    "created_at": "2024-06-09T13:34:27Z",
+    "updated_at": "2024-06-09T13:34:27Z",
+    "description": "A fullstack but simple mail server (SMTP, IMAP, LDAP, Anti-spam, Anti-virus, etc.). Only configuration files, no SQL database.",
+    "html_url": "https://github.com/orgs/docker-mailserver/packages/container/docker-mailserver/227521827",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 227340344,
+    "name": "sha256:e7ff85252ff9cebb7f71591e49e7e587add3bc14aebf9e7352852dda537c3e56",
+    "url": "https://api.github.com/orgs/docker-mailserver/packages/container/docker-mailserver/versions/227340344",
+    "package_html_url": "https://github.com/orgs/docker-mailserver/packages/container/package/docker-mailserver",
+    "created_at": "2024-06-08T12:06:58Z",
+    "updated_at": "2024-06-08T12:06:58Z",
+    "html_url": "https://github.com/orgs/docker-mailserver/packages/container/docker-mailserver/227340344",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 227340342,
+    "name": "sha256:f1c0f0f12cf4446c4a01cd9033c9049fae2a7b71b692ab0721d1b7a231308b25",
+    "url": "https://api.github.com/orgs/docker-mailserver/packages/container/docker-mailserver/versions/227340342",
+    "package_html_url": "https://github.com/orgs/docker-mailserver/packages/container/package/docker-mailserver",
+    "license": "MIT",
+    "created_at": "2024-06-08T12:06:58Z",
+    "updated_at": "2024-06-08T12:06:58Z",
+    "description": "A fullstack but simple mail server (SMTP, IMAP, LDAP, Anti-spam, Anti-virus, etc.). Only configuration files, no SQL database.",
+    "html_url": "https://github.com/orgs/docker-mailserver/packages/container/docker-mailserver/227340342",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 227340341,
+    "name": "sha256:059bf8e293637932d28038acab2afa5b5fc11437f1c5f989b35685a9a4d5c5f6",
+    "url": "https://api.github.com/orgs/docker-mailserver/packages/container/docker-mailserver/versions/227340341",
+    "package_html_url": "https://github.com/orgs/docker-mailserver/packages/container/package/docker-mailserver",
+    "license": "MIT",
+    "created_at": "2024-06-08T12:06:58Z",
+    "updated_at": "2024-06-08T12:06:58Z",
+    "description": "A fullstack but simple mail server (SMTP, IMAP, LDAP, Anti-spam, Anti-virus, etc.). Only configuration files, no SQL database.",
+    "html_url": "https://github.com/orgs/docker-mailserver/packages/container/docker-mailserver/227340341",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 226750088,
+    "name": "sha256:6eb83c48d39752e833004e07c4067ff6fbf794b7ed60f156cc473f6dd18ff703",
+    "url": "https://api.github.com/orgs/docker-mailserver/packages/container/docker-mailserver/versions/226750088",
+    "package_html_url": "https://github.com/orgs/docker-mailserver/packages/container/package/docker-mailserver",
+    "created_at": "2024-06-07T00:33:45Z",
+    "updated_at": "2024-06-07T00:33:45Z",
+    "html_url": "https://github.com/orgs/docker-mailserver/packages/container/docker-mailserver/226750088",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 226750086,
+    "name": "sha256:9bc5c3af2a1016b045611dca97de5371f1ae8ddc5073a75d482262fc8e717206",
+    "url": "https://api.github.com/orgs/docker-mailserver/packages/container/docker-mailserver/versions/226750086",
+    "package_html_url": "https://github.com/orgs/docker-mailserver/packages/container/package/docker-mailserver",
+    "license": "MIT",
+    "created_at": "2024-06-07T00:33:45Z",
+    "updated_at": "2024-06-07T00:33:45Z",
+    "description": "A fullstack but simple mail server (SMTP, IMAP, LDAP, Anti-spam, Anti-virus, etc.). Only configuration files, no SQL database.",
+    "html_url": "https://github.com/orgs/docker-mailserver/packages/container/docker-mailserver/226750086",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 226750083,
+    "name": "sha256:68405b0d8fd9c94370579bf44b4f132f4c50ac1137839c97239bffe3bcbaffac",
+    "url": "https://api.github.com/orgs/docker-mailserver/packages/container/docker-mailserver/versions/226750083",
+    "package_html_url": "https://github.com/orgs/docker-mailserver/packages/container/package/docker-mailserver",
+    "license": "MIT",
+    "created_at": "2024-06-07T00:33:44Z",
+    "updated_at": "2024-06-07T00:33:44Z",
+    "description": "A fullstack but simple mail server (SMTP, IMAP, LDAP, Anti-spam, Anti-virus, etc.). Only configuration files, no SQL database.",
+    "html_url": "https://github.com/orgs/docker-mailserver/packages/container/docker-mailserver/226750083",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 225991318,
+    "name": "sha256:01b82c6c1c64d5b73ba161c0107e5d7d038ebdce85eb9ed084f043e9c2a7943b",
+    "url": "https://api.github.com/orgs/docker-mailserver/packages/container/docker-mailserver/versions/225991318",
+    "package_html_url": "https://github.com/orgs/docker-mailserver/packages/container/package/docker-mailserver",
+    "created_at": "2024-06-05T15:38:56Z",
+    "updated_at": "2024-06-05T15:38:56Z",
+    "html_url": "https://github.com/orgs/docker-mailserver/packages/container/docker-mailserver/225991318",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "14.0.0",
+          "14.0",
+          "14",
+          "latest"
+        ]
+      }
+    }
+  },
+  {
+    "id": 225991310,
+    "name": "sha256:75cd8a78ebd16eaf9c99b9b9929d09c84195c4e4b70ea9500ec937f144be0186",
+    "url": "https://api.github.com/orgs/docker-mailserver/packages/container/docker-mailserver/versions/225991310",
+    "package_html_url": "https://github.com/orgs/docker-mailserver/packages/container/package/docker-mailserver",
+    "license": "MIT",
+    "created_at": "2024-06-05T15:38:55Z",
+    "updated_at": "2024-06-05T15:38:55Z",
+    "description": "A fullstack but simple mail server (SMTP, IMAP, LDAP, Anti-spam, Anti-virus, etc.). Only configuration files, no SQL database.",
+    "html_url": "https://github.com/orgs/docker-mailserver/packages/container/docker-mailserver/225991310",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 225991305,
+    "name": "sha256:533df94fa4a5d78e8adae389962de01a63090f6dd6b5a7589185be73debada1d",
+    "url": "https://api.github.com/orgs/docker-mailserver/packages/container/docker-mailserver/versions/225991305",
+    "package_html_url": "https://github.com/orgs/docker-mailserver/packages/container/package/docker-mailserver",
+    "license": "MIT",
+    "created_at": "2024-06-05T15:38:55Z",
+    "updated_at": "2024-06-05T15:38:55Z",
+    "description": "A fullstack but simple mail server (SMTP, IMAP, LDAP, Anti-spam, Anti-virus, etc.). Only configuration files, no SQL database.",
+    "html_url": "https://github.com/orgs/docker-mailserver/packages/container/docker-mailserver/225991305",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 223300843,
+    "name": "sha256:b129d2d89939090cf93b3029ab3073b830e416f64b0e74633fe09116ac43bdb5",
+    "url": "https://api.github.com/orgs/docker-mailserver/packages/container/docker-mailserver/versions/223300843",
+    "package_html_url": "https://github.com/orgs/docker-mailserver/packages/container/package/docker-mailserver",
+    "created_at": "2024-05-31T00:47:24Z",
+    "updated_at": "2024-05-31T00:47:24Z",
+    "html_url": "https://github.com/orgs/docker-mailserver/packages/container/docker-mailserver/223300843",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 223300838,
+    "name": "sha256:cd529c457e270798ad7adacec18eef2f4da6dfc5a81dedd5948c487cc1fd8ff9",
+    "url": "https://api.github.com/orgs/docker-mailserver/packages/container/docker-mailserver/versions/223300838",
+    "package_html_url": "https://github.com/orgs/docker-mailserver/packages/container/package/docker-mailserver",
+    "license": "MIT",
+    "created_at": "2024-05-31T00:47:24Z",
+    "updated_at": "2024-05-31T00:47:24Z",
+    "description": "A fullstack but simple mail server (SMTP, IMAP, LDAP, Anti-spam, Anti-virus, etc.). Only configuration files, no SQL database.",
+    "html_url": "https://github.com/orgs/docker-mailserver/packages/container/docker-mailserver/223300838",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 222715637,
+    "name": "sha256:15bbcb1b9c03bf1144b369ab1f9289e5aa878eb95441954c37c55b50f7accce2",
+    "url": "https://api.github.com/orgs/docker-mailserver/packages/container/docker-mailserver/versions/222715637",
+    "package_html_url": "https://github.com/orgs/docker-mailserver/packages/container/package/docker-mailserver",
+    "created_at": "2024-05-29T20:26:39Z",
+    "updated_at": "2024-05-29T20:26:39Z",
+    "html_url": "https://github.com/orgs/docker-mailserver/packages/container/docker-mailserver/222715637",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 222715632,
+    "name": "sha256:7e670f756fd2adc51856a9a859ffc7b9fdd594bdae38d31dc0db557e0ab80396",
+    "url": "https://api.github.com/orgs/docker-mailserver/packages/container/docker-mailserver/versions/222715632",
+    "package_html_url": "https://github.com/orgs/docker-mailserver/packages/container/package/docker-mailserver",
+    "license": "MIT",
+    "created_at": "2024-05-29T20:26:39Z",
+    "updated_at": "2024-05-29T20:26:39Z",
+    "description": "A fullstack but simple mail server (SMTP, IMAP, LDAP, Anti-spam, Anti-virus, etc.). Only configuration files, no SQL database.",
+    "html_url": "https://github.com/orgs/docker-mailserver/packages/container/docker-mailserver/222715632",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 222715628,
+    "name": "sha256:764527183ed2434f9fb2479ea7980639691d48f02543ae51cffd92e6d2603429",
+    "url": "https://api.github.com/orgs/docker-mailserver/packages/container/docker-mailserver/versions/222715628",
+    "package_html_url": "https://github.com/orgs/docker-mailserver/packages/container/package/docker-mailserver",
+    "license": "MIT",
+    "created_at": "2024-05-29T20:26:39Z",
+    "updated_at": "2024-05-29T20:26:39Z",
+    "description": "A fullstack but simple mail server (SMTP, IMAP, LDAP, Anti-spam, Anti-virus, etc.). Only configuration files, no SQL database.",
+    "html_url": "https://github.com/orgs/docker-mailserver/packages/container/docker-mailserver/222715628",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 220951281,
+    "name": "sha256:783eac72482c69bfcbee6aa879933f4b108d436a6964bf3d8ba5c4fc9edc61ab",
+    "url": "https://api.github.com/orgs/docker-mailserver/packages/container/docker-mailserver/versions/220951281",
+    "package_html_url": "https://github.com/orgs/docker-mailserver/packages/container/package/docker-mailserver",
+    "created_at": "2024-05-25T18:17:10Z",
+    "updated_at": "2024-05-25T18:17:10Z",
+    "html_url": "https://github.com/orgs/docker-mailserver/packages/container/docker-mailserver/220951281",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 220951280,
+    "name": "sha256:c1ce183b45bb2130c684019b4b730e3a1c7f1c4c320ac07127a69eb32872d227",
+    "url": "https://api.github.com/orgs/docker-mailserver/packages/container/docker-mailserver/versions/220951280",
+    "package_html_url": "https://github.com/orgs/docker-mailserver/packages/container/package/docker-mailserver",
+    "license": "MIT",
+    "created_at": "2024-05-25T18:17:09Z",
+    "updated_at": "2024-05-25T18:17:09Z",
+    "description": "A fullstack but simple mail server (SMTP, IMAP, LDAP, Anti-spam, Anti-virus, etc.). Only configuration files, no SQL database.",
+    "html_url": "https://github.com/orgs/docker-mailserver/packages/container/docker-mailserver/220951280",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 220951279,
+    "name": "sha256:af02b0e4323c2aac76ae82f674bd56784cea8bf1ad9500ba6cf8d116f9065087",
+    "url": "https://api.github.com/orgs/docker-mailserver/packages/container/docker-mailserver/versions/220951279",
+    "package_html_url": "https://github.com/orgs/docker-mailserver/packages/container/package/docker-mailserver",
+    "license": "MIT",
+    "created_at": "2024-05-25T18:17:09Z",
+    "updated_at": "2024-05-25T18:17:09Z",
+    "description": "A fullstack but simple mail server (SMTP, IMAP, LDAP, Anti-spam, Anti-virus, etc.). Only configuration files, no SQL database.",
+    "html_url": "https://github.com/orgs/docker-mailserver/packages/container/docker-mailserver/220951279",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 220950763,
+    "name": "sha256:02e3a9a958d678e6e3ffcb15c2f3f2f6c946f096e2a33921419d9bef2dfdd12e",
+    "url": "https://api.github.com/orgs/docker-mailserver/packages/container/docker-mailserver/versions/220950763",
+    "package_html_url": "https://github.com/orgs/docker-mailserver/packages/container/package/docker-mailserver",
+    "created_at": "2024-05-25T18:12:15Z",
+    "updated_at": "2024-05-25T18:12:15Z",
+    "html_url": "https://github.com/orgs/docker-mailserver/packages/container/docker-mailserver/220950763",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 220950762,
+    "name": "sha256:86cf7996a997eed1590ba45621e415e9444ea1b2b911c171c097d3c03f1f72bb",
+    "url": "https://api.github.com/orgs/docker-mailserver/packages/container/docker-mailserver/versions/220950762",
+    "package_html_url": "https://github.com/orgs/docker-mailserver/packages/container/package/docker-mailserver",
+    "license": "MIT",
+    "created_at": "2024-05-25T18:12:15Z",
+    "updated_at": "2024-05-25T18:12:15Z",
+    "description": "A fullstack but simple mail server (SMTP, IMAP, LDAP, Anti-spam, Anti-virus, etc.). Only configuration files, no SQL database.",
+    "html_url": "https://github.com/orgs/docker-mailserver/packages/container/docker-mailserver/220950762",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 220950761,
+    "name": "sha256:581307fff029b507922142ada60280cef306bb2cf2ef67fb91e4c48df769d0d7",
+    "url": "https://api.github.com/orgs/docker-mailserver/packages/container/docker-mailserver/versions/220950761",
+    "package_html_url": "https://github.com/orgs/docker-mailserver/packages/container/package/docker-mailserver",
+    "license": "MIT",
+    "created_at": "2024-05-25T18:12:14Z",
+    "updated_at": "2024-05-25T18:12:14Z",
+    "description": "A fullstack but simple mail server (SMTP, IMAP, LDAP, Anti-spam, Anti-virus, etc.). Only configuration files, no SQL database.",
+    "html_url": "https://github.com/orgs/docker-mailserver/packages/container/docker-mailserver/220950761",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 220362375,
+    "name": "sha256:6973569f1c6386eaf64f1c755bf3b7106a8f95795a557313ec00946861c82120",
+    "url": "https://api.github.com/orgs/docker-mailserver/packages/container/docker-mailserver/versions/220362375",
+    "package_html_url": "https://github.com/orgs/docker-mailserver/packages/container/package/docker-mailserver",
+    "created_at": "2024-05-24T00:44:32Z",
+    "updated_at": "2024-05-24T00:44:32Z",
+    "html_url": "https://github.com/orgs/docker-mailserver/packages/container/docker-mailserver/220362375",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 220362372,
+    "name": "sha256:8efb037c8758699fdcda48cad7eba4c77861d982ff9415abc3b49e8dadb0a8b8",
+    "url": "https://api.github.com/orgs/docker-mailserver/packages/container/docker-mailserver/versions/220362372",
+    "package_html_url": "https://github.com/orgs/docker-mailserver/packages/container/package/docker-mailserver",
+    "license": "MIT",
+    "created_at": "2024-05-24T00:44:32Z",
+    "updated_at": "2024-05-24T00:44:32Z",
+    "description": "A fullstack but simple mail server (SMTP, IMAP, LDAP, Anti-spam, Anti-virus, etc.). Only configuration files, no SQL database.",
+    "html_url": "https://github.com/orgs/docker-mailserver/packages/container/docker-mailserver/220362372",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 219011997,
+    "name": "sha256:4e193c3e81fa2cd3fe8bf11f4ddbb7d9b82e0eca977b3ab004f0f8ee228a0b64",
+    "url": "https://api.github.com/orgs/docker-mailserver/packages/container/docker-mailserver/versions/219011997",
+    "package_html_url": "https://github.com/orgs/docker-mailserver/packages/container/package/docker-mailserver",
+    "created_at": "2024-05-21T15:12:09Z",
+    "updated_at": "2024-05-21T15:12:09Z",
+    "html_url": "https://github.com/orgs/docker-mailserver/packages/container/docker-mailserver/219011997",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 219011987,
+    "name": "sha256:05a4123614945a2a6115805fe174f7471246a88f2a60e8a198c2aa203e77bd9a",
+    "url": "https://api.github.com/orgs/docker-mailserver/packages/container/docker-mailserver/versions/219011987",
+    "package_html_url": "https://github.com/orgs/docker-mailserver/packages/container/package/docker-mailserver",
+    "license": "MIT",
+    "created_at": "2024-05-21T15:12:09Z",
+    "updated_at": "2024-05-21T15:12:09Z",
+    "description": "A fullstack but simple mail server (SMTP, IMAP, LDAP, Anti-spam, Anti-virus, etc.). Only configuration files, no SQL database.",
+    "html_url": "https://github.com/orgs/docker-mailserver/packages/container/docker-mailserver/219011987",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  }
+]

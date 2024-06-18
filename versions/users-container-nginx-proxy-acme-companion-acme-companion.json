@@ -1,0 +1,457 @@
+[
+  {
+    "id": 231167460,
+    "name": "sha256:28b02d636104616d04948fdb5355a9ddf6890c88a2e03f71f54f48905e47594b",
+    "url": "https://api.github.com/orgs/nginx-proxy/packages/container/acme-companion/versions/231167460",
+    "package_html_url": "https://github.com/orgs/nginx-proxy/packages/container/package/acme-companion",
+    "created_at": "2024-06-17T16:26:59Z",
+    "updated_at": "2024-06-17T16:26:59Z",
+    "html_url": "https://github.com/orgs/nginx-proxy/packages/container/acme-companion/231167460",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "latest"
+        ]
+      }
+    }
+  },
+  {
+    "id": 231167457,
+    "name": "sha256:b9611842d25f3aa12f084b482a235a25dbbfff157ccceb50deab493b4ee8d0e5",
+    "url": "https://api.github.com/orgs/nginx-proxy/packages/container/acme-companion/versions/231167457",
+    "package_html_url": "https://github.com/orgs/nginx-proxy/packages/container/package/acme-companion",
+    "created_at": "2024-06-17T16:26:59Z",
+    "updated_at": "2024-06-17T16:26:59Z",
+    "html_url": "https://github.com/orgs/nginx-proxy/packages/container/acme-companion/231167457",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 231167455,
+    "name": "sha256:9d5c7001dd212460e790df134def9527285c4a96a29547657706e77a71031e1f",
+    "url": "https://api.github.com/orgs/nginx-proxy/packages/container/acme-companion/versions/231167455",
+    "package_html_url": "https://github.com/orgs/nginx-proxy/packages/container/package/acme-companion",
+    "created_at": "2024-06-17T16:26:58Z",
+    "updated_at": "2024-06-17T16:26:58Z",
+    "html_url": "https://github.com/orgs/nginx-proxy/packages/container/acme-companion/231167455",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 231167453,
+    "name": "sha256:04c0ad8f790646db92f319e8979a72d065f976d4a6802dd870cd8cdff61cd8c4",
+    "url": "https://api.github.com/orgs/nginx-proxy/packages/container/acme-companion/versions/231167453",
+    "package_html_url": "https://github.com/orgs/nginx-proxy/packages/container/package/acme-companion",
+    "created_at": "2024-06-17T16:26:58Z",
+    "updated_at": "2024-06-17T16:26:58Z",
+    "html_url": "https://github.com/orgs/nginx-proxy/packages/container/acme-companion/231167453",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 231167451,
+    "name": "sha256:afbe2525016aa3c6b01e1fec4ad07baa159df19f6ad6f29aa944bf0b9e94d182",
+    "url": "https://api.github.com/orgs/nginx-proxy/packages/container/acme-companion/versions/231167451",
+    "package_html_url": "https://github.com/orgs/nginx-proxy/packages/container/package/acme-companion",
+    "created_at": "2024-06-17T16:26:58Z",
+    "updated_at": "2024-06-17T16:26:58Z",
+    "html_url": "https://github.com/orgs/nginx-proxy/packages/container/acme-companion/231167451",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 231167448,
+    "name": "sha256:a93361486bb0a15bfdc727ad684e36a2063bd1c18beeed447d70aa1b8c814271",
+    "url": "https://api.github.com/orgs/nginx-proxy/packages/container/acme-companion/versions/231167448",
+    "package_html_url": "https://github.com/orgs/nginx-proxy/packages/container/package/acme-companion",
+    "created_at": "2024-06-17T16:26:57Z",
+    "updated_at": "2024-06-17T16:26:57Z",
+    "html_url": "https://github.com/orgs/nginx-proxy/packages/container/acme-companion/231167448",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 231167446,
+    "name": "sha256:4ee449d712496d21532c53954fea7d1db5cbe39c8df919862f5dacd2db651684",
+    "url": "https://api.github.com/orgs/nginx-proxy/packages/container/acme-companion/versions/231167446",
+    "package_html_url": "https://github.com/orgs/nginx-proxy/packages/container/package/acme-companion",
+    "created_at": "2024-06-17T16:26:57Z",
+    "updated_at": "2024-06-17T16:26:57Z",
+    "html_url": "https://github.com/orgs/nginx-proxy/packages/container/acme-companion/231167446",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 230744393,
+    "name": "sha256:b15ded413b186f4baba3718ae9cc85382cfe22eade9fd22633b3922b96e3ce63",
+    "url": "https://api.github.com/orgs/nginx-proxy/packages/container/acme-companion/versions/230744393",
+    "package_html_url": "https://github.com/orgs/nginx-proxy/packages/container/package/acme-companion",
+    "created_at": "2024-06-17T00:08:24Z",
+    "updated_at": "2024-06-17T00:08:24Z",
+    "html_url": "https://github.com/orgs/nginx-proxy/packages/container/acme-companion/230744393",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 230744391,
+    "name": "sha256:b5a8a3b8b40c5183f5064f4a6f0e66187fb844921a1530b6abb8f12f3dd6128e",
+    "url": "https://api.github.com/orgs/nginx-proxy/packages/container/acme-companion/versions/230744391",
+    "package_html_url": "https://github.com/orgs/nginx-proxy/packages/container/package/acme-companion",
+    "created_at": "2024-06-17T00:08:24Z",
+    "updated_at": "2024-06-17T00:08:24Z",
+    "html_url": "https://github.com/orgs/nginx-proxy/packages/container/acme-companion/230744391",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 230744389,
+    "name": "sha256:1c5a372028f454458a2fabb44e13cb62c95259ba731287a8e5a8315ee71ba806",
+    "url": "https://api.github.com/orgs/nginx-proxy/packages/container/acme-companion/versions/230744389",
+    "package_html_url": "https://github.com/orgs/nginx-proxy/packages/container/package/acme-companion",
+    "created_at": "2024-06-17T00:08:23Z",
+    "updated_at": "2024-06-17T00:08:23Z",
+    "html_url": "https://github.com/orgs/nginx-proxy/packages/container/acme-companion/230744389",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 230744387,
+    "name": "sha256:c28705ccd581dd93758fc99a6f02c60f63bff3af00f85841ccb7a60887477805",
+    "url": "https://api.github.com/orgs/nginx-proxy/packages/container/acme-companion/versions/230744387",
+    "package_html_url": "https://github.com/orgs/nginx-proxy/packages/container/package/acme-companion",
+    "created_at": "2024-06-17T00:08:23Z",
+    "updated_at": "2024-06-17T00:08:23Z",
+    "html_url": "https://github.com/orgs/nginx-proxy/packages/container/acme-companion/230744387",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 230744386,
+    "name": "sha256:88aef615d24ae7a23f7f210045b559222c6f0d282aad33914085bc18fe8da6c3",
+    "url": "https://api.github.com/orgs/nginx-proxy/packages/container/acme-companion/versions/230744386",
+    "package_html_url": "https://github.com/orgs/nginx-proxy/packages/container/package/acme-companion",
+    "created_at": "2024-06-17T00:08:23Z",
+    "updated_at": "2024-06-17T00:08:23Z",
+    "html_url": "https://github.com/orgs/nginx-proxy/packages/container/acme-companion/230744386",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 230744384,
+    "name": "sha256:5818c5b9c9b8608b5152d0bfb8cbab482148ddf982344a9e76c92e9c76d5f63a",
+    "url": "https://api.github.com/orgs/nginx-proxy/packages/container/acme-companion/versions/230744384",
+    "package_html_url": "https://github.com/orgs/nginx-proxy/packages/container/package/acme-companion",
+    "created_at": "2024-06-17T00:08:23Z",
+    "updated_at": "2024-06-17T00:08:23Z",
+    "html_url": "https://github.com/orgs/nginx-proxy/packages/container/acme-companion/230744384",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 230744380,
+    "name": "sha256:0f0c89788145dc05454429392b92c81c62a2baf478f1945f837fd028757d4aaf",
+    "url": "https://api.github.com/orgs/nginx-proxy/packages/container/acme-companion/versions/230744380",
+    "package_html_url": "https://github.com/orgs/nginx-proxy/packages/container/package/acme-companion",
+    "created_at": "2024-06-17T00:08:22Z",
+    "updated_at": "2024-06-17T00:08:22Z",
+    "html_url": "https://github.com/orgs/nginx-proxy/packages/container/acme-companion/230744380",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 227605480,
+    "name": "sha256:f8bb34fd66e93fa4ba7c9847eb1364db71379a4b22bab169c58acd12bc21c8fe",
+    "url": "https://api.github.com/orgs/nginx-proxy/packages/container/acme-companion/versions/227605480",
+    "package_html_url": "https://github.com/orgs/nginx-proxy/packages/container/package/acme-companion",
+    "created_at": "2024-06-10T00:08:13Z",
+    "updated_at": "2024-06-10T00:08:13Z",
+    "html_url": "https://github.com/orgs/nginx-proxy/packages/container/acme-companion/227605480",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 227605479,
+    "name": "sha256:898a733e00b8c14a09645d09c3495483c3f81ed0b86f62c5371bdd7b9545c614",
+    "url": "https://api.github.com/orgs/nginx-proxy/packages/container/acme-companion/versions/227605479",
+    "package_html_url": "https://github.com/orgs/nginx-proxy/packages/container/package/acme-companion",
+    "created_at": "2024-06-10T00:08:13Z",
+    "updated_at": "2024-06-10T00:08:13Z",
+    "html_url": "https://github.com/orgs/nginx-proxy/packages/container/acme-companion/227605479",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 227605478,
+    "name": "sha256:2a851b16eb81b6777a0cc6c01392fd328f6ee9697e5ff48780f1eef2d0b4439e",
+    "url": "https://api.github.com/orgs/nginx-proxy/packages/container/acme-companion/versions/227605478",
+    "package_html_url": "https://github.com/orgs/nginx-proxy/packages/container/package/acme-companion",
+    "created_at": "2024-06-10T00:08:12Z",
+    "updated_at": "2024-06-10T00:08:12Z",
+    "html_url": "https://github.com/orgs/nginx-proxy/packages/container/acme-companion/227605478",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 227605476,
+    "name": "sha256:8825956efb46e5026e44e450ec3da2851b9eceefe40740e5a19fecd40873e6fc",
+    "url": "https://api.github.com/orgs/nginx-proxy/packages/container/acme-companion/versions/227605476",
+    "package_html_url": "https://github.com/orgs/nginx-proxy/packages/container/package/acme-companion",
+    "created_at": "2024-06-10T00:08:12Z",
+    "updated_at": "2024-06-10T00:08:12Z",
+    "html_url": "https://github.com/orgs/nginx-proxy/packages/container/acme-companion/227605476",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 227605474,
+    "name": "sha256:5af7cc852c29865d1f40fe0b68c13e000cb7f9369ce9d60e638d5dca84926b12",
+    "url": "https://api.github.com/orgs/nginx-proxy/packages/container/acme-companion/versions/227605474",
+    "package_html_url": "https://github.com/orgs/nginx-proxy/packages/container/package/acme-companion",
+    "created_at": "2024-06-10T00:08:12Z",
+    "updated_at": "2024-06-10T00:08:12Z",
+    "html_url": "https://github.com/orgs/nginx-proxy/packages/container/acme-companion/227605474",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 227605472,
+    "name": "sha256:76f471c43cc63da0b083aa59e9399506e627c7b656f92367df8fe7db235bc413",
+    "url": "https://api.github.com/orgs/nginx-proxy/packages/container/acme-companion/versions/227605472",
+    "package_html_url": "https://github.com/orgs/nginx-proxy/packages/container/package/acme-companion",
+    "created_at": "2024-06-10T00:08:11Z",
+    "updated_at": "2024-06-10T00:08:11Z",
+    "html_url": "https://github.com/orgs/nginx-proxy/packages/container/acme-companion/227605472",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 227605469,
+    "name": "sha256:f12696753736a71dff9e7b37a956f6bd646f3ce08e3cfb8efc92ddfee10b8952",
+    "url": "https://api.github.com/orgs/nginx-proxy/packages/container/acme-companion/versions/227605469",
+    "package_html_url": "https://github.com/orgs/nginx-proxy/packages/container/package/acme-companion",
+    "created_at": "2024-06-10T00:08:11Z",
+    "updated_at": "2024-06-10T00:08:11Z",
+    "html_url": "https://github.com/orgs/nginx-proxy/packages/container/acme-companion/227605469",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 226686795,
+    "name": "sha256:d121bc3639f200044bf781cb715cc500edfaa57f7e3c86f51011af37a524748d",
+    "url": "https://api.github.com/orgs/nginx-proxy/packages/container/acme-companion/versions/226686795",
+    "package_html_url": "https://github.com/orgs/nginx-proxy/packages/container/package/acme-companion",
+    "created_at": "2024-06-06T20:48:05Z",
+    "updated_at": "2024-06-06T20:48:05Z",
+    "html_url": "https://github.com/orgs/nginx-proxy/packages/container/acme-companion/226686795",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 226686790,
+    "name": "sha256:4e5dd307d6d88aed7810b52e5228665cd699204d96f5046accba4a0ec5dc39d6",
+    "url": "https://api.github.com/orgs/nginx-proxy/packages/container/acme-companion/versions/226686790",
+    "package_html_url": "https://github.com/orgs/nginx-proxy/packages/container/package/acme-companion",
+    "created_at": "2024-06-06T20:48:04Z",
+    "updated_at": "2024-06-06T20:48:04Z",
+    "html_url": "https://github.com/orgs/nginx-proxy/packages/container/acme-companion/226686790",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 226686785,
+    "name": "sha256:c6a59e75e53ab4a7ac83b5a0de3278dbcd11fc60377e29dd2a5e3abf537ba2ca",
+    "url": "https://api.github.com/orgs/nginx-proxy/packages/container/acme-companion/versions/226686785",
+    "package_html_url": "https://github.com/orgs/nginx-proxy/packages/container/package/acme-companion",
+    "created_at": "2024-06-06T20:48:04Z",
+    "updated_at": "2024-06-06T20:48:04Z",
+    "html_url": "https://github.com/orgs/nginx-proxy/packages/container/acme-companion/226686785",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 226686781,
+    "name": "sha256:a37e6fda87a84bf2adafdcad10892cb8cddec5525a21a6e83515e72edf130899",
+    "url": "https://api.github.com/orgs/nginx-proxy/packages/container/acme-companion/versions/226686781",
+    "package_html_url": "https://github.com/orgs/nginx-proxy/packages/container/package/acme-companion",
+    "created_at": "2024-06-06T20:48:04Z",
+    "updated_at": "2024-06-06T20:48:04Z",
+    "html_url": "https://github.com/orgs/nginx-proxy/packages/container/acme-companion/226686781",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 226686777,
+    "name": "sha256:8c4dfb0fdddff89c68da0827bd3a982280d262f26a792c35422a5792f5d1edcd",
+    "url": "https://api.github.com/orgs/nginx-proxy/packages/container/acme-companion/versions/226686777",
+    "package_html_url": "https://github.com/orgs/nginx-proxy/packages/container/package/acme-companion",
+    "created_at": "2024-06-06T20:48:04Z",
+    "updated_at": "2024-06-06T20:48:04Z",
+    "html_url": "https://github.com/orgs/nginx-proxy/packages/container/acme-companion/226686777",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 226686772,
+    "name": "sha256:64c4a95020ec0959104de84101d42e09431e03052a4d311441602313f846e11b",
+    "url": "https://api.github.com/orgs/nginx-proxy/packages/container/acme-companion/versions/226686772",
+    "package_html_url": "https://github.com/orgs/nginx-proxy/packages/container/package/acme-companion",
+    "created_at": "2024-06-06T20:48:03Z",
+    "updated_at": "2024-06-06T20:48:03Z",
+    "html_url": "https://github.com/orgs/nginx-proxy/packages/container/acme-companion/226686772",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 226686771,
+    "name": "sha256:270c7a458abf98b14ca5985f896d4397f12b12aa3348782b6d05094394a739af",
+    "url": "https://api.github.com/orgs/nginx-proxy/packages/container/acme-companion/versions/226686771",
+    "package_html_url": "https://github.com/orgs/nginx-proxy/packages/container/package/acme-companion",
+    "created_at": "2024-06-06T20:48:03Z",
+    "updated_at": "2024-06-06T20:48:03Z",
+    "html_url": "https://github.com/orgs/nginx-proxy/packages/container/acme-companion/226686771",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 226447009,
+    "name": "sha256:202fffa4e13e52144526425f2014b01c34daa55fec806549aadd329c4ee4441c",
+    "url": "https://api.github.com/orgs/nginx-proxy/packages/container/acme-companion/versions/226447009",
+    "package_html_url": "https://github.com/orgs/nginx-proxy/packages/container/package/acme-companion",
+    "created_at": "2024-06-06T12:28:43Z",
+    "updated_at": "2024-06-06T12:28:43Z",
+    "html_url": "https://github.com/orgs/nginx-proxy/packages/container/acme-companion/226447009",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "2.4",
+          "2.4.0"
+        ]
+      }
+    }
+  },
+  {
+    "id": 226447006,
+    "name": "sha256:46c68c5983164aa51972408667f723552879343763c4fc8ef9776a739652325a",
+    "url": "https://api.github.com/orgs/nginx-proxy/packages/container/acme-companion/versions/226447006",
+    "package_html_url": "https://github.com/orgs/nginx-proxy/packages/container/package/acme-companion",
+    "created_at": "2024-06-06T12:28:42Z",
+    "updated_at": "2024-06-06T12:28:42Z",
+    "html_url": "https://github.com/orgs/nginx-proxy/packages/container/acme-companion/226447006",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  }
+]

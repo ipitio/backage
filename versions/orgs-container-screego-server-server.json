@@ -1,0 +1,526 @@
+[
+  {
+    "id": 177340357,
+    "name": "sha256:153865fa937ae50d22a2f097542d52b7e643a1fd7104d48d81e6168b8464c98b",
+    "url": "https://api.github.com/orgs/screego/packages/container/server/versions/177340357",
+    "package_html_url": "https://github.com/orgs/screego/packages/container/package/server",
+    "created_at": "2024-02-10T19:35:24Z",
+    "updated_at": "2024-02-10T19:35:24Z",
+    "html_url": "https://github.com/orgs/screego/packages/container/server/177340357",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "1.10.3",
+          "1",
+          "unstable"
+        ]
+      }
+    }
+  },
+  {
+    "id": 177340343,
+    "name": "sha256:608232dfef53c8ba6138b5328fe81b04694441605a35e410ba533918360a2580",
+    "url": "https://api.github.com/orgs/screego/packages/container/server/versions/177340343",
+    "package_html_url": "https://github.com/orgs/screego/packages/container/package/server",
+    "created_at": "2024-02-10T19:35:21Z",
+    "updated_at": "2024-02-10T19:35:21Z",
+    "html_url": "https://github.com/orgs/screego/packages/container/server/177340343",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "ppc64le-1.10.3",
+          "ppc64le-1",
+          "ppc64le-unstable"
+        ]
+      }
+    }
+  },
+  {
+    "id": 177340303,
+    "name": "sha256:4c0bde6e8a8b0f0c44054264f2f808fd935846a7ffa31821abdcd1697b3cb44c",
+    "url": "https://api.github.com/orgs/screego/packages/container/server/versions/177340303",
+    "package_html_url": "https://github.com/orgs/screego/packages/container/package/server",
+    "created_at": "2024-02-10T19:35:13Z",
+    "updated_at": "2024-02-10T19:35:13Z",
+    "html_url": "https://github.com/orgs/screego/packages/container/server/177340303",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "armv6-1.10.3",
+          "armv6-1",
+          "armv6-unstable"
+        ]
+      }
+    }
+  },
+  {
+    "id": 177340272,
+    "name": "sha256:28fd5df967fd37e26220b8ea16eb073c62dc8f33a4420b747bd9c20a3574d7f7",
+    "url": "https://api.github.com/orgs/screego/packages/container/server/versions/177340272",
+    "package_html_url": "https://github.com/orgs/screego/packages/container/package/server",
+    "created_at": "2024-02-10T19:35:06Z",
+    "updated_at": "2024-02-10T19:35:06Z",
+    "html_url": "https://github.com/orgs/screego/packages/container/server/177340272",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "armv7-1.10.3",
+          "armv7-1",
+          "armv7-unstable"
+        ]
+      }
+    }
+  },
+  {
+    "id": 177340249,
+    "name": "sha256:e1952dbf93df8b40bfe84a45164d8573de990c9ce0b8576cbc4fb354c0a5d372",
+    "url": "https://api.github.com/orgs/screego/packages/container/server/versions/177340249",
+    "package_html_url": "https://github.com/orgs/screego/packages/container/package/server",
+    "created_at": "2024-02-10T19:34:58Z",
+    "updated_at": "2024-02-10T19:34:58Z",
+    "html_url": "https://github.com/orgs/screego/packages/container/server/177340249",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "386-1.10.3",
+          "386-1",
+          "386-unstable"
+        ]
+      }
+    }
+  },
+  {
+    "id": 177340241,
+    "name": "sha256:5e68a0af6989b6302ef6126c6fcccd0cef6039a24c0792781839a86552102ee7",
+    "url": "https://api.github.com/orgs/screego/packages/container/server/versions/177340241",
+    "package_html_url": "https://github.com/orgs/screego/packages/container/package/server",
+    "created_at": "2024-02-10T19:34:50Z",
+    "updated_at": "2024-02-10T19:34:50Z",
+    "html_url": "https://github.com/orgs/screego/packages/container/server/177340241",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "arm64-1.10.3",
+          "arm64-1",
+          "arm64-unstable"
+        ]
+      }
+    }
+  },
+  {
+    "id": 177340216,
+    "name": "sha256:5b5506b2b7306db9c1bf70a9dafc5c5a55a0b39dec5b24fc7805748952226e9c",
+    "url": "https://api.github.com/orgs/screego/packages/container/server/versions/177340216",
+    "package_html_url": "https://github.com/orgs/screego/packages/container/package/server",
+    "created_at": "2024-02-10T19:34:43Z",
+    "updated_at": "2024-02-10T19:34:43Z",
+    "html_url": "https://github.com/orgs/screego/packages/container/server/177340216",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "amd64-1.10.3",
+          "amd64-1",
+          "amd64-unstable"
+        ]
+      }
+    }
+  },
+  {
+    "id": 149620121,
+    "name": "sha256:a90d25dcf4898149e6722e92e3d6614d35cd995be7a395b3254e816dca69f353",
+    "url": "https://api.github.com/orgs/screego/packages/container/server/versions/149620121",
+    "package_html_url": "https://github.com/orgs/screego/packages/container/package/server",
+    "created_at": "2023-11-20T18:02:36Z",
+    "updated_at": "2023-11-20T18:02:36Z",
+    "html_url": "https://github.com/orgs/screego/packages/container/server/149620121",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "1.10.2"
+        ]
+      }
+    }
+  },
+  {
+    "id": 149620096,
+    "name": "sha256:663a2c4931c4958abf8f95f88d0d0c1e0f97a93f499a5ad7945ce12f82f72271",
+    "url": "https://api.github.com/orgs/screego/packages/container/server/versions/149620096",
+    "package_html_url": "https://github.com/orgs/screego/packages/container/package/server",
+    "created_at": "2023-11-20T18:02:30Z",
+    "updated_at": "2023-11-20T18:02:30Z",
+    "html_url": "https://github.com/orgs/screego/packages/container/server/149620096",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "ppc64le-1.10.2"
+        ]
+      }
+    }
+  },
+  {
+    "id": 149620041,
+    "name": "sha256:d2884ceca16cbab3c5d2db779715efe8ecd6a244699a5724b4692e1c5c642112",
+    "url": "https://api.github.com/orgs/screego/packages/container/server/versions/149620041",
+    "package_html_url": "https://github.com/orgs/screego/packages/container/package/server",
+    "created_at": "2023-11-20T18:02:21Z",
+    "updated_at": "2023-11-20T18:02:21Z",
+    "html_url": "https://github.com/orgs/screego/packages/container/server/149620041",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "armv6-1.10.2"
+        ]
+      }
+    }
+  },
+  {
+    "id": 149620000,
+    "name": "sha256:ed08f676358cfcc82b8141c2acc04090c411977d62f8ae1595cba2f87e58cfad",
+    "url": "https://api.github.com/orgs/screego/packages/container/server/versions/149620000",
+    "package_html_url": "https://github.com/orgs/screego/packages/container/package/server",
+    "created_at": "2023-11-20T18:02:12Z",
+    "updated_at": "2023-11-20T18:02:12Z",
+    "html_url": "https://github.com/orgs/screego/packages/container/server/149620000",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "386-1.10.2"
+        ]
+      }
+    }
+  },
+  {
+    "id": 149619944,
+    "name": "sha256:b3aa7dea58c70efb96fc4f3f7c5bae6ef2354bba97a92ec8aa8a2c7da41d70fe",
+    "url": "https://api.github.com/orgs/screego/packages/container/server/versions/149619944",
+    "package_html_url": "https://github.com/orgs/screego/packages/container/package/server",
+    "created_at": "2023-11-20T18:02:03Z",
+    "updated_at": "2023-11-20T18:02:03Z",
+    "html_url": "https://github.com/orgs/screego/packages/container/server/149619944",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "arm64-1.10.2"
+        ]
+      }
+    }
+  },
+  {
+    "id": 149619907,
+    "name": "sha256:6a2b6c3dfeec68605cc1bfc777e37a2f2f2834959bd7453100e8254af5d93e2f",
+    "url": "https://api.github.com/orgs/screego/packages/container/server/versions/149619907",
+    "package_html_url": "https://github.com/orgs/screego/packages/container/package/server",
+    "created_at": "2023-11-20T18:01:54Z",
+    "updated_at": "2023-11-20T18:01:54Z",
+    "html_url": "https://github.com/orgs/screego/packages/container/server/149619907",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "amd64-1.10.2"
+        ]
+      }
+    }
+  },
+  {
+    "id": 149619855,
+    "name": "sha256:2c7846ad4838c6055f3159a1d8b70efb9ea39b43bf18f98433b5c2f1c022fec6",
+    "url": "https://api.github.com/orgs/screego/packages/container/server/versions/149619855",
+    "package_html_url": "https://github.com/orgs/screego/packages/container/package/server",
+    "created_at": "2023-11-20T18:01:44Z",
+    "updated_at": "2023-11-20T18:01:44Z",
+    "html_url": "https://github.com/orgs/screego/packages/container/server/149619855",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "armv7-1.10.2"
+        ]
+      }
+    }
+  },
+  {
+    "id": 130248092,
+    "name": "sha256:d883ae08fa9bf1638c4ea2a1546750b208287273af0e44d603bf67c304b483c3",
+    "url": "https://api.github.com/orgs/screego/packages/container/server/versions/130248092",
+    "package_html_url": "https://github.com/orgs/screego/packages/container/package/server",
+    "created_at": "2023-09-21T18:32:22Z",
+    "updated_at": "2023-09-21T18:32:22Z",
+    "html_url": "https://github.com/orgs/screego/packages/container/server/130248092",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "1.10.1"
+        ]
+      }
+    }
+  },
+  {
+    "id": 130248045,
+    "name": "sha256:70e27fff7515893156876818da4a13e9f7c7c31e40309619c35cd610735ff5e1",
+    "url": "https://api.github.com/orgs/screego/packages/container/server/versions/130248045",
+    "package_html_url": "https://github.com/orgs/screego/packages/container/package/server",
+    "created_at": "2023-09-21T18:32:13Z",
+    "updated_at": "2023-09-21T18:32:13Z",
+    "html_url": "https://github.com/orgs/screego/packages/container/server/130248045",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "ppc64le-1.10.1"
+        ]
+      }
+    }
+  },
+  {
+    "id": 130247946,
+    "name": "sha256:5540bd1354379ce54e5a7106c33a4ed9b8f65d99745a3bb61e52f006b1737536",
+    "url": "https://api.github.com/orgs/screego/packages/container/server/versions/130247946",
+    "package_html_url": "https://github.com/orgs/screego/packages/container/package/server",
+    "created_at": "2023-09-21T18:31:57Z",
+    "updated_at": "2023-09-21T18:31:57Z",
+    "html_url": "https://github.com/orgs/screego/packages/container/server/130247946",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "armv6-1.10.1"
+        ]
+      }
+    }
+  },
+  {
+    "id": 130247872,
+    "name": "sha256:17e9a646b4a3fa93bb828159f4bb06c6c78ee9cb1411b87bb9c0337338c6d3a4",
+    "url": "https://api.github.com/orgs/screego/packages/container/server/versions/130247872",
+    "package_html_url": "https://github.com/orgs/screego/packages/container/package/server",
+    "created_at": "2023-09-21T18:31:41Z",
+    "updated_at": "2023-09-21T18:31:41Z",
+    "html_url": "https://github.com/orgs/screego/packages/container/server/130247872",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "armv7-1.10.1"
+        ]
+      }
+    }
+  },
+  {
+    "id": 130247780,
+    "name": "sha256:dcc3b369a6cccfe69bc5e32dd2a940558725f49a23c699295cb1de6577378e05",
+    "url": "https://api.github.com/orgs/screego/packages/container/server/versions/130247780",
+    "package_html_url": "https://github.com/orgs/screego/packages/container/package/server",
+    "created_at": "2023-09-21T18:31:25Z",
+    "updated_at": "2023-09-21T18:31:25Z",
+    "html_url": "https://github.com/orgs/screego/packages/container/server/130247780",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "arm64-1.10.1"
+        ]
+      }
+    }
+  },
+  {
+    "id": 130247704,
+    "name": "sha256:ea8916055841aa8436cd49d3751ff4137fdad0e740b314cb6831ffd1377265a6",
+    "url": "https://api.github.com/orgs/screego/packages/container/server/versions/130247704",
+    "package_html_url": "https://github.com/orgs/screego/packages/container/package/server",
+    "created_at": "2023-09-21T18:31:09Z",
+    "updated_at": "2023-09-21T18:31:09Z",
+    "html_url": "https://github.com/orgs/screego/packages/container/server/130247704",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "amd64-1.10.1"
+        ]
+      }
+    }
+  },
+  {
+    "id": 130247609,
+    "name": "sha256:dd6bebc01752e2e076a9f638d6e546bbd3ec669b1196f71f09fb279df17c7606",
+    "url": "https://api.github.com/orgs/screego/packages/container/server/versions/130247609",
+    "package_html_url": "https://github.com/orgs/screego/packages/container/package/server",
+    "created_at": "2023-09-21T18:30:53Z",
+    "updated_at": "2023-09-21T18:30:53Z",
+    "html_url": "https://github.com/orgs/screego/packages/container/server/130247609",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "386-1.10.1"
+        ]
+      }
+    }
+  },
+  {
+    "id": 113934236,
+    "name": "sha256:43da67ead21879f58732d2294dfb81af1cf43e289b2b1eabe353f6d4a73423d8",
+    "url": "https://api.github.com/orgs/screego/packages/container/server/versions/113934236",
+    "package_html_url": "https://github.com/orgs/screego/packages/container/package/server",
+    "created_at": "2023-07-29T17:17:19Z",
+    "updated_at": "2023-07-29T17:17:19Z",
+    "html_url": "https://github.com/orgs/screego/packages/container/server/113934236",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "1.10.0"
+        ]
+      }
+    }
+  },
+  {
+    "id": 113934233,
+    "name": "sha256:308c3f8ecd5143c5410d78822e7d43ef09da8bd696885560c9fb5e3d4e8fefaf",
+    "url": "https://api.github.com/orgs/screego/packages/container/server/versions/113934233",
+    "package_html_url": "https://github.com/orgs/screego/packages/container/package/server",
+    "created_at": "2023-07-29T17:17:12Z",
+    "updated_at": "2023-07-29T17:17:12Z",
+    "html_url": "https://github.com/orgs/screego/packages/container/server/113934233",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "ppc64le-1.10.0"
+        ]
+      }
+    }
+  },
+  {
+    "id": 113934218,
+    "name": "sha256:577b32d6d09fefc163b2cf3ca0f22583f224a684a0bd85e89aa1bd6565fbe111",
+    "url": "https://api.github.com/orgs/screego/packages/container/server/versions/113934218",
+    "package_html_url": "https://github.com/orgs/screego/packages/container/package/server",
+    "created_at": "2023-07-29T17:16:57Z",
+    "updated_at": "2023-07-29T17:16:57Z",
+    "html_url": "https://github.com/orgs/screego/packages/container/server/113934218",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "armv6-1.10.0"
+        ]
+      }
+    }
+  },
+  {
+    "id": 113934212,
+    "name": "sha256:e11860c0b094f00b87f44c20e854cc53e8c36ca655f96e4643e175983bc094c5",
+    "url": "https://api.github.com/orgs/screego/packages/container/server/versions/113934212",
+    "package_html_url": "https://github.com/orgs/screego/packages/container/package/server",
+    "created_at": "2023-07-29T17:16:44Z",
+    "updated_at": "2023-07-29T17:16:44Z",
+    "html_url": "https://github.com/orgs/screego/packages/container/server/113934212",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "armv7-1.10.0"
+        ]
+      }
+    }
+  },
+  {
+    "id": 113934203,
+    "name": "sha256:c94242014d331d58698e1ce0735d235ce0213d483a426038dcdc2acd1d04bf21",
+    "url": "https://api.github.com/orgs/screego/packages/container/server/versions/113934203",
+    "package_html_url": "https://github.com/orgs/screego/packages/container/package/server",
+    "created_at": "2023-07-29T17:16:30Z",
+    "updated_at": "2023-07-29T17:16:30Z",
+    "html_url": "https://github.com/orgs/screego/packages/container/server/113934203",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "arm64-1.10.0"
+        ]
+      }
+    }
+  },
+  {
+    "id": 113934200,
+    "name": "sha256:084aa6f2e4c32464ca809ebbb194b32c3d7608ea91a7347cc62b5c567e0bfc97",
+    "url": "https://api.github.com/orgs/screego/packages/container/server/versions/113934200",
+    "package_html_url": "https://github.com/orgs/screego/packages/container/package/server",
+    "created_at": "2023-07-29T17:16:17Z",
+    "updated_at": "2023-07-29T17:16:17Z",
+    "html_url": "https://github.com/orgs/screego/packages/container/server/113934200",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "386-1.10.0"
+        ]
+      }
+    }
+  },
+  {
+    "id": 113934189,
+    "name": "sha256:223cff8ccb1e923cb5141c2cd3a7e4037683d2ef84fcffc9f19325b7c8c3920e",
+    "url": "https://api.github.com/orgs/screego/packages/container/server/versions/113934189",
+    "package_html_url": "https://github.com/orgs/screego/packages/container/package/server",
+    "created_at": "2023-07-29T17:16:03Z",
+    "updated_at": "2023-07-29T17:16:03Z",
+    "html_url": "https://github.com/orgs/screego/packages/container/server/113934189",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "amd64-1.10.0"
+        ]
+      }
+    }
+  },
+  {
+    "id": 112928656,
+    "name": "sha256:bbd080bcbb7294d9247a7295dfbc939388ea9071791dd564ba21e270883d26a0",
+    "url": "https://api.github.com/orgs/screego/packages/container/server/versions/112928656",
+    "package_html_url": "https://github.com/orgs/screego/packages/container/package/server",
+    "created_at": "2023-07-26T16:27:39Z",
+    "updated_at": "2023-07-26T16:27:39Z",
+    "html_url": "https://github.com/orgs/screego/packages/container/server/112928656",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "1.9.1"
+        ]
+      }
+    }
+  },
+  {
+    "id": 112928569,
+    "name": "sha256:12c7a9b5b9c8b9751a99e2e104a7b8634f02c9730901da7084672557798ec577",
+    "url": "https://api.github.com/orgs/screego/packages/container/server/versions/112928569",
+    "package_html_url": "https://github.com/orgs/screego/packages/container/package/server",
+    "created_at": "2023-07-26T16:27:30Z",
+    "updated_at": "2023-07-26T16:27:30Z",
+    "html_url": "https://github.com/orgs/screego/packages/container/server/112928569",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "ppc64le-1.9.1"
+        ]
+      }
+    }
+  }
+]

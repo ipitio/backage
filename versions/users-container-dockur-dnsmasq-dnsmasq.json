@@ -1,0 +1,160 @@
+[
+  {
+    "id": 195465820,
+    "name": "sha256:c85b08ebcd45463383bfa8a8ba57b2ccda0a0c32869fbf8927ff74f1d33b9e5d",
+    "url": "https://api.github.com/orgs/dockur/packages/container/dnsmasq/versions/195465820",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/dnsmasq",
+    "license": "MIT",
+    "created_at": "2024-03-25T15:34:13Z",
+    "updated_at": "2024-03-25T15:34:13Z",
+    "description": "Dnsmasq DNS and DHCP server in a Docker container.",
+    "html_url": "https://github.com/orgs/dockur/packages/container/dnsmasq/195465820",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "2.90",
+          "latest"
+        ]
+      }
+    }
+  },
+  {
+    "id": 195465783,
+    "name": "sha256:9698b13590e2ea342a49d41c55b59af3aff7d2513bc4c42284a86a750ed44b78",
+    "url": "https://api.github.com/orgs/dockur/packages/container/dnsmasq/versions/195465783",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/dnsmasq",
+    "license": "MIT",
+    "created_at": "2024-03-25T15:34:10Z",
+    "updated_at": "2024-03-25T15:34:10Z",
+    "description": "Dnsmasq DNS and DHCP server in a Docker container.",
+    "html_url": "https://github.com/orgs/dockur/packages/container/dnsmasq/195465783",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 195465730,
+    "name": "sha256:274c13eddee77d39c7fa5d45f4f95e6d757f416261558a7200a09d8de735f95e",
+    "url": "https://api.github.com/orgs/dockur/packages/container/dnsmasq/versions/195465730",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/dnsmasq",
+    "license": "MIT",
+    "created_at": "2024-03-25T15:34:07Z",
+    "updated_at": "2024-03-25T15:34:07Z",
+    "description": "Dnsmasq DNS and DHCP server in a Docker container.",
+    "html_url": "https://github.com/orgs/dockur/packages/container/dnsmasq/195465730",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 195465647,
+    "name": "sha256:913f126291bdce463b6460ee21102602c3508135160c119da7c5be4a48a84380",
+    "url": "https://api.github.com/orgs/dockur/packages/container/dnsmasq/versions/195465647",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/dnsmasq",
+    "license": "MIT",
+    "created_at": "2024-03-25T15:34:00Z",
+    "updated_at": "2024-03-25T15:34:00Z",
+    "description": "Dnsmasq DNS and DHCP server in a Docker container.",
+    "html_url": "https://github.com/orgs/dockur/packages/container/dnsmasq/195465647",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 177300104,
+    "name": "sha256:60a810abe195c35a9f51e126651f9ce1d8f9d90ebfebabd33c90ff14a2d52aa9",
+    "url": "https://api.github.com/orgs/dockur/packages/container/dnsmasq/versions/177300104",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/dnsmasq",
+    "license": "MIT",
+    "created_at": "2024-02-10T12:48:44Z",
+    "updated_at": "2024-02-10T12:48:44Z",
+    "description": "Dnsmasq in a docker container.",
+    "html_url": "https://github.com/orgs/dockur/packages/container/dnsmasq/177300104",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "2.89"
+        ]
+      }
+    }
+  },
+  {
+    "id": 177300102,
+    "name": "sha256:33fc900b97a6f7ba757b33f8dcc765a757524771dd685a5bdee7f322780758b8",
+    "url": "https://api.github.com/orgs/dockur/packages/container/dnsmasq/versions/177300102",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/dnsmasq",
+    "license": "MIT",
+    "created_at": "2024-02-10T12:48:44Z",
+    "updated_at": "2024-02-10T12:48:44Z",
+    "description": "Dnsmasq in a docker container.",
+    "html_url": "https://github.com/orgs/dockur/packages/container/dnsmasq/177300102",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 177300098,
+    "name": "sha256:ff9469c4939b33126fc071f8b189b3e83ec5dac4d39353f69054f6043aa91e00",
+    "url": "https://api.github.com/orgs/dockur/packages/container/dnsmasq/versions/177300098",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/dnsmasq",
+    "license": "MIT",
+    "created_at": "2024-02-10T12:48:43Z",
+    "updated_at": "2024-02-10T12:48:43Z",
+    "description": "Dnsmasq in a docker container.",
+    "html_url": "https://github.com/orgs/dockur/packages/container/dnsmasq/177300098",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 177300093,
+    "name": "sha256:3260bf198b0496ca03dcb14d6b9e09c1b4100d81d757629a8b48a4e95c6e933c",
+    "url": "https://api.github.com/orgs/dockur/packages/container/dnsmasq/versions/177300093",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/dnsmasq",
+    "license": "MIT",
+    "created_at": "2024-02-10T12:48:43Z",
+    "updated_at": "2024-02-10T12:48:43Z",
+    "description": "Dnsmasq in a docker container.",
+    "html_url": "https://github.com/orgs/dockur/packages/container/dnsmasq/177300093",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 177297700,
+    "name": "sha256:c21f4d247847f1aaba8e8b34d2399904ec4f6bf1a01c073a7505c3977c4ac3d4",
+    "url": "https://api.github.com/orgs/dockur/packages/container/dnsmasq/versions/177297700",
+    "package_html_url": "https://github.com/orgs/dockur/packages/container/package/dnsmasq",
+    "license": "MIT",
+    "created_at": "2024-02-10T12:29:47Z",
+    "updated_at": "2024-02-10T12:29:47Z",
+    "description": "Dnsmasq in a docker container.",
+    "html_url": "https://github.com/orgs/dockur/packages/container/dnsmasq/177297700",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  }
+]

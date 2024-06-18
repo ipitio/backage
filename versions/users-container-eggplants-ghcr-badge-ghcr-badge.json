@@ -1,0 +1,475 @@
+[
+  {
+    "id": 195109203,
+    "name": "sha256:5c769f0eb5aff177585f4ebf9c00d396ff5f3170cc8704efdede7625009454e9",
+    "url": "https://api.github.com/users/eggplants/packages/container/ghcr-badge/versions/195109203",
+    "package_html_url": "https://github.com/users/eggplants/packages/container/package/ghcr-badge",
+    "created_at": "2024-03-24T23:35:55Z",
+    "updated_at": "2024-03-24T23:35:55Z",
+    "html_url": "https://github.com/users/eggplants/packages/container/ghcr-badge/195109203",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "0.4",
+          "0.4.0",
+          "latest"
+        ]
+      }
+    }
+  },
+  {
+    "id": 195109199,
+    "name": "sha256:022a24d2fd5e7a4dae9b7165906c73acaff5aba8f8e10934dfbb9adad5bc854b",
+    "url": "https://api.github.com/users/eggplants/packages/container/ghcr-badge/versions/195109199",
+    "package_html_url": "https://github.com/users/eggplants/packages/container/package/ghcr-badge",
+    "created_at": "2024-03-24T23:35:55Z",
+    "updated_at": "2024-03-24T23:35:55Z",
+    "html_url": "https://github.com/users/eggplants/packages/container/ghcr-badge/195109199",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 195109197,
+    "name": "sha256:a7df97df97bc906066c95eaeacadbf5f68a33abdbf55027142321e11e2acb12d",
+    "url": "https://api.github.com/users/eggplants/packages/container/ghcr-badge/versions/195109197",
+    "package_html_url": "https://github.com/users/eggplants/packages/container/package/ghcr-badge",
+    "created_at": "2024-03-24T23:35:54Z",
+    "updated_at": "2024-03-24T23:35:54Z",
+    "html_url": "https://github.com/users/eggplants/packages/container/ghcr-badge/195109197",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 195108126,
+    "name": "sha256:3de21ecb4b1d152e3819fb52b77a9aab4f4a849a4e24f3d9643dbe0e20a70020",
+    "url": "https://api.github.com/users/eggplants/packages/container/ghcr-badge/versions/195108126",
+    "package_html_url": "https://github.com/users/eggplants/packages/container/package/ghcr-badge",
+    "created_at": "2024-03-24T23:26:26Z",
+    "updated_at": "2024-03-24T23:26:26Z",
+    "html_url": "https://github.com/users/eggplants/packages/container/ghcr-badge/195108126",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 195108124,
+    "name": "sha256:717b204024740bc25437b8210ea87044d872084fcb28992b027a1a3a73d126f6",
+    "url": "https://api.github.com/users/eggplants/packages/container/ghcr-badge/versions/195108124",
+    "package_html_url": "https://github.com/users/eggplants/packages/container/package/ghcr-badge",
+    "created_at": "2024-03-24T23:26:26Z",
+    "updated_at": "2024-03-24T23:26:26Z",
+    "html_url": "https://github.com/users/eggplants/packages/container/ghcr-badge/195108124",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 195108122,
+    "name": "sha256:8a6b51899b68b87dad1e36e7c10436e73392f171e517778570364186e3565f6a",
+    "url": "https://api.github.com/users/eggplants/packages/container/ghcr-badge/versions/195108122",
+    "package_html_url": "https://github.com/users/eggplants/packages/container/package/ghcr-badge",
+    "created_at": "2024-03-24T23:26:25Z",
+    "updated_at": "2024-03-24T23:26:25Z",
+    "html_url": "https://github.com/users/eggplants/packages/container/ghcr-badge/195108122",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 115467821,
+    "name": "sha256:5307b36986a27c4b575223862d4dd5137c103d293203598e6b6c6368551ad8bb",
+    "url": "https://api.github.com/users/eggplants/packages/container/ghcr-badge/versions/115467821",
+    "package_html_url": "https://github.com/users/eggplants/packages/container/package/ghcr-badge",
+    "created_at": "2023-08-03T14:35:33Z",
+    "updated_at": "2023-08-03T14:35:33Z",
+    "html_url": "https://github.com/users/eggplants/packages/container/ghcr-badge/115467821",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "0.3.3",
+          "0.3"
+        ]
+      }
+    }
+  },
+  {
+    "id": 115467818,
+    "name": "sha256:4ed0e20bda2addf5bf928dc78728bd12922d51c0c4c322d834324e87afbfcd72",
+    "url": "https://api.github.com/users/eggplants/packages/container/ghcr-badge/versions/115467818",
+    "package_html_url": "https://github.com/users/eggplants/packages/container/package/ghcr-badge",
+    "created_at": "2023-08-03T14:35:33Z",
+    "updated_at": "2023-08-03T14:35:33Z",
+    "html_url": "https://github.com/users/eggplants/packages/container/ghcr-badge/115467818",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 115467814,
+    "name": "sha256:4305683492b7cd3e6866af8733dee3caf476fd9266f6f1c37df90585285d4bb6",
+    "url": "https://api.github.com/users/eggplants/packages/container/ghcr-badge/versions/115467814",
+    "package_html_url": "https://github.com/users/eggplants/packages/container/package/ghcr-badge",
+    "created_at": "2023-08-03T14:35:32Z",
+    "updated_at": "2023-08-03T14:35:32Z",
+    "html_url": "https://github.com/users/eggplants/packages/container/ghcr-badge/115467814",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 114070044,
+    "name": "sha256:ace1c8e3329cb2c0cd8ffeb968d6a1d02c2c7228bcc783e77d03f3fb89e3a803",
+    "url": "https://api.github.com/users/eggplants/packages/container/ghcr-badge/versions/114070044",
+    "package_html_url": "https://github.com/users/eggplants/packages/container/package/ghcr-badge",
+    "created_at": "2023-07-30T18:14:34Z",
+    "updated_at": "2023-07-30T18:14:34Z",
+    "html_url": "https://github.com/users/eggplants/packages/container/ghcr-badge/114070044",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "0.3.2"
+        ]
+      }
+    }
+  },
+  {
+    "id": 114070043,
+    "name": "sha256:94746da3820704e3accb4e1db3bad68557003232f5a8c5265beba0e49c29509b",
+    "url": "https://api.github.com/users/eggplants/packages/container/ghcr-badge/versions/114070043",
+    "package_html_url": "https://github.com/users/eggplants/packages/container/package/ghcr-badge",
+    "created_at": "2023-07-30T18:14:34Z",
+    "updated_at": "2023-07-30T18:14:34Z",
+    "html_url": "https://github.com/users/eggplants/packages/container/ghcr-badge/114070043",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 114070042,
+    "name": "sha256:42f0b001380711c1b73500a6c6b1a71ca268b7b8ec380cf85d43d38e2dc3a614",
+    "url": "https://api.github.com/users/eggplants/packages/container/ghcr-badge/versions/114070042",
+    "package_html_url": "https://github.com/users/eggplants/packages/container/package/ghcr-badge",
+    "created_at": "2023-07-30T18:14:33Z",
+    "updated_at": "2023-07-30T18:14:33Z",
+    "html_url": "https://github.com/users/eggplants/packages/container/ghcr-badge/114070042",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 114068130,
+    "name": "sha256:fb7da70b6296f773a38525243061db2e8dc5af5650b592c52c7724ab6cf8d7d7",
+    "url": "https://api.github.com/users/eggplants/packages/container/ghcr-badge/versions/114068130",
+    "package_html_url": "https://github.com/users/eggplants/packages/container/package/ghcr-badge",
+    "created_at": "2023-07-30T17:40:29Z",
+    "updated_at": "2023-07-30T17:40:29Z",
+    "html_url": "https://github.com/users/eggplants/packages/container/ghcr-badge/114068130",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "0.3.1"
+        ]
+      }
+    }
+  },
+  {
+    "id": 114068129,
+    "name": "sha256:7ef5c7bc0a246df55428c1e2696c055a6c117fe01fa877a6154afc1882a4b88f",
+    "url": "https://api.github.com/users/eggplants/packages/container/ghcr-badge/versions/114068129",
+    "package_html_url": "https://github.com/users/eggplants/packages/container/package/ghcr-badge",
+    "created_at": "2023-07-30T17:40:29Z",
+    "updated_at": "2023-07-30T17:40:29Z",
+    "html_url": "https://github.com/users/eggplants/packages/container/ghcr-badge/114068129",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 114068128,
+    "name": "sha256:b968987d41159a20a49f864902c3349a80223b549743a4c0b49076e50eea7e16",
+    "url": "https://api.github.com/users/eggplants/packages/container/ghcr-badge/versions/114068128",
+    "package_html_url": "https://github.com/users/eggplants/packages/container/package/ghcr-badge",
+    "created_at": "2023-07-30T17:40:29Z",
+    "updated_at": "2023-07-30T17:40:29Z",
+    "html_url": "https://github.com/users/eggplants/packages/container/ghcr-badge/114068128",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 114063700,
+    "name": "sha256:cbc8289d07d25829a41666821aed3a5edc256a1577333ad691f21cd1c7291b13",
+    "url": "https://api.github.com/users/eggplants/packages/container/ghcr-badge/versions/114063700",
+    "package_html_url": "https://github.com/users/eggplants/packages/container/package/ghcr-badge",
+    "created_at": "2023-07-30T16:36:40Z",
+    "updated_at": "2023-07-30T16:36:40Z",
+    "html_url": "https://github.com/users/eggplants/packages/container/ghcr-badge/114063700",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "0.3.0"
+        ]
+      }
+    }
+  },
+  {
+    "id": 114063699,
+    "name": "sha256:5d65bf86d04bc5dcbd687803e6095e2c817c1716efcb3c3140845e7b6473f395",
+    "url": "https://api.github.com/users/eggplants/packages/container/ghcr-badge/versions/114063699",
+    "package_html_url": "https://github.com/users/eggplants/packages/container/package/ghcr-badge",
+    "created_at": "2023-07-30T16:36:39Z",
+    "updated_at": "2023-07-30T16:36:39Z",
+    "html_url": "https://github.com/users/eggplants/packages/container/ghcr-badge/114063699",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 114063698,
+    "name": "sha256:18d04bdb764f1ef4b9e0c46023947e2ee636f9887c81c57e7dcc8d571dcdba62",
+    "url": "https://api.github.com/users/eggplants/packages/container/ghcr-badge/versions/114063698",
+    "package_html_url": "https://github.com/users/eggplants/packages/container/package/ghcr-badge",
+    "created_at": "2023-07-30T16:36:39Z",
+    "updated_at": "2023-07-30T16:36:39Z",
+    "html_url": "https://github.com/users/eggplants/packages/container/ghcr-badge/114063698",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 91288789,
+    "name": "sha256:bf239e181e141b31e3c6e566e5288811185610493ce016f64b4a1ac593cd9ff3",
+    "url": "https://api.github.com/users/eggplants/packages/container/ghcr-badge/versions/91288789",
+    "package_html_url": "https://github.com/users/eggplants/packages/container/package/ghcr-badge",
+    "created_at": "2023-05-07T12:23:47Z",
+    "updated_at": "2023-05-07T12:23:47Z",
+    "html_url": "https://github.com/users/eggplants/packages/container/ghcr-badge/91288789",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "0.2.1",
+          "0.2"
+        ]
+      }
+    }
+  },
+  {
+    "id": 91288785,
+    "name": "sha256:4b328e16f1d0820efa1c80e5380966b958d7d35802e70fb456f1888f4d17aede",
+    "url": "https://api.github.com/users/eggplants/packages/container/ghcr-badge/versions/91288785",
+    "package_html_url": "https://github.com/users/eggplants/packages/container/package/ghcr-badge",
+    "created_at": "2023-05-07T12:23:47Z",
+    "updated_at": "2023-05-07T12:23:47Z",
+    "html_url": "https://github.com/users/eggplants/packages/container/ghcr-badge/91288785",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 91288784,
+    "name": "sha256:ffbb476d3b0f022cea0e4ae7f7e487faf190f9b01bd4d9b9096c54de5157f2ec",
+    "url": "https://api.github.com/users/eggplants/packages/container/ghcr-badge/versions/91288784",
+    "package_html_url": "https://github.com/users/eggplants/packages/container/package/ghcr-badge",
+    "created_at": "2023-05-07T12:23:46Z",
+    "updated_at": "2023-05-07T12:23:46Z",
+    "html_url": "https://github.com/users/eggplants/packages/container/ghcr-badge/91288784",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 79158367,
+    "name": "sha256:f970e85ed19523faac74588a25fddc3c56838460b3dae30739cadcac53e709d6",
+    "url": "https://api.github.com/users/eggplants/packages/container/ghcr-badge/versions/79158367",
+    "package_html_url": "https://github.com/users/eggplants/packages/container/package/ghcr-badge",
+    "created_at": "2023-03-21T18:27:29Z",
+    "updated_at": "2023-03-21T18:27:29Z",
+    "html_url": "https://github.com/users/eggplants/packages/container/ghcr-badge/79158367",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "0.2.0"
+        ]
+      }
+    }
+  },
+  {
+    "id": 79158365,
+    "name": "sha256:8d0c0f79987b84868788ae652b189651461c2cbf750aba2cbfa603c457678de4",
+    "url": "https://api.github.com/users/eggplants/packages/container/ghcr-badge/versions/79158365",
+    "package_html_url": "https://github.com/users/eggplants/packages/container/package/ghcr-badge",
+    "created_at": "2023-03-21T18:27:29Z",
+    "updated_at": "2023-03-21T18:27:29Z",
+    "html_url": "https://github.com/users/eggplants/packages/container/ghcr-badge/79158365",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 79158358,
+    "name": "sha256:b30f5ab99983a66f9e3efb641812cac5af2299b12e585a6e32655a8c19a61e64",
+    "url": "https://api.github.com/users/eggplants/packages/container/ghcr-badge/versions/79158358",
+    "package_html_url": "https://github.com/users/eggplants/packages/container/package/ghcr-badge",
+    "created_at": "2023-03-21T18:27:28Z",
+    "updated_at": "2023-03-21T18:27:28Z",
+    "html_url": "https://github.com/users/eggplants/packages/container/ghcr-badge/79158358",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 78794185,
+    "name": "sha256:26a564fa5bd624f4138c495d7ad62d2c1ef6b08484f149cf188de720e25849de",
+    "url": "https://api.github.com/users/eggplants/packages/container/ghcr-badge/versions/78794185",
+    "package_html_url": "https://github.com/users/eggplants/packages/container/package/ghcr-badge",
+    "created_at": "2023-03-20T18:25:41Z",
+    "updated_at": "2023-03-20T18:25:41Z",
+    "html_url": "https://github.com/users/eggplants/packages/container/ghcr-badge/78794185",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "0.1.2",
+          "0.1"
+        ]
+      }
+    }
+  },
+  {
+    "id": 78794180,
+    "name": "sha256:d98fe982d13f6e33aa8f45cf77471839328853e587fc85cdc6d485e85ce92fd9",
+    "url": "https://api.github.com/users/eggplants/packages/container/ghcr-badge/versions/78794180",
+    "package_html_url": "https://github.com/users/eggplants/packages/container/package/ghcr-badge",
+    "created_at": "2023-03-20T18:25:40Z",
+    "updated_at": "2023-03-20T18:25:40Z",
+    "html_url": "https://github.com/users/eggplants/packages/container/ghcr-badge/78794180",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 78794168,
+    "name": "sha256:19a14fa398a833c5b06a7bb499a8a3d61be3de406483da3933ac62957005c2d6",
+    "url": "https://api.github.com/users/eggplants/packages/container/ghcr-badge/versions/78794168",
+    "package_html_url": "https://github.com/users/eggplants/packages/container/package/ghcr-badge",
+    "created_at": "2023-03-20T18:25:39Z",
+    "updated_at": "2023-03-20T18:25:39Z",
+    "html_url": "https://github.com/users/eggplants/packages/container/ghcr-badge/78794168",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 78783978,
+    "name": "sha256:f638b9880532cb0d120a94d10b0e10b673796a67e2d7a66cddc92228ad04154c",
+    "url": "https://api.github.com/users/eggplants/packages/container/ghcr-badge/versions/78783978",
+    "package_html_url": "https://github.com/users/eggplants/packages/container/package/ghcr-badge",
+    "created_at": "2023-03-20T17:47:29Z",
+    "updated_at": "2023-03-20T17:47:29Z",
+    "html_url": "https://github.com/users/eggplants/packages/container/ghcr-badge/78783978",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "0.1.1"
+        ]
+      }
+    }
+  },
+  {
+    "id": 78783974,
+    "name": "sha256:d9ea67031a149decfc838aeaef72d7f398c8befd0f8af05a543490b60b80632d",
+    "url": "https://api.github.com/users/eggplants/packages/container/ghcr-badge/versions/78783974",
+    "package_html_url": "https://github.com/users/eggplants/packages/container/package/ghcr-badge",
+    "created_at": "2023-03-20T17:47:28Z",
+    "updated_at": "2023-03-20T17:47:28Z",
+    "html_url": "https://github.com/users/eggplants/packages/container/ghcr-badge/78783974",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 78783970,
+    "name": "sha256:eac47e7e4a5c6626caf9983ddb5ab6ed7483daea9d346553ed439bea263b3002",
+    "url": "https://api.github.com/users/eggplants/packages/container/ghcr-badge/versions/78783970",
+    "package_html_url": "https://github.com/users/eggplants/packages/container/package/ghcr-badge",
+    "created_at": "2023-03-20T17:47:28Z",
+    "updated_at": "2023-03-20T17:47:28Z",
+    "html_url": "https://github.com/users/eggplants/packages/container/ghcr-badge/78783970",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  }
+]

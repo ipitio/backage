@@ -1,0 +1,456 @@
+[
+  {
+    "id": 231393539,
+    "name": "sha256:1fac2b9d2ba5fe6cca08f232601c3a23bcfc7477b2541fb0a8e72a8c59fe22a9",
+    "url": "https://api.github.com/orgs/nginx-proxy/packages/container/docker-gen/versions/231393539",
+    "package_html_url": "https://github.com/orgs/nginx-proxy/packages/container/package/docker-gen",
+    "created_at": "2024-06-18T04:05:05Z",
+    "updated_at": "2024-06-18T04:05:05Z",
+    "html_url": "https://github.com/orgs/nginx-proxy/packages/container/docker-gen/231393539",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "debian"
+        ]
+      }
+    }
+  },
+  {
+    "id": 231393537,
+    "name": "sha256:f2bfeb911baf883ec48f73f87f0fbaa2b30095ade3bc4669cab2c08b2863f6bc",
+    "url": "https://api.github.com/orgs/nginx-proxy/packages/container/docker-gen/versions/231393537",
+    "package_html_url": "https://github.com/orgs/nginx-proxy/packages/container/package/docker-gen",
+    "created_at": "2024-06-18T04:05:04Z",
+    "updated_at": "2024-06-18T04:05:04Z",
+    "html_url": "https://github.com/orgs/nginx-proxy/packages/container/docker-gen/231393537",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 231393534,
+    "name": "sha256:b1e8f1f04cd06ecc247447b6ffeba3500f96a7e0bafd97d3a7196dfa50014c14",
+    "url": "https://api.github.com/orgs/nginx-proxy/packages/container/docker-gen/versions/231393534",
+    "package_html_url": "https://github.com/orgs/nginx-proxy/packages/container/package/docker-gen",
+    "created_at": "2024-06-18T04:05:03Z",
+    "updated_at": "2024-06-18T04:05:03Z",
+    "html_url": "https://github.com/orgs/nginx-proxy/packages/container/docker-gen/231393534",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 231393531,
+    "name": "sha256:2f1d3cd5a9b49ff25003d3996928f5e4f0af35a4e41133b475947a13a650c45c",
+    "url": "https://api.github.com/orgs/nginx-proxy/packages/container/docker-gen/versions/231393531",
+    "package_html_url": "https://github.com/orgs/nginx-proxy/packages/container/package/docker-gen",
+    "created_at": "2024-06-18T04:05:02Z",
+    "updated_at": "2024-06-18T04:05:02Z",
+    "html_url": "https://github.com/orgs/nginx-proxy/packages/container/docker-gen/231393531",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 231393527,
+    "name": "sha256:a1ba009caf0972b4aa5b736d7912c428eb0b723f61a19a1d1d6cc376fbcb30c2",
+    "url": "https://api.github.com/orgs/nginx-proxy/packages/container/docker-gen/versions/231393527",
+    "package_html_url": "https://github.com/orgs/nginx-proxy/packages/container/package/docker-gen",
+    "created_at": "2024-06-18T04:05:02Z",
+    "updated_at": "2024-06-18T04:05:02Z",
+    "html_url": "https://github.com/orgs/nginx-proxy/packages/container/docker-gen/231393527",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 231393524,
+    "name": "sha256:345d500fee90f7bf697c12c6dad9779b6b86956fbb45502cde7def8072067556",
+    "url": "https://api.github.com/orgs/nginx-proxy/packages/container/docker-gen/versions/231393524",
+    "package_html_url": "https://github.com/orgs/nginx-proxy/packages/container/package/docker-gen",
+    "created_at": "2024-06-18T04:05:01Z",
+    "updated_at": "2024-06-18T04:05:01Z",
+    "html_url": "https://github.com/orgs/nginx-proxy/packages/container/docker-gen/231393524",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 231393520,
+    "name": "sha256:dc06ddba05014f8100a8fa685d1cbd21557b158eedf7082687c443d3598c3ee1",
+    "url": "https://api.github.com/orgs/nginx-proxy/packages/container/docker-gen/versions/231393520",
+    "package_html_url": "https://github.com/orgs/nginx-proxy/packages/container/package/docker-gen",
+    "created_at": "2024-06-18T04:05:00Z",
+    "updated_at": "2024-06-18T04:05:00Z",
+    "html_url": "https://github.com/orgs/nginx-proxy/packages/container/docker-gen/231393520",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 231393517,
+    "name": "sha256:fc95efd2e041bf42453649bd5c1cf241befc87664972e0192067e69b08dcf608",
+    "url": "https://api.github.com/orgs/nginx-proxy/packages/container/docker-gen/versions/231393517",
+    "package_html_url": "https://github.com/orgs/nginx-proxy/packages/container/package/docker-gen",
+    "created_at": "2024-06-18T04:05:00Z",
+    "updated_at": "2024-06-18T04:05:00Z",
+    "html_url": "https://github.com/orgs/nginx-proxy/packages/container/docker-gen/231393517",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 231393510,
+    "name": "sha256:21a3a04cf6ca28a1b5f6f4fa423937ec8f5a3efaa6b32058fc638d78dbe36993",
+    "url": "https://api.github.com/orgs/nginx-proxy/packages/container/docker-gen/versions/231393510",
+    "package_html_url": "https://github.com/orgs/nginx-proxy/packages/container/package/docker-gen",
+    "created_at": "2024-06-18T04:04:59Z",
+    "updated_at": "2024-06-18T04:04:59Z",
+    "html_url": "https://github.com/orgs/nginx-proxy/packages/container/docker-gen/231393510",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 231393501,
+    "name": "sha256:53e811e9cadc9adef9230df5076acbc11f6242d19b1fa40ce5eccc4a0ab8b644",
+    "url": "https://api.github.com/orgs/nginx-proxy/packages/container/docker-gen/versions/231393501",
+    "package_html_url": "https://github.com/orgs/nginx-proxy/packages/container/package/docker-gen",
+    "created_at": "2024-06-18T04:04:58Z",
+    "updated_at": "2024-06-18T04:04:58Z",
+    "html_url": "https://github.com/orgs/nginx-proxy/packages/container/docker-gen/231393501",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 231393493,
+    "name": "sha256:49360c9687a00033322afa1ff5f2c9afee8f255889c96c6511f4d469229f2b14",
+    "url": "https://api.github.com/orgs/nginx-proxy/packages/container/docker-gen/versions/231393493",
+    "package_html_url": "https://github.com/orgs/nginx-proxy/packages/container/package/docker-gen",
+    "created_at": "2024-06-18T04:04:58Z",
+    "updated_at": "2024-06-18T04:04:58Z",
+    "html_url": "https://github.com/orgs/nginx-proxy/packages/container/docker-gen/231393493",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 231393488,
+    "name": "sha256:3b055e8b0f33aa7082115f6dcf61f8eea9fdb58b604c5ea0389f912b38e18eac",
+    "url": "https://api.github.com/orgs/nginx-proxy/packages/container/docker-gen/versions/231393488",
+    "package_html_url": "https://github.com/orgs/nginx-proxy/packages/container/package/docker-gen",
+    "created_at": "2024-06-18T04:04:57Z",
+    "updated_at": "2024-06-18T04:04:57Z",
+    "html_url": "https://github.com/orgs/nginx-proxy/packages/container/docker-gen/231393488",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 231393482,
+    "name": "sha256:f5eaac5329ef24f626d69891527068a165a161aeb8e21728e57ee3632b3eb57b",
+    "url": "https://api.github.com/orgs/nginx-proxy/packages/container/docker-gen/versions/231393482",
+    "package_html_url": "https://github.com/orgs/nginx-proxy/packages/container/package/docker-gen",
+    "created_at": "2024-06-18T04:04:57Z",
+    "updated_at": "2024-06-18T04:04:57Z",
+    "html_url": "https://github.com/orgs/nginx-proxy/packages/container/docker-gen/231393482",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 231393476,
+    "name": "sha256:02c80f2a496aeece57ecf5389faa9a8e5309a1ac16382b2e4ecebcf77b7a8830",
+    "url": "https://api.github.com/orgs/nginx-proxy/packages/container/docker-gen/versions/231393476",
+    "package_html_url": "https://github.com/orgs/nginx-proxy/packages/container/package/docker-gen",
+    "created_at": "2024-06-18T04:04:56Z",
+    "updated_at": "2024-06-18T04:04:56Z",
+    "html_url": "https://github.com/orgs/nginx-proxy/packages/container/docker-gen/231393476",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 231393474,
+    "name": "sha256:7976e80e55172dd9f6705a7a7f3e499c79bbbfbb9812014e8cdbb3b140f59012",
+    "url": "https://api.github.com/orgs/nginx-proxy/packages/container/docker-gen/versions/231393474",
+    "package_html_url": "https://github.com/orgs/nginx-proxy/packages/container/package/docker-gen",
+    "created_at": "2024-06-18T04:04:56Z",
+    "updated_at": "2024-06-18T04:04:56Z",
+    "html_url": "https://github.com/orgs/nginx-proxy/packages/container/docker-gen/231393474",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 231393196,
+    "name": "sha256:b4ade4f959268d42e4531b1d9455a16553ab6374f2dac5e4c78972689efc504f",
+    "url": "https://api.github.com/orgs/nginx-proxy/packages/container/docker-gen/versions/231393196",
+    "package_html_url": "https://github.com/orgs/nginx-proxy/packages/container/package/docker-gen",
+    "created_at": "2024-06-18T04:03:47Z",
+    "updated_at": "2024-06-18T04:03:47Z",
+    "html_url": "https://github.com/orgs/nginx-proxy/packages/container/docker-gen/231393196",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "latest"
+        ]
+      }
+    }
+  },
+  {
+    "id": 231393195,
+    "name": "sha256:87c01438fa892a20bdeb7a991e4fe2e2196a05f87f1c45d94babdeeccd1acb2c",
+    "url": "https://api.github.com/orgs/nginx-proxy/packages/container/docker-gen/versions/231393195",
+    "package_html_url": "https://github.com/orgs/nginx-proxy/packages/container/package/docker-gen",
+    "created_at": "2024-06-18T04:03:47Z",
+    "updated_at": "2024-06-18T04:03:47Z",
+    "html_url": "https://github.com/orgs/nginx-proxy/packages/container/docker-gen/231393195",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 231393192,
+    "name": "sha256:c32e305f46f5640d36fd63457e7f6cbf22cfc4382454efc1d731aa1673c2297d",
+    "url": "https://api.github.com/orgs/nginx-proxy/packages/container/docker-gen/versions/231393192",
+    "package_html_url": "https://github.com/orgs/nginx-proxy/packages/container/package/docker-gen",
+    "created_at": "2024-06-18T04:03:46Z",
+    "updated_at": "2024-06-18T04:03:46Z",
+    "html_url": "https://github.com/orgs/nginx-proxy/packages/container/docker-gen/231393192",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 231393191,
+    "name": "sha256:6e06088e39e392d874708867c8a29d5b00f6e9279265de03957b2441ca6a8a75",
+    "url": "https://api.github.com/orgs/nginx-proxy/packages/container/docker-gen/versions/231393191",
+    "package_html_url": "https://github.com/orgs/nginx-proxy/packages/container/package/docker-gen",
+    "created_at": "2024-06-18T04:03:46Z",
+    "updated_at": "2024-06-18T04:03:46Z",
+    "html_url": "https://github.com/orgs/nginx-proxy/packages/container/docker-gen/231393191",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 231393187,
+    "name": "sha256:b4ebd9db566e0c4fa242b1d998bdf13d5451efd7c6fbd2317a3a6941638ea073",
+    "url": "https://api.github.com/orgs/nginx-proxy/packages/container/docker-gen/versions/231393187",
+    "package_html_url": "https://github.com/orgs/nginx-proxy/packages/container/package/docker-gen",
+    "created_at": "2024-06-18T04:03:45Z",
+    "updated_at": "2024-06-18T04:03:45Z",
+    "html_url": "https://github.com/orgs/nginx-proxy/packages/container/docker-gen/231393187",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 231393181,
+    "name": "sha256:bcc4799d44cb11c217fedf5b5692de78dd4a00b7617a6fc4931ebed8a9c8faa0",
+    "url": "https://api.github.com/orgs/nginx-proxy/packages/container/docker-gen/versions/231393181",
+    "package_html_url": "https://github.com/orgs/nginx-proxy/packages/container/package/docker-gen",
+    "created_at": "2024-06-18T04:03:45Z",
+    "updated_at": "2024-06-18T04:03:45Z",
+    "html_url": "https://github.com/orgs/nginx-proxy/packages/container/docker-gen/231393181",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 231393178,
+    "name": "sha256:d77c4e844d091af8a9bd3f7738dde7788ac78aac1a90c7bff2f1f25c7752e42b",
+    "url": "https://api.github.com/orgs/nginx-proxy/packages/container/docker-gen/versions/231393178",
+    "package_html_url": "https://github.com/orgs/nginx-proxy/packages/container/package/docker-gen",
+    "created_at": "2024-06-18T04:03:45Z",
+    "updated_at": "2024-06-18T04:03:45Z",
+    "html_url": "https://github.com/orgs/nginx-proxy/packages/container/docker-gen/231393178",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 231393176,
+    "name": "sha256:c0175594a2aa38e67e7967216a60ca44754ee9b51c8df92abcc8ed0c8cdf7a62",
+    "url": "https://api.github.com/orgs/nginx-proxy/packages/container/docker-gen/versions/231393176",
+    "package_html_url": "https://github.com/orgs/nginx-proxy/packages/container/package/docker-gen",
+    "created_at": "2024-06-18T04:03:44Z",
+    "updated_at": "2024-06-18T04:03:44Z",
+    "html_url": "https://github.com/orgs/nginx-proxy/packages/container/docker-gen/231393176",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 231393175,
+    "name": "sha256:69b220e07c0cab4b3419fa923f008f54208208e78d47d7d1111396c02e987f45",
+    "url": "https://api.github.com/orgs/nginx-proxy/packages/container/docker-gen/versions/231393175",
+    "package_html_url": "https://github.com/orgs/nginx-proxy/packages/container/package/docker-gen",
+    "created_at": "2024-06-18T04:03:44Z",
+    "updated_at": "2024-06-18T04:03:44Z",
+    "html_url": "https://github.com/orgs/nginx-proxy/packages/container/docker-gen/231393175",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 231393172,
+    "name": "sha256:57b2018becbe243475dfa843d58cbc247f0aaaac418deb3605205934769ba8d4",
+    "url": "https://api.github.com/orgs/nginx-proxy/packages/container/docker-gen/versions/231393172",
+    "package_html_url": "https://github.com/orgs/nginx-proxy/packages/container/package/docker-gen",
+    "created_at": "2024-06-18T04:03:44Z",
+    "updated_at": "2024-06-18T04:03:44Z",
+    "html_url": "https://github.com/orgs/nginx-proxy/packages/container/docker-gen/231393172",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 231393169,
+    "name": "sha256:5d4d33bfc23baa9a9a0d7049ac2c7c5a9e919bc340979d309ac6786b7607e220",
+    "url": "https://api.github.com/orgs/nginx-proxy/packages/container/docker-gen/versions/231393169",
+    "package_html_url": "https://github.com/orgs/nginx-proxy/packages/container/package/docker-gen",
+    "created_at": "2024-06-18T04:03:43Z",
+    "updated_at": "2024-06-18T04:03:43Z",
+    "html_url": "https://github.com/orgs/nginx-proxy/packages/container/docker-gen/231393169",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 231393167,
+    "name": "sha256:ca8547dcb2465524a695e86e98dd8678cd59101a3c0079ccfeee5ac9317653d5",
+    "url": "https://api.github.com/orgs/nginx-proxy/packages/container/docker-gen/versions/231393167",
+    "package_html_url": "https://github.com/orgs/nginx-proxy/packages/container/package/docker-gen",
+    "created_at": "2024-06-18T04:03:43Z",
+    "updated_at": "2024-06-18T04:03:43Z",
+    "html_url": "https://github.com/orgs/nginx-proxy/packages/container/docker-gen/231393167",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 231393166,
+    "name": "sha256:e187502afa9e4b8e6a0e888f1964915984782ca15e3c119065fb6889281c823c",
+    "url": "https://api.github.com/orgs/nginx-proxy/packages/container/docker-gen/versions/231393166",
+    "package_html_url": "https://github.com/orgs/nginx-proxy/packages/container/package/docker-gen",
+    "created_at": "2024-06-18T04:03:43Z",
+    "updated_at": "2024-06-18T04:03:43Z",
+    "html_url": "https://github.com/orgs/nginx-proxy/packages/container/docker-gen/231393166",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 231393164,
+    "name": "sha256:2de4cae2c2e342d035e90302d35435423887badc77056e7237e8d9daca147d05",
+    "url": "https://api.github.com/orgs/nginx-proxy/packages/container/docker-gen/versions/231393164",
+    "package_html_url": "https://github.com/orgs/nginx-proxy/packages/container/package/docker-gen",
+    "created_at": "2024-06-18T04:03:42Z",
+    "updated_at": "2024-06-18T04:03:42Z",
+    "html_url": "https://github.com/orgs/nginx-proxy/packages/container/docker-gen/231393164",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 231393161,
+    "name": "sha256:3eb9996a31836c0a5eeffc70001a7e88e5e1604a904f860d967a7a4d76e2a364",
+    "url": "https://api.github.com/orgs/nginx-proxy/packages/container/docker-gen/versions/231393161",
+    "package_html_url": "https://github.com/orgs/nginx-proxy/packages/container/package/docker-gen",
+    "created_at": "2024-06-18T04:03:42Z",
+    "updated_at": "2024-06-18T04:03:42Z",
+    "html_url": "https://github.com/orgs/nginx-proxy/packages/container/docker-gen/231393161",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  }
+]

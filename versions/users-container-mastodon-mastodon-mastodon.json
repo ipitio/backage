@@ -1,0 +1,490 @@
+[
+  {
+    "id": 231370762,
+    "name": "sha256:308e01b412a01ab11f64e242ba3c623b9a9271e089aa0a7c6c9c1a78e4080cb2",
+    "url": "https://api.github.com/orgs/mastodon/packages/container/mastodon/versions/231370762",
+    "package_html_url": "https://github.com/orgs/mastodon/packages/container/package/mastodon",
+    "created_at": "2024-06-18T02:19:45Z",
+    "updated_at": "2024-06-18T02:19:45Z",
+    "html_url": "https://github.com/orgs/mastodon/packages/container/mastodon/231370762",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "nightly.2024-06-18",
+          "nightly",
+          "edge"
+        ]
+      }
+    }
+  },
+  {
+    "id": 231370713,
+    "name": "sha256:bf25d2d2a278d4f6f894de4228774f02b1173f67b0ef30b61a209e1e660342fb",
+    "url": "https://api.github.com/orgs/mastodon/packages/container/mastodon/versions/231370713",
+    "package_html_url": "https://github.com/orgs/mastodon/packages/container/package/mastodon",
+    "created_at": "2024-06-18T02:19:34Z",
+    "updated_at": "2024-06-18T02:19:34Z",
+    "html_url": "https://github.com/orgs/mastodon/packages/container/mastodon/231370713",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 231370712,
+    "name": "sha256:eeb19a5066fe280b308c96d94de47937fdf3d1416bc81864a85405065d4da34a",
+    "url": "https://api.github.com/orgs/mastodon/packages/container/mastodon/versions/231370712",
+    "package_html_url": "https://github.com/orgs/mastodon/packages/container/package/mastodon",
+    "license": "AGPL-3.0",
+    "created_at": "2024-06-18T02:19:33Z",
+    "updated_at": "2024-06-18T02:19:33Z",
+    "description": "Nightly build image used for testing purposes",
+    "html_url": "https://github.com/orgs/mastodon/packages/container/mastodon/231370712",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 231370600,
+    "name": "sha256:6e962f1297538e8403eae184b8ea77905945eff0eb41017191aa26413c66dc71",
+    "url": "https://api.github.com/orgs/mastodon/packages/container/mastodon/versions/231370600",
+    "package_html_url": "https://github.com/orgs/mastodon/packages/container/package/mastodon",
+    "created_at": "2024-06-18T02:19:05Z",
+    "updated_at": "2024-06-18T02:19:05Z",
+    "html_url": "https://github.com/orgs/mastodon/packages/container/mastodon/231370600",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 231370599,
+    "name": "sha256:001293b5a7646943aee75428abdb65788e39e024b5cf77b6cd23b1c7c740d48f",
+    "url": "https://api.github.com/orgs/mastodon/packages/container/mastodon/versions/231370599",
+    "package_html_url": "https://github.com/orgs/mastodon/packages/container/package/mastodon",
+    "license": "AGPL-3.0",
+    "created_at": "2024-06-18T02:19:05Z",
+    "updated_at": "2024-06-18T02:19:05Z",
+    "description": "Nightly build image used for testing purposes",
+    "html_url": "https://github.com/orgs/mastodon/packages/container/mastodon/231370599",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 230781587,
+    "name": "sha256:679299758117cc8ea5292e8d0df75449d101eb01c2c956d755c0ff63ad891638",
+    "url": "https://api.github.com/orgs/mastodon/packages/container/mastodon/versions/230781587",
+    "package_html_url": "https://github.com/orgs/mastodon/packages/container/package/mastodon",
+    "created_at": "2024-06-17T02:21:01Z",
+    "updated_at": "2024-06-17T02:21:01Z",
+    "html_url": "https://github.com/orgs/mastodon/packages/container/mastodon/230781587",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "nightly.2024-06-17"
+        ]
+      }
+    }
+  },
+  {
+    "id": 230781582,
+    "name": "sha256:e8376f5d8da64fcb16ce1dd1346aee5d4e68bdb5534e147701d49e46e8a5a82f",
+    "url": "https://api.github.com/orgs/mastodon/packages/container/mastodon/versions/230781582",
+    "package_html_url": "https://github.com/orgs/mastodon/packages/container/package/mastodon",
+    "created_at": "2024-06-17T02:20:58Z",
+    "updated_at": "2024-06-17T02:20:58Z",
+    "html_url": "https://github.com/orgs/mastodon/packages/container/mastodon/230781582",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 230781581,
+    "name": "sha256:a4ada3d5dbf2e82f92574224640646019b7b92ce36517e6a8f9c50cc2814a1ef",
+    "url": "https://api.github.com/orgs/mastodon/packages/container/mastodon/versions/230781581",
+    "package_html_url": "https://github.com/orgs/mastodon/packages/container/package/mastodon",
+    "license": "AGPL-3.0",
+    "created_at": "2024-06-17T02:20:58Z",
+    "updated_at": "2024-06-17T02:20:58Z",
+    "description": "Nightly build image used for testing purposes",
+    "html_url": "https://github.com/orgs/mastodon/packages/container/mastodon/230781581",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 230781492,
+    "name": "sha256:6684f2e8f6d225420cd348b9056ff475d14cfcb12eb2654e3c5002fd427ad7aa",
+    "url": "https://api.github.com/orgs/mastodon/packages/container/mastodon/versions/230781492",
+    "package_html_url": "https://github.com/orgs/mastodon/packages/container/package/mastodon",
+    "created_at": "2024-06-17T02:20:27Z",
+    "updated_at": "2024-06-17T02:20:27Z",
+    "html_url": "https://github.com/orgs/mastodon/packages/container/mastodon/230781492",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 230781488,
+    "name": "sha256:f65ba6812b131539ebd1eb988aaadbb029ef65f5e0768070880a386ef5b4ca8b",
+    "url": "https://api.github.com/orgs/mastodon/packages/container/mastodon/versions/230781488",
+    "package_html_url": "https://github.com/orgs/mastodon/packages/container/package/mastodon",
+    "license": "AGPL-3.0",
+    "created_at": "2024-06-17T02:20:27Z",
+    "updated_at": "2024-06-17T02:20:27Z",
+    "description": "Nightly build image used for testing purposes",
+    "html_url": "https://github.com/orgs/mastodon/packages/container/mastodon/230781488",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 230570040,
+    "name": "sha256:f3786e552c835bcd3088202971072dd89c4c12915b2fa008baf9f7de4a8982d2",
+    "url": "https://api.github.com/orgs/mastodon/packages/container/mastodon/versions/230570040",
+    "package_html_url": "https://github.com/orgs/mastodon/packages/container/package/mastodon",
+    "created_at": "2024-06-16T02:21:41Z",
+    "updated_at": "2024-06-16T02:21:41Z",
+    "html_url": "https://github.com/orgs/mastodon/packages/container/mastodon/230570040",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "nightly.2024-06-16"
+        ]
+      }
+    }
+  },
+  {
+    "id": 230570038,
+    "name": "sha256:2b302d8905c0e4b6a8a212fb37381734ceec47705e623f967cbbb640ed6a416b",
+    "url": "https://api.github.com/orgs/mastodon/packages/container/mastodon/versions/230570038",
+    "package_html_url": "https://github.com/orgs/mastodon/packages/container/package/mastodon",
+    "created_at": "2024-06-16T02:21:38Z",
+    "updated_at": "2024-06-16T02:21:38Z",
+    "html_url": "https://github.com/orgs/mastodon/packages/container/mastodon/230570038",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 230570036,
+    "name": "sha256:dd5ec992f8f86e6ac39580f796b119b77552324cb03fe49fe8f33b6348b87991",
+    "url": "https://api.github.com/orgs/mastodon/packages/container/mastodon/versions/230570036",
+    "package_html_url": "https://github.com/orgs/mastodon/packages/container/package/mastodon",
+    "license": "AGPL-3.0",
+    "created_at": "2024-06-16T02:21:38Z",
+    "updated_at": "2024-06-16T02:21:38Z",
+    "description": "Nightly build image used for testing purposes",
+    "html_url": "https://github.com/orgs/mastodon/packages/container/mastodon/230570036",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 230569948,
+    "name": "sha256:23eb0b09f6c87f5d36dd0c1b20e0d66be7ee9dc2369bd2f82e19fe376c097a31",
+    "url": "https://api.github.com/orgs/mastodon/packages/container/mastodon/versions/230569948",
+    "package_html_url": "https://github.com/orgs/mastodon/packages/container/package/mastodon",
+    "created_at": "2024-06-16T02:21:07Z",
+    "updated_at": "2024-06-16T02:21:07Z",
+    "html_url": "https://github.com/orgs/mastodon/packages/container/mastodon/230569948",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 230569946,
+    "name": "sha256:a98a4b633976d2deeb40f9b6bc4644ee4cda98fb92050e8edc1b0e97336cbe26",
+    "url": "https://api.github.com/orgs/mastodon/packages/container/mastodon/versions/230569946",
+    "package_html_url": "https://github.com/orgs/mastodon/packages/container/package/mastodon",
+    "license": "AGPL-3.0",
+    "created_at": "2024-06-16T02:21:07Z",
+    "updated_at": "2024-06-16T02:21:07Z",
+    "description": "Nightly build image used for testing purposes",
+    "html_url": "https://github.com/orgs/mastodon/packages/container/mastodon/230569946",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 230388675,
+    "name": "sha256:4fde78219aa67a517b819ca0804f8ff62d1a70ea44f835e535c26e8c802bd57d",
+    "url": "https://api.github.com/orgs/mastodon/packages/container/mastodon/versions/230388675",
+    "package_html_url": "https://github.com/orgs/mastodon/packages/container/package/mastodon",
+    "created_at": "2024-06-15T02:19:26Z",
+    "updated_at": "2024-06-15T02:19:26Z",
+    "html_url": "https://github.com/orgs/mastodon/packages/container/mastodon/230388675",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "nightly.2024-06-15"
+        ]
+      }
+    }
+  },
+  {
+    "id": 230388671,
+    "name": "sha256:80b654e641de360d3b0e35425aabb67bf41ae001c5df88f2c244b3fcfa484133",
+    "url": "https://api.github.com/orgs/mastodon/packages/container/mastodon/versions/230388671",
+    "package_html_url": "https://github.com/orgs/mastodon/packages/container/package/mastodon",
+    "created_at": "2024-06-15T02:19:24Z",
+    "updated_at": "2024-06-15T02:19:24Z",
+    "html_url": "https://github.com/orgs/mastodon/packages/container/mastodon/230388671",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 230388670,
+    "name": "sha256:75038809d314490bf34a67f625072a8ce99442bcb8aac3b0ed4b1b33114d3728",
+    "url": "https://api.github.com/orgs/mastodon/packages/container/mastodon/versions/230388670",
+    "package_html_url": "https://github.com/orgs/mastodon/packages/container/package/mastodon",
+    "license": "AGPL-3.0",
+    "created_at": "2024-06-15T02:19:24Z",
+    "updated_at": "2024-06-15T02:19:24Z",
+    "description": "Nightly build image used for testing purposes",
+    "html_url": "https://github.com/orgs/mastodon/packages/container/mastodon/230388670",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 230388616,
+    "name": "sha256:21417d259fab7065afdd23a4c44e808b82ce2c5b57ececac6aaa395bf366cc93",
+    "url": "https://api.github.com/orgs/mastodon/packages/container/mastodon/versions/230388616",
+    "package_html_url": "https://github.com/orgs/mastodon/packages/container/package/mastodon",
+    "created_at": "2024-06-15T02:18:47Z",
+    "updated_at": "2024-06-15T02:18:47Z",
+    "html_url": "https://github.com/orgs/mastodon/packages/container/mastodon/230388616",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 230388615,
+    "name": "sha256:ffba19d890e72d4649560cdfe249048147167e33299a990720510aab0af767bf",
+    "url": "https://api.github.com/orgs/mastodon/packages/container/mastodon/versions/230388615",
+    "package_html_url": "https://github.com/orgs/mastodon/packages/container/package/mastodon",
+    "license": "AGPL-3.0",
+    "created_at": "2024-06-15T02:18:47Z",
+    "updated_at": "2024-06-15T02:18:47Z",
+    "description": "Nightly build image used for testing purposes",
+    "html_url": "https://github.com/orgs/mastodon/packages/container/mastodon/230388615",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 229908167,
+    "name": "sha256:91bfc13654bf9ef2eae17eee3a58500b22dfffb8fa8bbf5a669bc49a0ef61295",
+    "url": "https://api.github.com/orgs/mastodon/packages/container/mastodon/versions/229908167",
+    "package_html_url": "https://github.com/orgs/mastodon/packages/container/package/mastodon",
+    "created_at": "2024-06-14T02:19:54Z",
+    "updated_at": "2024-06-14T02:19:54Z",
+    "html_url": "https://github.com/orgs/mastodon/packages/container/mastodon/229908167",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "nightly.2024-06-14"
+        ]
+      }
+    }
+  },
+  {
+    "id": 229908159,
+    "name": "sha256:944c6bb278ee9873935c785ee5823b1b1fdfef697eb7c5a5e0e3b90a857cb41c",
+    "url": "https://api.github.com/orgs/mastodon/packages/container/mastodon/versions/229908159",
+    "package_html_url": "https://github.com/orgs/mastodon/packages/container/package/mastodon",
+    "created_at": "2024-06-14T02:19:52Z",
+    "updated_at": "2024-06-14T02:19:52Z",
+    "html_url": "https://github.com/orgs/mastodon/packages/container/mastodon/229908159",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 229908157,
+    "name": "sha256:5b6e42440ccd1f211d8bf960ccd482b648fd9761fa742f7edc2e39493d80951e",
+    "url": "https://api.github.com/orgs/mastodon/packages/container/mastodon/versions/229908157",
+    "package_html_url": "https://github.com/orgs/mastodon/packages/container/package/mastodon",
+    "license": "AGPL-3.0",
+    "created_at": "2024-06-14T02:19:51Z",
+    "updated_at": "2024-06-14T02:19:51Z",
+    "description": "Nightly build image used for testing purposes",
+    "html_url": "https://github.com/orgs/mastodon/packages/container/mastodon/229908157",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 229908020,
+    "name": "sha256:f9b16308d72eeaf84e37b455c6e4442504fbabf8a338398bffcad23d381ce5ce",
+    "url": "https://api.github.com/orgs/mastodon/packages/container/mastodon/versions/229908020",
+    "package_html_url": "https://github.com/orgs/mastodon/packages/container/package/mastodon",
+    "created_at": "2024-06-14T02:19:19Z",
+    "updated_at": "2024-06-14T02:19:19Z",
+    "html_url": "https://github.com/orgs/mastodon/packages/container/mastodon/229908020",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 229908018,
+    "name": "sha256:5f20cdae303892db9275bdc10f2531527ec1a3fa0cb1efc0b748dacee0f4f960",
+    "url": "https://api.github.com/orgs/mastodon/packages/container/mastodon/versions/229908018",
+    "package_html_url": "https://github.com/orgs/mastodon/packages/container/package/mastodon",
+    "license": "AGPL-3.0",
+    "created_at": "2024-06-14T02:19:19Z",
+    "updated_at": "2024-06-14T02:19:19Z",
+    "description": "Nightly build image used for testing purposes",
+    "html_url": "https://github.com/orgs/mastodon/packages/container/mastodon/229908018",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 229341201,
+    "name": "sha256:9dace85a85921ec791a37395b87df69f592bf277966d128070868b65fd54722c",
+    "url": "https://api.github.com/orgs/mastodon/packages/container/mastodon/versions/229341201",
+    "package_html_url": "https://github.com/orgs/mastodon/packages/container/package/mastodon",
+    "created_at": "2024-06-13T02:18:47Z",
+    "updated_at": "2024-06-13T02:18:47Z",
+    "html_url": "https://github.com/orgs/mastodon/packages/container/mastodon/229341201",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": [
+          "nightly.2024-06-13"
+        ]
+      }
+    }
+  },
+  {
+    "id": 229341196,
+    "name": "sha256:2beb64b134d8ed5122d70357e152dceff2a19f9fd854ef0d33558119d83a4eeb",
+    "url": "https://api.github.com/orgs/mastodon/packages/container/mastodon/versions/229341196",
+    "package_html_url": "https://github.com/orgs/mastodon/packages/container/package/mastodon",
+    "created_at": "2024-06-13T02:18:45Z",
+    "updated_at": "2024-06-13T02:18:45Z",
+    "html_url": "https://github.com/orgs/mastodon/packages/container/mastodon/229341196",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 229341195,
+    "name": "sha256:b602fdbe8a13e7c73d7097b8612f90d53cd8cf355cd74127413347188a86f4f8",
+    "url": "https://api.github.com/orgs/mastodon/packages/container/mastodon/versions/229341195",
+    "package_html_url": "https://github.com/orgs/mastodon/packages/container/package/mastodon",
+    "license": "AGPL-3.0",
+    "created_at": "2024-06-13T02:18:45Z",
+    "updated_at": "2024-06-13T02:18:45Z",
+    "description": "Nightly build image used for testing purposes",
+    "html_url": "https://github.com/orgs/mastodon/packages/container/mastodon/229341195",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 229341120,
+    "name": "sha256:7f5d0e1e1238c2d45cc809eba689b8c1cda3eded36199d4f0c4c8f540e3ec592",
+    "url": "https://api.github.com/orgs/mastodon/packages/container/mastodon/versions/229341120",
+    "package_html_url": "https://github.com/orgs/mastodon/packages/container/package/mastodon",
+    "created_at": "2024-06-13T02:18:14Z",
+    "updated_at": "2024-06-13T02:18:14Z",
+    "html_url": "https://github.com/orgs/mastodon/packages/container/mastodon/229341120",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  },
+  {
+    "id": 229341119,
+    "name": "sha256:2269797e4400e9aac2c91cb8fc3a665117f238d36e35d96b99ffbeaf4afd79f8",
+    "url": "https://api.github.com/orgs/mastodon/packages/container/mastodon/versions/229341119",
+    "package_html_url": "https://github.com/orgs/mastodon/packages/container/package/mastodon",
+    "license": "AGPL-3.0",
+    "created_at": "2024-06-13T02:18:14Z",
+    "updated_at": "2024-06-13T02:18:14Z",
+    "description": "Nightly build image used for testing purposes",
+    "html_url": "https://github.com/orgs/mastodon/packages/container/mastodon/229341119",
+    "metadata": {
+      "package_type": "container",
+      "container": {
+        "tags": []
+      }
+    }
+  }
+]
