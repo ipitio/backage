@@ -101,8 +101,6 @@ while IFS= read -r line; do
             "https://api.github.com/$owner_type/$owner/packages/$package_type/$package/versions")
         ((calls_to_api++))
         jq -e . <<<"$versions_json" &>/dev/null || versions_json="[]"
-        mkdir -p versions
-        jq . <<<"$versions_json" >"versions/$owner_type-$package_type-$owner-$repo-$package.json"
     fi
 
     # decode percent-encoded characters and make lowercase for docker manifest
@@ -128,15 +126,24 @@ while IFS= read -r line; do
         version_size=-1
         version_id=$(_jq '.id')
         version_name=$(_jq '.name')
+        version_tags=""
 
-        # get the size by adding up the layers
         if [ "$package_type" = "container" ]; then
+            # get the size by adding up the layers
             [[ "$version_name" =~ ^sha256: ]] && sep="@" || sep=":"
             manifest=$(docker manifest inspect -v "ghcr.io/$lower_owner/$lower_package$sep$version_name")
             [[ ! "$manifest" =~ ^\[.*\]$ ]] || manifest=$(jq '.[]' <<<"$manifest")
             manifest=$(jq '.OCIManifest // .SchemaV2Manifest' <<<"$manifest")
             version_size=$(jq '.layers[].size' <<<"$manifest" | awk '{s+=$1} END {print s}')
             [[ "$version_size" =~ ^[0-9]+$ ]] || version_size=-1
+
+
+            # get the tags
+            for tag in $(_jq 'metadata.container.tags[]'); do
+                version_tags="$version_tags$tag,"
+            done
+
+            # TODO: support other package types
         fi
 
         # get the downloads
@@ -169,6 +176,7 @@ while IFS= read -r line; do
             downloads_week integer not null,
             downloads_day integer not null,
             date text not null,
+            tags text,
             primary key (id, date)
         );"
         sqlite3 "$INDEX_DB" "$table_version"
@@ -177,9 +185,9 @@ while IFS= read -r line; do
 
         # if there is a row with the same id and date, replace it, otherwise insert a new row
         if [ "$count" -eq 0 ]; then
-            query="insert into '$table_version_name' (id, name, size, downloads, downloads_month, downloads_week, downloads_day, date) values ('$version_id', '$version_name', '$version_size', '$version_raw_downloads', '$version_raw_downloads_month', '$version_raw_downloads_week', '$version_raw_downloads_day', '$TODAY');"
+            query="insert into '$table_version_name' (id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags) values ('$version_id', '$version_name', '$version_size', '$version_raw_downloads', '$version_raw_downloads_month', '$version_raw_downloads_week', '$version_raw_downloads_day', '$TODAY', '$version_tags');"
         else
-            query="update '$table_version_name' set size='$version_size', downloads='$version_raw_downloads', downloads_month='$version_raw_downloads_month', downloads_week='$version_raw_downloads_week', downloads_day='$version_raw_downloads_day' where id='$version_id' and date='$TODAY';"
+            query="update '$table_version_name' set size='$version_size', downloads='$version_raw_downloads', downloads_month='$version_raw_downloads_month', downloads_week='$version_raw_downloads_week', downloads_day='$version_raw_downloads_day', tags='$version_tags' where id='$version_id' and date='$TODAY';"
         fi
 
         sqlite3 "$INDEX_DB" "$query"
@@ -249,22 +257,22 @@ sqlite3 "$INDEX_DB" "select * from '$table_pkg_name' order by downloads + 0 desc
             \"package_type\": \"$package_type\",
             \"owner\": \"$owner\",
             \"repo\": \"$repo\",
-            \"package\": \"$package\",
             \"image\": \"$package\",
-            \"versions\": \"$version_count_fmt\",
-            \"raw_versions\": $version_count,
+            \"package\": \"$package\",
+            \"date\": \"$date\",
             \"size\": \"$fmt_size\",
-            \"raw_size\": $size,
+            \"versions\": \"$version_count_fmt\",
             \"pulls\": \"$fmt_downloads\",
             \"downloads\": \"$fmt_downloads\",
             \"downloads_month\": \"$fmt_downloads_month\",
             \"downloads_week\": \"$fmt_downloads_week\",
             \"downloads_day\": \"$fmt_downloads_day\",
+            \"raw_size\": $size,
+            \"raw_versions\": $version_count,
             \"raw_downloads\": $downloads,
             \"raw_downloads_month\": $downloads_month,
             \"raw_downloads_week\": $downloads_week,
             \"raw_downloads_day\": $downloads_day,
-            \"date\": \"$date\",
             \"version\": [" >>index.json
     else
         echo "{
@@ -273,19 +281,19 @@ sqlite3 "$INDEX_DB" "select * from '$table_pkg_name' order by downloads + 0 desc
             \"owner\": \"$owner\",
             \"repo\": \"$repo\",
             \"package\": \"$package\",
-            \"versions\": \"$version_count_fmt\",
-            \"raw_versions\": $version_count,
+            \"date\": \"$date\",
             \"size\": \"$fmt_size\",
-            \"raw_size\": $size,
+            \"versions\": \"$version_count_fmt\",
             \"downloads\": \"$fmt_downloads\",
             \"downloads_month\": \"$fmt_downloads_month\",
             \"downloads_week\": \"$fmt_downloads_week\",
             \"downloads_day\": \"$fmt_downloads_day\",
+            \"raw_size\": $size,
+            \"raw_versions\": $version_count,
             \"raw_downloads\": $downloads,
             \"raw_downloads_month\": $downloads_month,
             \"raw_downloads_week\": $downloads_week,
             \"raw_downloads_day\": $downloads_day,
-            \"date\": \"$date\",
             \"version\": [" >>index.json
     fi
 
@@ -293,29 +301,27 @@ sqlite3 "$INDEX_DB" "select * from '$table_pkg_name' order by downloads + 0 desc
     if [ "$version_count" -gt 0 ]; then
         query="select id from '$table_version_name' order by id desc limit 1;"
         version_latest_id=$(sqlite3 "$INDEX_DB" "$query")
-        sqlite3 "$INDEX_DB" "select * from '$table_version_name' order by date desc;" | while IFS='|' read -r id name size downloads downloads_month downloads_week downloads_day date; do
+        sqlite3 "$INDEX_DB" "select * from '$table_version_name' order by date desc;" | while IFS='|' read -r id name size downloads downloads_month downloads_week downloads_day date tags; do
             fmt_downloads=$(numfmt <<<"$downloads")
             fmt_downloads_month=$(numfmt <<<"$downloads_month")
             fmt_downloads_week=$(numfmt <<<"$downloads_week")
             fmt_downloads_day=$(numfmt <<<"$downloads_day")
             fmt_size=$(numfmtSize <<<"$size")
-            is_latest=false
-            [ "$id" = "$version_latest_id" ] && is_latest=true
             echo "{
                 \"id\": $id,
                 \"name\": \"$name\",
-                \"latest\": $is_latest,
+                \"date\": \"$date\",
                 \"size\": \"$fmt_size\",
-                \"raw_size\": $size,
                 \"downloads\": \"$fmt_downloads\",
                 \"downloads_month\": \"$fmt_downloads_month\",
                 \"downloads_week\": \"$fmt_downloads_week\",
                 \"downloads_day\": \"$fmt_downloads_day\",
+                \"raw_size\": $size,
                 \"raw_downloads\": $downloads,
                 \"raw_downloads_month\": $downloads_month,
                 \"raw_downloads_week\": $downloads_week,
                 \"raw_downloads_day\": $downloads_day,
-                \"date\": \"$date\"
+                \"tag\": [\"${tags//,/\",\"}\"],
                 }," >>index.json
         done
     fi
