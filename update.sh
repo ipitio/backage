@@ -102,7 +102,7 @@ while IFS= read -r line; do
         ((calls_to_api++))
         jq -e . <<<"$versions_json" &>/dev/null || versions_json="[]"
         mkdir -p versions
-        echo "$versions_json" >"versions/$owner_type-$package_type-$owner-$repo-$package.json"
+        jq . <<<"$versions_json" >"versions/$owner_type-$package_type-$owner-$repo-$package.json"
     fi
 
     # decode percent-encoded characters and make lowercase for docker manifest
