@@ -101,6 +101,8 @@ while IFS= read -r line; do
             "https://api.github.com/$owner_type/$owner/packages/$package_type/$package/versions")
         ((calls_to_api++))
         jq -e . <<<"$versions_json" &>/dev/null || versions_json="[]"
+        mkdir -p versions
+        echo "$versions_json" >"versions/$owner_type-$package_type-$owner-$repo-$package.json"
     fi
 
     # decode percent-encoded characters and make lowercase for docker manifest
