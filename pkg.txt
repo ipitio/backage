@@ -73,3 +73,4 @@ timeplus-io/proton/proton
 TwiN/gatus/gatus
 usememos/memos/memos
 vdsm/virtual-dsm/virtual-dsm
+Ki365/Ki365/ki365
