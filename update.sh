@@ -137,9 +137,8 @@ while IFS= read -r line; do
             version_size=$(jq '.layers[].size' <<<"$manifest" | awk '{s+=$1} END {print s}')
             [[ "$version_size" =~ ^[0-9]+$ ]] || version_size=-1
 
-
             # get the tags
-            for tag in $(_jq 'metadata.container.tags[]'); do
+            for tag in $(_jq '.metadata.container.tags[]'); do
                 version_tags="$version_tags$tag,"
             done
 
@@ -321,7 +320,7 @@ sqlite3 "$INDEX_DB" "select * from '$table_pkg_name' order by downloads + 0 desc
                 \"raw_downloads_month\": $downloads_month,
                 \"raw_downloads_week\": $downloads_week,
                 \"raw_downloads_day\": $downloads_day,
-                \"tag\": [\"${tags//,/\",\"}\"],
+                \"tags\": [\"${tags//,/\",\"}\"]
                 }," >>index.json
         done
     fi
