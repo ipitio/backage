@@ -68,17 +68,16 @@ while IFS= read -r line; do
     raw_downloads_day=-1
     size=-1
 
-    # manual update: skip if the package is already in the index; the rest are updated on a consistent basis
+    # manual update: skip if the package is already in the index; the rest are updated daily
     if [ "$1" = "1" ]; then
-        # check if the package is already in the database and was updated in the last 24 hours
-        query="select count(*) from '$table_pkg_name' where owner_type='$owner_type' and package_type='$package_type' and owner='$owner' and repo='$repo' and package='$package' and date in ('$TODAY', date('$TODAY', '-1 day'));"
+        query="select count(*) from '$table_pkg_name' where owner_type='$owner_type' and package_type='$package_type' and owner='$owner' and repo='$repo' and package='$package';"
         count=$(sqlite3 "$INDEX_DB" "$query")
         ((count == 0)) || continue
     fi
 
-    # scheduled update: skip if the package was updated in the last 12 hours
+    # scheduled update: skip if the package was updated today
     if [ "$1" = "0" ]; then
-        query="select count(*) from '$table_pkg_name' where owner_type='$owner_type' and package_type='$package_type' and owner='$owner' and repo='$repo' and package='$package' and date in ('$TODAY', date('$TODAY', '-12 hours'));"
+        query="select count(*) from '$table_pkg_name' where owner_type='$owner_type' and package_type='$package_type' and owner='$owner' and repo='$repo' and package='$package' and date='$TODAY';"
         count=$(sqlite3 "$INDEX_DB" "$query")
         ((count == 0)) || continue
     fi
@@ -142,7 +141,10 @@ while IFS= read -r line; do
                 version_tags="$version_tags$tag,"
             done
 
-            # TODO: support other package types
+            # remove the last comma
+            version_tags=${version_tags%,}
+        else
+            : # TODO: support other package types
         fi
 
         # get the downloads
@@ -206,8 +208,8 @@ while IFS= read -r line; do
 
         # use the latest version's size as the package size
         query="select id from 'versions_${owner_type}_${package_type}_${owner}_${repo}_${package}' order by id desc limit 1;"
-        version_latest_id=$(sqlite3 "$INDEX_DB" "$query")
-        query="select size from 'versions_${owner_type}_${package_type}_${owner}_${repo}_${package}' where id='$version_latest_id' order by date desc limit 1;"
+        version_newest_id=$(sqlite3 "$INDEX_DB" "$query")
+        query="select size from 'versions_${owner_type}_${package_type}_${owner}_${repo}_${package}' where id='$version_newest_id' order by date desc limit 1;"
         size=$(sqlite3 "$INDEX_DB" "$query")
     fi
 
@@ -238,15 +240,19 @@ sqlite3 "$INDEX_DB" "select * from '$table_pkg_name' order by downloads + 0 desc
     fmt_downloads_day=$(numfmt <<<"$downloads_day")
     fmt_size=$(numfmtSize <<<"$size")
     version_count=0
+    version_with_tag_count=0
     table_version_name="versions_${owner_type}_${package_type}_${owner}_${repo}_${package}"
 
     # if versions table exists, get the count
     if sqlite3 "$INDEX_DB" ".tables" | grep -q "$table_version_name"; then
         query="select count(*) from '$table_version_name';"
         version_count=$(sqlite3 "$INDEX_DB" "$query")
+        query="select count(*) from '$table_version_name' where tags is not null;"
+        version_with_tag_count=$(sqlite3 "$INDEX_DB" "$query")
     fi
 
     version_count_fmt=$(numfmt <<<"$version_count")
+    version_with_tag_count_fmt=$(numfmt <<<"$version_with_tag_count")
 
     # if package_type is container, add "image" and "pulls" for backwards compatibility
     # please use "package" and "downloads" instead
@@ -261,6 +267,7 @@ sqlite3 "$INDEX_DB" "select * from '$table_pkg_name' order by downloads + 0 desc
             \"date\": \"$date\",
             \"size\": \"$fmt_size\",
             \"versions\": \"$version_count_fmt\",
+            \"tagged\": \"$version_with_tag_count_fmt\",
             \"pulls\": \"$fmt_downloads\",
             \"downloads\": \"$fmt_downloads\",
             \"downloads_month\": \"$fmt_downloads_month\",
@@ -268,6 +275,7 @@ sqlite3 "$INDEX_DB" "select * from '$table_pkg_name' order by downloads + 0 desc
             \"downloads_day\": \"$fmt_downloads_day\",
             \"raw_size\": $size,
             \"raw_versions\": $version_count,
+            \"raw_tagged\": $version_with_tag_count,
             \"raw_downloads\": $downloads,
             \"raw_downloads_month\": $downloads_month,
             \"raw_downloads_week\": $downloads_week,
@@ -283,12 +291,14 @@ sqlite3 "$INDEX_DB" "select * from '$table_pkg_name' order by downloads + 0 desc
             \"date\": \"$date\",
             \"size\": \"$fmt_size\",
             \"versions\": \"$version_count_fmt\",
+            \"tagged\": \"$version_with_tag_count_fmt\",
             \"downloads\": \"$fmt_downloads\",
             \"downloads_month\": \"$fmt_downloads_month\",
             \"downloads_week\": \"$fmt_downloads_week\",
             \"downloads_day\": \"$fmt_downloads_day\",
             \"raw_size\": $size,
             \"raw_versions\": $version_count,
+            \"raw_tagged\": $version_with_tag_count,
             \"raw_downloads\": $downloads,
             \"raw_downloads_month\": $downloads_month,
             \"raw_downloads_week\": $downloads_week,
@@ -299,22 +309,18 @@ sqlite3 "$INDEX_DB" "select * from '$table_pkg_name' order by downloads + 0 desc
     # add the versions to index.json
     if [ "$version_count" -gt 0 ]; then
         query="select id from '$table_version_name' order by id desc limit 1;"
-        version_latest_id=$(sqlite3 "$INDEX_DB" "$query")
+        version_newest_id=$(sqlite3 "$INDEX_DB" "$query")
         sqlite3 "$INDEX_DB" "select * from '$table_version_name' order by date desc;" | while IFS='|' read -r id name size downloads downloads_month downloads_week downloads_day date tags; do
-            fmt_downloads=$(numfmt <<<"$downloads")
-            fmt_downloads_month=$(numfmt <<<"$downloads_month")
-            fmt_downloads_week=$(numfmt <<<"$downloads_week")
-            fmt_downloads_day=$(numfmt <<<"$downloads_day")
-            fmt_size=$(numfmtSize <<<"$size")
             echo "{
                 \"id\": $id,
                 \"name\": \"$name\",
                 \"date\": \"$date\",
-                \"size\": \"$fmt_size\",
-                \"downloads\": \"$fmt_downloads\",
-                \"downloads_month\": \"$fmt_downloads_month\",
-                \"downloads_week\": \"$fmt_downloads_week\",
-                \"downloads_day\": \"$fmt_downloads_day\",
+                \"newest\": $([ "$id" = "$version_newest_id" ] && echo "true" || echo "false"),
+                \"size\": \"$(numfmtSize <<<"$size")\",
+                \"downloads\": \"$(numfmt <<<"$downloads")\",
+                \"downloads_month\": \"$(numfmt <<<"$downloads_month")\",
+                \"downloads_week\": \"$(numfmt <<<"$downloads_week")\",
+                \"downloads_day\": \"$(numfmt <<<"$downloads_day")\",
                 \"raw_size\": $size,
                 \"raw_downloads\": $downloads,
                 \"raw_downloads_month\": $downloads_month,
@@ -343,14 +349,17 @@ mv index.tmp.json index.json
 jq 'sort_by(.raw_downloads | tonumber) | reverse' index.json >index.tmp.json
 mv index.tmp.json index.json
 
+# minify the json
+#jq -c . index.json >index.tmp.json
+#mv index.tmp.json index.json
+
 # update the README template with badges...
 [ ! -f README.md ] || rm -f README.md # remove the old README
 \cp .README.md README.md              # copy the template
 echo "Total Downloads:"
 sqlite3 "$INDEX_DB" "select * from '$table_pkg_name' order by downloads + 0 desc;" | while IFS='|' read -r owner_type package_type owner repo package downloads _ _ _ _ _; do
     export owner_type package_type owner repo package
-    fmt_downloads=$(numfmt <<<"$downloads")
-    printf "%s\t(%s)    \t%s/%s/%s (%s/%s)\n" "$fmt_downloads" "$downloads" "$owner" "$repo" "$package" "$owner_type" "$package_type"
+    printf "%s\t(%s)    \t%s/%s/%s (%s/%s)\n" "$(numfmt <<<"$downloads")" "$downloads" "$owner" "$repo" "$package" "$owner_type" "$package_type"
 
     # ...that have not been added yet
     grep -q "$owner_type/$package_type/$owner/$repo/$package" README.md || perl -0777 -pe '
