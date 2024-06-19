@@ -41,6 +41,7 @@ gogs/gogs/gogs
 home-assistant/operating-system/haos-builder
 hugomods/docker/hugo
 k3d-io/k3d/k3d-tools
+Ki365/Ki365/ki365
 ko-build/ko/ko
 labring/sealos/sealos-patch
 Lissy93/dashy/dashy
@@ -73,4 +74,3 @@ timeplus-io/proton/proton
 TwiN/gatus/gatus
 usememos/memos/memos
 vdsm/virtual-dsm/virtual-dsm
-Ki365/Ki365/ki365
