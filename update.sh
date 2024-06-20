@@ -92,8 +92,8 @@ while IFS= read -r line; do
     versions_json="[]" # default to none
     versions_page=0
 
-    # get each page of versions
-    while :; do
+    # limit to first page / newest 100 versions
+    while [ "$versions_page" -lt 1 ]; do
         ((versions_page++))
         # if the repo is public the api request should succeed
         if [ -n "$GITHUB_TOKEN" ] && [ -n "$is_public" ]; then
