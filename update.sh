@@ -342,8 +342,8 @@ jq 'sort_by(.raw_downloads | tonumber) | reverse' index.json >index.tmp.json
 mv index.tmp.json index.json
 
 # minify the json
-#jq -c . index.json >index.tmp.json
-#mv index.tmp.json index.json
+jq -c . index.json >index.tmp.json
+mv index.tmp.json index.json
 
 # update the README template with badges...
 [ ! -f README.md ] || rm -f README.md # remove the old README
