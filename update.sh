@@ -329,7 +329,7 @@ sqlite3 "$INDEX_DB" "select * from '$table_pkg_name' order by downloads + 0 desc
     printf "%s\t(%s)    \t%s/%s/%s (%s/%s)\n" "$(numfmt <<<"$downloads")" "$downloads" "$owner" "$repo" "$package" "$owner_type" "$package_type"
 
     # replace <GITHUB_OWNER>, <GITHUB_REPO>, and <GITHUB_BRANCH> with the actual values in the README
-    perl -0777 -pe 's/<GITHUB_OWNER>/'"$owner"'/g; s/<GITHUB_REPO>/'"$repo"'/g; s/<GITHUB_BRANCH>/'"$GITHUB_BRANCH"'/g' README.md >README.tmp && [ -f README.tmp ] && mv README.tmp README.md || :
+    perl -0777 -pe 's/<GITHUB_OWNER>/'"$GITHUB_OWNER"'/g; s/<GITHUB_REPO>/'"$GITHUB_REPO"'/g; s/<GITHUB_BRANCH>/'"$GITHUB_BRANCH"'/g' README.md >README.tmp && [ -f README.tmp ] && mv README.tmp README.md || :
 
     # ...that have not been added yet
     grep -q "$owner_type/$package_type/$owner/$repo/$package" README.md || perl -0777 -pe '
