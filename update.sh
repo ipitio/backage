@@ -328,6 +328,9 @@ sqlite3 "$INDEX_DB" "select * from '$table_pkg_name' order by downloads + 0 desc
     export owner_type package_type owner repo package
     printf "%s\t(%s)    \t%s/%s/%s (%s/%s)\n" "$(numfmt <<<"$downloads")" "$downloads" "$owner" "$repo" "$package" "$owner_type" "$package_type"
 
+    # replace <GITHUB_OWNER>, <GITHUB_REPO>, and <GITHUB_BRANCH> with the actual values in the README
+    perl -0777 -pe 's/<GITHUB_OWNER>/'"$owner"'/g; s/<GITHUB_REPO>/'"$repo"'/g; s/<GITHUB_BRANCH>/'"$GITHUB_BRANCH"'/g' README.md >README.tmp && [ -f README.tmp ] && mv README.tmp README.md || :
+
     # ...that have not been added yet
     grep -q "$owner_type/$package_type/$owner/$repo/$package" README.md || perl -0777 -pe '
     my $owner_type = $ENV{"owner_type"};
@@ -335,6 +338,9 @@ sqlite3 "$INDEX_DB" "select * from '$table_pkg_name' order by downloads + 0 desc
     my $owner = $ENV{"owner"};
     my $repo = $ENV{"repo"};
     my $package = $ENV{"package"};
+    my $thisowner $ENV{"GITHUB_OWNER"};
+    my $thisrepo $ENV{"GITHUB_REPO"};
+    my $thisbranch $ENV{"GITHUB_BRANCH"};
 
     # decode percent-encoded characters
     for ($owner, $repo, $package) {
@@ -344,6 +350,6 @@ sqlite3 "$INDEX_DB" "select * from '$table_pkg_name' order by downloads + 0 desc
     $label =~ s/%([0-9A-Fa-f]{2})/chr(hex($1))/eg;
 
     # add new badge
-    s/\n\n(\[!\[.*)\n\n/\n\n$1 \[!\[$owner_type\/$package_type\/$owner\/$repo\/$package\]\(https:\/\/img.shields.io\/badge\/dynamic\/json\?url=https%3A%2F%2Fraw.githubusercontent.com%2Fipitio%2Fghcr-pulls%2Fmaster%2Findex.json\&query=%24%5B%3F(%40.owner%3D%3D%22$owner%22%20%26%26%20%40.repo%3D%3D%22$repo%22%20%26%26%20%40.package%3D%3D%22$package%22)%5D.downloads\&label=$label\)\]\(https:\/\/github.com\/$owner\/$repo\/pkgs\/container\/$package\)\n\n/g;
+    s/\n\n(\[!\[.*)\n\n/\n\n$1 \[!\[$owner_type\/$package_type\/$owner\/$repo\/$package\]\(https:\/\/img.shields.io\/badge\/dynamic\/json\?url=https%3A%2F%2Fraw.githubusercontent.com%2F$thisowner%2F$thisrepo%2F$thisbranch%2Findex.json\&query=%24%5B%3F(%40.owner%3D%3D%22$owner%22%20%26%26%20%40.repo%3D%3D%22$repo%22%20%26%26%20%40.package%3D%3D%22$package%22)%5D.downloads\&label=$label\)\]\(https:\/\/github.com\/$owner\/$repo\/pkgs\/container\/$package\)\n\n/g;
 ' README.md >README.tmp && [ -f README.tmp ] && mv README.tmp README.md || :
 done
