@@ -235,10 +235,6 @@ done <pkg.txt
 echo "[" >index.json
 sqlite3 "$INDEX_DB" "select * from '$table_pkg_name' order by downloads + 0 desc;" | while IFS='|' read -r owner_type package_type owner repo package downloads downloads_month downloads_week downloads_day size date; do
     fmt_downloads=$(numfmt <<<"$downloads")
-    fmt_downloads_month=$(numfmt <<<"$downloads_month")
-    fmt_downloads_week=$(numfmt <<<"$downloads_week")
-    fmt_downloads_day=$(numfmt <<<"$downloads_day")
-    fmt_size=$(numfmtSize <<<"$size")
     version_count=0
     version_with_tag_count=0
     table_version_name="versions_${owner_type}_${package_type}_${owner}_${repo}_${package}"
@@ -253,58 +249,29 @@ sqlite3 "$INDEX_DB" "select * from '$table_pkg_name' order by downloads + 0 desc
 
     version_count_fmt=$(numfmt <<<"$version_count")
     version_with_tag_count_fmt=$(numfmt <<<"$version_with_tag_count")
-
-    # if package_type is container, add "image" and "pulls" for backwards compatibility
-    # please use "package" and "downloads" instead
-    if [ "$package_type" = "container" ]; then
-        echo "{
-            \"owner_type\": \"$owner_type\",
-            \"package_type\": \"$package_type\",
-            \"owner\": \"$owner\",
-            \"repo\": \"$repo\",
-            \"image\": \"$package\",
-            \"package\": \"$package\",
-            \"date\": \"$date\",
-            \"size\": \"$fmt_size\",
-            \"versions\": \"$version_count_fmt\",
-            \"tagged\": \"$version_with_tag_count_fmt\",
-            \"pulls\": \"$fmt_downloads\",
-            \"downloads\": \"$fmt_downloads\",
-            \"downloads_month\": \"$fmt_downloads_month\",
-            \"downloads_week\": \"$fmt_downloads_week\",
-            \"downloads_day\": \"$fmt_downloads_day\",
-            \"raw_size\": $size,
-            \"raw_versions\": $version_count,
-            \"raw_tagged\": $version_with_tag_count,
-            \"raw_downloads\": $downloads,
-            \"raw_downloads_month\": $downloads_month,
-            \"raw_downloads_week\": $downloads_week,
-            \"raw_downloads_day\": $downloads_day,
-            \"version\": [" >>index.json
-    else
-        echo "{
-            \"owner_type\": \"$owner_type\",
-            \"package_type\": \"$package_type\",
-            \"owner\": \"$owner\",
-            \"repo\": \"$repo\",
-            \"package\": \"$package\",
-            \"date\": \"$date\",
-            \"size\": \"$fmt_size\",
-            \"versions\": \"$version_count_fmt\",
-            \"tagged\": \"$version_with_tag_count_fmt\",
-            \"downloads\": \"$fmt_downloads\",
-            \"downloads_month\": \"$fmt_downloads_month\",
-            \"downloads_week\": \"$fmt_downloads_week\",
-            \"downloads_day\": \"$fmt_downloads_day\",
-            \"raw_size\": $size,
-            \"raw_versions\": $version_count,
-            \"raw_tagged\": $version_with_tag_count,
-            \"raw_downloads\": $downloads,
-            \"raw_downloads_month\": $downloads_month,
-            \"raw_downloads_week\": $downloads_week,
-            \"raw_downloads_day\": $downloads_day,
-            \"version\": [" >>index.json
-    fi
+    echo "{" >>index.json
+    [[ "$package_type" != "container" ]] || echo "\"image\": \"$package\",\"pulls\": \"$fmt_downloads\"," >>index.json
+    echo "\"owner_type\": \"$owner_type\",
+        \"package_type\": \"$package_type\",
+        \"owner\": \"$owner\",
+        \"repo\": \"$repo\",
+        \"package\": \"$package\",
+        \"date\": \"$date\",
+        \"size\": \"$(numfmtSize <<<"$size")\",
+        \"versions\": \"$version_count_fmt\",
+        \"tagged\": \"$version_with_tag_count_fmt\",
+        \"downloads\": \"$fmt_downloads\",
+        \"downloads_month\": \"$(numfmt <<<"$downloads_month")\",
+        \"downloads_week\": \"$(numfmt <<<"$downloads_week")\",
+        \"downloads_day\": \"$(numfmt <<<"$downloads_day")\",
+        \"raw_size\": $size,
+        \"raw_versions\": $version_count,
+        \"raw_tagged\": $version_with_tag_count,
+        \"raw_downloads\": $downloads,
+        \"raw_downloads_month\": $downloads_month,
+        \"raw_downloads_week\": $downloads_week,
+        \"raw_downloads_day\": $downloads_day,
+        \"version\": [" >>index.json
 
     # add the versions to index.json
     if [ "$version_count" -gt 0 ]; then
