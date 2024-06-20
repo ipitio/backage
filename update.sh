@@ -90,108 +90,126 @@ while IFS= read -r line; do
     [[ ! "$raw_downloads" =~ ^[0-9]+$ ]] || downloads=$(numfmt <<<"$raw_downloads")
     is_public=$(grep -Pzo 'Total downloads' <<<"$html" | tr -d '\0')
     versions_json="[]" # default to none
+    versions_page=0
 
-    # if the repo is piblic the api request should succeed
-    if [ -n "$GITHUB_TOKEN" ] && [ -n "$is_public" ]; then
-        versions_json=$(curl -sSL \
-            -H "Accept: application/vnd.github+json" \
-            -H "Authorization: Bearer $GITHUB_TOKEN" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            "https://api.github.com/$owner_type/$owner/packages/$package_type/$package/versions")
-        ((calls_to_api++))
-        jq -e . <<<"$versions_json" &>/dev/null || versions_json="[]"
-    fi
+    # get each page of versions
+    while :; do
+        ((versions_page++))
+        # if the repo is public the api request should succeed
+        if [ -n "$GITHUB_TOKEN" ] && [ -n "$is_public" ]; then
+            versions_json=$(curl -sSL \
+                -H "Accept: application/vnd.github+json" \
+                -H "Authorization: Bearer $GITHUB_TOKEN" \
+                -H "X-GitHub-Api-Version: 2022-11-28" \
+                "https://api.github.com/$owner_type/$owner/packages/$package_type/$package/versions?per_page=100&page=$versions_page")
+            ((calls_to_api++))
+            jq -e . <<<"$versions_json" &>/dev/null || versions_json="[]"
+        fi
 
-    # decode percent-encoded characters and make lowercase for docker manifest
-    if [ "$package_type" = "container" ]; then
-        lower_owner=$owner
-        lower_package=$package
+        # if versions_page is > 1 and versions is empty, break
+        [[ "$versions_page" -gt 1 && "$(jq '. | length' <<<"$versions_json")" -eq 0 ]] && break || :
 
-        for i in "$lower_owner" "$lower_package"; do
-            i=${i//%/%25}
-        done
-
-        lower_owner=$(perl -pe 's/%([0-9A-Fa-f]{2})/chr(hex($1))/eg' <<<"$lower_owner" | tr '[:upper:]' '[:lower:]')
-        lower_package=$(perl -pe 's/%([0-9A-Fa-f]{2})/chr(hex($1))/eg' <<<"$lower_package" | tr '[:upper:]' '[:lower:]')
-    fi
-
-    # scan the versions
-    jq -e . <<<"$versions_json" &>/dev/null || versions_json="[{\"id\":\"latest\",\"name\":\"latest\"}]"
-    for i in $(jq -r '.[] | @base64' <<<"$versions_json"); do
-        _jq() {
-            echo "$i" | base64 --decode | jq -r "$@"
-        }
-
-        version_size=-1
-        version_id=$(_jq '.id')
-        version_name=$(_jq '.name')
-        version_tags=""
-
+        # decode percent-encoded characters and make lowercase for docker manifest
         if [ "$package_type" = "container" ]; then
-            # get the size by adding up the layers
-            [[ "$version_name" =~ ^sha256: ]] && sep="@" || sep=":"
-            manifest=$(docker manifest inspect -v "ghcr.io/$lower_owner/$lower_package$sep$version_name")
-            [[ ! "$manifest" =~ ^\[.*\]$ ]] || manifest=$(jq '.[]' <<<"$manifest")
-            manifest=$(jq '.OCIManifest // .SchemaV2Manifest' <<<"$manifest")
-            version_size=$(jq '.layers[].size' <<<"$manifest" | awk '{s+=$1} END {print s}')
-            [[ "$version_size" =~ ^[0-9]+$ ]] || version_size=-1
+            lower_owner=$owner
+            lower_package=$package
 
-            # get the tags
-            for tag in $(_jq '.metadata.container.tags[]'); do
-                version_tags="$version_tags$tag,"
+            for i in "$lower_owner" "$lower_package"; do
+                i=${i//%/%25}
             done
 
-            # remove the last comma
-            version_tags=${version_tags%,}
-        else
-            : # TODO: support other package types
+            lower_owner=$(perl -pe 's/%([0-9A-Fa-f]{2})/chr(hex($1))/eg' <<<"$lower_owner" | tr '[:upper:]' '[:lower:]')
+            lower_package=$(perl -pe 's/%([0-9A-Fa-f]{2})/chr(hex($1))/eg' <<<"$lower_package" | tr '[:upper:]' '[:lower:]')
         fi
 
-        # get the downloads
-        version_html=$(curl -sSLNZ "https://github.com/$owner/$repo/pkgs/$package_type/$package/$version_id")
-        version_raw_downloads=$(echo "$version_html" | grep -Pzo 'Total downloads<[^<]*<[^<]*' | grep -Pzo '\d*$' | tr -d '\0')
-        version_raw_downloads=$(tr -d ',' <<<"$version_raw_downloads")
+        # scan the versions
+        jq -e . <<<"$versions_json" &>/dev/null || versions_json="[{\"id\":\"latest\",\"name\":\"latest\"}]"
+        for i in $(jq -r '.[] | @base64' <<<"$versions_json"); do
+            _jq() {
+                echo "$i" | base64 --decode | jq -r "$@"
+            }
 
-        if [[ "$version_raw_downloads" =~ ^[0-9]+$ ]]; then
-            version_raw_downloads_month=$(grep -Pzo 'Last 30 days<[^<]*<[^<]*' <<<"$version_html" | grep -Pzo '\d*$' | tr -d '\0')
-            version_raw_downloads_week=$(grep -Pzo 'Last week<[^<]*<[^<]*' <<<"$version_html" | grep -Pzo '\d*$' | tr -d '\0')
-            version_raw_downloads_day=$(grep -Pzo 'Today<[^<]*<[^<]*' <<<"$version_html" | grep -Pzo '\d*$' | tr -d '\0')
-            version_raw_downloads_month=$(tr -d ',' <<<"$version_raw_downloads_month")
-            version_raw_downloads_week=$(tr -d ',' <<<"$version_raw_downloads_week")
-            version_raw_downloads_day=$(tr -d ',' <<<"$version_raw_downloads_day")
-        else
-            version_raw_downloads=-1
-            version_raw_downloads_month=-1
-            version_raw_downloads_week=-1
-            version_raw_downloads_day=-1
+            version_size=-1
+            version_id=$(_jq '.id')
+            version_name=$(_jq '.name')
+            version_tags=""
+
+            if [ "$package_type" = "container" ]; then
+                # get the size by adding up the layers
+                [[ "$version_name" =~ ^sha256: ]] && sep="@" || sep=":"
+                manifest=$(docker manifest inspect -v "ghcr.io/$lower_owner/$lower_package$sep$version_name")
+                [[ ! "$manifest" =~ ^\[.*\]$ ]] || manifest=$(jq '.[]' <<<"$manifest")
+                manifest=$(jq '.OCIManifest // .SchemaV2Manifest' <<<"$manifest")
+                version_size=$(jq '.layers[].size' <<<"$manifest" | awk '{s+=$1} END {print s}')
+                [[ "$version_size" =~ ^[0-9]+$ ]] || version_size=-1
+
+                # get the tags
+                for tag in $(_jq '.metadata.container.tags[]'); do
+                    version_tags="$version_tags$tag,"
+                done
+
+                # remove the last comma
+                version_tags=${version_tags%,}
+            else
+                : # TODO: support other package types
+            fi
+
+            # get the downloads
+            version_html=$(curl -sSLNZ "https://github.com/$owner/$repo/pkgs/$package_type/$package/$version_id")
+            version_raw_downloads=$(echo "$version_html" | grep -Pzo 'Total downloads<[^<]*<[^<]*' | grep -Pzo '\d*$' | tr -d '\0')
+            version_raw_downloads=$(tr -d ',' <<<"$version_raw_downloads")
+
+            if [[ "$version_raw_downloads" =~ ^[0-9]+$ ]]; then
+                version_raw_downloads_month=$(grep -Pzo 'Last 30 days<[^<]*<[^<]*' <<<"$version_html" | grep -Pzo '\d*$' | tr -d '\0')
+                version_raw_downloads_week=$(grep -Pzo 'Last week<[^<]*<[^<]*' <<<"$version_html" | grep -Pzo '\d*$' | tr -d '\0')
+                version_raw_downloads_day=$(grep -Pzo 'Today<[^<]*<[^<]*' <<<"$version_html" | grep -Pzo '\d*$' | tr -d '\0')
+                version_raw_downloads_month=$(tr -d ',' <<<"$version_raw_downloads_month")
+                version_raw_downloads_week=$(tr -d ',' <<<"$version_raw_downloads_week")
+                version_raw_downloads_day=$(tr -d ',' <<<"$version_raw_downloads_day")
+            else
+                version_raw_downloads=-1
+                version_raw_downloads_month=-1
+                version_raw_downloads_week=-1
+                version_raw_downloads_day=-1
+            fi
+
+            # create a table for each package
+            table_version_name="versions_${owner_type}_${package_type}_${owner}_${repo}_${package}"
+            table_version="create table if not exists '$table_version_name' (
+                id text not null,
+                name text not null,
+                size integer not null,
+                downloads integer not null,
+                downloads_month integer not null,
+                downloads_week integer not null,
+                downloads_day integer not null,
+                date text not null,
+                tags text,
+                primary key (id, date)
+            );"
+            sqlite3 "$INDEX_DB" "$table_version"
+            search="select count(*) from '$table_version_name' where id='$version_id' and date='$TODAY';"
+            count=$(sqlite3 "$INDEX_DB" "$search")
+
+            # if there is a row with the same id and date, replace it, otherwise insert a new row
+            if [ "$count" -eq 0 ]; then
+                query="insert into '$table_version_name' (id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags) values ('$version_id', '$version_name', '$version_size', '$version_raw_downloads', '$version_raw_downloads_month', '$version_raw_downloads_week', '$version_raw_downloads_day', '$TODAY', '$version_tags');"
+            else
+                query="update '$table_version_name' set size='$version_size', downloads='$version_raw_downloads', downloads_month='$version_raw_downloads_month', downloads_week='$version_raw_downloads_week', downloads_day='$version_raw_downloads_day', tags='$version_tags' where id='$version_id' and date='$TODAY';"
+            fi
+
+            sqlite3 "$INDEX_DB" "$query"
+        done
+
+        # scan all versions before refreshing the package
+        rate_limit_end=$(date +%s)
+        rate_limit_diff=$((rate_limit_end - rate_limit_start))
+        if [[ "$rate_limit_diff" -ge 3000 || "$calls_to_api" -ge 900 ]]; then
+            echo "Limit reached, waiting until the limit resets..."
+            sleep $((3600 - rate_limit_diff))
+            rate_limit_start=$(date +%s)
+            calls_to_api=0
         fi
-
-        # create a table for each package
-        table_version_name="versions_${owner_type}_${package_type}_${owner}_${repo}_${package}"
-        table_version="create table if not exists '$table_version_name' (
-            id text not null,
-            name text not null,
-            size integer not null,
-            downloads integer not null,
-            downloads_month integer not null,
-            downloads_week integer not null,
-            downloads_day integer not null,
-            date text not null,
-            tags text,
-            primary key (id, date)
-        );"
-        sqlite3 "$INDEX_DB" "$table_version"
-        search="select count(*) from '$table_version_name' where id='$version_id' and date='$TODAY';"
-        count=$(sqlite3 "$INDEX_DB" "$search")
-
-        # if there is a row with the same id and date, replace it, otherwise insert a new row
-        if [ "$count" -eq 0 ]; then
-            query="insert into '$table_version_name' (id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags) values ('$version_id', '$version_name', '$version_size', '$version_raw_downloads', '$version_raw_downloads_month', '$version_raw_downloads_week', '$version_raw_downloads_day', '$TODAY', '$version_tags');"
-        else
-            query="update '$table_version_name' set size='$version_size', downloads='$version_raw_downloads', downloads_month='$version_raw_downloads_month', downloads_week='$version_raw_downloads_week', downloads_day='$version_raw_downloads_day', tags='$version_tags' where id='$version_id' and date='$TODAY';"
-        fi
-
-        sqlite3 "$INDEX_DB" "$query"
     done
 
     # use the version stats if we have them
