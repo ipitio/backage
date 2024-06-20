@@ -261,12 +261,12 @@ sqlite3 "$INDEX_DB" "select * from '$table_pkg_name' order by downloads + 0 desc
     if sqlite3 "$INDEX_DB" ".tables" | grep -q "$table_version_name"; then
         query="select count(distinct id) from '$table_version_name';"
         version_count=$(sqlite3 "$INDEX_DB" "$query")
-        query="select count(distinct id) from '$table_version_name' where tags is not null;"
+        query="select count(distinct id) from '$table_version_name' where tags != '' and tags is not null;"
         version_with_tag_count=$(sqlite3 "$INDEX_DB" "$query")
+
+        echo "Refreshing $owner/$repo/$package ($owner_type/$package_type) with $version_count versions ($version_with_tag_count tagged)..."
     fi
 
-    version_count_fmt=$(numfmt <<<"$version_count")
-    version_with_tag_count_fmt=$(numfmt <<<"$version_with_tag_count")
     echo "{" >>index.json
     [[ "$package_type" != "container" ]] || echo "\"image\": \"$package\",\"pulls\": \"$fmt_downloads\"," >>index.json
     echo "\"owner_type\": \"$owner_type\",
@@ -276,8 +276,8 @@ sqlite3 "$INDEX_DB" "select * from '$table_pkg_name' order by downloads + 0 desc
         \"package\": \"$package\",
         \"date\": \"$date\",
         \"size\": \"$(numfmtSize <<<"$size")\",
-        \"versions\": \"$version_count_fmt\",
-        \"tagged\": \"$version_with_tag_count_fmt\",
+        \"versions\": \"$(numfmt <<<"$version_count")\",
+        \"tagged\": \"$(numfmt <<<"$version_with_tag_count")\",
         \"downloads\": \"$fmt_downloads\",
         \"downloads_month\": \"$(numfmt <<<"$downloads_month")\",
         \"downloads_week\": \"$(numfmt <<<"$downloads_week")\",
@@ -296,10 +296,10 @@ sqlite3 "$INDEX_DB" "select * from '$table_pkg_name' order by downloads + 0 desc
         query="select id from '$table_version_name' order by id desc limit 1;"
         version_newest_id=$(sqlite3 "$INDEX_DB" "$query")
 
-        # get only the last day each version was updated
-        sqlite3 "$INDEX_DB" "select id, max(date) from '$table_version_name' group by id order by id desc;" | while IFS='|' read -r id date; do
-            query="select * from '$table_version_name' where id='$id' and date='$date';"
-            read -r id name size downloads downloads_month downloads_week downloads_day date tags < <(sqlite3 "$INDEX_DB" "$query")
+        # get only the last day each version was updated, which may not be today
+        # desc sort by id
+        query="select id, name, date, size, downloads, downloads_month, downloads_week, downloads_day, tags from '$table_version_name' group by id order by id desc;"
+        sqlite3 "$INDEX_DB" "$query" | while IFS='|' read -r id name date size downloads downloads_month downloads_week downloads_day tags; do
             echo "{
                 \"id\": $id,
                 \"name\": \"$name\",
@@ -317,6 +317,9 @@ sqlite3 "$INDEX_DB" "select * from '$table_pkg_name' order by downloads + 0 desc
                 \"raw_downloads_day\": $downloads_day,
                 \"tags\": [\"${tags//,/\",\"}\"]
                 }," >>index.json
+
+            # echo to stdout all the version stats on one line
+            #printf "%s\t(%s)    \t%s/%s/%s/%s/%s\t%s\t%s\t%s\t%s\t%s\n" "$(numfmt <<<"$downloads")" "$downloads" "$owner_type" "$package_type" "$owner" "$repo" "$package" "$name" "$(numfmtSize <<<"$size")" "$(numfmt <<<"$downloads_month")" "$(numfmt <<<"$downloads_week")" "$(numfmt <<<"$downloads_day")"
         done
     fi
 
