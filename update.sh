@@ -199,17 +199,17 @@ while IFS= read -r line; do
             fi
 
             sqlite3 "$INDEX_DB" "$query"
-        done
 
-        # scan all versions before refreshing the package
-        rate_limit_end=$(date +%s)
-        rate_limit_diff=$((rate_limit_end - rate_limit_start))
-        if [[ "$rate_limit_diff" -ge 3000 || "$calls_to_api" -ge 900 ]]; then
-            echo "Limit reached, waiting until the limit resets..."
-            sleep $((3600 - rate_limit_diff))
-            rate_limit_start=$(date +%s)
-            calls_to_api=0
-        fi
+            # scan all versions before refreshing the package
+            rate_limit_end=$(date +%s)
+            rate_limit_diff=$((rate_limit_end - rate_limit_start))
+            if [[ "$rate_limit_diff" -ge 3000 || "$calls_to_api" -ge 900 ]]; then
+                echo "Limit reached, waiting until the limit resets..."
+                sleep $((3600 - rate_limit_diff))
+                rate_limit_start=$(date +%s)
+                calls_to_api=0
+            fi
+        done
     done
 
     # use the version stats if we have them
@@ -257,11 +257,11 @@ sqlite3 "$INDEX_DB" "select * from '$table_pkg_name' order by downloads + 0 desc
     version_with_tag_count=0
     table_version_name="versions_${owner_type}_${package_type}_${owner}_${repo}_${package}"
 
-    # if versions table exists, get the count
+    # get the version and tagged counts
     if sqlite3 "$INDEX_DB" ".tables" | grep -q "$table_version_name"; then
-        query="select count(*) from '$table_version_name';"
+        query="select count(distinct id) from '$table_version_name';"
         version_count=$(sqlite3 "$INDEX_DB" "$query")
-        query="select count(*) from '$table_version_name' where tags is not null;"
+        query="select count(distinct id) from '$table_version_name' where tags is not null;"
         version_with_tag_count=$(sqlite3 "$INDEX_DB" "$query")
     fi
 
@@ -295,7 +295,11 @@ sqlite3 "$INDEX_DB" "select * from '$table_pkg_name' order by downloads + 0 desc
     if [ "$version_count" -gt 0 ]; then
         query="select id from '$table_version_name' order by id desc limit 1;"
         version_newest_id=$(sqlite3 "$INDEX_DB" "$query")
-        sqlite3 "$INDEX_DB" "select * from '$table_version_name' order by date desc;" | while IFS='|' read -r id name size downloads downloads_month downloads_week downloads_day date tags; do
+
+        # get only the last day each version was updated
+        sqlite3 "$INDEX_DB" "select id, max(date) from '$table_version_name' group by id order by id desc;" | while IFS='|' read -r id date; do
+            query="select * from '$table_version_name' where id='$id' and date='$date';"
+            read -r id name size downloads downloads_month downloads_week downloads_day date tags < <(sqlite3 "$INDEX_DB" "$query")
             echo "{
                 \"id\": $id,
                 \"name\": \"$name\",
