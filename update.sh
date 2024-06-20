@@ -323,13 +323,12 @@ mv index.tmp.json index.json
 # update the README template with badges...
 [ ! -f README.md ] || rm -f README.md # remove the old README
 \cp .README.md README.md              # copy the template
+perl -0777 -pe 's/<GITHUB_OWNER>/'"$GITHUB_OWNER"'/g; s/<GITHUB_REPO>/'"$GITHUB_REPO"'/g; s/<GITHUB_BRANCH>/'"$GITHUB_BRANCH"'/g' README.md >README.tmp && [ -f README.tmp ] && mv README.tmp README.md || :
+
 echo "Total Downloads:"
 sqlite3 "$INDEX_DB" "select * from '$table_pkg_name' order by downloads + 0 desc;" | while IFS='|' read -r owner_type package_type owner repo package downloads _ _ _ _ _; do
     export owner_type package_type owner repo package
     printf "%s\t(%s)    \t%s/%s/%s (%s/%s)\n" "$(numfmt <<<"$downloads")" "$downloads" "$owner" "$repo" "$package" "$owner_type" "$package_type"
-
-    # replace <GITHUB_OWNER>, <GITHUB_REPO>, and <GITHUB_BRANCH> with the actual values in the README
-    perl -0777 -pe 's/<GITHUB_OWNER>/'"$GITHUB_OWNER"'/g; s/<GITHUB_REPO>/'"$GITHUB_REPO"'/g; s/<GITHUB_BRANCH>/'"$GITHUB_BRANCH"'/g' README.md >README.tmp && [ -f README.tmp ] && mv README.tmp README.md || :
 
     # ...that have not been added yet
     grep -q "$owner_type/$package_type/$owner/$repo/$package" README.md || perl -0777 -pe '
