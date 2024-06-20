@@ -337,9 +337,9 @@ sqlite3 "$INDEX_DB" "select * from '$table_pkg_name' order by downloads + 0 desc
     my $owner = $ENV{"owner"};
     my $repo = $ENV{"repo"};
     my $package = $ENV{"package"};
-    my $thisowner $ENV{"GITHUB_OWNER"};
-    my $thisrepo $ENV{"GITHUB_REPO"};
-    my $thisbranch $ENV{"GITHUB_BRANCH"};
+    my $thisowner = $ENV{"GITHUB_OWNER"};
+    my $thisrepo = $ENV{"GITHUB_REPO"};
+    my $thisbranch = $ENV{"GITHUB_BRANCH"};
 
     # decode percent-encoded characters
     for ($owner, $repo, $package) {
