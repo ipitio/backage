@@ -61,55 +61,54 @@ while IFS= read -r line; do
     package_type=$(cut -d'/' -f2 <<<"$line")
     repo=$(cut -d'/' -f4 <<<"$line")
     package=$(cut -d'/' -f5 <<<"$line")
-    downloads=-1
-    raw_downloads=-1
-    raw_downloads_month=-1
-    raw_downloads_week=-1
-    raw_downloads_day=-1
-    size=-1
+    packages=""
 
-    # manual update: skip if the package is already in the index; the rest are updated daily
-    if [ "$1" = "1" ]; then
-        query="select count(*) from '$table_pkg_name' where owner_type='$owner_type' and package_type='$package_type' and owner='$owner' and repo='$repo' and package='$package';"
-        count=$(sqlite3 "$INDEX_DB" "$query")
-        ((count == 0)) || continue
+    # if package isn't given, get all the packages for the owner/repo
+    if [ -z "$package" ]; then
+        echo "Getting all the packages for $owner_type/$package_type/$owner/$repo..."
+        page=0
+        while true; do
+            ((page++))
+            html=$(curl -sSLNZ "https://github.com/$owner_type/$owner/packages?ecosystem=$package_type&repo_name=$repo&page=$page")
+            packages_more=$(grep -oP 'href="/'"$owner_type"'/'"$owner"'/packages/'"$package_type"'/package/[^"]+"' <<<"$html" | cut -d'/' -f7 | cut -d'"' -f1)
+            [ -n "$packages_more" ] || break
+
+            # add the packages to the list
+            while IFS= read -r package; do
+                packages="$packages$package\n"
+            done <<<"$packages_more"
+        done
+    else
+        packages="$package"
     fi
 
-    # scheduled update: skip if the package was updated today
-    if [ "$1" = "0" ]; then
-        query="select count(*) from '$table_pkg_name' where owner_type='$owner_type' and package_type='$package_type' and owner='$owner' and repo='$repo' and package='$package' and date='$TODAY';"
-        count=$(sqlite3 "$INDEX_DB" "$query")
-        ((count == 0)) || continue
-    fi
+    # loop through the packages, without the last newline
+    while IFS= read -r package; do
+        [ -n "$package" ] || continue
 
-    echo "Updating $owner/$repo/$package ($owner_type/$package_type)..."
-
-    # scrape the package page for the total downloads
-    html=$(curl -sSLNZ "https://github.com/$owner/$repo/pkgs/$package_type/$package")
-    raw_downloads=$(grep -Pzo 'Total downloads[^"]*"\d*' <<<"$html" | grep -Pzo '\d*$' | tr -d '\0') # https://stackoverflow.com/a/74214537
-    [[ ! "$raw_downloads" =~ ^[0-9]+$ ]] || downloads=$(numfmt <<<"$raw_downloads")
-    is_public=$(grep -Pzo 'Total downloads' <<<"$html" | tr -d '\0')
-    versions_json="[]" # default to none
-    versions_page=0
-
-    # limit to first page / newest 100 versions
-    while [ "$versions_page" -lt 1 ]; do
-        ((versions_page++))
-        # if the repo is public the api request should succeed
-        if [ -n "$GITHUB_TOKEN" ] && [ -n "$is_public" ]; then
-            versions_json=$(curl -sSL \
-                -H "Accept: application/vnd.github+json" \
-                -H "Authorization: Bearer $GITHUB_TOKEN" \
-                -H "X-GitHub-Api-Version: 2022-11-28" \
-                "https://api.github.com/$owner_type/$owner/packages/$package_type/$package/versions?per_page=100&page=$versions_page")
-            ((calls_to_api++))
-            jq -e . <<<"$versions_json" &>/dev/null || versions_json="[]"
+        # manual update: skip if the package is already in the index; the rest are updated daily
+        if [ "$1" = "1" ]; then
+            query="select count(*) from '$table_pkg_name' where owner_type='$owner_type' and package_type='$package_type' and owner='$owner' and repo='$repo' and package='$package';"
+            count=$(sqlite3 "$INDEX_DB" "$query")
+            ((count == 0)) || continue
         fi
 
-        # if versions_page is > 1 and versions is empty, break
-        [[ "$versions_page" -gt 1 && "$(jq '. | length' <<<"$versions_json")" -eq 0 ]] && break || :
+        # scheduled update: skip if the package was updated today
+        if [ "$1" = "0" ]; then
+            query="select count(*) from '$table_pkg_name' where owner_type='$owner_type' and package_type='$package_type' and owner='$owner' and repo='$repo' and package='$package' and date='$TODAY';"
+            count=$(sqlite3 "$INDEX_DB" "$query")
+            ((count == 0)) || continue
+        fi
 
-        # decode percent-encoded characters and make lowercase for docker manifest
+        echo "Updating $owner/$repo/$package ($owner_type/$package_type)..."
+        downloads=-1
+        raw_downloads=-1
+        raw_downloads_month=-1
+        raw_downloads_week=-1
+        raw_downloads_day=-1
+        size=-1
+
+        # decode percent-encoded characters and make lowercase (eg. for docker manifest)
         if [ "$package_type" = "container" ]; then
             lower_owner=$owner
             lower_package=$package
@@ -121,6 +120,57 @@ while IFS= read -r line; do
             lower_owner=$(perl -pe 's/%([0-9A-Fa-f]{2})/chr(hex($1))/eg' <<<"$lower_owner" | tr '[:upper:]' '[:lower:]')
             lower_package=$(perl -pe 's/%([0-9A-Fa-f]{2})/chr(hex($1))/eg' <<<"$lower_package" | tr '[:upper:]' '[:lower:]')
         fi
+
+        # scrape the package page for the total downloads
+        html=$(curl -sSLNZ "https://github.com/$owner/$repo/pkgs/$package_type/$package")
+        raw_downloads=$(grep -Pzo 'Total downloads[^"]*"\d*' <<<"$html" | grep -Pzo '\d*$' | tr -d '\0') # https://stackoverflow.com/a/74214537
+        [[ ! "$raw_downloads" =~ ^[0-9]+$ ]] || downloads=$(numfmt <<<"$raw_downloads")
+        is_public=$(grep -Pzo 'Total downloads' <<<"$html" | tr -d '\0')
+        versions_json="[]"
+        versions_page=0
+
+        # add all the versions currently in the db to the versions_json, if they are not already there
+        table_version_name="versions_${owner_type}_${package_type}_${owner}_${repo}_${package}"
+        if sqlite3 "$INDEX_DB" ".tables" | grep -q "$table_version_name"; then
+            query="select id, name from '$table_version_name';"
+            while IFS='|' read -r id name; do
+                if ! jq -e ".[] | select(.id == \"$id\")" <<<"$versions_json" &>/dev/null; then
+                    versions_json=$(jq ". += [{\"id\":\"$id\",\"name\":\"$name\"}]" <<<"$versions_json")
+                fi
+            done < <(sqlite3 "$INDEX_DB" "$query")
+        fi
+
+        # limit to X pages / newest X00 versions
+        while [ "$versions_page" -lt 1 ]; do
+            ((versions_page++))
+            # if the repo is public the api request should succeed
+            if [ -n "$GITHUB_TOKEN" ] && [ -n "$is_public" ]; then
+                versions_json_more=$(curl -sSL \
+                    -H "Accept: application/vnd.github+json" \
+                    -H "Authorization: Bearer $GITHUB_TOKEN" \
+                    -H "X-GitHub-Api-Version: 2022-11-28" \
+                    "https://api.github.com/$owner_type/$owner/packages/$package_type/$package/versions?per_page=100&page=$versions_page")
+                ((calls_to_api++))
+                jq -e . <<<"$versions_json_more" &>/dev/null || versions_json_more="[]"
+            fi
+
+            # if versions is empty or doesn't have .name, break
+            [[ ! "$versions_json_more" =~ ^\[\{.*\"name\":.*\}\]$ ]] && break || :
+
+            # add the new versions to the versions_json, if they are not already there
+            for i in $(jq -r '.[] | @base64' <<<"$versions_json_more"); do
+                _jq() {
+                    echo "$i" | base64 --decode | jq -r "$@"
+                }
+
+                id=$(_jq '.id')
+                name=$(_jq '.name')
+
+                if ! jq -e ".[] | select(.id == \"$id\")" <<<"$versions_json" &>/dev/null; then
+                    versions_json=$(jq ". += [{\"id\":\"$id\",\"name\":\"$name\"}]" <<<"$versions_json")
+                fi
+            done
+        done
 
         # scan the versions
         jq -e . <<<"$versions_json" &>/dev/null || versions_json="[{\"id\":\"latest\",\"name\":\"latest\"}]"
@@ -143,10 +193,12 @@ while IFS= read -r line; do
                 version_size=$(jq '.layers[].size' <<<"$manifest" | awk '{s+=$1} END {print s}')
                 [[ "$version_size" =~ ^[0-9]+$ ]] || version_size=-1
 
-                # get the tags
-                for tag in $(_jq '.metadata.container.tags[]'); do
-                    version_tags="$version_tags$tag,"
-                done
+                # to prevent can't iterate over null error
+                if [[ "$manifest" =~ ^\[\]$ ]]; then
+                    for tag in $(_jq '.metadata.container.tags[]'); do
+                        version_tags="$version_tags$tag,"
+                    done
+                fi
 
                 # remove the last comma
                 version_tags=${version_tags%,}
@@ -210,43 +262,42 @@ while IFS= read -r line; do
                 calls_to_api=0
             fi
         done
-    done
 
-    # use the version stats if we have them
-    query="select name from sqlite_master where type='table' and name='$table_version_name';"
-    table_exists=$(sqlite3 "$INDEX_DB" "$query")
-    if [ -n "$table_exists" ]; then
-        # calculate the total downloads over all versions for day, week, and month using sqlite:
-        query="select sum(downloads), sum(downloads_month), sum(downloads_week), sum(downloads_day) from 'versions_${owner_type}_${package_type}_${owner}_${repo}_${package}' where date='$TODAY';"
-        summed_raw_downloads=$(sqlite3 "$INDEX_DB" "$query" | cut -d'|' -f1)
-        raw_downloads_month=$(sqlite3 "$INDEX_DB" "$query" | cut -d'|' -f2)
-        raw_downloads_week=$(sqlite3 "$INDEX_DB" "$query" | cut -d'|' -f3)
-        raw_downloads_day=$(sqlite3 "$INDEX_DB" "$query" | cut -d'|' -f4)
-        ((summed_raw_downloads == raw_downloads)) || echo "Total Downloads Discrepancy: $raw_downloads given != $summed_raw_downloads summed across versions."
+        # use the version stats if we have them
+        query="select name from sqlite_master where type='table' and name='$table_version_name';"
+        table_exists=$(sqlite3 "$INDEX_DB" "$query")
+        if [ -n "$table_exists" ]; then
+            # calculate the total downloads over all versions for day, week, and month using sqlite:
+            query="select sum(downloads), sum(downloads_month), sum(downloads_week), sum(downloads_day) from 'versions_${owner_type}_${package_type}_${owner}_${repo}_${package}' where date='$TODAY';"
+            # summed_raw_downloads=$(sqlite3 "$INDEX_DB" "$query" | cut -d'|' -f1)
+            raw_downloads_month=$(sqlite3 "$INDEX_DB" "$query" | cut -d'|' -f2)
+            raw_downloads_week=$(sqlite3 "$INDEX_DB" "$query" | cut -d'|' -f3)
+            raw_downloads_day=$(sqlite3 "$INDEX_DB" "$query" | cut -d'|' -f4)
 
-        # use the latest version's size as the package size
-        query="select id from 'versions_${owner_type}_${package_type}_${owner}_${repo}_${package}' order by id desc limit 1;"
-        version_newest_id=$(sqlite3 "$INDEX_DB" "$query")
-        query="select size from 'versions_${owner_type}_${package_type}_${owner}_${repo}_${package}' where id='$version_newest_id' order by date desc limit 1;"
-        size=$(sqlite3 "$INDEX_DB" "$query")
-    fi
+            # use the latest version's size as the package size
+            query="select id from 'versions_${owner_type}_${package_type}_${owner}_${repo}_${package}' order by id desc limit 1;"
+            version_newest_id=$(sqlite3 "$INDEX_DB" "$query")
+            query="select size from 'versions_${owner_type}_${package_type}_${owner}_${repo}_${package}' where id='$version_newest_id' order by date desc limit 1;"
+            size=$(sqlite3 "$INDEX_DB" "$query")
+        fi
 
-    # update stats
-    query="select count(*) from '$table_pkg_name' where owner_type='$owner_type' and package_type='$package_type' and owner='$owner' and repo='$repo' and package='$package';"
-    count=$(sqlite3 "$INDEX_DB" "$query")
+        # update stats
+        query="select count(*) from '$table_pkg_name' where owner_type='$owner_type' and package_type='$package_type' and owner='$owner' and repo='$repo' and package='$package';"
+        count=$(sqlite3 "$INDEX_DB" "$query")
 
-    if [ "$count" -eq 0 ]; then
-        query="insert into '$table_pkg_name' (owner_type, package_type, owner, repo, package, downloads, downloads_month, downloads_week, downloads_day, size, date) values ('$owner_type', '$package_type', '$owner', '$repo', '$package', '$raw_downloads', '$raw_downloads_month', '$raw_downloads_week', '$raw_downloads_day', '$size', '$TODAY');"
-    else
-        query="update '$table_pkg_name' set downloads='$raw_downloads', downloads_month='$raw_downloads_month', downloads_week='$raw_downloads_week', downloads_day='$raw_downloads_day', size='$size', date='$TODAY' where owner_type='$owner_type' and package_type='$package_type' and owner='$owner' and repo='$repo' and package='$package';"
-    fi
+        if [ "$count" -eq 0 ]; then
+            query="insert into '$table_pkg_name' (owner_type, package_type, owner, repo, package, downloads, downloads_month, downloads_week, downloads_day, size, date) values ('$owner_type', '$package_type', '$owner', '$repo', '$package', '$raw_downloads', '$raw_downloads_month', '$raw_downloads_week', '$raw_downloads_day', '$size', '$TODAY');"
+        else
+            query="update '$table_pkg_name' set downloads='$raw_downloads', downloads_month='$raw_downloads_month', downloads_week='$raw_downloads_week', downloads_day='$raw_downloads_day', size='$size', date='$TODAY' where owner_type='$owner_type' and package_type='$package_type' and owner='$owner' and repo='$repo' and package='$package';"
+        fi
 
-    sqlite3 "$INDEX_DB" "$query"
+        sqlite3 "$INDEX_DB" "$query"
 
-    # api rate limit, the next run will take care of the rest
-    rate_limit_end=$(date +%s)
-    rate_limit_diff=$((rate_limit_end - rate_limit_start))
-    [[ "$rate_limit_diff" -lt 3000 && "$calls_to_api" -lt 900 ]] || break
+        # api rate limit, the next run will take care of the rest
+        rate_limit_end=$(date +%s)
+        rate_limit_diff=$((rate_limit_end - rate_limit_start))
+        [[ "$rate_limit_diff" -lt 3000 && "$calls_to_api" -lt 900 ]] || break
+    done < <(echo -e "$packages")
 done <pkg.txt
 
 # update index.json:
