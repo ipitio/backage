@@ -32,8 +32,8 @@ users/container/dockur/snort
 users/container/dockur/statping
 users/container/dockur/strfry
 users/container/dockur/tor
-users/container/dockur/windows-arm
 users/container/dockur/windows
+users/container/dockur/windows-arm
 users/container/drakkan/sftpgo
 users/container/eggplants/ghcr-badge
 users/container/emissary-ingress/emissary
