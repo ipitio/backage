@@ -108,7 +108,6 @@ while IFS= read -r owner; do
                 # loop through the packages, without the last newline
                 while IFS= read -r package; do
                     [ -n "$package" ] || continue
-                    echo "Checking $owner/$repo/$package ($owner_type/$package_type)..."
 
                     # manual update: skip if the package is already in the index; the rest are updated daily
                     if [ "$1" = "1" ]; then
