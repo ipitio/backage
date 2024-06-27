@@ -65,9 +65,9 @@ while IFS= read -r owner; do
             ((repos_page++))
 
             if [ "$owner_type" = "orgs" ]; then
-                html=$(curl -sSLNZ "https://github.com/$owner_type/$owner/repositories?per_page=100&page=$repos_page")
+                html=$(curl -sSLNZ --connect-timeout 60 -m 120 "https://github.com/$owner_type/$owner/repositories?per_page=100&page=$repos_page")
             else
-                html=$(curl -sSLNZ "https://github.com/$owner?tab=repositories&per_page=100&page=$repos_page")
+                html=$(curl -sSLNZ --connect-timeout 60 -m 120 "https://github.com/$owner?tab=repositories&per_page=100&page=$repos_page")
             fi
 
             repos_more=$(grep -oP 'href="/'"$owner"'/[^"]+"' <<<"$html" | cut -d'/' -f3 | cut -d'"' -f1)
@@ -92,7 +92,7 @@ while IFS= read -r owner; do
 
                 while true; do
                     ((packages_page++))
-                    html=$(curl -sSLNZ "https://github.com/$owner_type/$owner/packages?ecosystem=$package_type&repo_name=$repo&per_page=100&page=$packages_page")
+                    html=$(curl -sSLNZ --connect-timeout 60 -m 120 "https://github.com/$owner_type/$owner/packages?ecosystem=$package_type&repo_name=$repo&per_page=100&page=$packages_page")
                     packages_more=$(grep -oP 'href="/'"$owner_type"'/'"$owner"'/packages/'"$package_type"'/package/[^"]+"' <<<"$html" | cut -d'/' -f7 | cut -d'"' -f1)
                     [ -n "$packages_more" ] || break
 
@@ -144,7 +144,7 @@ while IFS= read -r owner; do
                     fi
 
                     # scrape the package page for the total downloads
-                    html=$(curl -sSLNZ "https://github.com/$owner/$repo/pkgs/$package_type/$package")
+                    html=$(curl -sSLNZ --connect-timeout 60 -m 120 "https://github.com/$owner/$repo/pkgs/$package_type/$package")
                     is_public=$(grep -Pzo 'Total downloads' <<<"$html" | tr -d '\0')
                     [ -n "$is_public" ] || continue
                     echo "Updating $owner/$repo/$package ($owner_type/$package_type)..."
@@ -173,6 +173,7 @@ while IFS= read -r owner; do
                                 -H "Accept: application/vnd.github+json" \
                                 -H "Authorization: Bearer $GITHUB_TOKEN" \
                                 -H "X-GitHub-Api-Version: 2022-11-28" \
+                                --connect-timeout 60 -m 120 \
                                 "https://api.github.com/$owner_type/$owner/packages/$package_type/$package/versions?per_page=100&page=$versions_page")
                             ((calls_to_api++))
                             jq -e . <<<"$versions_json_more" &>/dev/null || versions_json_more="[]"
@@ -231,7 +232,7 @@ while IFS= read -r owner; do
                         fi
 
                         # get the downloads
-                        version_html=$(curl -sSLNZ "https://github.com/$owner/$repo/pkgs/$package_type/$package/$version_id")
+                        version_html=$(curl -sSLNZ --connect-timeout 60 -m 120 "https://github.com/$owner/$repo/pkgs/$package_type/$package/$version_id")
                         version_raw_downloads=$(echo "$version_html" | grep -Pzo 'Total downloads<[^<]*<[^<]*' | grep -Pzo '\d*$' | tr -d '\0')
                         version_raw_downloads=$(tr -d ',' <<<"$version_raw_downloads")
 
