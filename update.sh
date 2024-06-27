@@ -63,7 +63,13 @@ while IFS= read -r owner; do
 
         while true; do
             ((repos_page++))
-            html=$(curl -sSLNZ "https://github.com/$owner_type/$owner/repositories?per_page=100&page=$repos_page")
+
+            if [ "$owner_type" = "orgs" ]; then
+                html=$(curl -sSLNZ "https://github.com/$owner_type/$owner/repositories?per_page=100&page=$repos_page")
+            else
+                html=$(curl -sSLNZ "https://github.com/$owner?tab=repositories&per_page=100&page=$repos_page")
+            fi
+
             repos_more=$(grep -oP 'href="/'"$owner"'/[^"]+"' <<<"$html" | cut -d'/' -f2 | cut -d'"' -f1)
             [ -n "$repos_more" ] || break
 
