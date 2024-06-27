@@ -168,7 +168,9 @@ while IFS= read -r owner; do
                     while [ "$versions_page" -lt 1 ]; do
                         ((versions_page++))
                         # if the repo is public the api request should succeed
-                        if [ -n "$GITHUB_TOKEN" ] && [ -n "$is_public" ]; then
+                        versions_json_more="[]"
+
+                        if [ -n "$GITHUB_TOKEN" ]; then
                             versions_json_more=$(curl -sSL \
                                 -H "Accept: application/vnd.github+json" \
                                 -H "Authorization: Bearer $GITHUB_TOKEN" \
