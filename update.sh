@@ -182,7 +182,7 @@ while IFS= read -r owner; do
                         fi
 
                         # if versions is empty or doesn't have .name, break
-                        [[ ! "$versions_json_more" =~ {.*\"name\":.*\} ]] && break || :
+                        [[ ! "$versions_json_more" =~ ^.*\{.*\"name\":.*\}.*$ ]] && break || :
 
                         # add the new versions to the versions_json, if they are not already there
                         for i in $(jq -r '.[] | @base64' <<<"$versions_json_more"); do
