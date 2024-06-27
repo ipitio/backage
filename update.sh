@@ -108,6 +108,7 @@ while IFS= read -r owner; do
                 # loop through the packages, without the last newline
                 while IFS= read -r package; do
                     [ -n "$package" ] || continue
+                    echo "Checking $owner/$repo/$package ($owner_type/$package_type)..."
 
                     # manual update: skip if the package is already in the index; the rest are updated daily
                     if [ "$1" = "1" ]; then
@@ -144,6 +145,7 @@ while IFS= read -r owner; do
                     fi
 
                     # scrape the package page for the total downloads
+                    echo "Scraping $owner/$repo/$package ($owner_type/$package_type)..."
                     html=$(curl -sSLNZ --connect-timeout 60 -m 120 "https://github.com/$owner/$repo/pkgs/$package_type/$package")
                     is_public=$(grep -Pzo 'Total downloads' <<<"$html" | tr -d '\0')
                     [ -n "$is_public" ] || continue
@@ -181,8 +183,8 @@ while IFS= read -r owner; do
                             jq -e . <<<"$versions_json_more" &>/dev/null || versions_json_more="[]"
                         fi
 
-                        # if versions is empty or doesn't have .name, break
-                        [[ ! "$versions_json_more" =~ ^.*\{.*\"name\":.*\}.*$ ]] && break || :
+                        # if versions doesn't have .name, break
+                        jq -e '.[].name' <<<"$versions_json_more" &>/dev/null || break
 
                         # add the new versions to the versions_json, if they are not already there
                         for i in $(jq -r '.[] | @base64' <<<"$versions_json_more"); do
