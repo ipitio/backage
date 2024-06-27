@@ -70,7 +70,7 @@ while IFS= read -r owner; do
                 html=$(curl -sSLNZ "https://github.com/$owner?tab=repositories&per_page=100&page=$repos_page")
             fi
 
-            repos_more=$(grep -oP 'href="/'"$owner"'/[^"]+"' <<<"$html" | cut -d'/' -f2 | cut -d'"' -f1)
+            repos_more=$(grep -oP 'href="/'"$owner"'/[^"]+"' <<<"$html" | cut -d'/' -f3 | cut -d'"' -f1)
             [ -n "$repos_more" ] || break
 
             # add the repos to the list
