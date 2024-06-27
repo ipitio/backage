@@ -65,7 +65,7 @@ while IFS= read -r line; do
         while true; do
             ((repos_page++))
             html=$(curl -sSLNZ "https://github.com/$owner_type/$owner/repositories?per_page=100&page=$repos_page")
-            repos_more=$(grep -oP 'href="/'"$owner_type"'/'"$owner"'/packages/'"$package_type"'/package/[^"]+"' <<<"$html" | cut -d'/' -f7 | cut -d'"' -f1)
+            repos_more=$(grep -oP 'href="/'"$owner"'/[^"]+"' <<<"$html" | cut -d'/' -f2 | cut -d'"' -f1)
             [ -n "$repos_more" ] || break
 
             # add the packages to the list
