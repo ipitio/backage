@@ -56,7 +56,7 @@ sqlite3 "$INDEX_DB" "$table_pkg"
 rate_limit_start=$(date +%s)
 calls_to_api=0
 while IFS= read -r owner; do
-    echo "Processing $owner..."
+
     for owner_type in users orgs; do
         repos=""
         repos_page=0
@@ -81,8 +81,7 @@ while IFS= read -r owner; do
 
         # deduplicate the repos
         repos=$(awk '!seen[$0]++' <<<"$repos")
-        echo "Found $(wc -l <<<"$repos") repositories ($owner_type)..."
-        echo -e "$repos"
+
         # loop through the repos, without the last newline
         while IFS= read -r repo; do
             [ -n "$repo" ] || continue
@@ -105,8 +104,7 @@ while IFS= read -r owner; do
 
                 # deduplicate the packages
                 packages=$(awk '!seen[$0]++' <<<"$packages")
-                echo "Found $(wc -l <<<"$packages") packages ($package_type)..."
-                echo -e "$packages"
+
                 # loop through the packages, without the last newline
                 while IFS= read -r package; do
                     [ -n "$package" ] || continue
