@@ -1,7 +1,3 @@
-orgs//argoproj/argo-cd
-Ki365/Ki365
-screego/server
-telekom-security/tpotce
 ajnart/homarr
 amacneil/dbmate
 anchore/grype
@@ -44,6 +40,7 @@ gogs/gogs
 home-assistant/operating-system
 hugomods/docker
 k3d-io/k3d
+Ki365/Ki365
 ko-build/ko
 labring/sealos
 Lissy93/dashy
@@ -60,6 +57,7 @@ nginx-proxy/docker-gen
 nginx-proxy/nginx-proxy
 nicolaka/netshoot
 openfaas/faas
+orgs//argoproj/argo-cd
 pi-hole/docker-pi-hole
 plankanban/planka
 qemus/qemu-arm
@@ -67,9 +65,11 @@ qemus/qemu-docker
 qemus/qemu-host
 QuivrHQ/quivr
 ropenttd/docker_openttd
+screego/server
 serge-chat/serge
 Stirling-Tools/Stirling-PDF
 TandoorRecipes/recipes
+telekom-security/tpotce
 timeplus-io/proton
 TwiN/gatus
 usememos/memos
