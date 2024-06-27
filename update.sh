@@ -55,8 +55,7 @@ sqlite3 "$INDEX_DB" "$table_pkg"
 
 rate_limit_start=$(date +%s)
 calls_to_api=0
-while IFS= read -r line; do
-    owner=$(cut -d'/' -f1 <<<"$line")
+while IFS= read -r owner; do
 
     for owner_type in users orgs; do
         repos=""
