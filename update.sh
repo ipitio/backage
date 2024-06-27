@@ -73,7 +73,7 @@ while IFS= read -r owner; do
             repos_more=$(grep -oP 'href="/'"$owner"'/[^"]+"' <<<"$html" | cut -d'/' -f2 | cut -d'"' -f1)
             [ -n "$repos_more" ] || break
 
-            # add the packages to the list
+            # add the repos to the list
             while IFS= read -r repo; do
                 repos="$repos$repo\n"
             done <<<"$repos_more"
