@@ -68,11 +68,13 @@ table_pkg="alter table '$table_pkg_name' add column owner_id text;"
 sqlite3 "$INDEX_DB" "$table_pkg"
 
 # we will incrementally add new owners to the index
-query="select max(owner_id) from '$table_pkg_name';"
-since=$(sqlite3 "$INDEX_DB" "$query")
-[ -n "$since" ] || since=-1
+# file "id" contains the highest id of the last owner
+since=-1
+[ ! -f id ] || since=$(<id)
 owners=()
 owners_page=0
+rate_limit_start=$(date +%s)
+calls_to_api=0
 
 # get the owners
 while [ "$owners_page" -lt 1 ]; do
@@ -86,6 +88,7 @@ while [ "$owners_page" -lt 1 ]; do
             -H "X-GitHub-Api-Version: 2022-11-28" \
             --connect-timeout 60 -m 120 \
             "https://api.github.com/users?per_page=100&page=$owners_page&since=$since")
+        ((calls_to_api++))
         jq -e . <<<"$owners_more" &>/dev/null || owners_more="[]"
     fi
 
@@ -101,11 +104,32 @@ while [ "$owners_page" -lt 1 ]; do
         login=$(_jq '.login')
         id=$(_jq '.id')
         owners+=("$id/$login")
+        echo "$id" >id
     done
 done
 
-rate_limit_start=$(date +%s)
-calls_to_api=0
+# add the owners in the database to the owners array
+query="select owner_id, owner from '$table_pkg_name';"
+while IFS='|' read -r owner_id owner; do
+    # if owner_id is null, find the owner_id
+    if [ -z "$owner_id" ]; then
+        owner_id=$(curl -sSL \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            --connect-timeout 60 -m 120 \
+            "https://api.github.com/users/$owner" | jq -r '.id')
+        ((calls_to_api++))
+        query="update '$table_pkg_name' set owner_id='$owner_id' where owner='$owner';"
+        sqlite3 "$INDEX_DB" "$query"
+    fi
+
+    if ! grep -q "$owner_id/$owner" <<<"${owners[*]}"; then
+        owners+=("$owner_id/$owner")
+    fi
+done < <(sqlite3 "$INDEX_DB" "$query")
+
+# loop through known and new owners
 for id_login in "${owners[@]}"; do
     owner=$(cut -d'/' -f2 <<<"$id_login")
     owner_id=$(cut -d'/' -f1 <<<"$id_login")
@@ -146,7 +170,7 @@ for id_login in "${owners[@]}"; do
     packages=$(awk '!seen[$0]++' <<<"$packages")
     readarray -t packages <<<"$packages"
 
-    if [ "${#packages[@]}" -gt 0 ]; then
+    if [ "${#packages[@]}" -gt 0 ] && [ -n "${packages[0]}" ]; then
         printf "Got packages: "
         for i in "${packages[@]}"; do
             printf "%s " "$i"
@@ -336,7 +360,8 @@ for id_login in "${owners[@]}"; do
             rate_limit_end=$(date +%s)
             rate_limit_diff=$((rate_limit_end - rate_limit_start))
             if [[ "$rate_limit_diff" -ge 3000 || "$calls_to_api" -ge 900 ]]; then
-                echo "Limit reached, waiting until the limit resets..."
+                echo "$calls_to_api Calls to the GitHub API in $((rate_limit_diff / 60)) minutes"
+                echo "Let's wait to be safe..."
                 sleep $((3600 - rate_limit_diff))
                 rate_limit_start=$(date +%s)
                 calls_to_api=0
@@ -373,10 +398,15 @@ for id_login in "${owners[@]}"; do
 
         sqlite3 "$INDEX_DB" "$query"
 
-        # api rate limit, the next run will take care of the rest
         rate_limit_end=$(date +%s)
         rate_limit_diff=$((rate_limit_end - rate_limit_start))
-        [[ "$rate_limit_diff" -lt 3000 && "$calls_to_api" -lt 900 ]] || break
+        if [[ "$rate_limit_diff" -ge 3000 || "$calls_to_api" -ge 900 ]]; then
+            echo "$calls_to_api Calls to the GitHub API in $((rate_limit_diff / 60)) minutes"
+            echo "Let's wait to be safe..."
+            sleep $((3600 - rate_limit_diff))
+            rate_limit_start=$(date +%s)
+            calls_to_api=0
+        fi
     done
 done
 
@@ -508,3 +538,5 @@ sqlite3 "$INDEX_DB" "select * from '$table_pkg_name' order by downloads + 0 desc
     s/\n\n(\[!\[.*)\n\n/\n\n$1 \[!\[$owner_type\/$package_type\/$owner\/$repo\/$package\]\(https:\/\/img.shields.io\/badge\/dynamic\/json\?url=https%3A%2F%2Fraw.githubusercontent.com%2F$thisowner%2F$thisrepo%2F$thisbranch%2Findex.json\&query=%24%5B%3F(%40.owner%3D%3D%22$owner%22%20%26%26%20%40.repo%3D%3D%22$repo%22%20%26%26%20%40.package%3D%3D%22$package%22)%5D.downloads\&label=$label\)\]\(https:\/\/github.com\/$owner\/$repo\/pkgs\/container\/$package\)\n\n/g;
 ' README.md >README.tmp && [ -f README.tmp ] && mv README.tmp README.md || :
 done
+
+echo "Done!"
