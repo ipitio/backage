@@ -75,7 +75,7 @@ owners=()
 owners_page=0
 
 # get the owners
-while [ "$versions_page" -lt 1 ]; do
+while [ "$owners_page" -lt 1 ]; do
     ((owners_page++))
     owners_more="[]"
 
