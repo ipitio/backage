@@ -1,5 +1,5 @@
 #!/bin/bash
-# Update the stats for each package in owners.txt
+# Update the stats for each package
 # Usage: ./update.sh
 # Dependencies: curl, jq, sqlite3, Docker
 # Copyright (c) ipitio
@@ -30,7 +30,7 @@ numfmt_size() {
 curl() {
     # if connection times out or max time is reached, wait increasing amounts of time before retrying
     local i=0
-    local max_attempts=5
+    local max_attempts=7
     local wait_time=1
     local result
 
@@ -43,13 +43,6 @@ curl() {
     done
     return 1
 }
-
-# clean owners.txt
-awk '{print tolower($0)}' owners.txt | sort -u | while read -r line; do
-    grep -i "^$line$" owners.txt
-done >owners.tmp.txt
-mv owners.tmp.txt owners.txt
-[ -z "$(tail -c 1 owners.txt)" ] || echo >>owners.txt
 
 # use a sqlite database to store the downloads of a package
 [ -f "$INDEX_DB" ] || touch "$INDEX_DB"
@@ -70,10 +63,52 @@ table_pkg="create table if not exists '$table_pkg_name' (
 );"
 sqlite3 "$INDEX_DB" "$table_pkg"
 
+# alter table to include owner_id
+table_pkg="alter table '$table_pkg_name' add column owner_id text;"
+sqlite3 "$INDEX_DB" "$table_pkg"
+
+# we will incrementally add new owners to the index
+query="select max(owner_id) from '$table_pkg_name';"
+since=$(sqlite3 "$INDEX_DB" "$query")
+[ -n "$since" ] || since=-1
+owners=()
+owners_page=0
+
+# get the owners
+while [ "$versions_page" -lt 1 ]; do
+    ((owners_page++))
+    owners_more="[]"
+
+    if [ -n "$GITHUB_TOKEN" ]; then
+        owners_more=$(curl -sSL \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            --connect-timeout 60 -m 120 \
+            "https://api.github.com/users?per_page=100&page=$owners_page&since=$since")
+        jq -e . <<<"$owners_more" &>/dev/null || owners_more="[]"
+    fi
+
+    # if owners doesn't have .login, break
+    jq -e '.[].login' <<<"$owners_more" &>/dev/null || break
+
+    # add the new owners to the owners array
+    for i in $(jq -r '.[] | @base64' <<<"$owners_more"); do
+        _jq() {
+            echo "$i" | base64 --decode | jq -r "$@"
+        }
+
+        login=$(_jq '.login')
+        id=$(_jq '.id')
+        owners+=("$id/$login")
+    done
+done
+
 rate_limit_start=$(date +%s)
 calls_to_api=0
-while IFS= read -r owner; do
-    # determine if the owner is a user or org
+for id_login in "${owners[@]}"; do
+    owner=$(cut -d'/' -f2 <<<"$id_login")
+    owner_id=$(cut -d'/' -f1 <<<"$id_login")
     owner_type="orgs"
     html=$(curl "https://github.com/orgs/$owner/people")
     is_org=$(grep -zoP 'href="/orgs/'"$owner"'/people"' <<<"$html" | tr -d '\0')
@@ -331,7 +366,7 @@ while IFS= read -r owner; do
         count=$(sqlite3 "$INDEX_DB" "$query")
 
         if [ "$count" -eq 0 ]; then
-            query="insert into '$table_pkg_name' (owner_type, package_type, owner, repo, package, downloads, downloads_month, downloads_week, downloads_day, size, date) values ('$owner_type', '$package_type', '$owner', '$repo', '$package', '$raw_downloads', '$raw_downloads_month', '$raw_downloads_week', '$raw_downloads_day', '$size', '$TODAY');"
+            query="insert into '$table_pkg_name' (owner_id, owner_type, package_type, owner, repo, package, downloads, downloads_month, downloads_week, downloads_day, size, date) values ('$owner_id', '$owner_type', '$package_type', '$owner', '$repo', '$package', '$raw_downloads', '$raw_downloads_month', '$raw_downloads_week', '$raw_downloads_day', '$size', '$TODAY');"
         else
             query="update '$table_pkg_name' set downloads='$raw_downloads', downloads_month='$raw_downloads_month', downloads_week='$raw_downloads_week', downloads_day='$raw_downloads_day', size='$size', date='$TODAY' where owner_type='$owner_type' and package_type='$package_type' and owner='$owner' and repo='$repo' and package='$package';"
         fi
@@ -343,7 +378,7 @@ while IFS= read -r owner; do
         rate_limit_diff=$((rate_limit_end - rate_limit_start))
         [[ "$rate_limit_diff" -lt 3000 && "$calls_to_api" -lt 900 ]] || break
     done
-done <owners.txt
+done
 
 # update index.json:
 echo "[" >index.json
