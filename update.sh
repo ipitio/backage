@@ -17,33 +17,6 @@ if ! command -v curl &>/dev/null || ! command -v jq &>/dev/null || ! command -v 
     sudo apt-get install curl jq sqlite3 -y
 fi
 
-# format numbers like 1000 to 1k
-numfmt() {
-    awk '{ split("k M B T P E Z Y", v); s=0; while( $1>999.9 ) { $1/=1000; s++ } print int($1*10)/10 v[s] }'
-}
-
-# format bytes to KB, MB, GB, etc.
-numfmt_size() {
-    awk '{ split("kB MB GB TB PB EB ZB YB", v); s=0; while( $1>999.9 ) { $1/=1000; s++ } print int($1*10)/10 " " v[s] }'
-}
-
-curl() {
-    # if connection times out or max time is reached, wait increasing amounts of time before retrying
-    local i=0
-    local max_attempts=7
-    local wait_time=1
-    local result
-
-    while [ "$i" -lt "$max_attempts" ]; do
-        result=$(command curl -sSLNZ --connect-timeout 60 -m 120 "$@" 2>/dev/null)
-        [ -n "$result" ] && echo "$result" && return 0
-        sleep "$wait_time"
-        ((i++))
-        ((wait_time *= 2))
-    done
-    return 1
-}
-
 # use a sqlite database to store the downloads of a package
 [ -f "$INDEX_DB" ] || touch "$INDEX_DB"
 table_pkg_name="packages"
@@ -76,43 +49,50 @@ owners_page=0
 rate_limit_start=$(date +%s)
 calls_to_api=0
 
-# get the owners
-while [ "$owners_page" -lt 1 ]; do
-    ((owners_page++))
-    owners_more="[]"
+# format numbers like 1000 to 1k
+numfmt() {
+    awk '{ split("k M B T P E Z Y", v); s=0; while( $1>999.9 ) { $1/=1000; s++ } print int($1*10)/10 v[s] }'
+}
 
-    if [ -n "$GITHUB_TOKEN" ]; then
-        owners_more=$(curl -sSL \
-            -H "Accept: application/vnd.github+json" \
-            -H "Authorization: Bearer $GITHUB_TOKEN" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            --connect-timeout 60 -m 120 \
-            "https://api.github.com/users?per_page=100&page=$owners_page&since=$since")
-        ((calls_to_api++))
-        jq -e . <<<"$owners_more" &>/dev/null || owners_more="[]"
-    fi
+# format bytes to KB, MB, GB, etc.
+numfmt_size() {
+    awk '{ split("kB MB GB TB PB EB ZB YB", v); s=0; while( $1>999.9 ) { $1/=1000; s++ } print int($1*10)/10 " " v[s] }'
+}
 
-    # if owners doesn't have .login, break
-    jq -e '.[].login' <<<"$owners_more" &>/dev/null || break
+curl() {
+    # if connection times out or max time is reached, wait increasing amounts of time before retrying
+    local i=0
+    local max_attempts=7
+    local wait_time=1
+    local result
 
-    # add the new owners to the owners array
-    for i in $(jq -r '.[] | @base64' <<<"$owners_more"); do
-        _jq() {
-            echo "$i" | base64 --decode | jq -r "$@"
-        }
-
-        login=$(_jq '.login')
-        id=$(_jq '.id')
-        owners+=("$id/$login")
-        echo "$id" >id
+    while [ "$i" -lt "$max_attempts" ]; do
+        result=$(command curl -sSLNZ --connect-timeout 60 -m 120 "$@" 2>/dev/null)
+        [ -n "$result" ] && echo "$result" && return 0
+        sleep "$wait_time"
+        ((i++))
+        ((wait_time *= 2))
     done
-done
+    return 1
+}
 
-# add the owners in the database to the owners array
-query="select owner_id, owner from '$table_pkg_name';"
-while IFS='|' read -r owner_id owner; do
-    # if owner_id is null, find the owner_id
-    if [ -z "$owner_id" ]; then
+check_limit() {
+    rate_limit_end=$(date +%s)
+    rate_limit_diff=$((rate_limit_end - rate_limit_start))
+    if [[ "$rate_limit_diff" -ge 3000 || "$calls_to_api" -ge 900 ]]; then
+        echo "$calls_to_api Calls to the GitHub API in $((rate_limit_diff / 60)) minutes"
+        echo "Let's wait to be safe..."
+        sleep $((3600 - rate_limit_diff))
+        rate_limit_start=$(date +%s)
+        calls_to_api=0
+    fi
+}
+
+# if owners.txt exists, read any owners from there
+if [ -f owners.txt ]; then
+    while IFS= read -r owner; do
+        owner=$(echo "$owner" | tr -d '[:space:]')
+        [ -n "$owner" ] || continue
         owner_id=$(curl -sSL \
             -H "Accept: application/vnd.github+json" \
             -H "Authorization: Bearer $GITHUB_TOKEN" \
@@ -120,14 +100,73 @@ while IFS='|' read -r owner_id owner; do
             --connect-timeout 60 -m 120 \
             "https://api.github.com/users/$owner" | jq -r '.id')
         ((calls_to_api++))
-        query="update '$table_pkg_name' set owner_id='$owner_id' where owner='$owner';"
-        sqlite3 "$INDEX_DB" "$query"
-    fi
-
-    if ! grep -q "$owner_id/$owner" <<<"${owners[*]}"; then
         owners+=("$owner_id/$owner")
-    fi
-done < <(sqlite3 "$INDEX_DB" "$query")
+        check_limit
+    done <owners.txt
+
+    : >owners.txt
+fi
+
+if [ "$1" = "0" ]; then
+    # get new owners
+    while [ "$owners_page" -lt 10 ]; do
+        ((owners_page++))
+        owners_more="[]"
+
+        if [ -n "$GITHUB_TOKEN" ]; then
+            owners_more=$(curl -sSL \
+                -H "Accept: application/vnd.github+json" \
+                -H "Authorization: Bearer $GITHUB_TOKEN" \
+                -H "X-GitHub-Api-Version: 2022-11-28" \
+                --connect-timeout 60 -m 120 \
+                "https://api.github.com/users?per_page=100&page=$owners_page&since=$since")
+            ((calls_to_api++))
+            jq -e . <<<"$owners_more" &>/dev/null || owners_more="[]"
+        fi
+
+        # if owners doesn't have .login, break
+        jq -e '.[].login' <<<"$owners_more" &>/dev/null || break
+
+        # add the new owners to the owners array
+        for i in $(jq -r '.[] | @base64' <<<"$owners_more"); do
+            _jq() {
+                echo "$i" | base64 --decode | jq -r "$@"
+            }
+
+            owner=$(_jq '.login')
+            id=$(_jq '.id')
+            if ! grep -q "$owner_id/$owner" <<<"${owners[*]}"; then
+                owners+=("$owner_id/$owner")
+            fi
+            echo "$id" >id
+        done
+
+        check_limit
+    done
+
+    # add the owners in the database to the owners array
+    query="select owner_id, owner from '$table_pkg_name';"
+    while IFS='|' read -r owner_id owner; do
+        # if owner_id is null, find the owner_id
+        if [ -z "$owner_id" ]; then
+            owner_id=$(curl -sSL \
+                -H "Accept: application/vnd.github+json" \
+                -H "Authorization: Bearer $GITHUB_TOKEN" \
+                -H "X-GitHub-Api-Version: 2022-11-28" \
+                --connect-timeout 60 -m 120 \
+                "https://api.github.com/users/$owner" | jq -r '.id')
+            ((calls_to_api++))
+            query="update '$table_pkg_name' set owner_id='$owner_id' where owner='$owner';"
+            sqlite3 "$INDEX_DB" "$query"
+        fi
+
+        if ! grep -q "$owner_id/$owner" <<<"${owners[*]}"; then
+            owners+=("$owner_id/$owner")
+        fi
+
+        check_limit
+    done < <(sqlite3 "$INDEX_DB" "$query")
+fi
 
 # loop through known and new owners
 for id_login in "${owners[@]}"; do
@@ -146,9 +185,9 @@ for id_login in "${owners[@]}"; do
         ((packages_page++))
 
         if [ "$owner_type" = "orgs" ]; then
-            html=$(curl "https://github.com/$owner_type/$owner/packages?per_page=100&page=$packages_page")
+            html=$(curl "https://github.com/$owner_type/$owner/packages?visibility=public&per_page=100&page=$packages_page")
         else
-            html=$(curl "https://github.com/$owner?tab=packages&per_page=100&page=$packages_page")
+            html=$(curl "https://github.com/$owner?tab=packages&visibility=public&&per_page=100&page=$packages_page")
         fi
 
         packages_lines=$(grep -zoP 'href="/'"$owner_type"'/'"$owner"'/packages/[^/]+/package/[^"]+"(.|\n)*href="/'"$owner"'/[^"]+"' <<<"$html" | tr -d '\0\n')
@@ -355,17 +394,7 @@ for id_login in "${owners[@]}"; do
             fi
 
             sqlite3 "$INDEX_DB" "$query"
-
-            # scan all versions before refreshing the package
-            rate_limit_end=$(date +%s)
-            rate_limit_diff=$((rate_limit_end - rate_limit_start))
-            if [[ "$rate_limit_diff" -ge 3000 || "$calls_to_api" -ge 900 ]]; then
-                echo "$calls_to_api Calls to the GitHub API in $((rate_limit_diff / 60)) minutes"
-                echo "Let's wait to be safe..."
-                sleep $((3600 - rate_limit_diff))
-                rate_limit_start=$(date +%s)
-                calls_to_api=0
-            fi
+            check_limit
         done
 
         # use the version stats if we have them
@@ -397,16 +426,7 @@ for id_login in "${owners[@]}"; do
         fi
 
         sqlite3 "$INDEX_DB" "$query"
-
-        rate_limit_end=$(date +%s)
-        rate_limit_diff=$((rate_limit_end - rate_limit_start))
-        if [[ "$rate_limit_diff" -ge 3000 || "$calls_to_api" -ge 900 ]]; then
-            echo "$calls_to_api Calls to the GitHub API in $((rate_limit_diff / 60)) minutes"
-            echo "Let's wait to be safe..."
-            sleep $((3600 - rate_limit_diff))
-            rate_limit_start=$(date +%s)
-            calls_to_api=0
-        fi
+        check_limit
     done
 done
 
