@@ -95,6 +95,7 @@ check_limit() {
 if [ -f owners.txt ]; then
     sed -i '/^\s*$/d' owners.txt
     echo >>owners.txt
+    awk 'NF' owners.txt >owners.tmp && mv owners.tmp owners.txt
 
     while IFS= read -r owner; do
         owner=$(echo "$owner" | tr -d '[:space:]')
@@ -203,7 +204,7 @@ for id_login in "${owners[@]}"; do
         fi
 
         # pipe grep to sed to remove (.|\n)* from the grep output
-        packages_lines=$(grep -zoP 'href="/'"$owner_type"'/'"$owner"'/packages/[^/]+/package/[^"]+"(.|\n)*href="/'"$owner"'/[^"]+"' <<<"$html" | tr -d '\0' | sed -E 's/(href="\/'"$owner_type"'\/'"$owner"'\/packages\/[^\/]+\/package\/[^"]+")(.|\n)*(href="\/'"$owner"'\/[^"]+")/\1\3/g')
+        packages_lines=$(grep -zoP 'href="/'"$owner_type"'/'"$owner"'/packages/[^/]+/package/[^"]+"(.|\n)*href="/'"$owner"'/[^"]+"' <<<"$html" | tr -d '\0' | sed -E 's/(href="\/'"$owner_type"'\/'"$owner"'\/packages\/[^\/]+\/package\/[^"]+")(.*)(href="\/'"$owner"'\/[^"]+")/\1\3/g')
         [ -n "$packages_lines" ] || break
         packages_lines=${packages_lines//\\n/$'\n'} # replace \n with newline
 
