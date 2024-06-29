@@ -203,8 +203,7 @@ for id_login in "${owners[@]}"; do
             html=$(curl "https://github.com/$owner?tab=packages&visibility=public&&per_page=100&page=$packages_page")
         fi
 
-        # pipe grep to sed to remove (.|\n)* from the grep output
-        packages_lines=$(grep -zoP 'href="/'"$owner_type"'/'"$owner"'/packages/[^/]+/package/[^"]+"(.|\n)*href="/'"$owner"'/[^"]+"' <<<"$html" | tr -d '\0' | sed -E 's/(href="\/'"$owner_type"'\/'"$owner"'\/packages\/[^\/]+\/package\/[^"]+")(.*)(href="\/'"$owner"'\/[^"]+")/\1\3/g')
+        packages_lines=$(grep -zoP 'href="/'"$owner_type"'/'"$owner"'/packages/[^/]+/package/[^"]+"(.|\n)*href="/'"$owner"'/[^"]+"' <<<"$html" | tr -d '\0' | perl -0777 -pe 's/(href="\/'"$owner_type"'\/'"$owner"'\/packages\/[^\/]+\/package\/[^"]+")(.|\n)*(href="\/'"$owner"'\/[^"]+")/\1\3/g')
         [ -n "$packages_lines" ] || break
         packages_lines=${packages_lines//\\n/$'\n'} # replace \n with newline
 
