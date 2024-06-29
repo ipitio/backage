@@ -93,8 +93,8 @@ check_limit() {
 
 # if owners.txt exists, read any owners from there
 if [ -f owners.txt ]; then
+    sed -i '/^\s*$/d' owners.txt
     echo >>owners.txt
-    sed -i '/^$/N;/^\n$/D' owners.txt
 
     while IFS= read -r owner; do
         owner=$(echo "$owner" | tr -d '[:space:]')
@@ -202,27 +202,20 @@ for id_login in "${owners[@]}"; do
             html=$(curl "https://github.com/$owner?tab=packages&visibility=public&&per_page=100&page=$packages_page")
         fi
 
-        packages_lines=$(grep -zoP 'href="/'"$owner_type"'/'"$owner"'/packages/[^/]+/package/[^"]+"(.|\n)*href="/'"$owner"'/[^"]+"' <<<"$html" | tr -d '\0')
+        # pipe grep to sed to remove (.|\n)* from the grep output
+        packages_lines=$(grep -zoP 'href="/'"$owner_type"'/'"$owner"'/packages/[^/]+/package/[^"]+"(.|\n)*href="/'"$owner"'/[^"]+"' <<<"$html" | tr -d '\0' | sed -E 's/(href="\/'"$owner_type"'\/'"$owner"'\/packages\/[^\/]+\/package\/[^"]+")(.|\n)*(href="\/'"$owner"'\/[^"]+")/\1\3/g')
         [ -n "$packages_lines" ] || break
+        packages_lines=${packages_lines//\\n/$'\n'} # replace \n with newline
 
-        # create an array of each href, without the quotes
-        packages_array=()
-        buffer=""
-
+        # loop through the packages in $packages_lines
         while IFS= read -r line; do
-            line=$(cut -d'"' -f2 <<<"$line")
-            [ -z "$buffer" ] || packages_array+=("$buffer$line")
-            [ -z "$buffer" ] && buffer="$line" || buffer=""
-        done < <(grep -oP 'href="[^"]+"' <<<"$packages_lines")
-
-        for line in "${packages_array[@]}"; do
             [ -n "$line" ] || continue
             echo "$line"
             package_new=$(cut -d'/' -f7 <<<"$line" | cut -d'"' -f1)
             package_type=$(cut -d'/' -f5 <<<"$line")
             repo=$(grep -oP 'href="/'"$owner"'/[^"]+"' <<<"$line" | cut -d'/' -f3 | cut -d'"' -f1)
             [ -n "$packages" ] && packages="$packages"$'\n'"$package_type/$repo/$package_new" || packages="$package_type/$repo/$package_new"
-        done
+        done <<<"$packages_lines"
     done
 
     # deduplicate and array-ify the packages
