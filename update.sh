@@ -79,7 +79,7 @@ check_limit() {
     hours_passed=$((rate_limit_diff / 3600))
 
     # adjust the limit based on the number of hours passed
-    if (( calls_to_api >= 1000 * (hours_passed + 1) )); then
+    if ((calls_to_api >= 1000 * (hours_passed + 1))); then
         echo "$calls_to_api calls to the GitHub API in $((rate_limit_diff / 60)) minutes"
         remaining_time=$((3600 * (hours_passed + 1) - rate_limit_diff))
         echo "Sleeping for $remaining_time seconds..."
@@ -111,7 +111,7 @@ if [ -f owners.txt ]; then
         check_limit
     done <owners.txt
 
-    [[ "${#owners[@]}" -eq 1 && "${owners[0]}" == "arevindh" ]] || : >owners.txt
+    [ "${owners[0]}" = "arevindh" ] || : >owners.txt
 fi
 
 if [ "$1" = "0" ]; then
@@ -199,7 +199,7 @@ for id_login in "${owners[@]}"; do
             html=$(curl "https://github.com/$owner?tab=packages&visibility=public&&per_page=100&page=$packages_page")
         fi
 
-        packages_lines=$(grep -zoP 'href="/'"$owner_type"'/'"$owner"'/packages/[^/]+/package/[^"]+"(.|\n)*href="/'"$owner"'/[^"]+"' <<<"$html" | tr -d '\0\n')
+        packages_lines=$(grep -zoP 'href="/'"$owner_type"'/'"$owner"'/packages/[^/]+/package/[^"]+"(.|\n)*href="/'"$owner"'/[^"]+"' <<<"$html" | tr -d '\0' | sed -E ':a;N;$!ba;s/(href="\/'"$owner_type"'\/[^/]+\/packages\/[^/]+\/package\/[^"]+)\n(href="\/'"$owner"')/\1\2/g')
         [ -n "$packages_lines" ] || break
 
         packages_more=$(cut -d'/' -f7 <<<"$packages_lines" | cut -d'"' -f1)
@@ -349,9 +349,6 @@ for id_login in "${owners[@]}"; do
                     for tag in $(_jq '.metadata.container.tags[]'); do
                         version_tags="$version_tags$tag,"
                     done
-                else
-                    echo "No tags found for $owner/$repo/$package/$version_name"
-                    jq -r . <<<"$manifest"
                 fi
 
                 # remove the last comma
