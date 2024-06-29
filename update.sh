@@ -203,7 +203,7 @@ for id_login in "${owners[@]}"; do
             html=$(curl "https://github.com/$owner?tab=packages&visibility=public&&per_page=100&page=$packages_page")
         fi
 
-        packages_lines=$(grep -zoP 'href="/'"$owner_type"'/'"$owner"'/packages/[^/]+/package/[^"]+"(.|\n)*href="/'"$owner"'/[^"]+"' <<<"$html" | tr -d '\0' | perl -0777 -pe 's/(href="\/'"$owner_type"'\/'"$owner"'\/packages\/[^\/]+\/package\/[^"]+")(.|\n)*(href="\/'"$owner"'\/[^"]+")/\1\3/g')
+        packages_lines=$(grep -zoP 'href="/'"$owner_type"'/'"$owner"'/packages/[^/]+/package/[^"]+' <<<"$html" | tr -d '\0')
         [ -n "$packages_lines" ] || break
         packages_lines=${packages_lines//\\n/$'\n'} # replace \n with newline
 
@@ -211,9 +211,10 @@ for id_login in "${owners[@]}"; do
         while IFS= read -r line; do
             [ -n "$line" ] || continue
             echo "$line"
-            package_new=$(cut -d'/' -f7 <<<"$line" | cut -d'"' -f1)
+            package_new=$(cut -d'/' -f7 <<<"$line")
             package_type=$(cut -d'/' -f5 <<<"$line")
-            repo=$(grep -oP 'href="/'"$owner"'/[^"]+"' <<<"$line" | cut -d'/' -f3 | cut -d'"' -f1)
+            repo=$(grep -zoP '(?<=href="/'"$owner_type"'/'"$owner"'/packages/'"$package_type"'/package/'"$package_new"'")(.|\n)*?href="/'"$owner"'/[^"]+' <<<"$html" | tr -d '\0' | grep -oP 'href="/'"$owner"'/[^"]+' | cut -d'/' -f3)
+            echo "$package_type/$repo/$package_new"
             [ -n "$packages" ] && packages="$packages"$'\n'"$package_type/$repo/$package_new" || packages="$package_type/$repo/$package_new"
         done <<<"$packages_lines"
     done
