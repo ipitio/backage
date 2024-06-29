@@ -93,8 +93,8 @@ check_limit() {
 
 # if owners.txt exists, read any owners from there
 if [ -f owners.txt ]; then
-    sed -i 's/[[:space:]]*$//' owners.txt
     echo >>owners.txt
+    sed -i 's/[[:space:]]*$//' owners.txt
 
     while IFS= read -r owner; do
         owner=$(echo "$owner" | tr -d '[:space:]')
@@ -217,6 +217,7 @@ for id_login in "${owners[@]}"; do
 
         for line in "${packages_array[@]}"; do
             [ -n "$line" ] || continue
+            echo "$line"
             package_new=$(cut -d'/' -f7 <<<"$line" | cut -d'"' -f1)
             package_type=$(cut -d'/' -f5 <<<"$line")
             repo=$(grep -zoP 'href="/'"$owner"'/[^"]+"' <<<"$line" | cut -d'/' -f3 | cut -d'"' -f1)
