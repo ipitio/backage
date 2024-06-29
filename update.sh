@@ -111,7 +111,7 @@ if [ -f owners.txt ]; then
         check_limit
     done <owners.txt
 
-    [ "${owners[0]}" = "arevindh" ] || : >owners.txt
+    [ "${owners[0]}" = "693151/arevindh" ] || : >owners.txt
 fi
 
 if [ "$1" = "0" ]; then
@@ -199,19 +199,13 @@ for id_login in "${owners[@]}"; do
             html=$(curl "https://github.com/$owner?tab=packages&visibility=public&&per_page=100&page=$packages_page")
         fi
 
-        packages_lines=$(grep -zoP 'href="/'"$owner_type"'/'"$owner"'/packages/[^/]+/package/[^"]+"(.|\n)*href="/'"$owner"'/[^"]+"' <<<"$html" | tr -d '\0' | sed -E ':a;N;$!ba;s/(.*href="\/'"$owner_type"'\/[^/]+\/packages\/[^/]+\/package\/[^"]+")(.|\n)*(href="\/'"$owner"'\/[^"]+".*)/\1\3/g')
-        [ -n "$packages_lines" ] || break
-
-        packages_more=$(cut -d'/' -f7 <<<"$packages_lines" | cut -d'"' -f1)
-        packages_types=$(cut -d'/' -f5 <<<"$packages_lines" | cut -d'"' -f1)
-        packages_repos=$(grep -zoP 'href="/'"$owner"'/[^"]+"' <<<"$packages_lines" | cut -d'/' -f3 | cut -d'"' -f1)
-
-        # zip the type, repo, and package together
-        while IFS= read -r type; do
-            IFS= read -r repo
-            IFS= read -r package
-            [ -n "$packages" ] && packages="$packages"$'\n'"$type/$repo/$package" || packages="$type/$repo/$package"
-        done < <(paste -d'\n' <(echo -e "$packages_types") <(echo -e "$packages_repos") <(echo -e "$packages_more"))
+        while read -r line; do
+            [ -n "$line" ] || continue
+            package_new=$(cut -d'/' -f7 <<<"$line" | cut -d'"' -f1)
+            package_type=$(cut -d'/' -f5 <<<"$line" | cut -d'"' -f1)
+            repo=$(grep -oP 'href="/'"$owner"'/[^"]+"' <<<"$line" | cut -d'/' -f3 | cut -d'"' -f1)
+            [ -n "$packages" ] && packages="$packages"$'\n'"$package_type/$repo/$package_new" || packages="$package_type/$repo/$package_new"
+        done < <(grep -zoP 'href="/'"$owner_type"'/'"$owner"'/packages/[^/]+/package/[^"]+"(.|\n)*href="/'"$owner"'/[^"]+"' <<<"$html" | grep -zoP '(href="/'"$owner_type"'/'"$owner"'/packages/[^/]+/package/[^"]+"(.|\n)*?href="/'"$owner"'/[^"]+")' | tr -d '\0')
     done
 
     # deduplicate and array-ify the packages
