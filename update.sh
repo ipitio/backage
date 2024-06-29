@@ -221,7 +221,6 @@ for id_login in "${owners[@]}"; do
         package_type=$(cut -d'/' -f1 <<<"$package_line")
         repo=$(cut -d'/' -f2 <<<"$package_line")
         package=$(cut -d'/' -f3 <<<"$package_line")
-        echo "Scraping $package_type/$repo/$package..."
 
         # manual update: skip if the package is already in the index; the rest are updated daily
         if [ "$1" = "1" ]; then
@@ -261,7 +260,7 @@ for id_login in "${owners[@]}"; do
         html=$(curl "https://github.com/$owner/$repo/pkgs/$package_type/$package")
         is_public=$(grep -Pzo 'Total downloads' <<<"$html" | tr -d '\0')
         [ -n "$is_public" ] || continue
-        echo "Updating $package_type/$repo/$package..."
+        echo "Scraping $package_type/$repo/$package..."
         raw_downloads=$(grep -Pzo 'Total downloads[^"]*"\d*' <<<"$html" | grep -Pzo '\d*$' | tr -d '\0') # https://stackoverflow.com/a/74214537
         [[ ! "$raw_downloads" =~ ^[0-9]+$ ]] || downloads=$(numfmt <<<"$raw_downloads")
         versions_json="[]"
@@ -444,6 +443,7 @@ sqlite3 "$INDEX_DB" "select * from '$table_pkg_name' order by downloads + 0 desc
     version_count=0
     version_with_tag_count=0
     table_version_name="versions_${owner_type}_${package_type}_${owner}_${repo}_${package}"
+    printf "Refreshing %s/%s/%s (%s/%s)" "$owner" "$repo" "$package" "$owner_type" "$package_type"
 
     # get the version and tagged counts
     if sqlite3 "$INDEX_DB" ".tables" | grep -q "$table_version_name"; then
@@ -451,10 +451,10 @@ sqlite3 "$INDEX_DB" "select * from '$table_pkg_name' order by downloads + 0 desc
         version_count=$(sqlite3 "$INDEX_DB" "$query")
         query="select count(distinct id) from '$table_version_name' where tags != '' and tags is not null;"
         version_with_tag_count=$(sqlite3 "$INDEX_DB" "$query")
-
-        echo "Refreshing $owner/$repo/$package ($owner_type/$package_type) with $version_count versions ($version_with_tag_count tagged)..."
+        printf " with %s versions (%s tagged)" "$version_count" "$version_with_tag_count"
     fi
 
+    echo "..."
     echo "{" >>index.json
     [[ "$package_type" != "container" ]] || echo "\"image\": \"$package\",\"pulls\": \"$fmt_downloads\"," >>index.json
     echo "\"owner_type\": \"$owner_type\",
