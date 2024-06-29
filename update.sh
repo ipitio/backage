@@ -88,6 +88,7 @@ check_limit() {
 
 # if owners.txt exists, read any owners from there
 if [ -f owners.txt ]; then
+    [ "$(tail -c 1 owners.txt)" = $'\n' ] || echo >>owners.txt
     while IFS= read -r owner; do
         owner=$(echo "$owner" | tr -d '[:space:]')
         echo "$owner"
