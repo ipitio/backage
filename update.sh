@@ -205,10 +205,10 @@ for id_login in "${owners[@]}"; do
         while read -r line; do
             [ -n "$line" ] || continue
             package_new=$(cut -d'/' -f7 <<<"$line" | cut -d'"' -f1)
-            package_type=$(cut -d'/' -f5 <<<"$line" | cut -d'"' -f1)
+            package_type=$(cut -d'/' -f5 <<<"$line")
             repo=$(grep -oP 'href="/'"$owner"'/[^"]+"' <<<"$line" | cut -d'/' -f3 | cut -d'"' -f1)
             [ -n "$packages" ] && packages="$packages"$'\n'"$package_type/$repo/$package_new" || packages="$package_type/$repo/$package_new"
-        done < <(echo "$packages_lines" | grep -zoP '(href="/'"$owner_type"'/'"$owner"'/packages/[^/]+/package/[^"]+"(.|\n)*?href="/'"$owner"'/[^"]+")' | tr -d '\0')
+        done < <(echo "$packages_lines" | grep -zoP '(href="/'"$owner_type"'/'"$owner"'/packages/[^/]+/package/[^"]+"(.|\n)*?href="/'"$owner"'/[^"]+")' | tr -d '\n')
     done
 
     # deduplicate and array-ify the packages
