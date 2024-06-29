@@ -264,7 +264,7 @@ for id_login in "${owners[@]}"; do
         fi
 
         # manual update: skip if the package is already in the index; the rest are updated daily
-        if [ "$1" = "0" ]; then
+        if [ "$1" = "1" ]; then
             query="select count(*) from '$table_pkg_name' where owner_type='$owner_type' and package_type='$package_type' and owner='$owner' and repo='$repo' and package='$package';"
             count=$(sqlite3 "$INDEX_DB" "$query")
             [[ "$count" =~ ^0$ ]] || continue
