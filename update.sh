@@ -19,9 +19,6 @@ if ! command -v curl &>/dev/null || ! command -v jq &>/dev/null || ! command -v 
     sudo apt-get install curl jq sqlite3 -y
 fi
 
-printf "Docker version: "
-docker --version
-
 # use a sqlite database to store the downloads of a package
 [ -f "$INDEX_DB" ] || touch "$INDEX_DB"
 table_pkg_name="packages"
@@ -207,6 +204,7 @@ for id_login in "${owners[@]}"; do
 
     # get the packages
     while true; do
+        check_limit || break
         ((packages_page++))
 
         if [ "$owner_type" = "orgs" ]; then
