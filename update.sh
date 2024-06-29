@@ -234,7 +234,7 @@ for id_login in "${owners[@]}"; do
 
     # loop through the packages in $packages
     for package_line in "${packages[@]}"; do
-        [ -n "$package" ] || continue
+        [ -n "$package_line" ] || continue
         package_type=$(cut -d'/' -f1 <<<"$package_line")
         repo=$(cut -d'/' -f2 <<<"$package_line")
         package=$(cut -d'/' -f3 <<<"$package_line")
