@@ -21,6 +21,7 @@ fi
 [ -f "$INDEX_DB" ] || touch "$INDEX_DB"
 table_pkg_name="packages"
 table_pkg="create table if not exists '$table_pkg_name' (
+    owner_id text,
     owner_type text not null,
     package_type text not null,
     owner text not null,
@@ -34,10 +35,6 @@ table_pkg="create table if not exists '$table_pkg_name' (
     date text not null,
     primary key (owner_type, package_type, owner, repo, package)
 );"
-sqlite3 "$INDEX_DB" "$table_pkg"
-
-# alter table to include owner_id
-table_pkg="alter table '$table_pkg_name' add column owner_id text;"
 sqlite3 "$INDEX_DB" "$table_pkg"
 
 # we will incrementally add new owners to the index
