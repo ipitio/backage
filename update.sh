@@ -199,7 +199,7 @@ for id_login in "${owners[@]}"; do
             html=$(curl "https://github.com/$owner?tab=packages&visibility=public&&per_page=100&page=$packages_page")
         fi
 
-        packages_lines=$(grep -zoP 'href="/'"$owner_type"'/'"$owner"'/packages/[^/]+/package/[^"]+"(.|\n)*href="/'"$owner"'/[^"]+"' <<<"$html" | tr -d '\0' | sed -E ':a;N;$!ba;s/(href="\/'"$owner_type"'\/[^/]+\/packages\/[^/]+\/package\/[^"]+")\n(href="\/'"$owner"'\/[^"]+")/\1\2/g')
+        packages_lines=$(grep -zoP 'href="/'"$owner_type"'/'"$owner"'/packages/[^/]+/package/[^"]+"(.|\n)*href="/'"$owner"'/[^"]+"' <<<"$html" | tr -d '\0' | sed -E ':a;N;$!ba;s/(href="\/'"$owner_type"'\/[^/]+\/packages\/[^/]+\/package\/[^"]+")(.|\n)*(href="\/'"$owner"'\/[^"]+")/\1\2/g')
         [ -n "$packages_lines" ] || break
 
         packages_more=$(cut -d'/' -f7 <<<"$packages_lines" | cut -d'"' -f1)
