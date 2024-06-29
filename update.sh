@@ -90,6 +90,7 @@ check_limit() {
 if [ -f owners.txt ]; then
     while IFS= read -r owner; do
         owner=$(echo "$owner" | tr -d '[:space:]')
+        echo "$owner"
         [ -n "$owner" ] || continue
         owner_id=$(curl -sSL \
             -H "Accept: application/vnd.github+json" \
@@ -98,7 +99,11 @@ if [ -f owners.txt ]; then
             --connect-timeout 60 -m 120 \
             "https://api.github.com/users/$owner" | jq -r '.id')
         ((calls_to_api++))
-        owners+=("$owner_id/$owner")
+        echo "$owner_id"
+        if ! grep -q "$owner_id/$owner" <<<"${owners[*]}"; then
+            owners+=("$owner_id/$owner")
+        fi
+
         check_limit
     done <owners.txt
 
@@ -133,9 +138,11 @@ if [ "$1" = "0" ]; then
 
             owner=$(_jq '.login')
             id=$(_jq '.id')
+
             if ! grep -q "$owner_id/$owner" <<<"${owners[*]}"; then
                 owners+=("$owner_id/$owner")
             fi
+
             echo "$id" >id
         done
 
