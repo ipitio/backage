@@ -76,10 +76,14 @@ curl() {
 check_limit() {
     rate_limit_end=$(date +%s)
     rate_limit_diff=$((rate_limit_end - rate_limit_start))
-    if [ "$calls_to_api" -ge $((rate_limit_diff * 1000 / 3600)) ]; then
-        echo "$calls_to_api Calls to the GitHub API in $((rate_limit_diff / 60)) minutes"
-        echo "Sleeping for $((3600 - rate_limit_diff)) seconds..."
-        sleep $((3600 - rate_limit_diff))
+    hours_passed=$((rate_limit_diff / 3600))
+
+    # adjust the limit based on the number of hours passed
+    if (( calls_to_api >= 1000 * (hours_passed + 1) )); then
+        echo "$calls_to_api calls to the GitHub API in $((rate_limit_diff / 60)) minutes"
+        remaining_time=$((3600 * (hours_passed + 1) - rate_limit_diff))
+        echo "Sleeping for $remaining_time seconds..."
+        sleep $remaining_time
         echo "Resuming..."
         rate_limit_start=$(date +%s)
         calls_to_api=0
@@ -91,7 +95,6 @@ if [ -f owners.txt ]; then
     [ "$(tail -c 1 owners.txt)" = $'\n' ] || echo >>owners.txt
     while IFS= read -r owner; do
         owner=$(echo "$owner" | tr -d '[:space:]')
-        echo "$owner"
         [ -n "$owner" ] || continue
         owner_id=$(curl -sSL \
             -H "Accept: application/vnd.github+json" \
@@ -100,7 +103,7 @@ if [ -f owners.txt ]; then
             --connect-timeout 60 -m 120 \
             "https://api.github.com/users/$owner" | jq -r '.id')
         ((calls_to_api++))
-        echo "$owner_id"
+
         if ! grep -q "$owner_id/$owner" <<<"${owners[*]}"; then
             owners+=("$owner_id/$owner")
         fi
@@ -108,7 +111,7 @@ if [ -f owners.txt ]; then
         check_limit
     done <owners.txt
 
-    : >owners.txt
+    [[ "${#owners[@]}" -eq 1 && "${owners[0]}" == "arevindh" ]] || : >owners.txt
 fi
 
 if [ "$1" = "0" ]; then
