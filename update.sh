@@ -94,7 +94,7 @@ check_limit() {
 # if owners.txt exists, read any owners from there
 if [ -f owners.txt ]; then
     echo >>owners.txt
-    sed -i 's/[[:space:]]*$//' owners.txt
+    sed -i '/^$/N;/^\n$/D' owners.txt
 
     while IFS= read -r owner; do
         owner=$(echo "$owner" | tr -d '[:space:]')
@@ -213,14 +213,14 @@ for id_login in "${owners[@]}"; do
             line=$(cut -d'"' -f2 <<<"$line")
             [ -z "$buffer" ] || packages_array+=("$buffer$line")
             [ -z "$buffer" ] && buffer="$line" || buffer=""
-        done < <(grep -zoP 'href="[^"]+"' <<<"$packages_lines")
+        done < <(grep -oP 'href="[^"]+"' <<<"$packages_lines")
 
         for line in "${packages_array[@]}"; do
             [ -n "$line" ] || continue
             echo "$line"
             package_new=$(cut -d'/' -f7 <<<"$line" | cut -d'"' -f1)
             package_type=$(cut -d'/' -f5 <<<"$line")
-            repo=$(grep -zoP 'href="/'"$owner"'/[^"]+"' <<<"$line" | cut -d'/' -f3 | cut -d'"' -f1)
+            repo=$(grep -oP 'href="/'"$owner"'/[^"]+"' <<<"$line" | cut -d'/' -f3 | cut -d'"' -f1)
             [ -n "$packages" ] && packages="$packages"$'\n'"$package_type/$repo/$package_new" || packages="$package_type/$repo/$package_new"
         done
     done
