@@ -205,6 +205,7 @@ for id_login in "${owners[@]}"; do
 
         packages_lines=$(grep -zoP 'href="/'"$owner_type"'/'"$owner"'/packages/[^/]+/package/[^"]+"' <<<"$html" | tr -d '\0')
         [ -n "$packages_lines" ] || break
+        packages_lines=${packages_lines//href=/\\nhref=}
         packages_lines=${packages_lines//\\n/$'\n'} # replace \n with newline
 
         # loop through the packages in $packages_lines
