@@ -79,10 +79,11 @@ curl() {
 check_limit() {
     rate_limit_end=$(date +%s)
     rate_limit_diff=$((rate_limit_end - rate_limit_start))
-    if [[ "$rate_limit_diff" -ge 3000 || "$calls_to_api" -ge 900 ]]; then
+    if [ "$calls_to_api" -ge $((rate_limit_diff * 1000 / 3600)) ]; then
         echo "$calls_to_api Calls to the GitHub API in $((rate_limit_diff / 60)) minutes"
-        echo "Let's wait to be safe..."
+        echo "Sleeping for $((3600 - rate_limit_diff)) seconds..."
         sleep $((3600 - rate_limit_diff))
+        echo "Resuming..."
         rate_limit_start=$(date +%s)
         calls_to_api=0
     fi
@@ -341,6 +342,9 @@ for id_login in "${owners[@]}"; do
                     for tag in $(_jq '.metadata.container.tags[]'); do
                         version_tags="$version_tags$tag,"
                     done
+                else
+                    echo "No tags found for $owner/$repo/$package/$version_name"
+                    jq -r . <<<"$manifest"
                 fi
 
                 # remove the last comma
@@ -416,13 +420,13 @@ for id_login in "${owners[@]}"; do
         fi
 
         # update stats
-        query="select count(*) from '$table_pkg_name' where owner_type='$owner_type' and package_type='$package_type' and owner='$owner' and repo='$repo' and package='$package';"
+        query="select count(*) from '$table_pkg_name' where owner_type='$owner_type' and package_type='$package_type' and owner='$owner' and repo='$repo' and package='$package' and date='$TODAY';"
         count=$(sqlite3 "$INDEX_DB" "$query")
 
         if [ "$count" -eq 0 ]; then
             query="insert into '$table_pkg_name' (owner_id, owner_type, package_type, owner, repo, package, downloads, downloads_month, downloads_week, downloads_day, size, date) values ('$owner_id', '$owner_type', '$package_type', '$owner', '$repo', '$package', '$raw_downloads', '$raw_downloads_month', '$raw_downloads_week', '$raw_downloads_day', '$size', '$TODAY');"
         else
-            query="update '$table_pkg_name' set downloads='$raw_downloads', downloads_month='$raw_downloads_month', downloads_week='$raw_downloads_week', downloads_day='$raw_downloads_day', size='$size', date='$TODAY' where owner_type='$owner_type' and package_type='$package_type' and owner='$owner' and repo='$repo' and package='$package';"
+            query="update '$table_pkg_name' set owner_id='$owner_id', downloads='$raw_downloads', downloads_month='$raw_downloads_month', downloads_week='$raw_downloads_week', downloads_day='$raw_downloads_day', size='$size' where owner_type='$owner_type' and package_type='$package_type' and owner='$owner' and repo='$repo' and package='$package' and date='$TODAY';"
         fi
 
         sqlite3 "$INDEX_DB" "$query"
@@ -433,6 +437,12 @@ done
 # update index.json:
 echo "[" >index.json
 sqlite3 "$INDEX_DB" "select * from '$table_pkg_name' order by downloads + 0 desc;" | while IFS='|' read -r owner_type package_type owner repo package downloads downloads_month downloads_week downloads_day size date; do
+
+    # only use the latest date for the package
+    query="select max(date) from '$table_pkg_name' where owner_type='$owner_type' and package_type='$package_type' and owner='$owner' and repo='$repo' and package='$package';"
+    max_date=$(sqlite3 "$INDEX_DB" "$query")
+    [ "$date" = "$max_date" ] || continue
+
     fmt_downloads=$(numfmt <<<"$downloads")
     version_count=0
     version_with_tag_count=0
@@ -555,7 +565,7 @@ sqlite3 "$INDEX_DB" "select * from '$table_pkg_name' order by downloads + 0 desc
     $label =~ s/%([0-9A-Fa-f]{2})/chr(hex($1))/eg;
 
     # add new badge
-    s/\n\n(\[!\[.*)\n\n/\n\n$1 \[!\[$owner_type\/$package_type\/$owner\/$repo\/$package\]\(https:\/\/img.shields.io\/badge\/dynamic\/json\?url=https%3A%2F%2Fraw.githubusercontent.com%2F$thisowner%2F$thisrepo%2F$thisbranch%2Findex.json\&query=%24%5B%3F(%40.owner%3D%3D%22$owner%22%20%26%26%20%40.repo%3D%3D%22$repo%22%20%26%26%20%40.package%3D%3D%22$package%22)%5D.downloads\&label=$label\)\]\(https:\/\/github.com\/$owner\/$repo\/pkgs\/container\/$package\)\n\n/g;
+    s/\n\n(\[!\[.*)\n\n/\n\n$1 \[!\[$owner_type\/$package_type\/$owner\/$repo\/$package\]\(https:\/\/img.shields.io\/badge\/dynamic\/json\?url=https%3A%2F%2Fraw.githubusercontent.com%2F$thisowner%2F$thisrepo%2F$thisbranch%2Findex.json\&query=%24%5B%3F(%40.owner%3D%3D%22$owner%22%20%26%26%20%40.repo%3D%3D%22$repo%22%20%26%26%20%40.package%3D%3D%22$package%22)%5D.downloads\&label=$label\)\]\(https:\/\/github.com\/$owner\/$repo\/pkgs\/$package_type\/$package\)\n\n/g;
 ' README.md >README.tmp && [ -f README.tmp ] && mv README.tmp README.md || :
 done
 
