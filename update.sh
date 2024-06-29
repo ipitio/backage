@@ -107,6 +107,7 @@ if [ -f owners.txt ]; then
     sed -i '/^\s*$/d' owners.txt
     echo >>owners.txt
     awk 'NF' owners.txt >owners.tmp && mv owners.tmp owners.txt
+    sed -i 's/^[[:space:]]*//;s/[[:space:]]*$//' owners.txt
 
     while IFS= read -r owner; do
         check_limit || break
@@ -124,8 +125,6 @@ if [ -f owners.txt ]; then
             owners+=("$owner_id/$owner")
         fi
     done <owners.txt
-
-    [ "${owners[0]}" = "693151/arevindh" ] || : >owners.txt
 fi
 
 if [ "$1" = "0" ]; then
@@ -265,17 +264,17 @@ for id_login in "${owners[@]}"; do
         fi
 
         # manual update: skip if the package is already in the index; the rest are updated daily
-        if [ "$1" = "1" ]; then
+        if [ "$1" = "0" ]; then
             query="select count(*) from '$table_pkg_name' where owner_type='$owner_type' and package_type='$package_type' and owner='$owner' and repo='$repo' and package='$package';"
             count=$(sqlite3 "$INDEX_DB" "$query")
-            ((count == 0)) || continue
+            [[ "$count" =~ ^0$ ]] || continue
         fi
 
         # update stats
         query="select count(*) from '$table_pkg_name' where owner_type='$owner_type' and package_type='$package_type' and owner='$owner' and repo='$repo' and package='$package' and date='$TODAY';"
         count=$(sqlite3 "$INDEX_DB" "$query")
 
-        if [ "$count" -eq 0 ]; then
+        if [[ "$count" =~ ^0$ ]]; then
             downloads=-1
             raw_downloads=-1
             raw_downloads_month=-1
@@ -386,7 +385,7 @@ for id_login in "${owners[@]}"; do
                 count=$(sqlite3 "$INDEX_DB" "$search")
 
                 # insert a new row
-                if [ "$count" -eq 0 ]; then
+                if [[ "$count" =~ ^0$ ]]; then
                     if [ "$package_type" = "container" ]; then
                         # get the size by adding up the layers
                         [[ "$version_name" =~ ^sha256:.+$ ]] && sep="@" || sep=":"
@@ -462,14 +461,15 @@ for id_login in "${owners[@]}"; do
         #else query="update '$table_pkg_name' set owner_id='$owner_id', downloads='$raw_downloads', downloads_month='$raw_downloads_month', downloads_week='$raw_downloads_week', downloads_day='$raw_downloads_day', size='$size' where owner_type='$owner_type' and package_type='$package_type' and owner='$owner' and repo='$repo' and package='$package' and date='$TODAY';"
         fi
     done
+    [ "$owner" = "arevindh" ] || sed -i "/$owner/d" owners.txt
 done
 
 # update index.json:
 echo "[" >index.json
-sqlite3 "$INDEX_DB" "select * from '$table_pkg_name' order by downloads + 0 desc;" | while IFS='|' read -r owner_type package_type owner repo package downloads downloads_month downloads_week downloads_day size date; do
+sqlite3 "$INDEX_DB" "select * from '$table_pkg_name' order by downloads + 0 desc;" | while IFS='|' read -r owner_id owner_type package_type owner repo package downloads downloads_month downloads_week downloads_day size date; do
     check_limit || break
     # only use the latest date for the package
-    query="select max(date) from '$table_pkg_name' where owner_type='$owner_type' and package_type='$package_type' and owner='$owner' and repo='$repo' and package='$package';"
+    query="select date from '$table_pkg_name' where owner_type='$owner_type' and package_type='$package_type' and owner='$owner' and repo='$repo' and package='$package' order by date desc limit 1;"
     max_date=$(sqlite3 "$INDEX_DB" "$query")
     [ "$date" = "$max_date" ] || continue
 
@@ -496,6 +496,7 @@ sqlite3 "$INDEX_DB" "select * from '$table_pkg_name' order by downloads + 0 desc
     [[ "$package_type" != "container" ]] || echo "\"image\": \"$package\",\"pulls\": \"$fmt_downloads\"," >>index.json
     echo "\"owner_type\": \"$owner_type\",
         \"package_type\": \"$package_type\",
+        \"owner_id\": \"$owner_id\",
         \"owner\": \"$owner\",
         \"repo\": \"$repo\",
         \"package\": \"$package\",
@@ -574,10 +575,10 @@ perl -0777 -pe 's/<GITHUB_OWNER>/'"$GITHUB_OWNER"'/g; s/<GITHUB_REPO>/'"$GITHUB_
 
 echo "Total Downloads:"
 
-sqlite3 "$INDEX_DB" "select * from '$table_pkg_name' order by downloads + 0 desc;" | while IFS='|' read -r owner_type package_type owner repo package downloads _ _ _ _ date _; do
+sqlite3 "$INDEX_DB" "select * from '$table_pkg_name' order by downloads + 0 desc;" | while IFS='|' read -r _ owner_type package_type owner repo package downloads _ _ _ _ date; do
     check_limit || break
     # only use the latest date for the package
-    query="select max(date) from '$table_pkg_name' where owner_type='$owner_type' and package_type='$package_type' and owner='$owner' and repo='$repo' and package='$package';"
+    query="select date from '$table_pkg_name' where owner_type='$owner_type' and package_type='$package_type' and owner='$owner' and repo='$repo' and package='$package' order by date desc limit 1;"
     max_date=$(sqlite3 "$INDEX_DB" "$query")
     [ "$date" = "$max_date" ] || continue
 
