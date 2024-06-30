@@ -50,6 +50,7 @@ $[?(@.owner_type == "<TYPE>"
 
 |       Property        |     Type     | Description                                        |
 | :-------------------: | :----------: | -------------------------------------------------- |
+|      `owner_id`       |    number    | The ID of the owner                                |
 |     `owner_type`      |    string    | The type of owner (e.g. `users`)                   |
 |    `package_type`     |    string    | The type of package (e.g. `container`)             |
 |        `owner`        |    string    | The owner of the package                           |
@@ -133,6 +134,7 @@ The general stats for all packages.
 
 |      Column       |  Type   | Description                                     |
 | :---------------: | :-----: | ----------------------------------------------- |
+|    `owner_id`     | INTEGER | The ID of the owner                             |
 |   `owner_type`    |  TEXT   | The type of owner (e.g. `users`)                |
 |  `package_type`   |  TEXT   | The type of package (e.g. `container`)          |
 |      `owner`      |  TEXT   | The owner of the package                        |
