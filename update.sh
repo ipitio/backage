@@ -332,7 +332,7 @@ for id_login in "${owners[@]}"; do
                     id=$(_jq '.id')
                     name=$(_jq '.name')
                     tags=$(_jq '.. | try .tags | join(",")')
-
+                    echo "tags: $tags"
                     if ! jq -e ".[] | select(.id == \"$id\")" <<<"$versions_json" &>/dev/null; then
                         versions_json=$(jq ". += [{\"id\":\"$id\",\"name\":\"$name\",\"tags\":\"$tags\"}]" <<<"$versions_json")
                     fi
