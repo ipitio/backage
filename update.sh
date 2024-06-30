@@ -101,10 +101,6 @@ if [ "$1" = "0" ]; then
 
         # add the new owners to the owners array
         for i in $(jq -r '.[] | @base64' <<<"$owners_more"); do
-            _jq() {
-                echo "$i" | base64 --decode | jq -r "$@"
-            }
-
             owner=$(_jq '.login')
             id=$(_jq '.id')
 
@@ -247,17 +243,17 @@ for id_login in "${owners[@]}"; do
         fi
 
         # manual update: skip if the package is already in the index; the rest are updated daily
-        if [ "$1" = "1" ]; then
+        if [ "$1" = "1" ] && [[ "$owner" != "arevindh" ]]; then
             query="select count(*) from '$table_pkg_name' where owner_type='$owner_type' and package_type='$package_type' and owner='$owner' and repo='$repo' and package='$package';"
             count=$(sqlite3 "$INDEX_DB" "$query")
-            [[ "$count" =~ ^0$ ]] || continue
+            [[ "$count" =~ ^0*$ ]] || continue
         fi
 
         # update stats
         query="select count(*) from '$table_pkg_name' where owner_type='$owner_type' and package_type='$package_type' and owner='$owner' and repo='$repo' and package='$package' and date='$TODAY';"
         count=$(sqlite3 "$INDEX_DB" "$query")
 
-        if [[ "$count" =~ ^0$ ]]; then
+        if [[ "$count" =~ ^0*$ ]]; then
             downloads=-1
             raw_downloads=-1
             raw_downloads_month=-1
@@ -325,10 +321,6 @@ for id_login in "${owners[@]}"; do
 
                 # add the new versions to the versions_json, if they are not already there
                 for i in $(jq -r '.[] | @base64' <<<"$versions_json_more"); do
-                    _jq() {
-                        echo "$i" | base64 --decode | jq -r "$@"
-                    }
-
                     id=$(_jq '.id')
                     name=$(_jq '.name')
 
@@ -341,10 +333,6 @@ for id_login in "${owners[@]}"; do
             # scan the versions
             jq -e . <<<"$versions_json" &>/dev/null || versions_json="[{\"id\":\"latest\",\"name\":\"latest\"}]"
             for i in $(jq -r '.[] | @base64' <<<"$versions_json"); do
-                _jq() {
-                    echo "$i" | base64 --decode | jq -r "$@"
-                }
-
                 check_limit || break 3
                 version_size=-1
                 version_id=$(_jq '.id')
@@ -368,7 +356,7 @@ for id_login in "${owners[@]}"; do
                 count=$(sqlite3 "$INDEX_DB" "$search")
 
                 # insert a new row
-                if [[ "$count" =~ ^0$ ]]; then
+                if [[ "$count" =~ ^0*$ ]]; then
                     if [ "$package_type" = "container" ]; then
                         # get the size by adding up the layers
                         [[ "$version_name" =~ ^sha256:.+$ ]] && sep="@" || sep=":"
@@ -384,13 +372,8 @@ for id_login in "${owners[@]}"; do
                                 [[ "$version_size" =~ ^[0-9]+$ ]] || version_size=-1
                             fi
 
-                            for tag in $(_jq '.. | try .tags[]'); do
-                                [ -z "$tag" ] || version_tags="$version_tags$tag,"
-                            done
+                            version_tags=$(_jq '.. | try .tags | join(",")')
                         fi
-
-                        # remove the last comma
-                        version_tags=${version_tags%,}
                     else
                         : # TODO: support other package types
                     fi

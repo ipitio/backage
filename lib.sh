@@ -33,3 +33,7 @@ curl() {
 
     return 1
 }
+
+_jq() {
+    echo "$i" | base64 --decode | jq -r "$@"
+}
