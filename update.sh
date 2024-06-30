@@ -373,21 +373,18 @@ for id_login in "${owners[@]}"; do
                         # get the size by adding up the layers
                         [[ "$version_name" =~ ^sha256:.+$ ]] && sep="@" || sep=":"
                         manifest=$(docker manifest inspect -v "ghcr.io/$lower_owner/$lower_package$sep$version_name" 2>&1)
-                        [[ ! "$manifest" =~ ^\[.*\]$ ]] || manifest=$(jq '.[]' <<<"$manifest")
+                        version_tags=$(jq -r '.. | try .tags | join(",")' 2>/dev/null <<<"$manifest")
 
-                        if [[ "$manifest" =~ ^\{.*\}$ ]]; then
-                            if [[ -n "$(jq '.. | try .layers[]' <<<"$manifest")" ]]; then
-                                version_size=$(jq '.. | try .size | select(. > 0)' <<<"$manifest" | awk '{s+=$1} END {print s}')
-                                [[ "$version_size" =~ ^[0-9]+$ ]] || version_size=-1
-                            elif [[ -n "$(jq '.. | try .manifests[]' <<<"$manifest")" ]]; then
-                                version_size=$(jq '.. | try .size | select(. > 0)' <<<"$manifest" | awk '{s+=$1} END {print s/NR}')
-                                [[ "$version_size" =~ ^[0-9]+$ ]] || version_size=-1
-                            fi
-
-                            version_tags="$(jq -r '.. | try .tags | join(",")' <<<"$manifest")"
-                            echo "tags: $version_tags"
-                            echo "manifest: $(jq . <<<"$manifest")"
+                        if [[ -n "$(jq '.. | try .layers[]' 2>/dev/null <<<"$manifest")" ]]; then
+                            version_size=$(jq '.. | try .size | select(. > 0)' <<<"$manifest" | awk '{s+=$1} END {print s}')
+                            [[ "$version_size" =~ ^[0-9]+$ ]] || version_size=-1
+                        elif [[ -n "$(jq '.. | try .manifests[]' 2>/dev/null <<<"$manifest")" ]]; then
+                            version_size=$(jq '.. | try .size | select(. > 0)' <<<"$manifest" | awk '{s+=$1} END {print s/NR}')
+                            [[ "$version_size" =~ ^[0-9]+$ ]] || version_size=-1
                         fi
+
+                        echo "tags: $version_tags"
+                        echo "manifest: $(jq . <<<"$manifest")"
                     else
                         : # TODO: support other package types
                     fi
