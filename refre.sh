@@ -80,8 +80,8 @@ sqlite3 "$INDEX_DB" "select * from '$table_pkg_name' order by downloads + 0 desc
 
         # get only the last day each version was updated, which may not be today
         # desc sort by id
-        query="select id, name, date, size, downloads, downloads_month, downloads_week, downloads_day, tags from '$table_version_name' group by id order by id desc;"
-        sqlite3 "$INDEX_DB" "$query" | while IFS='|' read -r id name date size downloads downloads_month downloads_week downloads_day tags; do
+        query="select id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags from '$table_version_name' group by id order by id desc;"
+        sqlite3 "$INDEX_DB" "$query" | while IFS='|' read -r id name size downloads downloads_month downloads_week downloads_day date tags; do
             echo "{
                 \"id\": $id,
                 \"name\": \"$name\",
