@@ -186,7 +186,7 @@ for id_login in "${owners[@]}"; do
 
     # get the packages
     while true; do
-        check_limit || break
+        check_limit || break 2
         ((packages_page++))
 
         if [ "$owner_type" = "orgs" ]; then
@@ -224,7 +224,7 @@ for id_login in "${owners[@]}"; do
 
     # loop through the packages in $packages
     for package_line in "${packages[@]}"; do
-        check_limit || break
+        check_limit || break 2
         [ -n "$package_line" ] || continue
         package_type=$(cut -d'/' -f1 <<<"$package_line")
         repo=$(cut -d'/' -f2 <<<"$package_line")
@@ -304,7 +304,7 @@ for id_login in "${owners[@]}"; do
 
             # limit to X pages / newest X00 versions
             while [ "$versions_page" -lt 1 ]; do
-                check_limit || break
+                check_limit || break 3
                 ((versions_page++))
                 # if the repo is public the api request should succeed
                 versions_json_more="[]"
@@ -345,7 +345,7 @@ for id_login in "${owners[@]}"; do
                     echo "$i" | base64 --decode | jq -r "$@"
                 }
 
-                check_limit || break
+                check_limit || break 3
                 version_size=-1
                 version_id=$(_jq '.id')
                 version_name=$(_jq '.name')
