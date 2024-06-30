@@ -372,7 +372,7 @@ for id_login in "${owners[@]}"; do
                                 [[ "$version_size" =~ ^[0-9]+$ ]] || version_size=-1
                             fi
 
-                            version_tags=$(_jq '.. | try .tags | join(",")')
+                            version_tags=$(jq -r '.. | try .tags | join(",")' <<<"$manifest")
                         fi
                     else
                         : # TODO: support other package types
