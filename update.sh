@@ -101,6 +101,10 @@ if [ "$1" = "0" ]; then
 
         # add the new owners to the owners array
         for i in $(jq -r '.[] | @base64' <<<"$owners_more"); do
+            _jq() {
+                echo "$i" | base64 --decode | jq -r "$@"
+            }
+
             owner=$(_jq '.login')
             id=$(_jq '.id')
 
@@ -321,6 +325,10 @@ for id_login in "${owners[@]}"; do
 
                 # add the new versions to the versions_json, if they are not already there
                 for i in $(jq -r '.[] | @base64' <<<"$versions_json_more"); do
+                    _jq() {
+                        echo "$i" | base64 --decode | jq -r "$@"
+                    }
+
                     id=$(_jq '.id')
                     name=$(_jq '.name')
 
@@ -333,6 +341,10 @@ for id_login in "${owners[@]}"; do
             # scan the versions
             jq -e . <<<"$versions_json" &>/dev/null || versions_json="[{\"id\":\"latest\",\"name\":\"latest\"}]"
             for i in $(jq -r '.[] | @base64' <<<"$versions_json"); do
+                _jq() {
+                    echo "$i" | base64 --decode | jq -r "$@"
+                }
+
                 check_limit || break 3
                 version_size=-1
                 version_id=$(_jq '.id')
