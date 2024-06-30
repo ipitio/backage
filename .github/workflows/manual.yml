@@ -16,8 +16,8 @@ jobs:
             - name: Checkout repository
               uses: actions/checkout@v4
 
-            - name: Update index
-              run: bash update.sh 0
+            - name: Update database
+              run: bash update.sh 1
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
                   GITHUB_OWNER: ${{ github.repository_owner }}
@@ -27,4 +27,27 @@ jobs:
             - name: Commit and push
               uses: stefanzweifel/git-auto-commit-action@v5
               with:
-                  commit_message: 'update index'
+                  commit_message: 'update database'
+    
+    refresh:
+        runs-on: ubuntu-latest
+
+        permissions:
+            contents: write
+
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+
+            - name: Refresh endpoint
+              run: bash refre.sh
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  GITHUB_OWNER: ${{ github.repository_owner }}
+                  GITHUB_REPO: ${{ github.event.repository.name }}
+                  GITHUB_BRANCH: ${{ github.head_ref || github.ref_name }}
+
+            - name: Commit and push
+              uses: stefanzweifel/git-auto-commit-action@v5
+              with:
+                  commit_message: 'refresh endpoint'

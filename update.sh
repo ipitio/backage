@@ -1,17 +1,10 @@
 #!/bin/bash
-# Update the stats for each package
+# Scrape each package
 # Usage: ./update.sh
 # Dependencies: curl, jq, sqlite3, Docker
 # Copyright (c) ipitio
 #
 # shellcheck disable=SC2015
-
-declare script_start
-declare TODAY
-script_start=$(date +%s)
-TODAY=$(date -u +%Y-%m-%d)
-readonly script_start TODAY
-declare -r INDEX_DB="index.db" # sqlite
 
 # check if curl and jq are installed
 if ! command -v curl &>/dev/null || ! command -v jq &>/dev/null || ! command -v sqlite3 &>/dev/null; then
@@ -19,68 +12,22 @@ if ! command -v curl &>/dev/null || ! command -v jq &>/dev/null || ! command -v 
     sudo apt-get install curl jq sqlite3 -y
 fi
 
-# use a sqlite database to store the downloads of a package
-[ -f "$INDEX_DB" ] || touch "$INDEX_DB"
-table_pkg_name="packages"
-table_pkg="create table if not exists '$table_pkg_name' (
-    owner_id text,
-    owner_type text not null,
-    package_type text not null,
-    owner text not null,
-    repo text not null,
-    package text not null,
-    downloads integer not null,
-    downloads_month integer not null,
-    downloads_week integer not null,
-    downloads_day integer not null,
-    size integer not null,
-    date text not null,
-    primary key (owner_type, package_type, owner, repo, package, date)
-);"
-sqlite3 "$INDEX_DB" "$table_pkg"
-
-# we will incrementally add new owners to the index
-# file "id" contains the highest id of the last owner
-since=-1
-[ ! -f id ] || since=$(<id)
-owners=()
-owners_page=0
+declare SCRIPT_START
+declare TODAY
+SCRIPT_START=$(date +%s)
+TODAY=$(date -u +%Y-%m-%d)
+readonly SCRIPT_START TODAY
+declare -r INDEX_DB="index.db" # sqlite
+declare -r table_pkg_name="packages"
 rate_limit_start=$(date +%s)
 calls_to_api=0
-
-# format numbers like 1000 to 1k
-numfmt() {
-    awk '{ split("k M B T P E Z Y", v); s=0; while( $1>999.9 ) { $1/=1000; s++ } print int($1*10)/10 v[s] }'
-}
-
-# format bytes to KB, MB, GB, etc.
-numfmt_size() {
-    awk '{ split("kB MB GB TB PB EB ZB YB", v); s=0; while( $1>999.9 ) { $1/=1000; s++ } print int($1*10)/10 " " v[s] }'
-}
-
-curl() {
-    # if connection times out or max time is reached, wait increasing amounts of time before retrying
-    local i=0
-    local max_attempts=7
-    local wait_time=1
-    local result
-
-    while [ "$i" -lt "$max_attempts" ]; do
-        result=$(command curl -sSLNZ --connect-timeout 60 -m 120 "$@" 2>/dev/null)
-        [ -n "$result" ] && echo "$result" && return 0
-        sleep "$wait_time"
-        ((i++))
-        ((wait_time *= 2))
-    done
-
-    return 1
-}
+source lib.sh
 
 check_limit() {
     rate_limit_end=$(date +%s)
     rate_limit_diff=$((rate_limit_end - rate_limit_start))
     hours_passed=$((rate_limit_diff / 3600))
-    script_limit_diff=$((rate_limit_end - script_start))
+    script_limit_diff=$((rate_limit_end - SCRIPT_START))
 
     # if the script has been running for more than 5 hours, exit
     if ((script_limit_diff >= 18000)); then
@@ -102,34 +49,33 @@ check_limit() {
     return 0
 }
 
-# if owners.txt exists, read any owners from there
-if [ -f owners.txt ]; then
-    sed -i '/^\s*$/d' owners.txt
-    echo >>owners.txt
-    awk 'NF' owners.txt >owners.tmp && mv owners.tmp owners.txt
-    sed -i 's/^[[:space:]]*//;s/[[:space:]]*$//' owners.txt
+# use a sqlite database to store the downloads of a package
+[ -f "$INDEX_DB" ] || touch "$INDEX_DB"
+table_pkg="create table if not exists '$table_pkg_name' (
+    owner_id text,
+    owner_type text not null,
+    package_type text not null,
+    owner text not null,
+    repo text not null,
+    package text not null,
+    downloads integer not null,
+    downloads_month integer not null,
+    downloads_week integer not null,
+    downloads_day integer not null,
+    size integer not null,
+    date text not null,
+    primary key (owner_type, package_type, owner, repo, package, date)
+);"
+sqlite3 "$INDEX_DB" "$table_pkg"
 
-    while IFS= read -r owner; do
-        check_limit || break
-        owner=$(echo "$owner" | tr -d '[:space:]')
-        [ -n "$owner" ] || continue
-        owner_id=$(curl -sSL \
-            -H "Accept: application/vnd.github+json" \
-            -H "Authorization: Bearer $GITHUB_TOKEN" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            --connect-timeout 60 -m 120 \
-            "https://api.github.com/users/$owner" | jq -r '.id')
-        ((calls_to_api++))
-
-        if ! grep -q "$owner_id/$owner" <<<"${owners[*]}"; then
-            owners+=("$owner_id/$owner")
-        fi
-    done <owners.txt
-fi
+# we will incrementally add new owners to the index
+# file "id" contains the highest id of the last owner
+since=-1
+[ ! -f id ] || since=$(<id)
 
 if [ "$1" = "0" ]; then
     # get new owners
-    while [ "$owners_page" -lt 10 ]; do
+    while [ "$owners_page" -lt 3 ]; do
         check_limit || break
         ((owners_page++))
         owners_more="[]"
@@ -157,8 +103,8 @@ if [ "$1" = "0" ]; then
             owner=$(_jq '.login')
             id=$(_jq '.id')
 
-            if ! grep -q "$owner_id/$owner" <<<"${owners[*]}"; then
-                owners+=("$owner_id/$owner")
+            if ! grep -q "$owner" owners.txt; then
+                echo "$owner_id/$owner" >>owners.txt
             fi
 
             echo "$id" >id
@@ -168,7 +114,6 @@ if [ "$1" = "0" ]; then
     # add the owners in the database to the owners array
     query="select owner_id, owner from '$table_pkg_name';"
     while IFS='|' read -r owner_id owner; do
-        check_limit || break
         # if owner_id is null, find the owner_id
         if [ -z "$owner_id" ]; then
             owner_id=$(curl -sSL \
@@ -186,6 +131,36 @@ if [ "$1" = "0" ]; then
             owners+=("$owner_id/$owner")
         fi
     done < <(sqlite3 "$INDEX_DB" "$query")
+fi
+
+# if owners.txt exists, read any owners from there
+if [ -f owners.txt ]; then
+    sed -i '/^\s*$/d' owners.txt
+    echo >>owners.txt
+    awk 'NF' owners.txt >owners.tmp && mv owners.tmp owners.txt
+    sed -i 's/^[[:space:]]*//;s/[[:space:]]*$//' owners.txt
+
+    while IFS= read -r owner; do
+        check_limit || break
+        owner=$(echo "$owner" | tr -d '[:space:]')
+        [ -n "$owner" ] || continue
+        if [[ "$owner" =~ *\/* ]]; then
+            owner_id=$(cut -d'/' -f1 <<<"$owner")
+            owner=$(cut -d'/' -f2 <<<"$owner")
+        else
+            owner_id=$(curl -sSL \
+                -H "Accept: application/vnd.github+json" \
+                -H "Authorization: Bearer $GITHUB_TOKEN" \
+                -H "X-GitHub-Api-Version: 2022-11-28" \
+                --connect-timeout 60 -m 120 \
+                "https://api.github.com/users/$owner" | jq -r '.id')
+            ((calls_to_api++))
+        fi
+
+        if ! grep -q "$owner_id/$owner" <<<"${owners[*]}"; then
+            owners+=("$owner_id/$owner")
+        fi
+    done <owners.txt
 fi
 
 # loop through known and new owners
@@ -463,149 +438,3 @@ for id_login in "${owners[@]}"; do
     done
     [ "$owner" = "arevindh" ] || sed -i "/$owner/d" owners.txt
 done
-
-# update index.json:
-echo "[" >index.json
-sqlite3 "$INDEX_DB" "select * from '$table_pkg_name' order by downloads + 0 desc;" | while IFS='|' read -r owner_id owner_type package_type owner repo package downloads downloads_month downloads_week downloads_day size date; do
-    check_limit || break
-    # only use the latest date for the package
-    query="select date from '$table_pkg_name' where owner_type='$owner_type' and package_type='$package_type' and owner='$owner' and repo='$repo' and package='$package' order by date desc limit 1;"
-    max_date=$(sqlite3 "$INDEX_DB" "$query")
-    [ "$date" = "$max_date" ] || continue
-
-    fmt_downloads=$(numfmt <<<"$downloads")
-    version_count=0
-    version_with_tag_count=0
-    table_version_name="versions_${owner_type}_${package_type}_${owner}_${repo}_${package}"
-    printf "Refreshing %s/%s/%s (%s/%s)" "$owner" "$repo" "$package" "$owner_type" "$package_type"
-
-    # get the version and tagged counts
-    query="select name from sqlite_master where type='table' and name='$table_version_name';"
-    table_exists=$(sqlite3 "$INDEX_DB" "$query")
-
-    if [ -n "$table_exists" ]; then
-        query="select count(distinct id) from '$table_version_name';"
-        version_count=$(sqlite3 "$INDEX_DB" "$query")
-        query="select count(distinct id) from '$table_version_name' where tags != '' and tags is not null;"
-        version_with_tag_count=$(sqlite3 "$INDEX_DB" "$query")
-        printf " with %s versions (%s tagged)" "$version_count" "$version_with_tag_count"
-    fi
-
-    echo "..."
-    echo "{" >>index.json
-    [[ "$package_type" != "container" ]] || echo "\"image\": \"$package\",\"pulls\": \"$fmt_downloads\"," >>index.json
-    echo "\"owner_type\": \"$owner_type\",
-        \"package_type\": \"$package_type\",
-        \"owner_id\": \"$owner_id\",
-        \"owner\": \"$owner\",
-        \"repo\": \"$repo\",
-        \"package\": \"$package\",
-        \"date\": \"$date\",
-        \"size\": \"$(numfmt_size <<<"$size")\",
-        \"versions\": \"$(numfmt <<<"$version_count")\",
-        \"tagged\": \"$(numfmt <<<"$version_with_tag_count")\",
-        \"downloads\": \"$fmt_downloads\",
-        \"downloads_month\": \"$(numfmt <<<"$downloads_month")\",
-        \"downloads_week\": \"$(numfmt <<<"$downloads_week")\",
-        \"downloads_day\": \"$(numfmt <<<"$downloads_day")\",
-        \"raw_size\": $size,
-        \"raw_versions\": $version_count,
-        \"raw_tagged\": $version_with_tag_count,
-        \"raw_downloads\": $downloads,
-        \"raw_downloads_month\": $downloads_month,
-        \"raw_downloads_week\": $downloads_week,
-        \"raw_downloads_day\": $downloads_day,
-        \"version\": [" >>index.json
-
-    # add the versions to index.json
-    if [ "$version_count" -gt 0 ]; then
-        query="select id from '$table_version_name' order by id desc limit 1;"
-        version_newest_id=$(sqlite3 "$INDEX_DB" "$query")
-
-        # get only the last day each version was updated, which may not be today
-        # desc sort by id
-        query="select id, name, date, size, downloads, downloads_month, downloads_week, downloads_day, tags from '$table_version_name' group by id order by id desc;"
-        sqlite3 "$INDEX_DB" "$query" | while IFS='|' read -r id name date size downloads downloads_month downloads_week downloads_day tags; do
-            echo "{
-                \"id\": $id,
-                \"name\": \"$name\",
-                \"date\": \"$date\",
-                \"newest\": $([ "$id" = "$version_newest_id" ] && echo "true" || echo "false"),
-                \"size\": \"$(numfmt_size <<<"$size")\",
-                \"downloads\": \"$(numfmt <<<"$downloads")\",
-                \"downloads_month\": \"$(numfmt <<<"$downloads_month")\",
-                \"downloads_week\": \"$(numfmt <<<"$downloads_week")\",
-                \"downloads_day\": \"$(numfmt <<<"$downloads_day")\",
-                \"raw_size\": $size,
-                \"raw_downloads\": $downloads,
-                \"raw_downloads_month\": $downloads_month,
-                \"raw_downloads_week\": $downloads_week,
-                \"raw_downloads_day\": $downloads_day,
-                \"tags\": [\"${tags//,/\",\"}\"]
-                }," >>index.json
-        done
-    fi
-
-    # remove the last comma
-    sed -i '$ s/,$//' index.json
-    echo "]
-    }," >>index.json
-done
-
-# remove the last comma
-sed -i '$ s/,$//' index.json
-echo "]" >>index.json
-
-# run json through jq to format it
-jq . index.json >index.tmp.json
-mv index.tmp.json index.json
-
-# sort the top level by raw_downloads
-jq 'sort_by(.raw_downloads | tonumber) | reverse' index.json >index.tmp.json
-mv index.tmp.json index.json
-
-# minify the json
-jq -c . index.json >index.tmp.json
-mv index.tmp.json index.json
-
-# update the README template with badges...
-[ ! -f README.md ] || rm -f README.md # remove the old README
-\cp .README.md README.md              # copy the template
-perl -0777 -pe 's/<GITHUB_OWNER>/'"$GITHUB_OWNER"'/g; s/<GITHUB_REPO>/'"$GITHUB_REPO"'/g; s/<GITHUB_BRANCH>/'"$GITHUB_BRANCH"'/g' README.md >README.tmp && [ -f README.tmp ] && mv README.tmp README.md || :
-
-echo "Total Downloads:"
-
-sqlite3 "$INDEX_DB" "select * from '$table_pkg_name' order by downloads + 0 desc;" | while IFS='|' read -r _ owner_type package_type owner repo package downloads _ _ _ _ date; do
-    check_limit || break
-    # only use the latest date for the package
-    query="select date from '$table_pkg_name' where owner_type='$owner_type' and package_type='$package_type' and owner='$owner' and repo='$repo' and package='$package' order by date desc limit 1;"
-    max_date=$(sqlite3 "$INDEX_DB" "$query")
-    [ "$date" = "$max_date" ] || continue
-
-    export owner_type package_type owner repo package
-    printf "%s\t(%s)\t%s/%s/%s (%s/%s)\n" "$(numfmt <<<"$downloads")" "$downloads" "$owner" "$repo" "$package" "$owner_type" "$package_type"
-
-    # ...that have not been added yet
-    grep -q "$owner_type/$package_type/$owner/$repo/$package" README.md || perl -0777 -pe '
-    my $owner_type = $ENV{"owner_type"};
-    my $package_type = $ENV{"package_type"};
-    my $owner = $ENV{"owner"};
-    my $repo = $ENV{"repo"};
-    my $package = $ENV{"package"};
-    my $thisowner = $ENV{"GITHUB_OWNER"};
-    my $thisrepo = $ENV{"GITHUB_REPO"};
-    my $thisbranch = $ENV{"GITHUB_BRANCH"};
-
-    # decode percent-encoded characters
-    for ($owner, $repo, $package) {
-        s/%/%25/g;
-    }
-    my $label = $package;
-    $label =~ s/%([0-9A-Fa-f]{2})/chr(hex($1))/eg;
-
-    # add new badge
-    s/\n\n(\[!\[.*)\n\n/\n\n$1 \[!\[$owner_type\/$package_type\/$owner\/$repo\/$package\]\(https:\/\/img.shields.io\/badge\/dynamic\/json\?url=https%3A%2F%2Fraw.githubusercontent.com%2F$thisowner%2F$thisrepo%2F$thisbranch%2Findex.json\&query=%24%5B%3F(%40.owner%3D%3D%22$owner%22%20%26%26%20%40.repo%3D%3D%22$repo%22%20%26%26%20%40.package%3D%3D%22$package%22)%5D.downloads\&label=$label\)\]\(https:\/\/github.com\/$owner\/$repo\/pkgs\/$package_type\/$package\)\n\n/g;
-' README.md >README.tmp && [ -f README.tmp ] && mv README.tmp README.md || :
-done
-
-echo "Done!"
