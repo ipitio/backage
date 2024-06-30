@@ -1,4 +1,4 @@
-name: manual update
+name: refesh
 
 on:
     workflow_run:
