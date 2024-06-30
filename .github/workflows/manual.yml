@@ -1,4 +1,4 @@
-name: manual update
+name: demanded
 
 on:
     push:
@@ -25,26 +25,3 @@ jobs:
               uses: stefanzweifel/git-auto-commit-action@v5
               with:
                   commit_message: 'update database'
-    
-    refresh:
-        needs: update
-        runs-on: ubuntu-latest
-
-        permissions:
-            contents: write
-
-        steps:
-            - name: Checkout repository
-              uses: actions/checkout@v4
-
-            - name: Refresh endpoint
-              run: bash refre.sh
-              env:
-                  GITHUB_OWNER: ${{ github.repository_owner }}
-                  GITHUB_REPO: ${{ github.event.repository.name }}
-                  GITHUB_BRANCH: ${{ github.head_ref || github.ref_name }}
-
-            - name: Commit and push
-              uses: stefanzweifel/git-auto-commit-action@v5
-              with:
-                  commit_message: 'refresh endpoint'

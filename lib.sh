@@ -1,7 +1,7 @@
 #!/bin/bash
 # Some useful functions
-# Usage: ./setup.sh
-# Dependencies: curl, jq, sqlite3
+# Usage: ./lib.sh
+# Dependencies: curl
 # Copyright (c) ipitio
 #
 # shellcheck disable=SC2015

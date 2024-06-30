@@ -1,34 +1,15 @@
-name: scheduled
+name: manual update
 
 on:
-    schedule:
-        - cron: '0 */12 * * *'
+    workflow_run:
+      workflows: [demanded, scheduled]
+      types:
+        - completed
 
 jobs:
-    update:
-        runs-on: ubuntu-latest
-
-        permissions:
-            contents: write
-
-        steps:
-            - name: Checkout repository
-              uses: actions/checkout@v4
-
-            - name: Update database
-              run: bash update.sh 0
-              env:
-                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-            - name: Commit and push
-              uses: stefanzweifel/git-auto-commit-action@v5
-              with:
-                  commit_message: 'update database'
-    
     refresh:
-        needs: update
         runs-on: ubuntu-latest
-
+        if: ${{ github.event.workflow_run.conclusion == 'success' }}
         permissions:
             contents: write
 

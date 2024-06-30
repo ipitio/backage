@@ -1,6 +1,6 @@
 #!/bin/bash
 # Update the templates
-# Usage: ./setup.sh
+# Usage: ./refre.sh
 # Dependencies: jq, sqlite3
 # Copyright (c) ipitio
 #

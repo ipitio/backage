@@ -1,7 +1,7 @@
 #!/bin/bash
 # Scrape each package
 # Usage: ./update.sh
-# Dependencies: curl, jq, sqlite3, Docker
+# Dependencies: curl, jq, sqlite3, docker
 # Copyright (c) ipitio
 #
 # shellcheck disable=SC2015
@@ -21,6 +21,7 @@ declare -r INDEX_DB="index.db" # sqlite
 declare -r table_pkg_name="packages"
 rate_limit_start=$(date +%s)
 calls_to_api=0
+stopped=false
 source lib.sh
 
 check_limit() {
@@ -29,9 +30,12 @@ check_limit() {
     hours_passed=$((rate_limit_diff / 3600))
     script_limit_diff=$((rate_limit_end - SCRIPT_START))
 
-    # if the script has been running for more than 5 hours, exit
     if ((script_limit_diff >= 18000)); then
-        echo "Script has been running for more than 5 hours. Saving..."
+        if ! $stopped; then
+            echo "Script has been running for more than 5 hours. Saving..."
+            stopped=true
+        fi
+
         return 1
     fi
 
@@ -75,6 +79,7 @@ since=-1
 
 if [ "$1" = "0" ]; then
     # get new owners
+    echo "Scanning for more owners..."
     while [ "$owners_page" -lt 3 ]; do
         check_limit || break
         ((owners_page++))
@@ -112,8 +117,10 @@ if [ "$1" = "0" ]; then
     done
 
     # add the owners in the database to the owners array
+    echo "Queuing known owners..."
     query="select owner_id, owner from '$table_pkg_name';"
     while IFS='|' read -r owner_id owner; do
+        check_limit || break
         # if owner_id is null, find the owner_id
         if [ -z "$owner_id" ]; then
             owner_id=$(curl -sSL \
@@ -134,7 +141,8 @@ if [ "$1" = "0" ]; then
 fi
 
 # if owners.txt exists, read any owners from there
-if [ -f owners.txt ]; then
+if [ -s owners.txt ]; then
+    echo "Queuing more owners..."
     sed -i '/^\s*$/d' owners.txt
     echo >>owners.txt
     awk 'NF' owners.txt >owners.tmp && mv owners.tmp owners.txt
@@ -364,7 +372,7 @@ for id_login in "${owners[@]}"; do
                     if [ "$package_type" = "container" ]; then
                         # get the size by adding up the layers
                         [[ "$version_name" =~ ^sha256:.+$ ]] && sep="@" || sep=":"
-                        manifest=$(docker manifest inspect -v "ghcr.io/$lower_owner/$lower_package$sep$version_name")
+                        manifest=$(docker manifest inspect -v "ghcr.io/$lower_owner/$lower_package$sep$version_name" 2>&1)
                         [[ ! "$manifest" =~ ^\[.*\]$ ]] || manifest=$(jq '.[]' <<<"$manifest")
 
                         if [[ "$manifest" =~ ^\{.*\}$ ]]; then
@@ -436,5 +444,5 @@ for id_login in "${owners[@]}"; do
         #else query="update '$table_pkg_name' set owner_id='$owner_id', downloads='$raw_downloads', downloads_month='$raw_downloads_month', downloads_week='$raw_downloads_week', downloads_day='$raw_downloads_day', size='$size' where owner_type='$owner_type' and package_type='$package_type' and owner='$owner' and repo='$repo' and package='$package' and date='$TODAY';"
         fi
     done
-    [ "$owner" = "arevindh" ] || sed -i "/$owner/d" owners.txt
+    sed -i "/$owner/d" owners.txt
 done
