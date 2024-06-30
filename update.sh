@@ -253,7 +253,7 @@ for id_login in "${owners[@]}"; do
         query="select count(*) from '$table_pkg_name' where owner_type='$owner_type' and package_type='$package_type' and owner='$owner' and repo='$repo' and package='$package' and date='$TODAY';"
         count=$(sqlite3 "$INDEX_DB" "$query")
 
-        if [[ "$count" =~ ^0*$ ]]; then
+        if [[ "$count" =~ ^0*$ || "$owner" == "arevindh" ]]; then
             downloads=-1
             raw_downloads=-1
             raw_downloads_month=-1
@@ -356,7 +356,7 @@ for id_login in "${owners[@]}"; do
                 count=$(sqlite3 "$INDEX_DB" "$search")
 
                 # insert a new row
-                if [[ "$count" =~ ^0*$ ]]; then
+                if [[ "$count" =~ ^0*$ || "$owner" == "arevindh" ]]; then
                     if [ "$package_type" = "container" ]; then
                         # get the size by adding up the layers
                         [[ "$version_name" =~ ^sha256:.+$ ]] && sep="@" || sep=":"
