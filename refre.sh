@@ -6,13 +6,17 @@
 #
 # shellcheck disable=SC2015
 
-source lib.sh
+declare -r INDEX_DB="index.db" # sqlite
+declare -r table_pkg_name="packages"
+declare SCRIPT_START
 SCRIPT_START=$(date +%s)
+readonly SCRIPT_START
 [ ! -f README.md ] || rm -f README.md # remove the old README
 \cp .README.md README.md              # copy the template
 perl -0777 -pe 's/<GITHUB_OWNER>/'"$GITHUB_OWNER"'/g; s/<GITHUB_REPO>/'"$GITHUB_REPO"'/g; s/<GITHUB_BRANCH>/'"$GITHUB_BRANCH"'/g' README.md >README.tmp && [ -f README.tmp ] && mv README.tmp README.md || :
 echo "Total Downloads:"
 echo "[" >index.json
+source lib.sh
 
 sqlite3 "$INDEX_DB" "select * from '$table_pkg_name' order by downloads + 0 desc;" | while IFS='|' read -r owner_id owner_type package_type owner repo package downloads downloads_month downloads_week downloads_day size date; do
     script_now=$(date +%s)
