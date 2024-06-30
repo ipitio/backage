@@ -1,4 +1,4 @@
-name: refesh
+name: refresh
 
 on:
     workflow_run:
