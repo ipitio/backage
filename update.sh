@@ -385,6 +385,8 @@ for id_login in "${owners[@]}"; do
                             fi
 
                             version_tags="$(jq -r '.. | try .tags | join(",")' <<<"$manifest")"
+                            echo "tags: $version_tags"
+                            echo "manifest: $(jq . <<<"$manifest")"
                         fi
                     else
                         : # TODO: support other package types
