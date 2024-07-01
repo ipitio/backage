@@ -17,7 +17,7 @@ jobs:
               uses: actions/checkout@v4
 
             - name: Update database
-              run: bash update.sh 1
+              run: bash update.sh 0s
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
