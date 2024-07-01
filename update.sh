@@ -294,10 +294,10 @@ for id_login in "${owners[@]}"; do
             table_exists=$(sqlite3 "$INDEX_DB" "$query")
 
             if [ -n "$table_exists" ]; then
-                query="select id, name from '$table_version_name';"
-                while IFS='|' read -r id name; do
+                query="select id, name, tags from '$table_version_name';"
+                while IFS='|' read -r id name tags; do
                     if ! jq -e ".[] | select(.id == \"$id\")" <<<"$versions_json" &>/dev/null; then
-                        versions_json=$(jq ". += [{\"id\":\"$id\",\"name\":\"$name\"}]" <<<"$versions_json")
+                        versions_json=$(jq ". += [{\"id\":\"$id\",\"name\":\"$name\",\"tags\":\"$tags\"}]" <<<"$versions_json")
                     fi
                 done < <(sqlite3 "$INDEX_DB" "$query")
             fi
@@ -332,9 +332,11 @@ for id_login in "${owners[@]}"; do
                     id=$(_jq '.id')
                     name=$(_jq '.name')
                     tags=$(_jq '.. | try .tags | join(",")')
-                    echo "tags: $tags"
+
                     if ! jq -e ".[] | select(.id == \"$id\")" <<<"$versions_json" &>/dev/null; then
                         versions_json=$(jq ". += [{\"id\":\"$id\",\"name\":\"$name\",\"tags\":\"$tags\"}]" <<<"$versions_json")
+                    else
+                        versions_json=$(jq "map(if .id == \"$id\" then .tags = \"$tags\" else . end)" <<<"$versions_json")
                     fi
                 done
             done
