@@ -76,6 +76,8 @@ sqlite3 "$INDEX_DB" "$table_pkg"
 # file "id" contains the highest id of the last owner
 since=-1
 [ ! -f id ] || since=$(<id)
+owners=()
+owners_page=0
 
 if [ "$1" = "0" ]; then
     # get new owners
