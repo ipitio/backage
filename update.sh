@@ -131,7 +131,8 @@ if [ -s owners.txt ]; then
         owner=$(echo "$owner" | tr -d '[:space:]')
         owner_id=""
         [ -n "$owner" ] || continue
-        if [[ "$owner" =~ .*\/.* ]]; then
+
+        if [[ "$owner" =~ .*/.* ]]; then
             owner_id=$(cut -d'/' -f1 <<<"$owner")
             owner=$(cut -d'/' -f2 <<<"$owner")
         fi
@@ -260,7 +261,6 @@ for id_login in "${owners[@]}"; do
         count=$(sqlite3 "$INDEX_DB" "$query")
 
         if [[ "$count" =~ ^0*$ || "$owner" == "arevindh" ]]; then
-            downloads=-1
             raw_downloads=-1
             raw_downloads_month=-1
             raw_downloads_week=-1
