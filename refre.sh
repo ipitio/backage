@@ -16,14 +16,15 @@ readonly SCRIPT_START
 perl -0777 -pe 's/<GITHUB_OWNER>/'"$GITHUB_OWNER"'/g; s/<GITHUB_REPO>/'"$GITHUB_REPO"'/g; s/<GITHUB_BRANCH>/'"$GITHUB_BRANCH"'/g' README.md >README.tmp && [ -f README.tmp ] && mv README.tmp README.md || :
 echo "Total Downloads:"
 echo "[" >index.json
+# shellcheck disable=SC1091
 source lib.sh
 
 sqlite3 "$INDEX_DB" "select * from '$table_pkg_name' order by downloads + 0 desc;" | while IFS='|' read -r owner_id owner_type package_type owner repo package downloads downloads_month downloads_week downloads_day size date; do
     script_now=$(date +%s)
     script_diff=$((script_now - SCRIPT_START))
-    
-    if ((script_limit_diff >= 18000)); then
-        echo "Script has been running for more than 5 hours. Saving..."
+
+    if ((script_diff >= 3600)); then
+        echo "Script has been running for more than an hour. Saving..."
         break
     fi
 
@@ -81,23 +82,23 @@ sqlite3 "$INDEX_DB" "select * from '$table_pkg_name' order by downloads + 0 desc
         # get only the last day each version was updated, which may not be today
         # desc sort by id
         query="select id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags from '$table_version_name' group by id order by id desc;"
-        sqlite3 "$INDEX_DB" "$query" | while IFS='|' read -r id name size downloads downloads_month downloads_week downloads_day date tags; do
+        sqlite3 "$INDEX_DB" "$query" | while IFS='|' read -r vid vname vsize vdownloads vdownloads_month vdownloads_week vdownloads_day vdate vtags; do
             echo "{
-                \"id\": $id,
-                \"name\": \"$name\",
-                \"date\": \"$date\",
-                \"newest\": $([ "$id" = "$version_newest_id" ] && echo "true" || echo "false"),
-                \"size\": \"$(numfmt_size <<<"$size")\",
-                \"downloads\": \"$(numfmt <<<"$downloads")\",
-                \"downloads_month\": \"$(numfmt <<<"$downloads_month")\",
-                \"downloads_week\": \"$(numfmt <<<"$downloads_week")\",
-                \"downloads_day\": \"$(numfmt <<<"$downloads_day")\",
-                \"raw_size\": $size,
-                \"raw_downloads\": $downloads,
-                \"raw_downloads_month\": $downloads_month,
-                \"raw_downloads_week\": $downloads_week,
-                \"raw_downloads_day\": $downloads_day,
-                \"tags\": [\"${tags//,/\",\"}\"]
+                \"id\": $vid,
+                \"name\": \"$vname\",
+                \"date\": \"$vdate\",
+                \"newest\": $([ "$vid" = "$version_newest_id" ] && echo "true" || echo "false"),
+                \"size\": \"$(numfmt_size <<<"$vsize")\",
+                \"downloads\": \"$(numfmt <<<"$vdownloads")\",
+                \"downloads_month\": \"$(numfmt <<<"$vdownloads_month")\",
+                \"downloads_week\": \"$(numfmt <<<"$vdownloads_week")\",
+                \"downloads_day\": \"$(numfmt <<<"$vdownloads_day")\",
+                \"raw_size\": $vsize,
+                \"raw_downloads\": $vdownloads,
+                \"raw_downloads_month\": $vdownloads_month,
+                \"raw_downloads_week\": $vdownloads_week,
+                \"raw_downloads_day\": $vdownloads_day,
+                \"tags\": [\"${vtags//,/\",\"}\"]
                 }," >>index.json
         done
     fi
@@ -110,7 +111,7 @@ sqlite3 "$INDEX_DB" "select * from '$table_pkg_name' order by downloads + 0 desc
     export owner_type package_type owner repo package
     printf "%s\t(%s)\t%s/%s/%s (%s/%s)\n" "$(numfmt <<<"$downloads")" "$downloads" "$owner" "$repo" "$package" "$owner_type" "$package_type"
 
-    # ...that have not been added yet
+    [ "$downloads" -ge 1000 ] || continue
     grep -q "$owner_type/$package_type/$owner/$repo/$package" README.md || perl -0777 -pe '
     my $owner_type = $ENV{"owner_type"};
     my $package_type = $ENV{"package_type"};

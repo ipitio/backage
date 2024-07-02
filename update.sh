@@ -22,6 +22,7 @@ declare -r table_pkg_name="packages"
 rate_limit_start=$(date +%s)
 calls_to_api=0
 stopped=false
+# shellcheck disable=SC1091
 source lib.sh
 
 check_limit() {
@@ -79,7 +80,8 @@ since=-1
 owners=()
 owners_page=0
 
-if [ "$1" = "0" ]; then
+# get more owners if scheduled and no more
+if [ "$1" = "0" ] && [ ! -s owners.txt ]; then
     # get new owners
     echo "Scanning for more owners..."
     while [ "$owners_page" -lt 3 ]; do
@@ -109,15 +111,46 @@ if [ "$1" = "0" ]; then
 
             owner=$(_jq '.login')
             id=$(_jq '.id')
-
-            if ! grep -q "$owner" owners.txt; then
-                echo "$owner_id/$owner" >>owners.txt
-            fi
-
+            [ -n "$owner" ] || continue
+            grep -q "$owner" owners.txt || echo "$id/$owner" >>owners.txt
             echo "$id" >id
         done
     done
+fi
 
+# add more owners
+if [ -s owners.txt ]; then
+    echo "Queuing more owners..."
+    sed -i '/^\s*$/d' owners.txt
+    echo >>owners.txt
+    awk 'NF' owners.txt >owners.tmp && mv owners.tmp owners.txt
+    sed -i 's/^[[:space:]]*//;s/[[:space:]]*$//' owners.txt
+
+    while IFS= read -r owner; do
+        check_limit || break
+        owner=$(echo "$owner" | tr -d '[:space:]')
+        owner_id=""
+        [ -n "$owner" ] || continue
+        if [[ "$owner" =~ .*\/.* ]]; then
+            owner_id=$(cut -d'/' -f1 <<<"$owner")
+            owner=$(cut -d'/' -f2 <<<"$owner")
+        fi
+
+        if [ -z "$owner_id" ]; then
+            owner_id=$(curl -sSL \
+                -H "Accept: application/vnd.github+json" \
+                -H "Authorization: Bearer $GITHUB_TOKEN" \
+                -H "X-GitHub-Api-Version: 2022-11-28" \
+                --connect-timeout 60 -m 120 \
+                "https://api.github.com/users/$owner" | jq -r '.id')
+            ((calls_to_api++))
+        fi
+
+        grep -q "$owner_id/$owner" <<<"${owners[*]}" || owners+=("$owner_id/$owner")
+    done <owners.txt
+fi
+
+if [ "$1" = "0" ]; then
     # add the owners in the database to the owners array
     echo "Queuing known owners..."
     query="select owner_id, owner from '$table_pkg_name';"
@@ -136,41 +169,8 @@ if [ "$1" = "0" ]; then
             sqlite3 "$INDEX_DB" "$query"
         fi
 
-        if ! grep -q "$owner_id/$owner" <<<"${owners[*]}"; then
-            owners+=("$owner_id/$owner")
-        fi
+        grep -q "$owner_id/$owner" <<<"${owners[*]}" || owners+=("$owner_id/$owner")
     done < <(sqlite3 "$INDEX_DB" "$query")
-fi
-
-# if owners.txt exists, read any owners from there
-if [ -s owners.txt ]; then
-    echo "Queuing more owners..."
-    sed -i '/^\s*$/d' owners.txt
-    echo >>owners.txt
-    awk 'NF' owners.txt >owners.tmp && mv owners.tmp owners.txt
-    sed -i 's/^[[:space:]]*//;s/[[:space:]]*$//' owners.txt
-
-    while IFS= read -r owner; do
-        check_limit || break
-        owner=$(echo "$owner" | tr -d '[:space:]')
-        [ -n "$owner" ] || continue
-        if [[ "$owner" =~ *\/* ]]; then
-            owner_id=$(cut -d'/' -f1 <<<"$owner")
-            owner=$(cut -d'/' -f2 <<<"$owner")
-        else
-            owner_id=$(curl -sSL \
-                -H "Accept: application/vnd.github+json" \
-                -H "Authorization: Bearer $GITHUB_TOKEN" \
-                -H "X-GitHub-Api-Version: 2022-11-28" \
-                --connect-timeout 60 -m 120 \
-                "https://api.github.com/users/$owner" | jq -r '.id')
-            ((calls_to_api++))
-        fi
-
-        if ! grep -q "$owner_id/$owner" <<<"${owners[*]}"; then
-            owners+=("$owner_id/$owner")
-        fi
-    done <owners.txt
 fi
 
 # loop through known and new owners
@@ -286,7 +286,7 @@ for id_login in "${owners[@]}"; do
             [ -n "$is_public" ] || continue
             echo "Scraping $package_type/$repo/$package..."
             raw_downloads=$(grep -Pzo 'Total downloads[^"]*"\d*' <<<"$html" | grep -Pzo '\d*$' | tr -d '\0') # https://stackoverflow.com/a/74214537
-            [[ ! "$raw_downloads" =~ ^[0-9]+$ ]] || downloads=$(numfmt <<<"$raw_downloads")
+            [[ "$raw_downloads" =~ ^[0-9]+$ ]] || raw_downloads=-1
             versions_json="[]"
             versions_page=0
 
