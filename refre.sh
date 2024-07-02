@@ -111,7 +111,7 @@ sqlite3 "$INDEX_DB" "select * from '$table_pkg_name' order by downloads + 0 desc
     export owner_type package_type owner repo package
     printf "%s\t(%s)\t%s/%s/%s (%s/%s)\n" "$(numfmt <<<"$downloads")" "$downloads" "$owner" "$repo" "$package" "$owner_type" "$package_type"
 
-    [ "$downloads" -ge 1000 ] || continue
+    [ "$downloads" -ge 1000000 ] || continue
     grep -q "$owner_type/$package_type/$owner/$repo/$package" README.md || perl -0777 -pe '
     my $owner_type = $ENV{"owner_type"};
     my $package_type = $ENV{"package_type"};
@@ -121,12 +121,13 @@ sqlite3 "$INDEX_DB" "select * from '$table_pkg_name' order by downloads + 0 desc
     my $thisowner = $ENV{"GITHUB_OWNER"};
     my $thisrepo = $ENV{"GITHUB_REPO"};
     my $thisbranch = $ENV{"GITHUB_BRANCH"};
+    my $label = $package;
 
     # decode percent-encoded characters
-    for ($owner, $repo, $package) {
+    for ($owner, $repo, $label) {
         s/%/%25/g;
     }
-    my $label = $package;
+
     $label =~ s/%([0-9A-Fa-f]{2})/chr(hex($1))/eg;
 
     # add new badge
