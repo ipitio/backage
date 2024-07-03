@@ -23,8 +23,8 @@ sqlite3 "$INDEX_DB" "select * from '$table_pkg_name' order by downloads + 0 desc
     script_now=$(date +%s)
     script_diff=$((script_now - SCRIPT_START))
 
-    if ((script_diff >= 3600)); then
-        echo "Script has been running for more than an hour. Saving..."
+    if ((script_diff >= 3500)); then
+        echo "Script has been running for an hour. Saving..."
         break
     fi
 

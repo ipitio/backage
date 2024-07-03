@@ -34,9 +34,9 @@ check_limit() {
     hours_passed=$((rate_limit_diff / 3600))
     script_limit_diff=$((rate_limit_end - SCRIPT_START))
 
-    if ((script_limit_diff >= 18000)); then
+    if ((script_limit_diff >= 17900)); then
         if ! $stopped; then
-            echo "Script has been running for more than 5 hours. Saving..."
+            echo "Script has been running for 5 hours. Saving..."
             stopped=true
         fi
 
@@ -91,11 +91,9 @@ if [ "$1" = "0" ]; then
             owners_more="[]"
 
             if [ -n "$GITHUB_TOKEN" ]; then
-                owners_more=$(curl -sSL \
-                    -H "Accept: application/vnd.github+json" \
+                owners_more=$(curl -H "Accept: application/vnd.github+json" \
                     -H "Authorization: Bearer $GITHUB_TOKEN" \
                     -H "X-GitHub-Api-Version: 2022-11-28" \
-                    --connect-timeout 60 -m 120 \
                     "https://api.github.com/users?per_page=100&page=$owners_page&since=$since")
                 ((calls_to_api++))
                 jq -e . <<<"$owners_more" &>/dev/null || owners_more="[]"
@@ -121,23 +119,12 @@ if [ "$1" = "0" ]; then
 
     # add the owners in the database to the owners array
     echo "Reading known owners..."
-    query="select owner_id, owner from '$table_pkg_name';"
-    while IFS='|' read -r owner_id owner; do
+    query="select owner from '$table_pkg_name';"
+    # write each owner to a new line in owners.txt if it's not already there
+    while IFS= read -r owner; do
         check_limit || break
-        # if owner_id is null, find the owner_id
-        if [ -z "$owner_id" ]; then
-            owner_id=$(curl -sSL \
-                -H "Accept: application/vnd.github+json" \
-                -H "Authorization: Bearer $GITHUB_TOKEN" \
-                -H "X-GitHub-Api-Version: 2022-11-28" \
-                --connect-timeout 60 -m 120 \
-                "https://api.github.com/users/$owner" | jq -r '.id')
-            ((calls_to_api++))
-            query="update '$table_pkg_name' set owner_id='$owner_id' where owner='$owner';"
-            sqlite3 "$INDEX_DB" "$query"
-        fi
-
-        grep -q "$owner" owners.txt || echo "$id/$owner" >>owners.txt
+        [ -n "$owner" ] || continue
+        grep -q "$owner" owners.txt || echo "$owner" >>owners.txt
     done < <(sqlite3 "$INDEX_DB" "$query")
 fi
 
@@ -157,17 +144,15 @@ if [ -s owners.txt ]; then
         owner_id=""
         [ -n "$owner" ] || continue
 
-        if [[ "$owner" =~ .*/.* ]]; then
+        if [[ "$owner" =~ .*\/.* ]]; then
             owner_id=$(cut -d'/' -f1 <<<"$owner")
             owner=$(cut -d'/' -f2 <<<"$owner")
         fi
 
         if [ -z "$owner_id" ]; then
-            owner_id=$(curl -sSL \
-                -H "Accept: application/vnd.github+json" \
+            owner_id=$(curl -H "Accept: application/vnd.github+json" \
                 -H "Authorization: Bearer $GITHUB_TOKEN" \
                 -H "X-GitHub-Api-Version: 2022-11-28" \
-                --connect-timeout 60 -m 120 \
                 "https://api.github.com/users/$owner" | jq -r '.id')
             ((calls_to_api++))
         fi
@@ -318,11 +303,9 @@ for id_login in "${owners[@]}"; do
                 versions_json_more="[]"
 
                 if [ -n "$GITHUB_TOKEN" ]; then
-                    versions_json_more=$(curl -sSL \
-                        -H "Accept: application/vnd.github+json" \
+                    versions_json_more=$(curl -H "Accept: application/vnd.github+json" \
                         -H "Authorization: Bearer $GITHUB_TOKEN" \
                         -H "X-GitHub-Api-Version: 2022-11-28" \
-                        --connect-timeout 60 -m 120 \
                         "https://api.github.com/$owner_type/$owner/packages/$package_type/$package/versions?per_page=100&page=$versions_page")
                     ((calls_to_api++))
                     jq -e . <<<"$versions_json_more" &>/dev/null || versions_json_more="[]"
