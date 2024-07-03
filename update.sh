@@ -26,7 +26,8 @@ stopped=false
 source lib.sh
 
 FROM=$TODAY
-[ -f started ] && FROM=$(<started) || echo "$FROM" >started
+[ -f started ] && FROM=$(<started) || printf "%s" "$FROM" >started
+FROM=$(tr -d '\n' <<<"$(tr -d ' ' <<<"$FROM")")
 
 check_limit() {
     rate_limit_end=$(date +%s)
@@ -84,6 +85,7 @@ if [ "$1" = "0" ]; then
         owners_page=0
         since=-1
         [ ! -f id ] || since=$(<id)
+        since=$(tr -d '\n' <<<"$(tr -d ' ' <<<"$since")")
 
         while [ "$owners_page" -lt 5 ]; do
             check_limit || break
@@ -112,7 +114,7 @@ if [ "$1" = "0" ]; then
                 id=$(_jq '.id')
                 [ -n "$owner" ] || continue
                 grep -q "$owner" owners.txt || echo "$id/$owner" >>owners.txt
-                echo "$id" >id
+                printf "%s" "$id" >id
             done
         done
     fi
