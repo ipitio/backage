@@ -111,7 +111,7 @@ sqlite3 "$INDEX_DB" "select * from '$table_pkg_name' order by downloads + 0 desc
     export owner_type package_type owner repo package
     printf "%s\t(%s)\t%s/%s/%s (%s/%s)\n" "$(numfmt <<<"$downloads")" "$downloads" "$owner" "$repo" "$package" "$owner_type" "$package_type"
 
-    [ "$downloads" -ge 1000000 ] || continue
+    [ "$downloads" -ge 10000000 ] || continue
     grep -q "$owner_type/$package_type/$owner/$repo/$package" README.md || perl -0777 -pe '
     my $owner_type = $ENV{"owner_type"};
     my $package_type = $ENV{"package_type"};

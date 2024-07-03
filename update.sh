@@ -25,6 +25,9 @@ stopped=false
 # shellcheck disable=SC1091
 source lib.sh
 
+FROM=$TODAY
+[ -f started ] && FROM=$(<started) || echo "$FROM" >started
+
 check_limit() {
     rate_limit_end=$(date +%s)
     rate_limit_diff=$((rate_limit_end - rate_limit_start))
@@ -73,54 +76,76 @@ table_pkg="create table if not exists '$table_pkg_name' (
 );"
 sqlite3 "$INDEX_DB" "$table_pkg"
 
-# we will incrementally add new owners to the index
-# file "id" contains the highest id of the last owner
-since=-1
-[ ! -f id ] || since=$(<id)
-owners=()
-owners_page=0
+if [ "$1" = "0" ]; then
+    # get more owners if no more
+    if [ ! -s owners.txt ]; then
+        # get new owners
+        echo "Finding more owners..."
+        owners_page=0
+        since=-1
+        [ ! -f id ] || since=$(<id)
 
-# get more owners if scheduled and no more
-if [ "$1" = "0" ] && [ ! -s owners.txt ]; then
-    # get new owners
-    echo "Scanning for more owners..."
-    while [ "$owners_page" -lt 3 ]; do
+        while [ "$owners_page" -lt 5 ]; do
+            check_limit || break
+            ((owners_page++))
+            owners_more="[]"
+
+            if [ -n "$GITHUB_TOKEN" ]; then
+                owners_more=$(curl -sSL \
+                    -H "Accept: application/vnd.github+json" \
+                    -H "Authorization: Bearer $GITHUB_TOKEN" \
+                    -H "X-GitHub-Api-Version: 2022-11-28" \
+                    --connect-timeout 60 -m 120 \
+                    "https://api.github.com/users?per_page=100&page=$owners_page&since=$since")
+                ((calls_to_api++))
+                jq -e . <<<"$owners_more" &>/dev/null || owners_more="[]"
+            fi
+
+            # if owners doesn't have .login, break
+            jq -e '.[].login' <<<"$owners_more" &>/dev/null || break
+
+            # add the new owners to the owners array
+            for i in $(jq -r '.[] | @base64' <<<"$owners_more"); do
+                _jq() {
+                    echo "$i" | base64 --decode | jq -r "$@"
+                }
+
+                owner=$(_jq '.login')
+                id=$(_jq '.id')
+                [ -n "$owner" ] || continue
+                grep -q "$owner" owners.txt || echo "$id/$owner" >>owners.txt
+                echo "$id" >id
+            done
+        done
+    fi
+
+    # add the owners in the database to the owners array
+    echo "Reading known owners..."
+    query="select owner_id, owner from '$table_pkg_name';"
+    while IFS='|' read -r owner_id owner; do
         check_limit || break
-        ((owners_page++))
-        owners_more="[]"
-
-        if [ -n "$GITHUB_TOKEN" ]; then
-            owners_more=$(curl -sSL \
+        # if owner_id is null, find the owner_id
+        if [ -z "$owner_id" ]; then
+            owner_id=$(curl -sSL \
                 -H "Accept: application/vnd.github+json" \
                 -H "Authorization: Bearer $GITHUB_TOKEN" \
                 -H "X-GitHub-Api-Version: 2022-11-28" \
                 --connect-timeout 60 -m 120 \
-                "https://api.github.com/users?per_page=100&page=$owners_page&since=$since")
+                "https://api.github.com/users/$owner" | jq -r '.id')
             ((calls_to_api++))
-            jq -e . <<<"$owners_more" &>/dev/null || owners_more="[]"
+            query="update '$table_pkg_name' set owner_id='$owner_id' where owner='$owner';"
+            sqlite3 "$INDEX_DB" "$query"
         fi
 
-        # if owners doesn't have .login, break
-        jq -e '.[].login' <<<"$owners_more" &>/dev/null || break
-
-        # add the new owners to the owners array
-        for i in $(jq -r '.[] | @base64' <<<"$owners_more"); do
-            _jq() {
-                echo "$i" | base64 --decode | jq -r "$@"
-            }
-
-            owner=$(_jq '.login')
-            id=$(_jq '.id')
-            [ -n "$owner" ] || continue
-            grep -q "$owner" owners.txt || echo "$id/$owner" >>owners.txt
-            echo "$id" >id
-        done
-    done
+        grep -q "$owner" owners.txt || echo "$id/$owner" >>owners.txt
+    done < <(sqlite3 "$INDEX_DB" "$query")
 fi
+
+owners=()
 
 # add more owners
 if [ -s owners.txt ]; then
-    echo "Queuing more owners..."
+    echo "Queuing owners..."
     sed -i '/^\s*$/d' owners.txt
     echo >>owners.txt
     awk 'NF' owners.txt >owners.tmp && mv owners.tmp owners.txt
@@ -149,29 +174,6 @@ if [ -s owners.txt ]; then
 
         grep -q "$owner_id/$owner" <<<"${owners[*]}" || owners+=("$owner_id/$owner")
     done <owners.txt
-fi
-
-if [ "$1" = "0" ]; then
-    # add the owners in the database to the owners array
-    echo "Queuing known owners..."
-    query="select owner_id, owner from '$table_pkg_name';"
-    while IFS='|' read -r owner_id owner; do
-        check_limit || break
-        # if owner_id is null, find the owner_id
-        if [ -z "$owner_id" ]; then
-            owner_id=$(curl -sSL \
-                -H "Accept: application/vnd.github+json" \
-                -H "Authorization: Bearer $GITHUB_TOKEN" \
-                -H "X-GitHub-Api-Version: 2022-11-28" \
-                --connect-timeout 60 -m 120 \
-                "https://api.github.com/users/$owner" | jq -r '.id')
-            ((calls_to_api++))
-            query="update '$table_pkg_name' set owner_id='$owner_id' where owner='$owner';"
-            sqlite3 "$INDEX_DB" "$query"
-        fi
-
-        grep -q "$owner_id/$owner" <<<"${owners[*]}" || owners+=("$owner_id/$owner")
-    done < <(sqlite3 "$INDEX_DB" "$query")
 fi
 
 # loop through known and new owners
@@ -219,9 +221,11 @@ for id_login in "${owners[@]}"; do
 
     if [ "${#packages[@]}" -gt 0 ] && [ -n "${packages[0]}" ]; then
         printf "Got packages: "
+
         for i in "${packages[@]}"; do
-            printf "%s " "$i"
+            printf "%s " "$(cut -d'/' -f3 <<<"$i")"
         done
+
         echo
     fi
 
@@ -237,6 +241,7 @@ for id_login in "${owners[@]}"; do
         if [ -f optout.txt ]; then
             while IFS= read -r line; do
                 [ -n "$line" ] || continue
+
                 if [ "$line" = "$owner/$repo/$package" ]; then
                     # remove the package from the db
                     query="delete from '$table_pkg_name' where owner_type='$owner_type' and package_type='$package_type' and owner='$owner' and repo='$repo' and package='$package';"
@@ -257,7 +262,7 @@ for id_login in "${owners[@]}"; do
         fi
 
         # update stats
-        query="select count(*) from '$table_pkg_name' where owner_type='$owner_type' and package_type='$package_type' and owner='$owner' and repo='$repo' and package='$package' and date='$TODAY';"
+        query="select count(*) from '$table_pkg_name' where owner_type='$owner_type' and package_type='$package_type' and owner='$owner' and repo='$repo' and package='$package' and date between date('$FROM') and date('$TODAY');"
         count=$(sqlite3 "$INDEX_DB" "$query")
 
         if [[ "$count" =~ ^0*$ || "$owner" == "arevindh" ]]; then
@@ -297,6 +302,7 @@ for id_login in "${owners[@]}"; do
 
             if [ -n "$table_exists" ]; then
                 query="select id, name, tags from '$table_version_name';"
+
                 while IFS='|' read -r id name tags; do
                     if ! jq -e ".[] | select(.id == \"$id\")" <<<"$versions_json" &>/dev/null; then
                         versions_json=$(jq ". += [{\"id\":\"$id\",\"name\":\"$name\",\"tags\":\"$tags\"}]" <<<"$versions_json")
@@ -305,7 +311,7 @@ for id_login in "${owners[@]}"; do
             fi
 
             # limit to X pages / newest X00 versions
-            while [ "$versions_page" -lt 1 ]; do
+            while [ "$versions_page" -lt 5 ]; do
                 check_limit || break 3
                 ((versions_page++))
                 # if the repo is public the api request should succeed
@@ -369,7 +375,7 @@ for id_login in "${owners[@]}"; do
                     primary key (id, date)
                 );"
                 sqlite3 "$INDEX_DB" "$table_version"
-                search="select count(*) from '$table_version_name' where id='$version_id' and date='$TODAY';"
+                search="select count(*) from '$table_version_name' where id='$version_id' and date between date('$FROM') and date('$TODAY');"
                 count=$(sqlite3 "$INDEX_DB" "$search")
 
                 # insert a new row
@@ -420,8 +426,10 @@ for id_login in "${owners[@]}"; do
             table_exists=$(sqlite3 "$INDEX_DB" "$query")
 
             if [ -n "$table_exists" ]; then
-                # calculate the total downloads over all versions for day, week, and month using sqlite:
-                query="select sum(downloads), sum(downloads_month), sum(downloads_week), sum(downloads_day) from 'versions_${owner_type}_${package_type}_${owner}_${repo}_${package}' where date='$TODAY';"
+                # calculate the total downloads
+                query="select max(date) from '$table_version_name';"
+                max_date=$(sqlite3 "$INDEX_DB" "$query")
+                query="select sum(downloads), sum(downloads_month), sum(downloads_week), sum(downloads_day) from '$table_version_name' where date='$max_date';"
                 # summed_raw_downloads=$(sqlite3 "$INDEX_DB" "$query" | cut -d'|' -f1)
                 raw_downloads_month=$(sqlite3 "$INDEX_DB" "$query" | cut -d'|' -f2)
                 raw_downloads_week=$(sqlite3 "$INDEX_DB" "$query" | cut -d'|' -f3)
@@ -441,3 +449,5 @@ for id_login in "${owners[@]}"; do
     done
     sed -i "/$owner/d" owners.txt
 done
+
+[ -s owners.txt ] || rm started
