@@ -1,8 +1,3 @@
-Mailu
-QuivrHQ
-Stirling-Tools
-TandoorRecipes
-anchore
 aquasecurity
 argoproj
 authelia
@@ -87,3 +82,10 @@ sbusso
 bikerduweb
 fazibear
 indirect
+FlareSolverr
+Ki365
+LizardByte
+EugZol
+bitshape
+cdb
+djspiewak
