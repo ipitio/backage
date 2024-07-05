@@ -1,7 +1,3 @@
-labring
-mastodon
-mealie-recipes
-n8n-io
 netdata
 nginx-proxy
 openfaas
