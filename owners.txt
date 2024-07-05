@@ -90,3 +90,7 @@ emissary-ingress
 fission
 gethomepage
 gogs
+home-assistant
+hugomods
+k3d-io
+ko-build
