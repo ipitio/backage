@@ -1,7 +1,3 @@
-aquasecurity
-argoproj
-authelia
-browserless
 containerd
 containrrr
 coollabsio
@@ -91,3 +87,8 @@ dennisreimann
 mcornick
 minter
 peters
+Mailu
+QuivrHQ
+Stirling-Tools
+TandoorRecipes
+anchore
