@@ -92,3 +92,7 @@ dockur
 emissary-ingress
 fission
 gogs
+home-assistant
+hugomods
+k3d-io
+ko-build
