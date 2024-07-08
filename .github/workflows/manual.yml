@@ -42,7 +42,7 @@ jobs:
       - name: Create release
         uses: ncipollo/release-action@v1
         with:
-          artifacts: "index.sql.tar.zst,index.sql.d/*"
+          artifacts: "index.sql.zst,index.sql.d/*"
           bodyFile: "CHANGELOG.md"
           tag: "${{ steps.date.outputs.date }}"
           commit: "${{ steps.commit.outputs.commit_long_sha }}"

@@ -14,10 +14,10 @@ TODAY=$(date -u +%Y-%m-%d)
 readonly SCRIPT_START TODAY
 printf -v MAX %x -1 && printf -v MAX %d 0x"${MAX/f/7}"
 
-if ! command -v curl &>/dev/null || ! command -v jq &>/dev/null || ! command -v sqlite3 &>/dev/null; then
+if ! command -v curl &>/dev/null || ! command -v jq &>/dev/null || ! command -v sqlite3 &>/dev/null || ! command -v zstd &>/dev/null; then
     echo "Installing dependencies..."
     sudo apt-get update
-    sudo apt-get install curl jq sqlite3 -y
+    sudo apt-get install curl jq sqlite3 zstd -y
 fi
 
 # format numbers like 1000 to 1k
@@ -48,7 +48,7 @@ curl() {
     return 1
 }
 
-[ -f "$BKG_INDEX_DB" ] || { command curl -sSLNZO "https://github.com/$GITHUB_OWNER/$GITHUB_REPO/releases/latest/download/$BKG_INDEX_SQL.tar.zst" && tar -x -I 'zstd -d' -f "$BKG_INDEX_SQL.tar.zst" | sqlite3 "$BKG_INDEX_DB" || :; } || :
+[ -f "$BKG_INDEX_DB" ] || { command curl -sSLNZO "https://github.com/$GITHUB_OWNER/$GITHUB_REPO/releases/latest/download/$BKG_INDEX_SQL.zst" && zstd -d "$BKG_INDEX_SQL.zst" | sqlite3 "$BKG_INDEX_DB" || :; } || :
 [ -f "$BKG_INDEX_DB" ] || touch "$BKG_INDEX_DB"
 table_pkg="create table if not exists '$BKG_INDEX_TBL_PKG' (
     owner_id text,

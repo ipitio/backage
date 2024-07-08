@@ -50,15 +50,15 @@ xz_db() {
     if [ -f "$BKG_INDEX_DB" ]; then
         rotated=false
         echo "Compressing the database..."
-        sqlite3 "$BKG_INDEX_DB" ".dump" | tar -c -I 'zstd -22 --ultra --long -T0' -f "$BKG_INDEX_SQL".tar.zst.new
+        sqlite3 "$BKG_INDEX_DB" ".dump" | zstd -22 --ultra --long -T0 -o "$BKG_INDEX_SQL".zst.new
 
-        if [ -f "$BKG_INDEX_SQL".tar.zst.new ]; then
+        if [ -f "$BKG_INDEX_SQL".zst.new ]; then
             # rotate the database if it's greater than 2GB
-            if [ "$(stat -c %s "$BKG_INDEX_SQL".tar.zst.new)" -ge 2000000000 ]; then
+            if [ "$(stat -c %s "$BKG_INDEX_SQL".zst.new)" -ge 2000000000 ]; then
                 rotated=true
                 echo "Rotating the database..."
                 [ -d "$BKG_INDEX_SQL".d ] || mkdir "$BKG_INDEX_SQL".d
-                [ ! -f "$BKG_INDEX_SQL".tar.zst ] || mv "$BKG_INDEX_SQL".tar.zst "$BKG_INDEX_SQL".d/"$(date -u +%Y.%m.%d)".tar.zst
+                [ ! -f "$BKG_INDEX_SQL".zst ] || mv "$BKG_INDEX_SQL".zst "$BKG_INDEX_SQL".d/"$(date -u +%Y.%m.%d)".zst
                 query="delete from '$BKG_INDEX_TBL_PKG' where date not between date('$BKG_BATCH_FIRST_STARTED') and date('$TODAY');"
                 sqlite3 "$BKG_INDEX_DB" "$query"
                 query="select name from sqlite_master where type='table' and name like '${BKG_INDEX_TBL_VER}_%';"
@@ -70,10 +70,10 @@ xz_db() {
                 done
 
                 sqlite3 "$BKG_INDEX_DB" "vacuum;"
-                sqlite3 "$BKG_INDEX_DB" ".dump" | tar -c -I 'zstd -22 --ultra --long -T0' -f "$BKG_INDEX_SQL".tar.zst.new
+                sqlite3 "$BKG_INDEX_DB" ".dump" | zstd -22 --ultra --long -T0 -o "$BKG_INDEX_SQL".zst.new
             fi
 
-            mv "$BKG_INDEX_SQL".tar.zst.new "$BKG_INDEX_SQL".tar.zst
+            mv "$BKG_INDEX_SQL".zst.new "$BKG_INDEX_SQL".zst
         else
             echo "Failed to compress the database!"
         fi
