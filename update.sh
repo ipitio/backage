@@ -78,6 +78,7 @@ xz_db() {
     fi
 
     echo "Creating the CHANGELOG..."
+    [ ! -f CHANGELOG.md ] || rm -f CHANGELOG.md
     \cp templates/.CHANGELOG.md CHANGELOG.md
     query="select count(distinct owner) from '$$BKG_INDEX_TBL_PKG';"
     owners=$(sqlite3 "$INDEX_DB" "$query")
