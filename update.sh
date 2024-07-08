@@ -50,7 +50,7 @@ xz_db() {
     if [ -f "$BKG_INDEX_DB" ]; then
         rotated=false
         echo "Compressing the database..."
-        sqlite3 "$BKG_INDEX_DB" ".dump" | tar -c -I 'zstd -22 --ultra --long -T0' "$BKG_INDEX_SQL".tar.zst.new
+        sqlite3 "$BKG_INDEX_DB" ".dump" | tar -c -I 'zstd -22 --ultra --long -T0' -f "$BKG_INDEX_SQL".tar.zst.new
 
         if [ -f "$BKG_INDEX_SQL".tar.zst.new ]; then
             # rotate the database if it's greater than 2GB
@@ -70,7 +70,7 @@ xz_db() {
                 done
 
                 sqlite3 "$BKG_INDEX_DB" "vacuum;"
-                sqlite3 "$BKG_INDEX_DB" ".dump" | tar -c -I 'zstd -22 --ultra --long -T0' "$BKG_INDEX_SQL".tar.zst.new
+                sqlite3 "$BKG_INDEX_DB" ".dump" | tar -c -I 'zstd -22 --ultra --long -T0' -f "$BKG_INDEX_SQL".tar.zst.new
             fi
 
             mv "$BKG_INDEX_SQL".tar.zst.new "$BKG_INDEX_SQL".tar.zst
@@ -124,7 +124,7 @@ if [ -s owners.txt ] && [ "$1" = "0" ]; then
 fi
 
 [ -s owners.txt ] || BKG_BATCH_FIRST_STARTED=$TODAY
-trap 'xz_db && exit 0 || exit 1' EXIT
+trap 'xz_db ; exit $?' EXIT
 [ -n "$BKG_RATE_LIMIT_START" ] || BKG_RATE_LIMIT_START=$(date -u +%s)
 [ -n "$BKG_CALLS_TO_API" ] || BKG_CALLS_TO_API=0
 
