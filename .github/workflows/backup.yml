@@ -7,7 +7,7 @@ on:
     - cron: "*/5 * * * *"
 
 concurrency:
-  group: ${{ github.workflow }}
+  group: ${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
