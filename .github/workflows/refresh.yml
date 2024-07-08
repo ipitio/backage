@@ -1,0 +1,38 @@
+name: refresh
+
+on:
+  workflow_run:
+    workflows: ["update", "manual"]
+    types:
+      - completed
+
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Refresh endpoint
+        run: bash refre.sh
+        env:
+          GITHUB_OWNER: ${{ github.repository_owner }}
+          GITHUB_REPO: ${{ github.event.repository.name }}
+          GITHUB_BRANCH: ${{ github.head_ref || github.ref_name }}
+
+      - name: Commit refresh
+        id: commit
+        uses: EndBug/add-and-commit@v9
+        with:
+          message: "refresh endpoint"
+          pull: "--autostash"

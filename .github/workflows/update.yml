@@ -1,10 +1,15 @@
-name: backup
+name: update
 
 on:
+  workflow_run:
+    workflows: ["refresh"]
+    types:
+      - completed
+
   workflow_dispatch:
 
   schedule:
-    - cron: "*/5 * * * *"
+    - cron: "0 * * * *"
 
 concurrency:
   group: ${{ github.ref }}
@@ -29,6 +34,7 @@ jobs:
         run: bash update.sh 0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BKG_VERSION: ${{ steps.date.outputs.date }}
 
       - name: Commit update
         id: commit
@@ -45,9 +51,6 @@ jobs:
           tag: "${{ steps.date.outputs.date }}"
           commit: "${{ steps.commit.outputs.commit_long_sha }}"
           allowUpdates: true
-
-    outputs:
-      version: ${{ steps.date.outputs.date }}
 
   refresh:
     needs: [update]
@@ -67,7 +70,6 @@ jobs:
           GITHUB_OWNER: ${{ github.repository_owner }}
           GITHUB_REPO: ${{ github.event.repository.name }}
           GITHUB_BRANCH: ${{ github.head_ref || github.ref_name }}
-          BKG_VERSION: ${{ needs.update.outputs.version }}
 
       - name: Commit refresh
         id: commit

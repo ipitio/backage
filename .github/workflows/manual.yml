@@ -30,6 +30,7 @@ jobs:
         run: bash update.sh 1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BKG_VERSION: ${{ steps.date.outputs.date }}
 
       - name: Commit update
         id: commit
@@ -47,32 +48,3 @@ jobs:
           commit: "${{ steps.commit.outputs.commit_long_sha }}"
           allowUpdates: true
 
-    outputs:
-      version: ${{ steps.date.outputs.date }}
-
-  refresh:
-    needs: [update]
-    if: ${{ needs.update.result == 'success' }}
-    runs-on: ubuntu-latest
-
-    permissions:
-      contents: write
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Refresh endpoint
-        run: bash refre.sh
-        env:
-          GITHUB_OWNER: ${{ github.repository_owner }}
-          GITHUB_REPO: ${{ github.event.repository.name }}
-          GITHUB_BRANCH: ${{ github.head_ref || github.ref_name }}
-          BKG_VERSION: ${{ needs.update.outputs.version }}
-
-      - name: Commit refresh
-        id: commit
-        uses: EndBug/add-and-commit@v9
-        with:
-          message: "refresh endpoint"
-          pull: "--autostash"
