@@ -94,7 +94,12 @@ xz_db() {
     fi
 
     echo "Exiting..."
-    env | grep -E '^BKG_' >.env
+
+    # update env with the current shell variables
+    for var in $(compgen -A variable | grep -E "^BKG_"); do
+        value=$(eval echo "\$$var")
+        sed -i "s/^$var=.*/$var=$value/" env.env
+    done
 }
 
 # remove owners from owners.txt that have already been scraped in this batch
