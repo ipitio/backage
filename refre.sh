@@ -133,6 +133,9 @@ done
 sed -i '$ s/,$//' index.json
 echo "]" >>index.json
 
+# if the json is empty, exit
+jq -e 'length > 0' index.json || exit 1
+
 # sort the top level by raw_downloads
 jq -c 'sort_by(.raw_downloads | tonumber) | reverse' index.json >index.tmp.json
 mv index.tmp.json index.json

@@ -48,17 +48,7 @@ check_limit() {
 
 xz_db() {
     if [ -f "$BKG_INDEX_DB" ]; then
-        echo "Creating the CHANGELOG..."
-        [ ! -f CHANGELOG.md ] || rm -f CHANGELOG.md
-        \cp templates/.CHANGELOG.md CHANGELOG.md
-        query="select count(distinct owner) from '$BKG_INDEX_TBL_PKG';"
-        owners=$(sqlite3 "$INDEX_DB" "$query")
-        query="select count(distinct repo) from '$BKG_INDEX_TBL_PKG';"
-        repos=$(sqlite3 "$INDEX_DB" "$query")
-        query="select count(distinct package) from '$BKG_INDEX_TBL_PKG';"
-        packages=$(sqlite3 "$INDEX_DB" "$query")
         rotated=false
-
         echo "Compressing the database..."
         sqlite3 "$BKG_INDEX_DB" ".dump" | tar -c -I 'zstd -22 --ultra --long -T0' "$BKG_INDEX_SQL".tar.zst.new
 
@@ -88,6 +78,15 @@ xz_db() {
             echo "Failed to compress the database!"
         fi
 
+        echo "Creating the CHANGELOG..."
+        [ ! -f CHANGELOG.md ] || rm -f CHANGELOG.md
+        \cp templates/.CHANGELOG.md CHANGELOG.md
+        query="select count(distinct owner) from '$BKG_INDEX_TBL_PKG';"
+        owners=$(sqlite3 "$BKG_INDEX_DB" "$query")
+        query="select count(distinct repo) from '$BKG_INDEX_TBL_PKG';"
+        repos=$(sqlite3 "$BKG_INDEX_DB" "$query")
+        query="select count(distinct package) from '$BKG_INDEX_TBL_PKG';"
+        packages=$(sqlite3 "$BKG_INDEX_DB" "$query")
         perl -0777 -pe 's/\[VERSION\]/'"$BKG_VERSION"'/g; s/\[OWNERS\]/'"$owners"'/g; s/\[REPOS\]/'"$repos"'/g; s/\[PACKAGES\]/'"$packages"'/g' CHANGELOG.md >CHANGELOG.tmp && [ -f CHANGELOG.tmp ] && mv CHANGELOG.tmp CHANGELOG.md || :
         ! $rotated || echo " The database grew over 2GB and was rotated, but you can find all previous data under [Releases](https://github.com/$GITHUB_OWNER/$GITHUB_REPO/releases)." >>CHANGELOG.md
     fi
