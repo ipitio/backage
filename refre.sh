@@ -4,32 +4,26 @@
 # Dependencies: jq, sqlite3
 # Copyright (c) ipitio
 #
-# shellcheck disable=SC2015
+# shellcheck disable=SC1091,SC2015
 
-declare -r INDEX_DB="index.db" # sqlite
-declare -r table_pkg_name="packages"
-declare SCRIPT_START
-SCRIPT_START=$(date +%s)
-readonly SCRIPT_START
+source lib.sh
 [ ! -f README.md ] || rm -f README.md # remove the old README
-\cp .README.md README.md              # copy the template
+\cp templates/.README.md README.md    # copy the template
 perl -0777 -pe 's/<GITHUB_OWNER>/'"$GITHUB_OWNER"'/g; s/<GITHUB_REPO>/'"$GITHUB_REPO"'/g; s/<GITHUB_BRANCH>/'"$GITHUB_BRANCH"'/g' README.md >README.tmp && [ -f README.tmp ] && mv README.tmp README.md || :
 echo "Total Downloads:"
 echo "[" >index.json
-# shellcheck disable=SC1091
-source lib.sh
 
-sqlite3 "$INDEX_DB" "select * from '$table_pkg_name' order by downloads + 0 desc;" | while IFS='|' read -r owner_id owner_type package_type owner repo package downloads downloads_month downloads_week downloads_day size date; do
+sqlite3 "$INDEX_DB" "select * from '$$BKG_INDEX_TBL_PKG' order by downloads + 0 desc;" | while IFS='|' read -r owner_id owner_type package_type owner repo package downloads downloads_month downloads_week downloads_day size date; do
     script_now=$(date +%s)
     script_diff=$((script_now - SCRIPT_START))
 
-    if ((script_diff >= 3500)); then
-        echo "Script has been running for an hour. Saving..."
+    if ((script_diff >= 21500)); then
+        echo "Script has been running for 6 hours. Committing changes..."
         break
     fi
 
     # only use the latest date for the package
-    query="select date from '$table_pkg_name' where owner_type='$owner_type' and package_type='$package_type' and owner='$owner' and repo='$repo' and package='$package' order by date desc limit 1;"
+    query="select date from '$$BKG_INDEX_TBL_PKG' where owner_type='$owner_type' and package_type='$package_type' and owner='$owner' and repo='$repo' and package='$package' order by date desc limit 1;"
     max_date=$(sqlite3 "$INDEX_DB" "$query")
     [ "$date" = "$max_date" ] || continue
 
@@ -111,7 +105,7 @@ sqlite3 "$INDEX_DB" "select * from '$table_pkg_name' order by downloads + 0 desc
     export owner_type package_type owner repo package
     printf "%s\t(%s)\t%s/%s/%s (%s/%s)\n" "$(numfmt <<<"$downloads")" "$downloads" "$owner" "$repo" "$package" "$owner_type" "$package_type"
 
-    [ "$downloads" -ge 10000000 ] || continue
+    [ "$downloads" -ge 100000000 ] || continue
     grep -q "$owner_type/$package_type/$owner/$repo/$package" README.md || perl -0777 -pe '
     my $owner_type = $ENV{"owner_type"};
     my $package_type = $ENV{"package_type"};
@@ -139,14 +133,27 @@ done
 sed -i '$ s/,$//' index.json
 echo "]" >>index.json
 
-# run json through jq to format it
-jq . index.json >index.tmp.json
-mv index.tmp.json index.json
-
 # sort the top level by raw_downloads
-jq 'sort_by(.raw_downloads | tonumber) | reverse' index.json >index.tmp.json
+jq -c 'sort_by(.raw_downloads | tonumber) | reverse' index.json >index.tmp.json
 mv index.tmp.json index.json
 
-# minify the json
-jq -c . index.json >index.tmp.json
-mv index.tmp.json index.json
+# if the json is over 100MB, remove oldest versions from the packages with the most versions
+json_size=$(stat -c %s index.json)
+while [ "$json_size" -gt 100000000 ]; do
+    jq -c 'sort_by(.versions | tonumber) | reverse | map(select(.versions > 0)) | map(.version |= sort_by(.id | tonumber) | del(.version[0]))' index.json >index.tmp.json
+    mv index.tmp.json index.json
+    json_size=$(stat -c %s index.json)
+done
+
+# copy the CHANGELOG template and update the version
+\cp templates/.CHANGELOG.md CHANGELOG.md
+query="select count(distinct owner) from '$$BKG_INDEX_TBL_PKG';"
+owners=$(sqlite3 "$INDEX_DB" "$query")
+query="select count(distinct repo) from '$$BKG_INDEX_TBL_PKG';"
+repos=$(sqlite3 "$INDEX_DB" "$query")
+query="select count(distinct package) from '$$BKG_INDEX_TBL_PKG';"
+packages=$(sqlite3 "$INDEX_DB" "$query")
+html=$(curl -s "https://github.com/$GITHUB_OWNER/$GITHUB_REPO/releases/latest")
+raw_assets=$(grep -Pzo 'Assets[^"]*"\d*' <<<"$html" | grep -Pzo '\d*$' | tr -d '\0')
+perl -0777 -pe 's/\[VERSION\]/'"$BKG_VERSION"'/g; s/\[OWNERS\]/'"$owners"'/g; s/\[REPOS\]/'"$repos"'/g; s/\[PACKAGES\]/'"$packages"'/g' CHANGELOG.md >CHANGELOG.tmp && [ -f CHANGELOG.tmp ] && mv CHANGELOG.tmp CHANGELOG.md || :
+[ -n "$raw_assets" ] && [ "$raw_assets" -ge 4 ] && echo " The database grew over 2GB and was rotated, but you can find all previous data under [Releases](https://github.com/$GITHUB_OWNER/$GITHUB_REPO/releases)." >>CHANGELOG.md || :

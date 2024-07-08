@@ -1,0 +1,80 @@
+name: backup
+
+on:
+  workflow_run:
+    workflows: backup
+    types:
+      - completed
+
+  schedule:
+    - cron: "0 * * * *"
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Get date
+        id: date
+        run: echo "date=$(date +'%Y.%m.%d')" >> "$GITHUB_OUTPUT"
+
+      - name: Update database
+        run: bash update.sh 0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Commit update
+        id: commit
+        uses: EndBug/add-and-commit@v9
+        with:
+          message: "update database"
+          pull: "--autostash"
+
+      - name: Create release
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: "index.sql.tar.zst,index.sql.d/*"
+          bodyFile: "CHANGELOG.md"
+          tag: "${{ steps.date.outputs.date }}"
+          commit: "${{ steps.commit.outputs.commit_long_sha }}"
+          allowUpdates: true
+
+    outputs:
+      version: ${{ steps.date.outputs.date }}
+
+  refresh:
+    needs: [update]
+    if: ${{ needs.update.result == 'success' }}
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Refresh endpoint
+        run: bash refre.sh
+        env:
+          GITHUB_OWNER: ${{ github.repository_owner }}
+          GITHUB_REPO: ${{ github.event.repository.name }}
+          GITHUB_BRANCH: ${{ github.head_ref || github.ref_name }}
+          BKG_VERSION: ${{ needs.update.outputs.version }}
+
+      - name: Commit refresh
+        id: commit
+        uses: EndBug/add-and-commit@v9
+        with:
+          message: "refresh endpoint"
+          pull: "--autostash"

@@ -4,91 +4,136 @@
 # Dependencies: curl, jq, sqlite3, docker
 # Copyright (c) ipitio
 #
-# shellcheck disable=SC2015
+# shellcheck disable=SC1091,SC2015
 
-# check if curl and jq are installed
-if ! command -v curl &>/dev/null || ! command -v jq &>/dev/null || ! command -v sqlite3 &>/dev/null; then
-    sudo apt-get update
-    sudo apt-get install curl jq sqlite3 -y
-fi
-
-declare SCRIPT_START
-declare TODAY
-SCRIPT_START=$(date +%s)
-TODAY=$(date -u +%Y-%m-%d)
-readonly SCRIPT_START TODAY
-declare -r INDEX_DB="index.db" # sqlite
-declare -r table_pkg_name="packages"
-rate_limit_start=$(date +%s)
-calls_to_api=0
-stopped=false
-# shellcheck disable=SC1091
 source lib.sh
 
-FROM=$TODAY
-[ -f started ] && FROM=$(<started) || printf "%s" "$FROM" >started
-FROM=$(tr -d '\n' <<<"$(tr -d ' ' <<<"$FROM")")
+# remove owners from owners.txt that have already been scraped in this batch
+[ -n "$BKG_BATCH_FIRST_STARTED" ] || BKG_BATCH_FIRST_STARTED=$TODAY
 
-check_limit() {
-    rate_limit_end=$(date +%s)
-    rate_limit_diff=$((rate_limit_end - rate_limit_start))
-    hours_passed=$((rate_limit_diff / 3600))
-    script_limit_diff=$((rate_limit_end - SCRIPT_START))
+if [ -s owners.txt ]; then
+    owners_to_remove=()
 
-    if ((script_limit_diff >= 17900)); then
-        if ! $stopped; then
-            echo "Script has been running for 5 hours. Saving..."
-            stopped=true
+    while IFS= read -r owner; do
+        check_limit
+        [ -n "$owner" ] || continue
+        owner_id=""
+
+        # if owner is followed by a slash, it's an id
+        if [[ "$owner" =~ .*\/.* ]]; then
+            owner_id=$(cut -d'/' -f1 <<<"$owner")
         fi
 
-        return 1
+        if [ -z "$owner_id" ]; then
+            query="select count(*) from '$BKG_INDEX_TBL_PKG' where owner='$owner' and date between date('$BKG_BATCH_FIRST_STARTED') and date('$TODAY');"
+        else
+            query="select count(*) from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and date between date('$BKG_BATCH_FIRST_STARTED') and date('$TODAY');"
+        fi
+
+        count=$(sqlite3 "$BKG_INDEX_DB" "$query")
+        [[ "$count" =~ ^0*$ ]] || owners_to_remove+=("$owner")
+    done <owners.txt
+
+    for owner_to_remove in "${owners_to_remove[@]}"; do
+        sed -i "/$owner_to_remove/d" owners.txt
+    done
+fi
+
+[ -s owners.txt ] || BKG_BATCH_FIRST_STARTED=$TODAY
+
+xz_db() {
+    echo "Compressing the database..."
+    sqlite3 "$BKG_INDEX_DB" ".dump" | tar -c -I 'zstd -22 --ultra --long -T0' "$BKG_INDEX_SQL".tar.zst.new
+
+    if [ -f "$BKG_INDEX_SQL".tar.zst.new ]; then
+        # rotate the database if it's greater than 2GB
+        if [ "$(stat -c %s "$BKG_INDEX_SQL".tar.zst.new)" -ge 2000000000 ]; then
+            echo "Rotating the database..."
+            [ -d "$BKG_INDEX_SQL".d ] || mkdir "$BKG_INDEX_SQL".d
+            [ ! -f "$BKG_INDEX_SQL".tar.zst ] || mv "$BKG_INDEX_SQL".tar.zst "$BKG_INDEX_SQL".d/"$(date -u +%Y.%m.%d)".tar.zst
+            query="delete from '$BKG_INDEX_TBL_PKG' where date not between date('$BKG_BATCH_FIRST_STARTED') and date('$TODAY');"
+            sqlite3 "$BKG_INDEX_DB" "$query"
+            query="select name from sqlite_master where type='table' and name like '${BKG_INDEX_TBL_VER}_%';"
+            tables=$(sqlite3 "$BKG_INDEX_DB" "$query")
+
+            for table in $tables; do
+                query="delete from '$table' where date not between date('$BKG_BATCH_FIRST_STARTED') and date('$TODAY');"
+                sqlite3 "$BKG_INDEX_DB" "$query"
+            done
+
+            sqlite3 "$BKG_INDEX_DB" "vacuum;"
+            sqlite3 "$BKG_INDEX_DB" ".dump" | tar -c -I 'zstd -22 --ultra --long -T0' "$BKG_INDEX_SQL".tar.zst.new
+        fi
+
+        mv "$BKG_INDEX_SQL".tar.zst.new "$BKG_INDEX_SQL".tar.zst
+    else
+        echo "Failed to compress the database!"
     fi
 
-    # adjust the limit based on the number of hours passed
-    if ((calls_to_api >= 1000 * (hours_passed + 1))); then
-        echo "$calls_to_api calls to the GitHub API in $((rate_limit_diff / 60)) minutes"
+    echo "Exiting..."
+    env | grep -E '^BKG_' >.env
+    exit 2
+}
+
+check_limit() {
+    # exit if the script has been running for 5 hours
+    rate_limit_end=$(date +%s)
+    script_limit_diff=$((rate_limit_end - SCRIPT_START))
+    ((script_limit_diff < 18000)) || echo "Script has been running for 5 hours!" && exit 0
+
+    # wait if 1000 or more calls have been made in the last hour
+    rate_limit_diff=$((rate_limit_end - BKG_RATE_LIMIT_START))
+    hours_passed=$((rate_limit_diff / 3600))
+
+    if ((BKG_CALLS_TO_API >= 1000 * (hours_passed + 1))); then
+        echo "$BKG_CALLS_TO_API calls to the GitHub API in $((rate_limit_diff / 60)) minutes"
         remaining_time=$((3600 * (hours_passed + 1) - rate_limit_diff))
         echo "Sleeping for $remaining_time seconds..."
         sleep $remaining_time
         echo "Resuming..."
-        rate_limit_start=$(date +%s)
-        calls_to_api=0
+        BKG_RATE_LIMIT_START=$(date +%s)
+        BKG_CALLS_TO_API=0
     fi
 
-    return 0
+    # wait if 900 or more calls have been made in the last minute
+    rate_limit_end=$(date +%s)
+    sec_limit_diff=$((rate_limit_end - minute_start))
+    min_passed=$((sec_limit_diff / 60))
+
+    if ((minute_calls >= 900 * (min_passed + 1))); then
+        echo "$minute_calls calls to the GitHub API in $sec_limit_diff seconds"
+        remaining_time=$((60 * (min_passed + 1) - sec_limit_diff))
+        echo "Sleeping for $remaining_time seconds..."
+        sleep $remaining_time
+        echo "Resuming..."
+        minute_start=$(date +%s)
+        minute_calls=0
+    fi
 }
 
-# use a sqlite database to store the downloads of a package
-[ -f "$INDEX_DB" ] || touch "$INDEX_DB"
-table_pkg="create table if not exists '$table_pkg_name' (
-    owner_id text,
-    owner_type text not null,
-    package_type text not null,
-    owner text not null,
-    repo text not null,
-    package text not null,
-    downloads integer not null,
-    downloads_month integer not null,
-    downloads_week integer not null,
-    downloads_day integer not null,
-    size integer not null,
-    date text not null,
-    primary key (owner_type, package_type, owner, repo, package, date)
-);"
-sqlite3 "$INDEX_DB" "$table_pkg"
+trap '[ "$?" -eq "2" ] && exit 0 || xz_db' EXIT
+minute_start=$(date +%s)
+minute_calls=0
+[ -n "$BKG_RATE_LIMIT_START" ] || BKG_RATE_LIMIT_START=$(date +%s)
+[ -n "$BKG_CALLS_TO_API" ] || BKG_CALLS_TO_API=0
 
+# reset the rate limit if an hour has passed since the last run started
+if ((BKG_RATE_LIMIT_START + 3600 <= $(date +%s))); then
+    BKG_RATE_LIMIT_START=$minute_start
+    BKG_CALLS_TO_API=0
+fi
+
+# if this is a scheduled update, scrape all owners that haven't been scraped in this batch
 if [ "$1" = "0" ]; then
     # get more owners if no more
     if [ ! -s owners.txt ]; then
         # get new owners
         echo "Finding more owners..."
         owners_page=0
-        since=-1
-        [ ! -f id ] || since=$(<id)
-        since=$(tr -d '\n' <<<"$(tr -d ' ' <<<"$since")")
+        [ -n "$BKG_LAST_SCANNED_ID" ] || BKG_LAST_SCANNED_ID=0
 
-        while [ "$owners_page" -lt 5 ]; do
-            check_limit || break
+        while [ "$owners_page" -lt 10 ]; do
+            check_limit
             ((owners_page++))
             owners_more="[]"
 
@@ -96,8 +141,9 @@ if [ "$1" = "0" ]; then
                 owners_more=$(curl -H "Accept: application/vnd.github+json" \
                     -H "Authorization: Bearer $GITHUB_TOKEN" \
                     -H "X-GitHub-Api-Version: 2022-11-28" \
-                    "https://api.github.com/users?per_page=100&page=$owners_page&since=$since")
-                ((calls_to_api++))
+                    "https://api.github.com/users?per_page=100&page=$owners_page&since=$BKG_LAST_SCANNED_ID")
+                ((BKG_CALLS_TO_API++))
+                ((minute_calls++))
                 jq -e . <<<"$owners_more" &>/dev/null || owners_more="[]"
             fi
 
@@ -114,20 +160,19 @@ if [ "$1" = "0" ]; then
                 id=$(_jq '.id')
                 [ -n "$owner" ] || continue
                 grep -q "$owner" owners.txt || echo "$id/$owner" >>owners.txt
-                printf "%s" "$id" >id
             done
         done
     fi
 
     # add the owners in the database to the owners array
     echo "Reading known owners..."
-    query="select owner from '$table_pkg_name';"
-    # write each owner to a new line in owners.txt if it's not already there
-    while IFS= read -r owner; do
-        check_limit || break
+    query="select owner_id, owner from '$BKG_INDEX_TBL_PKG' where date not between date('$BKG_BATCH_FIRST_STARTED') and date('$TODAY') group by owner_id;"
+
+    while IFS= read -r owner_id owner; do
+        check_limit
         [ -n "$owner" ] || continue
-        grep -q "$owner" owners.txt || echo "$owner" >>owners.txt
-    done < <(sqlite3 "$INDEX_DB" "$query")
+        grep -q "$owner" owners.txt || echo "$owner_id/$owner" >>owners.txt
+    done < <(sqlite3 "$BKG_INDEX_DB" "$query")
 fi
 
 owners=()
@@ -141,10 +186,10 @@ if [ -s owners.txt ]; then
     sed -i 's/^[[:space:]]*//;s/[[:space:]]*$//' owners.txt
 
     while IFS= read -r owner; do
-        check_limit || break
+        check_limit
         owner=$(echo "$owner" | tr -d '[:space:]')
-        owner_id=""
         [ -n "$owner" ] || continue
+        owner_id=""
 
         if [[ "$owner" =~ .*\/.* ]]; then
             owner_id=$(cut -d'/' -f1 <<<"$owner")
@@ -156,7 +201,8 @@ if [ -s owners.txt ]; then
                 -H "Authorization: Bearer $GITHUB_TOKEN" \
                 -H "X-GitHub-Api-Version: 2022-11-28" \
                 "https://api.github.com/users/$owner" | jq -r '.id')
-            ((calls_to_api++))
+            ((BKG_CALLS_TO_API++))
+            ((minute_calls++))
         fi
 
         grep -q "$owner_id/$owner" <<<"${owners[*]}" || owners+=("$owner_id/$owner")
@@ -165,7 +211,7 @@ fi
 
 # loop through known and new owners
 for id_login in "${owners[@]}"; do
-    check_limit || break
+    check_limit
     owner=$(cut -d'/' -f2 <<<"$id_login")
     owner_id=$(cut -d'/' -f1 <<<"$id_login")
     owner_type="orgs"
@@ -178,7 +224,7 @@ for id_login in "${owners[@]}"; do
 
     # get the packages
     while true; do
-        check_limit || break 2
+        check_limit
         ((packages_page++))
 
         if [ "$owner_type" = "orgs" ]; then
@@ -218,7 +264,7 @@ for id_login in "${owners[@]}"; do
 
     # loop through the packages in $packages
     for package_line in "${packages[@]}"; do
-        check_limit || break 2
+        check_limit
         [ -n "$package_line" ] || continue
         package_type=$(cut -d'/' -f1 <<<"$package_line")
         repo=$(cut -d'/' -f2 <<<"$package_line")
@@ -231,11 +277,11 @@ for id_login in "${owners[@]}"; do
 
                 if [ "$line" = "$owner/$repo/$package" ]; then
                     # remove the package from the db
-                    query="delete from '$table_pkg_name' where owner_type='$owner_type' and package_type='$package_type' and owner='$owner' and repo='$repo' and package='$package';"
-                    sqlite3 "$INDEX_DB" "$query"
-                    table_version_name="versions_${owner_type}_${package_type}_${owner}_${repo}_${package}"
+                    query="delete from '$BKG_INDEX_TBL_PKG' where owner_type='$owner_type' and package_type='$package_type' and owner_id='$owner_id' and repo='$repo' and package='$package';"
+                    sqlite3 "$BKG_INDEX_DB" "$query"
+                    table_version_name="${BKG_INDEX_TBL_VER}_${owner_type}_${package_type}_${owner}_${repo}_${package}"
                     query="drop table if exists '$table_version_name';"
-                    sqlite3 "$INDEX_DB" "$query"
+                    sqlite3 "$BKG_INDEX_DB" "$query"
                     continue 2
                 fi
             done <optout.txt
@@ -243,14 +289,14 @@ for id_login in "${owners[@]}"; do
 
         # manual update: skip if the package is already in the index; the rest are updated daily
         if [ "$1" = "1" ] && [[ "$owner" != "arevindh" ]]; then
-            query="select count(*) from '$table_pkg_name' where owner_type='$owner_type' and package_type='$package_type' and owner='$owner' and repo='$repo' and package='$package';"
-            count=$(sqlite3 "$INDEX_DB" "$query")
+            query="select count(*) from '$BKG_INDEX_TBL_PKG' where owner_type='$owner_type' and package_type='$package_type' and owner_id='$owner_id' and repo='$repo' and package='$package';"
+            count=$(sqlite3 "$BKG_INDEX_DB" "$query")
             [[ "$count" =~ ^0*$ ]] || continue
         fi
 
         # update stats
-        query="select count(*) from '$table_pkg_name' where owner_type='$owner_type' and package_type='$package_type' and owner='$owner' and repo='$repo' and package='$package' and date between date('$FROM') and date('$TODAY');"
-        count=$(sqlite3 "$INDEX_DB" "$query")
+        query="select count(*) from '$BKG_INDEX_TBL_PKG' where owner_type='$owner_type' and package_type='$package_type' and owner_id='$owner_id' and repo='$repo' and package='$package' and date between date('$BKG_BATCH_FIRST_STARTED') and date('$TODAY');"
+        count=$(sqlite3 "$BKG_INDEX_DB" "$query")
 
         if [[ "$count" =~ ^0*$ || "$owner" == "arevindh" ]]; then
             raw_downloads=-1
@@ -283,9 +329,9 @@ for id_login in "${owners[@]}"; do
             versions_page=0
 
             # add all the versions currently in the db to the versions_json, if they are not already there
-            table_version_name="versions_${owner_type}_${package_type}_${owner}_${repo}_${package}"
+            table_version_name="${BKG_INDEX_TBL_VER}_${owner_type}_${package_type}_${owner}_${repo}_${package}"
             query="select name from sqlite_master where type='table' and name='$table_version_name';"
-            table_exists=$(sqlite3 "$INDEX_DB" "$query")
+            table_exists=$(sqlite3 "$BKG_INDEX_DB" "$query")
 
             if [ -n "$table_exists" ]; then
                 query="select id, name, tags from '$table_version_name';"
@@ -294,12 +340,12 @@ for id_login in "${owners[@]}"; do
                     if ! jq -e ".[] | select(.id == \"$id\")" <<<"$versions_json" &>/dev/null; then
                         versions_json=$(jq ". += [{\"id\":\"$id\",\"name\":\"$name\",\"tags\":\"$tags\"}]" <<<"$versions_json")
                     fi
-                done < <(sqlite3 "$INDEX_DB" "$query")
+                done < <(sqlite3 "$BKG_INDEX_DB" "$query")
             fi
 
             # limit to X pages / newest X00 versions
-            while [ "$versions_page" -lt 5 ]; do
-                check_limit || break 3
+            while [ "$versions_page" -lt 1000 ]; do
+                check_limit
                 ((versions_page++))
                 # if the repo is public the api request should succeed
                 versions_json_more="[]"
@@ -309,7 +355,8 @@ for id_login in "${owners[@]}"; do
                         -H "Authorization: Bearer $GITHUB_TOKEN" \
                         -H "X-GitHub-Api-Version: 2022-11-28" \
                         "https://api.github.com/$owner_type/$owner/packages/$package_type/$package/versions?per_page=100&page=$versions_page")
-                    ((calls_to_api++))
+                    ((BKG_CALLS_TO_API++))
+                    ((minute_calls++))
                     jq -e . <<<"$versions_json_more" &>/dev/null || versions_json_more="[]"
                 fi
 
@@ -341,12 +388,12 @@ for id_login in "${owners[@]}"; do
                     echo "$i" | base64 --decode | jq -r "$@"
                 }
 
-                check_limit || break 3
+                check_limit
                 version_size=-1
                 version_id=$(_jq '.id')
                 version_name=$(_jq '.name')
                 version_tags=$(_jq '.tags')
-                table_version_name="versions_${owner_type}_${package_type}_${owner}_${repo}_${package}"
+                table_version_name="${BKG_INDEX_TBL_VER}_${owner_type}_${package_type}_${owner}_${repo}_${package}"
                 table_version="create table if not exists '$table_version_name' (
                     id text not null,
                     name text not null,
@@ -359,9 +406,9 @@ for id_login in "${owners[@]}"; do
                     tags text,
                     primary key (id, date)
                 );"
-                sqlite3 "$INDEX_DB" "$table_version"
-                search="select count(*) from '$table_version_name' where id='$version_id' and date between date('$FROM') and date('$TODAY');"
-                count=$(sqlite3 "$INDEX_DB" "$search")
+                sqlite3 "$BKG_INDEX_DB" "$table_version"
+                search="select count(*) from '$table_version_name' where id='$version_id' and date between date('$BKG_BATCH_FIRST_STARTED') and date('$TODAY');"
+                count=$(sqlite3 "$BKG_INDEX_DB" "$search")
 
                 # insert a new row
                 if [[ "$count" =~ ^0*$ || "$owner" == "arevindh" ]]; then
@@ -401,38 +448,33 @@ for id_login in "${owners[@]}"; do
                     fi
 
                     query="insert or replace into '$table_version_name' (id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags) values ('$version_id', '$version_name', '$version_size', '$version_raw_downloads', '$version_raw_downloads_month', '$version_raw_downloads_week', '$version_raw_downloads_day', '$TODAY', '$version_tags');"
-                    sqlite3 "$INDEX_DB" "$query"
-                #else query="update '$table_version_name' set size='$version_size', downloads='$version_raw_downloads', downloads_month='$version_raw_downloads_month', downloads_week='$version_raw_downloads_week', downloads_day='$version_raw_downloads_day', tags='$version_tags' where id='$version_id' and date='$TODAY';"
+                    sqlite3 "$BKG_INDEX_DB" "$query"
                 fi
             done
 
             # use the version stats if we have them
             query="select name from sqlite_master where type='table' and name='$table_version_name';"
-            table_exists=$(sqlite3 "$INDEX_DB" "$query")
+            table_exists=$(sqlite3 "$BKG_INDEX_DB" "$query")
 
             if [ -n "$table_exists" ]; then
                 # calculate the total downloads
                 query="select max(date) from '$table_version_name';"
-                max_date=$(sqlite3 "$INDEX_DB" "$query")
+                max_date=$(sqlite3 "$BKG_INDEX_DB" "$query")
                 query="select sum(downloads), sum(downloads_month), sum(downloads_week), sum(downloads_day) from '$table_version_name' where date='$max_date';"
-                # summed_raw_downloads=$(sqlite3 "$INDEX_DB" "$query" | cut -d'|' -f1)
-                raw_downloads_month=$(sqlite3 "$INDEX_DB" "$query" | cut -d'|' -f2)
-                raw_downloads_week=$(sqlite3 "$INDEX_DB" "$query" | cut -d'|' -f3)
-                raw_downloads_day=$(sqlite3 "$INDEX_DB" "$query" | cut -d'|' -f4)
+                # summed_raw_downloads=$(sqlite3 "$BKG_INDEX_DB" "$query" | cut -d'|' -f1)
+                raw_downloads_month=$(sqlite3 "$BKG_INDEX_DB" "$query" | cut -d'|' -f2)
+                raw_downloads_week=$(sqlite3 "$BKG_INDEX_DB" "$query" | cut -d'|' -f3)
+                raw_downloads_day=$(sqlite3 "$BKG_INDEX_DB" "$query" | cut -d'|' -f4)
 
                 # use the latest version's size as the package size
-                query="select id from 'versions_${owner_type}_${package_type}_${owner}_${repo}_${package}' order by id desc limit 1;"
-                version_newest_id=$(sqlite3 "$INDEX_DB" "$query")
-                query="select size from 'versions_${owner_type}_${package_type}_${owner}_${repo}_${package}' where id='$version_newest_id' order by date desc limit 1;"
-                size=$(sqlite3 "$INDEX_DB" "$query")
+                query="select id from '${BKG_INDEX_TBL_VER}_${owner_type}_${package_type}_${owner}_${repo}_${package}' order by id desc limit 1;"
+                version_newest_id=$(sqlite3 "$BKG_INDEX_DB" "$query")
+                query="select size from '${BKG_INDEX_TBL_VER}_${owner_type}_${package_type}_${owner}_${repo}_${package}' where id='$version_newest_id' order by date desc limit 1;"
+                size=$(sqlite3 "$BKG_INDEX_DB" "$query")
             fi
 
-            query="insert or replace into '$table_pkg_name' (owner_id, owner_type, package_type, owner, repo, package, downloads, downloads_month, downloads_week, downloads_day, size, date) values ('$owner_id', '$owner_type', '$package_type', '$owner', '$repo', '$package', '$raw_downloads', '$raw_downloads_month', '$raw_downloads_week', '$raw_downloads_day', '$size', '$TODAY');"
-            sqlite3 "$INDEX_DB" "$query"
-        #else query="update '$table_pkg_name' set owner_id='$owner_id', downloads='$raw_downloads', downloads_month='$raw_downloads_month', downloads_week='$raw_downloads_week', downloads_day='$raw_downloads_day', size='$size' where owner_type='$owner_type' and package_type='$package_type' and owner='$owner' and repo='$repo' and package='$package' and date='$TODAY';"
+            query="insert or replace into '$BKG_INDEX_TBL_PKG' (owner_id, owner_type, package_type, owner, repo, package, downloads, downloads_month, downloads_week, downloads_day, size, date) values ('$owner_id', '$owner_type', '$package_type', '$owner', '$repo', '$package', '$raw_downloads', '$raw_downloads_month', '$raw_downloads_week', '$raw_downloads_day', '$size', '$TODAY');"
+            sqlite3 "$BKG_INDEX_DB" "$query"
         fi
     done
-    sed -i "/$owner/d" owners.txt
 done
-
-[ -s owners.txt ] || rm started
