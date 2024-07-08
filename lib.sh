@@ -47,7 +47,7 @@ curl() {
     return 1
 }
 
-[ -f "$BKG_INDEX_DB" ] || { command curl -sSLNZO "https://github.com/$GITHUB_OWNER/$GITHUB_REPO/releases/latest/download/$BKG_INDEX_SQL.tar.zst" && tar -x -I 'zstd -d' -f "$BKG_INDEX_SQL.tar.zst" | sqlite3 "$BKG_INDEX_DB"; } || :
+[ -f "$BKG_INDEX_DB" ] || { command curl -sSLNZO "https://github.com/$GITHUB_OWNER/$GITHUB_REPO/releases/latest/download/$BKG_INDEX_SQL.tar.zst" && tar -x -I 'zstd -d' -f "$BKG_INDEX_SQL.tar.zst" | sqlite3 "$BKG_INDEX_DB" || :; } || :
 [ -f "$BKG_INDEX_DB" ] || touch "$BKG_INDEX_DB"
 table_pkg="create table if not exists '$BKG_INDEX_TBL_PKG' (
     owner_id text,

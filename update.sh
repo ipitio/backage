@@ -77,6 +77,19 @@ xz_db() {
         fi
     fi
 
+    echo "Creating the CHANGELOG..."
+    \cp templates/.CHANGELOG.md CHANGELOG.md
+    query="select count(distinct owner) from '$$BKG_INDEX_TBL_PKG';"
+    owners=$(sqlite3 "$INDEX_DB" "$query")
+    query="select count(distinct repo) from '$$BKG_INDEX_TBL_PKG';"
+    repos=$(sqlite3 "$INDEX_DB" "$query")
+    query="select count(distinct package) from '$$BKG_INDEX_TBL_PKG';"
+    packages=$(sqlite3 "$INDEX_DB" "$query")
+    html=$(curl -s "https://github.com/$GITHUB_OWNER/$GITHUB_REPO/releases/latest")
+    raw_assets=$(grep -Pzo 'Assets[^"]*"\d*' <<<"$html" | grep -Pzo '\d*$' | tr -d '\0')
+    perl -0777 -pe 's/\[VERSION\]/'"$BKG_VERSION"'/g; s/\[OWNERS\]/'"$owners"'/g; s/\[REPOS\]/'"$repos"'/g; s/\[PACKAGES\]/'"$packages"'/g' CHANGELOG.md >CHANGELOG.tmp && [ -f CHANGELOG.tmp ] && mv CHANGELOG.tmp CHANGELOG.md || :
+    [ -n "$raw_assets" ] && [ "$raw_assets" -ge 4 ] && echo " The database grew over 2GB and was rotated, but you can find all previous data under [Releases](https://github.com/$GITHUB_OWNER/$GITHUB_REPO/releases)." >>CHANGELOG.md || :
+
     echo "Exiting..."
     env | grep -E '^BKG_' >.env
     exit 2
