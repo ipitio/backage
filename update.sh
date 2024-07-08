@@ -7,12 +7,12 @@
 # shellcheck disable=SC1091,SC2015
 
 source lib.sh
-minute_start=$(date +%s)
+minute_start=$(date -u +%s)
 minute_calls=0
 
 check_limit() {
     # exit if the script has been running for 5 hours
-    rate_limit_end=$(date +%s)
+    rate_limit_end=$(date -u +%s)
     script_limit_diff=$((rate_limit_end - SCRIPT_START))
     ((script_limit_diff < 18000)) || { echo "Script has been running for 5 hours!" && exit 0; }
 
@@ -26,12 +26,12 @@ check_limit() {
         echo "Sleeping for $remaining_time seconds..."
         sleep $remaining_time
         echo "Resuming..."
-        BKG_RATE_LIMIT_START=$(date +%s)
+        BKG_RATE_LIMIT_START=$(date -u +%s)
         BKG_CALLS_TO_API=0
     fi
 
     # wait if 900 or more calls have been made in the last minute
-    rate_limit_end=$(date +%s)
+    rate_limit_end=$(date -u +%s)
     sec_limit_diff=$((rate_limit_end - minute_start))
     min_passed=$((sec_limit_diff / 60))
 
@@ -41,7 +41,7 @@ check_limit() {
         echo "Sleeping for $remaining_time seconds..."
         sleep $remaining_time
         echo "Resuming..."
-        minute_start=$(date +%s)
+        minute_start=$(date -u +%s)
         minute_calls=0
     fi
 }
@@ -124,11 +124,11 @@ fi
 
 [ -s owners.txt ] || BKG_BATCH_FIRST_STARTED=$TODAY
 trap '[ "$?" -eq "2" ] && exit 0 || xz_db' EXIT
-[ -n "$BKG_RATE_LIMIT_START" ] || BKG_RATE_LIMIT_START=$(date +%s)
+[ -n "$BKG_RATE_LIMIT_START" ] || BKG_RATE_LIMIT_START=$(date -u +%s)
 [ -n "$BKG_CALLS_TO_API" ] || BKG_CALLS_TO_API=0
 
 # reset the rate limit if an hour has passed since the last run started
-if ((BKG_RATE_LIMIT_START + 3600 <= $(date +%s))); then
+if ((BKG_RATE_LIMIT_START + 3600 <= $(date -u +%s))); then
     BKG_RATE_LIMIT_START=$minute_start
     BKG_CALLS_TO_API=0
 fi

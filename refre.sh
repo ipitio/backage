@@ -14,7 +14,7 @@ echo "Total Downloads:"
 echo "[" >index.json
 
 sqlite3 "$INDEX_DB" "select * from '$$BKG_INDEX_TBL_PKG' order by downloads + 0 desc;" | while IFS='|' read -r owner_id owner_type package_type owner repo package downloads downloads_month downloads_week downloads_day size date; do
-    script_now=$(date +%s)
+    script_now=$(date -u +%s)
     script_diff=$((script_now - SCRIPT_START))
 
     if ((script_diff >= 21500)); then

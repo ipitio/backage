@@ -9,7 +9,7 @@
 source .env
 declare SCRIPT_START
 declare TODAY
-SCRIPT_START=$(date +%s)
+SCRIPT_START=$(date -u +%s)
 TODAY=$(date -u +%Y-%m-%d)
 readonly SCRIPT_START TODAY
 printf -v MAX %x -1 && printf -v MAX %d 0x"${MAX/f/7}"
