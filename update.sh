@@ -14,7 +14,7 @@ check_limit() {
     # exit if the script has been running for 5 hours
     rate_limit_end=$(date +%s)
     script_limit_diff=$((rate_limit_end - SCRIPT_START))
-    ((script_limit_diff < 18000)) || echo "Script has been running for 5 hours!" && exit 0
+    ((script_limit_diff < 18000)) || { echo "Script has been running for 5 hours!" && exit 0; }
 
     # wait if 1000 or more calls have been made in the last hour
     rate_limit_diff=$((rate_limit_end - BKG_RATE_LIMIT_START))
@@ -91,7 +91,7 @@ if [ -s owners.txt ]; then
     while IFS= read -r owner; do
         check_limit
         [ -n "$owner" ] || continue
-        [[ "$owner" =~ .*\/.* ]] && owner_id="" || owner_id=$(cut -d'/' -f1 <<<"$owner")
+        [[ "$owner" =~ .*\/.* ]] && owner_id=$(cut -d'/' -f1 <<<"$owner") || owner_id=""
 
         if [ -z "$owner_id" ]; then
             query="select count(*) from '$BKG_INDEX_TBL_PKG' where owner='$owner' and date between date('$BKG_BATCH_FIRST_STARTED') and date('$TODAY');"
