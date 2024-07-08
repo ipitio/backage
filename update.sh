@@ -99,7 +99,7 @@ xz_db() {
 # remove owners from owners.txt that have already been scraped in this batch
 [ -n "$BKG_BATCH_FIRST_STARTED" ] || BKG_BATCH_FIRST_STARTED=$TODAY
 
-if [ -s owners.txt ]; then
+if [ -s owners.txt ] && [ "$1" = "0" ]; then
     owners_to_remove=()
 
     while IFS= read -r owner; do
