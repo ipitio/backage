@@ -47,6 +47,76 @@ curl() {
     return 1
 }
 
+xz_db() {
+    echo "Compressing the database..."
+    sqlite3 "$BKG_INDEX_DB" ".dump" | tar -c -I 'zstd -22 --ultra --long -T0' "$BKG_INDEX_SQL".tar.zst.new
+
+    if [ -f "$BKG_INDEX_SQL".tar.zst.new ]; then
+        # rotate the database if it's greater than 2GB
+        if [ "$(stat -c %s "$BKG_INDEX_SQL".tar.zst.new)" -ge 2000000000 ]; then
+            echo "Rotating the database..."
+            [ -d "$BKG_INDEX_SQL".d ] || mkdir "$BKG_INDEX_SQL".d
+            [ ! -f "$BKG_INDEX_SQL".tar.zst ] || mv "$BKG_INDEX_SQL".tar.zst "$BKG_INDEX_SQL".d/"$(date -u +%Y.%m.%d)".tar.zst
+            query="delete from '$BKG_INDEX_TBL_PKG' where date not between date('$BKG_BATCH_FIRST_STARTED') and date('$TODAY');"
+            sqlite3 "$BKG_INDEX_DB" "$query"
+            query="select name from sqlite_master where type='table' and name like '${BKG_INDEX_TBL_VER}_%';"
+            tables=$(sqlite3 "$BKG_INDEX_DB" "$query")
+
+            for table in $tables; do
+                query="delete from '$table' where date not between date('$BKG_BATCH_FIRST_STARTED') and date('$TODAY');"
+                sqlite3 "$BKG_INDEX_DB" "$query"
+            done
+
+            sqlite3 "$BKG_INDEX_DB" "vacuum;"
+            sqlite3 "$BKG_INDEX_DB" ".dump" | tar -c -I 'zstd -22 --ultra --long -T0' "$BKG_INDEX_SQL".tar.zst.new
+        fi
+
+        mv "$BKG_INDEX_SQL".tar.zst.new "$BKG_INDEX_SQL".tar.zst
+    else
+        echo "Failed to compress the database!"
+    fi
+
+    echo "Exiting..."
+    env | grep -E '^BKG_' >.env
+    exit 2
+}
+
+check_limit() {
+    # exit if the script has been running for 5 hours
+    rate_limit_end=$(date +%s)
+    script_limit_diff=$((rate_limit_end - SCRIPT_START))
+    ((script_limit_diff < 18000)) || echo "Script has been running for 5 hours!" && exit 0
+
+    # wait if 1000 or more calls have been made in the last hour
+    rate_limit_diff=$((rate_limit_end - BKG_RATE_LIMIT_START))
+    hours_passed=$((rate_limit_diff / 3600))
+
+    if ((BKG_CALLS_TO_API >= 1000 * (hours_passed + 1))); then
+        echo "$BKG_CALLS_TO_API calls to the GitHub API in $((rate_limit_diff / 60)) minutes"
+        remaining_time=$((3600 * (hours_passed + 1) - rate_limit_diff))
+        echo "Sleeping for $remaining_time seconds..."
+        sleep $remaining_time
+        echo "Resuming..."
+        BKG_RATE_LIMIT_START=$(date +%s)
+        BKG_CALLS_TO_API=0
+    fi
+
+    # wait if 900 or more calls have been made in the last minute
+    rate_limit_end=$(date +%s)
+    sec_limit_diff=$((rate_limit_end - minute_start))
+    min_passed=$((sec_limit_diff / 60))
+
+    if ((minute_calls >= 900 * (min_passed + 1))); then
+        echo "$minute_calls calls to the GitHub API in $sec_limit_diff seconds"
+        remaining_time=$((60 * (min_passed + 1) - sec_limit_diff))
+        echo "Sleeping for $remaining_time seconds..."
+        sleep $remaining_time
+        echo "Resuming..."
+        minute_start=$(date +%s)
+        minute_calls=0
+    fi
+}
+
 [ -f "$BKG_INDEX_DB" ] || command curl -sSLNZO "https://github.com/$GITHUB_OWNER/$GITHUB_REPO/releases/latest/download/$BKG_INDEX_SQL.tar.zst" && tar -x -I 'zstd -d' -f "$BKG_INDEX_SQL.tar.zst" | sqlite3 "$BKG_INDEX_DB" || :
 [ -f "$BKG_INDEX_DB" ] || touch "$BKG_INDEX_DB"
 table_pkg="create table if not exists '$BKG_INDEX_TBL_PKG' (
@@ -86,3 +156,5 @@ sqlite3 "$BKG_INDEX_DB" "$table_pkg_temp"
 sqlite3 "$BKG_INDEX_DB" "insert or ignore into '${BKG_INDEX_TBL_PKG}_temp' select * from '$BKG_INDEX_TBL_PKG';"
 sqlite3 "$BKG_INDEX_DB" "drop table '$BKG_INDEX_TBL_PKG';"
 sqlite3 "$BKG_INDEX_DB" "alter table '${BKG_INDEX_TBL_PKG}_temp' rename to '$BKG_INDEX_TBL_PKG';"
+
+trap '[ "$?" -eq "2" ] && exit 0 || xz_db' EXIT

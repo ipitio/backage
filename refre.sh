@@ -157,3 +157,4 @@ html=$(curl -s "https://github.com/$GITHUB_OWNER/$GITHUB_REPO/releases/latest")
 raw_assets=$(grep -Pzo 'Assets[^"]*"\d*' <<<"$html" | grep -Pzo '\d*$' | tr -d '\0')
 perl -0777 -pe 's/\[VERSION\]/'"$BKG_VERSION"'/g; s/\[OWNERS\]/'"$owners"'/g; s/\[REPOS\]/'"$repos"'/g; s/\[PACKAGES\]/'"$packages"'/g' CHANGELOG.md >CHANGELOG.tmp && [ -f CHANGELOG.tmp ] && mv CHANGELOG.tmp CHANGELOG.md || :
 [ -n "$raw_assets" ] && [ "$raw_assets" -ge 4 ] && echo " The database grew over 2GB and was rotated, but you can find all previous data under [Releases](https://github.com/$GITHUB_OWNER/$GITHUB_REPO/releases)." >>CHANGELOG.md || :
+exit 2
