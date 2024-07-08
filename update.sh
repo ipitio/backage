@@ -7,75 +7,8 @@
 # shellcheck disable=SC1091,SC2015
 
 source lib.sh
-
-# remove owners from owners.txt that have already been scraped in this batch
-[ -n "$BKG_BATCH_FIRST_STARTED" ] || BKG_BATCH_FIRST_STARTED=$TODAY
-
-if [ -s owners.txt ]; then
-    owners_to_remove=()
-
-    while IFS= read -r owner; do
-        check_limit
-        [ -n "$owner" ] || continue
-        owner_id=""
-
-        # if owner is followed by a slash, it's an id
-        if [[ "$owner" =~ .*\/.* ]]; then
-            owner_id=$(cut -d'/' -f1 <<<"$owner")
-        fi
-
-        if [ -z "$owner_id" ]; then
-            query="select count(*) from '$BKG_INDEX_TBL_PKG' where owner='$owner' and date between date('$BKG_BATCH_FIRST_STARTED') and date('$TODAY');"
-        else
-            query="select count(*) from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and date between date('$BKG_BATCH_FIRST_STARTED') and date('$TODAY');"
-        fi
-
-        count=$(sqlite3 "$BKG_INDEX_DB" "$query")
-        [[ "$count" =~ ^0*$ ]] || owners_to_remove+=("$owner")
-    done <owners.txt
-
-    for owner_to_remove in "${owners_to_remove[@]}"; do
-        sed -i "/$owner_to_remove/d" owners.txt
-    done
-fi
-
-[ -s owners.txt ] || BKG_BATCH_FIRST_STARTED=$TODAY
-
-xz_db() {
-    if [ -f "$BKG_INDEX_DB" ]; then
-        echo "Compressing the database..."
-        sqlite3 "$BKG_INDEX_DB" ".dump" | tar -c -I 'zstd -22 --ultra --long -T0' "$BKG_INDEX_SQL".tar.zst.new
-
-        if [ -f "$BKG_INDEX_SQL".tar.zst.new ]; then
-            # rotate the database if it's greater than 2GB
-            if [ "$(stat -c %s "$BKG_INDEX_SQL".tar.zst.new)" -ge 2000000000 ]; then
-                echo "Rotating the database..."
-                [ -d "$BKG_INDEX_SQL".d ] || mkdir "$BKG_INDEX_SQL".d
-                [ ! -f "$BKG_INDEX_SQL".tar.zst ] || mv "$BKG_INDEX_SQL".tar.zst "$BKG_INDEX_SQL".d/"$(date -u +%Y.%m.%d)".tar.zst
-                query="delete from '$BKG_INDEX_TBL_PKG' where date not between date('$BKG_BATCH_FIRST_STARTED') and date('$TODAY');"
-                sqlite3 "$BKG_INDEX_DB" "$query"
-                query="select name from sqlite_master where type='table' and name like '${BKG_INDEX_TBL_VER}_%';"
-                tables=$(sqlite3 "$BKG_INDEX_DB" "$query")
-
-                for table in $tables; do
-                    query="delete from '$table' where date not between date('$BKG_BATCH_FIRST_STARTED') and date('$TODAY');"
-                    sqlite3 "$BKG_INDEX_DB" "$query"
-                done
-
-                sqlite3 "$BKG_INDEX_DB" "vacuum;"
-                sqlite3 "$BKG_INDEX_DB" ".dump" | tar -c -I 'zstd -22 --ultra --long -T0' "$BKG_INDEX_SQL".tar.zst.new
-            fi
-
-            mv "$BKG_INDEX_SQL".tar.zst.new "$BKG_INDEX_SQL".tar.zst
-        else
-            echo "Failed to compress the database!"
-        fi
-    fi
-
-    echo "Exiting..."
-    env | grep -E '^BKG_' >.env
-    exit 2
-}
+minute_start=$(date +%s)
+minute_calls=0
 
 check_limit() {
     # exit if the script has been running for 5 hours
@@ -113,9 +46,70 @@ check_limit() {
     fi
 }
 
+xz_db() {
+    if [ -f "$BKG_INDEX_DB" ]; then
+        echo "Compressing the database..."
+        sqlite3 "$BKG_INDEX_DB" ".dump" | tar -c -I 'zstd -22 --ultra --long -T0' "$BKG_INDEX_SQL".tar.zst.new
+
+        if [ -f "$BKG_INDEX_SQL".tar.zst.new ]; then
+            # rotate the database if it's greater than 2GB
+            if [ "$(stat -c %s "$BKG_INDEX_SQL".tar.zst.new)" -ge 2000000000 ]; then
+                echo "Rotating the database..."
+                [ -d "$BKG_INDEX_SQL".d ] || mkdir "$BKG_INDEX_SQL".d
+                [ ! -f "$BKG_INDEX_SQL".tar.zst ] || mv "$BKG_INDEX_SQL".tar.zst "$BKG_INDEX_SQL".d/"$(date -u +%Y.%m.%d)".tar.zst
+                query="delete from '$BKG_INDEX_TBL_PKG' where date not between date('$BKG_BATCH_FIRST_STARTED') and date('$TODAY');"
+                sqlite3 "$BKG_INDEX_DB" "$query"
+                query="select name from sqlite_master where type='table' and name like '${BKG_INDEX_TBL_VER}_%';"
+                tables=$(sqlite3 "$BKG_INDEX_DB" "$query")
+
+                for table in $tables; do
+                    query="delete from '$table' where date not between date('$BKG_BATCH_FIRST_STARTED') and date('$TODAY');"
+                    sqlite3 "$BKG_INDEX_DB" "$query"
+                done
+
+                sqlite3 "$BKG_INDEX_DB" "vacuum;"
+                sqlite3 "$BKG_INDEX_DB" ".dump" | tar -c -I 'zstd -22 --ultra --long -T0' "$BKG_INDEX_SQL".tar.zst.new
+            fi
+
+            mv "$BKG_INDEX_SQL".tar.zst.new "$BKG_INDEX_SQL".tar.zst
+        else
+            echo "Failed to compress the database!"
+        fi
+    fi
+
+    echo "Exiting..."
+    env | grep -E '^BKG_' >.env
+    exit 2
+}
+
+# remove owners from owners.txt that have already been scraped in this batch
+[ -n "$BKG_BATCH_FIRST_STARTED" ] || BKG_BATCH_FIRST_STARTED=$TODAY
+
+if [ -s owners.txt ]; then
+    owners_to_remove=()
+
+    while IFS= read -r owner; do
+        check_limit
+        [ -n "$owner" ] || continue
+        [[ "$owner" =~ .*\/.* ]] && owner_id="" || owner_id=$(cut -d'/' -f1 <<<"$owner")
+
+        if [ -z "$owner_id" ]; then
+            query="select count(*) from '$BKG_INDEX_TBL_PKG' where owner='$owner' and date between date('$BKG_BATCH_FIRST_STARTED') and date('$TODAY');"
+        else
+            query="select count(*) from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and date between date('$BKG_BATCH_FIRST_STARTED') and date('$TODAY');"
+        fi
+
+        count=$(sqlite3 "$BKG_INDEX_DB" "$query")
+        [[ "$count" =~ ^0*$ ]] || owners_to_remove+=("$owner")
+    done <owners.txt
+
+    for owner_to_remove in "${owners_to_remove[@]}"; do
+        sed -i "/$owner_to_remove/d" owners.txt
+    done
+fi
+
+[ -s owners.txt ] || BKG_BATCH_FIRST_STARTED=$TODAY
 trap '[ "$?" -eq "2" ] && exit 0 || xz_db' EXIT
-minute_start=$(date +%s)
-minute_calls=0
 [ -n "$BKG_RATE_LIMIT_START" ] || BKG_RATE_LIMIT_START=$(date +%s)
 [ -n "$BKG_CALLS_TO_API" ] || BKG_CALLS_TO_API=0
 
