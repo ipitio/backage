@@ -6,7 +6,7 @@
 #
 # shellcheck disable=SC1091,SC2015,SC2034
 
-source .env
+[ ! -f .env ] || source .env
 source env.env
 declare SCRIPT_START
 declare TODAY

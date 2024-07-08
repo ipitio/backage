@@ -13,7 +13,7 @@ perl -0777 -pe 's/<GITHUB_OWNER>/'"$GITHUB_OWNER"'/g; s/<GITHUB_REPO>/'"$GITHUB_
 echo "Total Downloads:"
 echo "[" >index.json
 
-sqlite3 "$INDEX_DB" "select * from '$$BKG_INDEX_TBL_PKG' order by downloads + 0 desc;" | while IFS='|' read -r owner_id owner_type package_type owner repo package downloads downloads_month downloads_week downloads_day size date; do
+sqlite3 "$INDEX_DB" "select * from '$BKG_INDEX_TBL_PKG' order by downloads + 0 desc;" | while IFS='|' read -r owner_id owner_type package_type owner repo package downloads downloads_month downloads_week downloads_day size date; do
     script_now=$(date -u +%s)
     script_diff=$((script_now - SCRIPT_START))
 
@@ -23,7 +23,7 @@ sqlite3 "$INDEX_DB" "select * from '$$BKG_INDEX_TBL_PKG' order by downloads + 0 
     fi
 
     # only use the latest date for the package
-    query="select date from '$$BKG_INDEX_TBL_PKG' where owner_type='$owner_type' and package_type='$package_type' and owner='$owner' and repo='$repo' and package='$package' order by date desc limit 1;"
+    query="select date from '$BKG_INDEX_TBL_PKG' where owner_type='$owner_type' and package_type='$package_type' and owner='$owner' and repo='$repo' and package='$package' order by date desc limit 1;"
     max_date=$(sqlite3 "$INDEX_DB" "$query")
     [ "$date" = "$max_date" ] || continue
 
