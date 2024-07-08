@@ -13,7 +13,7 @@ perl -0777 -pe 's/<GITHUB_OWNER>/'"$GITHUB_OWNER"'/g; s/<GITHUB_REPO>/'"$GITHUB_
 echo "Total Downloads:"
 echo "[" >index.json
 
-sqlite3 "$INDEX_DB" "select * from '$BKG_INDEX_TBL_PKG' order by downloads + 0 desc;" | while IFS='|' read -r owner_id owner_type package_type owner repo package downloads downloads_month downloads_week downloads_day size date; do
+sqlite3 "$BKG_INDEX_DB" "select * from '$BKG_INDEX_TBL_PKG' order by downloads + 0 desc;" | while IFS='|' read -r owner_id owner_type package_type owner repo package downloads downloads_month downloads_week downloads_day size date; do
     script_now=$(date -u +%s)
     script_diff=$((script_now - SCRIPT_START))
 
@@ -23,8 +23,8 @@ sqlite3 "$INDEX_DB" "select * from '$BKG_INDEX_TBL_PKG' order by downloads + 0 d
     fi
 
     # only use the latest date for the package
-    query="select date from '$BKG_INDEX_TBL_PKG' where owner_type='$owner_type' and package_type='$package_type' and owner='$owner' and repo='$repo' and package='$package' order by date desc limit 1;"
-    max_date=$(sqlite3 "$INDEX_DB" "$query")
+    query="select date from '$BKG_INDEX_TBL_PKG' where owner_type='$owner_type' and package_type='$package_type' and owner_id='$owner_id' and repo='$repo' and package='$package' order by date desc limit 1;"
+    max_date=$(sqlite3 "$BKG_INDEX_DB" "$query")
     [ "$date" = "$max_date" ] || continue
 
     fmt_downloads=$(numfmt <<<"$downloads")
@@ -34,13 +34,13 @@ sqlite3 "$INDEX_DB" "select * from '$BKG_INDEX_TBL_PKG' order by downloads + 0 d
 
     # get the version and tagged counts
     query="select name from sqlite_master where type='table' and name='$table_version_name';"
-    table_exists=$(sqlite3 "$INDEX_DB" "$query")
+    table_exists=$(sqlite3 "$BKG_INDEX_DB" "$query")
 
     if [ -n "$table_exists" ]; then
         query="select count(distinct id) from '$table_version_name';"
-        version_count=$(sqlite3 "$INDEX_DB" "$query")
+        version_count=$(sqlite3 "$BKG_INDEX_DB" "$query")
         query="select count(distinct id) from '$table_version_name' where tags != '' and tags is not null;"
-        version_with_tag_count=$(sqlite3 "$INDEX_DB" "$query")
+        version_with_tag_count=$(sqlite3 "$BKG_INDEX_DB" "$query")
     fi
 
     echo "{" >>index.json
@@ -71,12 +71,12 @@ sqlite3 "$INDEX_DB" "select * from '$BKG_INDEX_TBL_PKG' order by downloads + 0 d
     # add the versions to index.json
     if [ "$version_count" -gt 0 ]; then
         query="select id from '$table_version_name' order by id desc limit 1;"
-        version_newest_id=$(sqlite3 "$INDEX_DB" "$query")
+        version_newest_id=$(sqlite3 "$BKG_INDEX_DB" "$query")
 
         # get only the last day each version was updated, which may not be today
         # desc sort by id
         query="select id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags from '$table_version_name' group by id order by id desc;"
-        sqlite3 "$INDEX_DB" "$query" | while IFS='|' read -r vid vname vsize vdownloads vdownloads_month vdownloads_week vdownloads_day vdate vtags; do
+        sqlite3 "$BKG_INDEX_DB" "$query" | while IFS='|' read -r vid vname vsize vdownloads vdownloads_month vdownloads_week vdownloads_day vdate vtags; do
             echo "{
                 \"id\": $vid,
                 \"name\": \"$vname\",
