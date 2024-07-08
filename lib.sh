@@ -63,7 +63,7 @@ table_pkg="create table if not exists '$BKG_INDEX_TBL_PKG' (
     downloads_day integer not null,
     size integer not null,
     date text not null,
-    primary key (owner_type, package_type, owner, repo, package, date)
+    primary key (owner_type, package_type, owner_id, repo, package, date)
 ); pragma auto_vacuum = full;"
 sqlite3 "$BKG_INDEX_DB" "$table_pkg"
 

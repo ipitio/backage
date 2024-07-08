@@ -80,11 +80,11 @@ xz_db() {
     echo "Creating the CHANGELOG..."
     [ ! -f CHANGELOG.md ] || rm -f CHANGELOG.md
     \cp templates/.CHANGELOG.md CHANGELOG.md
-    query="select count(distinct owner) from '$$BKG_INDEX_TBL_PKG';"
+    query="select count(distinct owner) from '$BKG_INDEX_TBL_PKG';"
     owners=$(sqlite3 "$INDEX_DB" "$query")
-    query="select count(distinct repo) from '$$BKG_INDEX_TBL_PKG';"
+    query="select count(distinct repo) from '$BKG_INDEX_TBL_PKG';"
     repos=$(sqlite3 "$INDEX_DB" "$query")
-    query="select count(distinct package) from '$$BKG_INDEX_TBL_PKG';"
+    query="select count(distinct package) from '$BKG_INDEX_TBL_PKG';"
     packages=$(sqlite3 "$INDEX_DB" "$query")
     html=$(curl -s "https://github.com/$GITHUB_OWNER/$GITHUB_REPO/releases/latest")
     raw_assets=$(grep -Pzo 'Assets[^"]*"\d*' <<<"$html" | grep -Pzo '\d*$' | tr -d '\0')
@@ -154,11 +154,11 @@ if [ "$1" = "0" ]; then
                     "https://api.github.com/users?per_page=100&page=$owners_page&since=$BKG_LAST_SCANNED_ID")
                 ((BKG_CALLS_TO_API++))
                 ((minute_calls++))
-                jq -e . <<<"$owners_more" 2>/dev/null || owners_more="[]"
+                jq -e . <<<"$owners_more" &>/dev/null || owners_more="[]"
             fi
 
             # if owners doesn't have .login, break
-            jq -e '.[].login' <<<"$owners_more" 2>/dev/null || break
+            jq -e '.[].login' <<<"$owners_more" &>/dev/null || break
 
             # add the new owners to the owners array
             for i in $(jq -r '.[] | @base64' <<<"$owners_more"); do
@@ -367,11 +367,11 @@ for id_login in "${owners[@]}"; do
                         "https://api.github.com/$owner_type/$owner/packages/$package_type/$package/versions?per_page=$BKG_VERSIONS_PER_PAGE&page=$versions_page")
                     ((BKG_CALLS_TO_API++))
                     ((minute_calls++))
-                    jq -e . <<<"$versions_json_more" 2>/dev/null || versions_json_more="[]"
+                    jq -e . <<<"$versions_json_more" &>/dev/null || versions_json_more="[]"
                 fi
 
                 # if versions doesn't have .name, break
-                jq -e '.[].name' <<<"$versions_json_more" 2>/dev/null || break
+                jq -e '.[].name' <<<"$versions_json_more" &>/dev/null || break
 
                 # add the new versions to the versions_json, if they are not already there
                 for i in $(jq -r '.[] | @base64' <<<"$versions_json_more"); do
@@ -392,7 +392,7 @@ for id_login in "${owners[@]}"; do
             done
 
             # scan the versions
-            jq -e . <<<"$versions_json" 2>/dev/null || versions_json="[{\"id\":\"latest\",\"name\":\"latest\"}]"
+            jq -e . <<<"$versions_json" &>/dev/null || versions_json="[{\"id\":\"latest\",\"name\":\"latest\"}]"
             for i in $(jq -r '.[] | @base64' <<<"$versions_json"); do
                 _jq() {
                     echo "$i" | base64 --decode | jq -r "$@"
