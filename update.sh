@@ -154,11 +154,11 @@ if [ "$1" = "0" ]; then
                     "https://api.github.com/users?per_page=100&page=$owners_page&since=$BKG_LAST_SCANNED_ID")
                 ((BKG_CALLS_TO_API++))
                 ((minute_calls++))
-                jq -e . <<<"$owners_more" &>/dev/null || owners_more="[]"
+                jq -e . <<<"$owners_more" 2>/dev/null || owners_more="[]"
             fi
 
             # if owners doesn't have .login, break
-            jq -e '.[].login' <<<"$owners_more" &>/dev/null || break
+            jq -e '.[].login' <<<"$owners_more" 2>/dev/null || break
 
             # add the new owners to the owners array
             for i in $(jq -r '.[] | @base64' <<<"$owners_more"); do
@@ -353,8 +353,8 @@ for id_login in "${owners[@]}"; do
                 done < <(sqlite3 "$BKG_INDEX_DB" "$query")
             fi
 
-            # limit to X pages / newest X00 versions
-            while [ "$versions_page" -lt 1000 ]; do
+            # limit to "max int" versions
+            while [ "$versions_page" -lt "$((MAX / BKG_VERSIONS_PER_PAGE))" ]; do
                 check_limit
                 ((versions_page++))
                 # if the repo is public the api request should succeed
@@ -364,14 +364,14 @@ for id_login in "${owners[@]}"; do
                     versions_json_more=$(curl -H "Accept: application/vnd.github+json" \
                         -H "Authorization: Bearer $GITHUB_TOKEN" \
                         -H "X-GitHub-Api-Version: 2022-11-28" \
-                        "https://api.github.com/$owner_type/$owner/packages/$package_type/$package/versions?per_page=100&page=$versions_page")
+                        "https://api.github.com/$owner_type/$owner/packages/$package_type/$package/versions?per_page=$BKG_VERSIONS_PER_PAGE&page=$versions_page")
                     ((BKG_CALLS_TO_API++))
                     ((minute_calls++))
-                    jq -e . <<<"$versions_json_more" &>/dev/null || versions_json_more="[]"
+                    jq -e . <<<"$versions_json_more" 2>/dev/null || versions_json_more="[]"
                 fi
 
                 # if versions doesn't have .name, break
-                jq -e '.[].name' <<<"$versions_json_more" &>/dev/null || break
+                jq -e '.[].name' <<<"$versions_json_more" 2>/dev/null || break
 
                 # add the new versions to the versions_json, if they are not already there
                 for i in $(jq -r '.[] | @base64' <<<"$versions_json_more"); do
@@ -392,7 +392,7 @@ for id_login in "${owners[@]}"; do
             done
 
             # scan the versions
-            jq -e . <<<"$versions_json" &>/dev/null || versions_json="[{\"id\":\"latest\",\"name\":\"latest\"}]"
+            jq -e . <<<"$versions_json" 2>/dev/null || versions_json="[{\"id\":\"latest\",\"name\":\"latest\"}]"
             for i in $(jq -r '.[] | @base64' <<<"$versions_json"); do
                 _jq() {
                     echo "$i" | base64 --decode | jq -r "$@"

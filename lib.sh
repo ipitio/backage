@@ -12,6 +12,7 @@ declare TODAY
 SCRIPT_START=$(date +%s)
 TODAY=$(date -u +%Y-%m-%d)
 readonly SCRIPT_START TODAY
+printf -v MAX %x -1 && printf -v MAX %d 0x"${MAX/f/7}"
 
 if ! command -v curl &>/dev/null || ! command -v jq &>/dev/null || ! command -v sqlite3 &>/dev/null; then
     echo "Installing dependencies..."

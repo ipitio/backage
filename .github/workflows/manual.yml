@@ -1,14 +1,15 @@
-name: backup
+name: manual
 
 on:
-  workflow_dispatch:
+  push:
+    branches:
+      - master
 
-  schedule:
-    - cron: "*/5 * * * *"
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   update:
@@ -26,7 +27,7 @@ jobs:
         run: echo "date=$(date +'%Y.%m.%d')" >> "$GITHUB_OUTPUT"
 
       - name: Update database
-        run: bash update.sh 0
+        run: bash update.sh 1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
