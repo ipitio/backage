@@ -89,11 +89,12 @@ xz_db() {
         packages=$(sqlite3 "$BKG_INDEX_DB" "$query")
         perl -0777 -pe 's/\[VERSION\]/'"$BKG_VERSION"'/g; s/\[OWNERS\]/'"$owners"'/g; s/\[REPOS\]/'"$repos"'/g; s/\[PACKAGES\]/'"$packages"'/g' CHANGELOG.md >CHANGELOG.tmp && [ -f CHANGELOG.tmp ] && mv CHANGELOG.tmp CHANGELOG.md || :
         ! $rotated || echo " The database grew over 2GB and was rotated, but you can find all previous data under [Releases](https://github.com/$GITHUB_OWNER/$GITHUB_REPO/releases)." >>CHANGELOG.md
+    else
+        return 1
     fi
 
     echo "Exiting..."
     env | grep -E '^BKG_' >.env
-    exit 2
 }
 
 # remove owners from owners.txt that have already been scraped in this batch
@@ -123,7 +124,7 @@ if [ -s owners.txt ] && [ "$1" = "0" ]; then
 fi
 
 [ -s owners.txt ] || BKG_BATCH_FIRST_STARTED=$TODAY
-trap '[ "$?" -eq "2" ] && exit 0 || xz_db' EXIT
+trap 'xz_db && exit 0 || exit 1' EXIT
 [ -n "$BKG_RATE_LIMIT_START" ] || BKG_RATE_LIMIT_START=$(date -u +%s)
 [ -n "$BKG_CALLS_TO_API" ] || BKG_CALLS_TO_API=0
 
