@@ -1,10 +1,7 @@
 name: backup
 
 on:
-  workflow_run:
-    workflows: backup
-    types:
-      - completed
+  workflow_dispatch:
 
   schedule:
     - cron: "0 * * * *"
