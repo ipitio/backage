@@ -1,7 +1,3 @@
-QuivrHQ
-Stirling-Tools
-TandoorRecipes
-anchore
 aquasecurity
 argoproj
 browserless
