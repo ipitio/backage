@@ -140,9 +140,10 @@ jq -e 'length > 0' index.json || exit 1
 jq -c 'sort_by(.raw_downloads | tonumber) | reverse' index.json >index.tmp.json
 mv index.tmp.json index.json
 
-# if the json is over 100MB, remove oldest versions from the packages with the most versions
+# if the json is over 50MB, remove oldest versions from the packages with the most versions
 json_size=$(stat -c %s index.json)
-while [ "$json_size" -gt 100000000 ]; do
+while [ "$json_size" -gt 50000000 ]; do
+    jq -e 'map(.version | length > 0) | any' index.json || break
     jq -c 'sort_by(.versions | tonumber) | reverse | map(select(.versions > 0)) | map(.version |= sort_by(.id | tonumber) | del(.version[0]))' index.json >index.tmp.json
     mv index.tmp.json index.json
     json_size=$(stat -c %s index.json)
