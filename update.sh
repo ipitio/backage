@@ -14,7 +14,7 @@ check_limit() {
     # exit if the script has been running for 5 hours
     rate_limit_end=$(date -u +%s)
     script_limit_diff=$((rate_limit_end - SCRIPT_START))
-    ((script_limit_diff < 18000)) || { echo "Script has been running for 5 hours!" && exit 0; }
+    ((script_limit_diff < 18000)) || { echo "Script has been running for 5 hours!" && return 1; }
 
     # wait if 1000 or more calls have been made in the last hour
     rate_limit_diff=$((rate_limit_end - BKG_RATE_LIMIT_START))
@@ -74,6 +74,7 @@ xz_db() {
             fi
 
             mv "$BKG_INDEX_SQL".zst.new "$BKG_INDEX_SQL".zst
+            echo "Compressed the database"
         else
             echo "Failed to compress the database!"
         fi
@@ -93,8 +94,6 @@ xz_db() {
         return 1
     fi
 
-    echo "Exiting..."
-
     # update env with the current shell variables
     for var in $(compgen -A variable | grep -E "^BKG_"); do
         value=$(eval echo "\$$var")
@@ -109,7 +108,7 @@ update_version() {
         echo "$v_obj" | base64 --decode | jq -r "$@"
     }
 
-    check_limit
+    check_limit || return
     version_size=-1
     version_id=$(_jq '.id')
     version_name=$(_jq '.name')
@@ -133,6 +132,8 @@ update_version() {
 
     # insert a new row
     if [[ "$count" =~ ^0*$ || "$owner" == "arevindh" ]]; then
+        echo "Updating $package_type/$repo/$package/$version_name..."
+
         if [ "$package_type" = "container" ]; then
             # get the size by adding up the layers
             [[ "$version_name" =~ ^sha256:.+$ ]] && sep="@" || sep=":"
@@ -170,11 +171,12 @@ update_version() {
 
         query="insert or replace into '$table_version_name' (id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags) values ('$version_id', '$version_name', '$version_size', '$version_raw_downloads', '$version_raw_downloads_month', '$version_raw_downloads_week', '$version_raw_downloads_day', '$TODAY', '$version_tags');"
         sqlite3 "$BKG_INDEX_DB" "$query"
+        echo "Updated $package_type/$repo/$package/$version_name"
     fi
 }
 
 update_package() {
-    check_limit
+    check_limit || return
     [ -n "$1" ] || return
     package_type=$(cut -d'/' -f1 <<<"$1")
     repo=$(cut -d'/' -f2 <<<"$1")
@@ -232,7 +234,7 @@ update_package() {
         html=$(curl "https://github.com/$owner/$repo/pkgs/$package_type/$package")
         is_public=$(grep -Pzo 'Total downloads' <<<"$html" | tr -d '\0')
         [ -n "$is_public" ] || return
-        echo "Scraping $package_type/$repo/$package..."
+        echo "Scraping $owner_type/$owner/$package_type/$repo/$package..."
         raw_downloads=$(grep -Pzo 'Total downloads[^"]*"\d*' <<<"$html" | grep -Pzo '\d*$' | tr -d '\0') # https://stackoverflow.com/a/74214537
         [[ "$raw_downloads" =~ ^[0-9]+$ ]] || raw_downloads=-1
         versions_json="[]"
@@ -255,7 +257,7 @@ update_package() {
 
         # limit to "max int" versions
         while [ "$versions_page" -lt "$((MAX / BKG_VERSIONS_PER_PAGE))" ]; do
-            check_limit
+            check_limit || return
             ((versions_page++))
             # if the repo is public the api request should succeed
             versions_json_more="[]"
@@ -294,36 +296,40 @@ update_package() {
         # scan the versions
         jq -e . <<<"$versions_json" &>/dev/null || versions_json="[{\"id\":\"latest\",\"name\":\"latest\"}]"
         versions_json=$(jq -r '.[] | @base64' <<<"$versions_json")
-        run_parallel update_version "${versions_json[@]}"
+        env_parallel -p0 update_version ::: "${versions_json[@]}"
 
-        # use the version stats if we have them
-        query="select name from sqlite_master where type='table' and name='$table_version_name';"
-        table_exists=$(sqlite3 "$BKG_INDEX_DB" "$query")
+        # insert the package into the db
+        if check_limit; then
+            query="select name from sqlite_master where type='table' and name='$table_version_name';"
+            table_exists=$(sqlite3 "$BKG_INDEX_DB" "$query")
 
-        if [ -n "$table_exists" ]; then
-            # calculate the total downloads
-            query="select max(date) from '$table_version_name';"
-            max_date=$(sqlite3 "$BKG_INDEX_DB" "$query")
-            query="select sum(downloads), sum(downloads_month), sum(downloads_week), sum(downloads_day) from '$table_version_name' where date='$max_date';"
-            # summed_raw_downloads=$(sqlite3 "$BKG_INDEX_DB" "$query" | cut -d'|' -f1)
-            raw_downloads_month=$(sqlite3 "$BKG_INDEX_DB" "$query" | cut -d'|' -f2)
-            raw_downloads_week=$(sqlite3 "$BKG_INDEX_DB" "$query" | cut -d'|' -f3)
-            raw_downloads_day=$(sqlite3 "$BKG_INDEX_DB" "$query" | cut -d'|' -f4)
+            if [ -n "$table_exists" ]; then
+                # calculate the total downloads
+                query="select max(date) from '$table_version_name';"
+                max_date=$(sqlite3 "$BKG_INDEX_DB" "$query")
+                query="select sum(downloads), sum(downloads_month), sum(downloads_week), sum(downloads_day) from '$table_version_name' where date='$max_date';"
+                # summed_raw_downloads=$(sqlite3 "$BKG_INDEX_DB" "$query" | cut -d'|' -f1)
+                raw_downloads_month=$(sqlite3 "$BKG_INDEX_DB" "$query" | cut -d'|' -f2)
+                raw_downloads_week=$(sqlite3 "$BKG_INDEX_DB" "$query" | cut -d'|' -f3)
+                raw_downloads_day=$(sqlite3 "$BKG_INDEX_DB" "$query" | cut -d'|' -f4)
 
-            # use the latest version's size as the package size
-            query="select id from '${BKG_INDEX_TBL_VER}_${owner_type}_${package_type}_${owner}_${repo}_${package}' order by id desc limit 1;"
-            version_newest_id=$(sqlite3 "$BKG_INDEX_DB" "$query")
-            query="select size from '${BKG_INDEX_TBL_VER}_${owner_type}_${package_type}_${owner}_${repo}_${package}' where id='$version_newest_id' order by date desc limit 1;"
-            size=$(sqlite3 "$BKG_INDEX_DB" "$query")
+                # use the latest version's size as the package size
+                query="select id from '${BKG_INDEX_TBL_VER}_${owner_type}_${package_type}_${owner}_${repo}_${package}' order by id desc limit 1;"
+                version_newest_id=$(sqlite3 "$BKG_INDEX_DB" "$query")
+                query="select size from '${BKG_INDEX_TBL_VER}_${owner_type}_${package_type}_${owner}_${repo}_${package}' where id='$version_newest_id' order by date desc limit 1;"
+                size=$(sqlite3 "$BKG_INDEX_DB" "$query")
+            fi
+
+            query="insert or replace into '$BKG_INDEX_TBL_PKG' (owner_id, owner_type, package_type, owner, repo, package, downloads, downloads_month, downloads_week, downloads_day, size, date) values ('$owner_id', '$owner_type', '$package_type', '$owner', '$repo', '$package', '$raw_downloads', '$raw_downloads_month', '$raw_downloads_week', '$raw_downloads_day', '$size', '$TODAY');"
+            sqlite3 "$BKG_INDEX_DB" "$query"
         fi
 
-        query="insert or replace into '$BKG_INDEX_TBL_PKG' (owner_id, owner_type, package_type, owner, repo, package, downloads, downloads_month, downloads_week, downloads_day, size, date) values ('$owner_id', '$owner_type', '$package_type', '$owner', '$repo', '$package', '$raw_downloads', '$raw_downloads_month', '$raw_downloads_week', '$raw_downloads_day', '$size', '$TODAY');"
-        sqlite3 "$BKG_INDEX_DB" "$query"
+        echo "Scraped $owner_type/$owner/$package_type/$repo/$package"
     fi
 }
 
 update_owner() {
-    check_limit
+    check_limit || return
     [ -n "$1" ] || return
     owner=$(cut -d'/' -f2 <<<"$1")
     owner_id=$(cut -d'/' -f1 <<<"$1")
@@ -333,11 +339,11 @@ update_owner() {
     [ -n "$is_org" ] || owner_type="users"
     packages=""
     packages_page=0
-    echo "Getting packages for $owner_type/$owner..."
+    echo "Starting $owner_type/$owner..."
 
     # get the packages
     while true; do
-        check_limit
+        check_limit || return
         ((packages_page++))
 
         if [ "$owner_type" = "orgs" ]; then
@@ -365,18 +371,9 @@ update_owner() {
     packages=$(awk '!seen[$0]++' <<<"$packages")
     readarray -t packages <<<"$packages"
 
-    if [ "${#packages[@]}" -gt 0 ] && [ -n "${packages[0]}" ]; then
-        printf "Got packages: "
-
-        for i in "${packages[@]}"; do
-            printf "%s " "$(cut -d'/' -f3 <<<"$i")"
-        done
-
-        echo
-    fi
-
     # loop through the packages in $packages
-    run_parallel update_package "${packages[@]}"
+    env_parallel -p0 update_package ::: "${packages[@]}"
+    echo "Finished $owner_type/$owner"
 }
 
 main() {
@@ -387,7 +384,7 @@ main() {
         owners_to_remove=()
 
         while IFS= read -r owner; do
-            check_limit
+            check_limit || return
             [ -n "$owner" ] || continue
             [[ "$owner" =~ .*\/.* ]] && owner_id=$(cut -d'/' -f1 <<<"$owner") || owner_id=""
 
@@ -407,7 +404,6 @@ main() {
     fi
 
     [ -s owners.txt ] || BKG_BATCH_FIRST_STARTED=$TODAY
-    trap 'xz_db ; exit $?' EXIT
     [ -n "$BKG_RATE_LIMIT_START" ] || BKG_RATE_LIMIT_START=$(date -u +%s)
     [ -n "$BKG_CALLS_TO_API" ] || BKG_CALLS_TO_API=0
 
@@ -427,7 +423,7 @@ main() {
             [ -n "$BKG_LAST_SCANNED_ID" ] || BKG_LAST_SCANNED_ID=0
 
             while [ "$owners_page" -lt 10 ]; do
-                check_limit
+                check_limit || return
                 ((owners_page++))
                 owners_more="[]"
 
@@ -463,7 +459,7 @@ main() {
         query="select owner_id, owner from '$BKG_INDEX_TBL_PKG' where date not between date('$BKG_BATCH_FIRST_STARTED') and date('$TODAY') group by owner_id;"
 
         while IFS= read -r owner_id owner; do
-            check_limit
+            check_limit || return
             [ -n "$owner" ] || continue
             grep -q "$owner" owners.txt || echo "$owner_id/$owner" >>owners.txt
         done < <(sqlite3 "$BKG_INDEX_DB" "$query")
@@ -480,7 +476,7 @@ main() {
         sed -i 's/^[[:space:]]*//;s/[[:space:]]*$//' owners.txt
 
         while IFS= read -r owner; do
-            check_limit
+            check_limit || return
             owner=$(echo "$owner" | tr -d '[:space:]')
             [ -n "$owner" ] || continue
             owner_id=""
@@ -504,7 +500,8 @@ main() {
     fi
 
     # update the owners
-    run_parallel update_owner "${owners[@]}"
+    env_parallel -p0 update_owner "${owners[@]}"
 }
 
 main "$@"
+xz_db

@@ -8,6 +8,7 @@
 
 source lib.sh
 
+# shellcheck disable=SC2317
 refresh_owner() {
     owner=$1
     [ -d index ] || mkdir index
@@ -107,29 +108,6 @@ refresh_owner() {
 
         export owner_type package_type owner repo package
         printf "%s\t(%s)\t%s/%s/%s (%s/%s)\n" "$(numfmt <<<"$downloads")" "$downloads" "$owner" "$repo" "$package" "$owner_type" "$package_type"
-
-        [ "$downloads" -ge 100000000 ] || continue
-        grep -q "$owner_type/$package_type/$owner/$repo/$package" README.md || perl -0777 -pe '
-        my $owner_type = $ENV{"owner_type"};
-        my $package_type = $ENV{"package_type"};
-        my $owner = $ENV{"owner"};
-        my $repo = $ENV{"repo"};
-        my $package = $ENV{"package"};
-        my $thisowner = $ENV{"GITHUB_OWNER"};
-        my $thisrepo = $ENV{"GITHUB_REPO"};
-        my $thisbranch = $ENV{"GITHUB_BRANCH"};
-        my $label = $package;
-
-        # decode percent-encoded characters
-        for ($owner, $repo, $label) {
-            s/%/%25/g;
-        }
-
-        $label =~ s/%([0-9A-Fa-f]{2})/chr(hex($1))/eg;
-
-        # add new badge
-        s/\n\n(\[!\[.*)\n\n/\n\n$1 \[!\[$owner_type\/$package_type\/$owner\/$repo\/$package\]\(https:\/\/img.shields.io\/badge\/dynamic\/json\?url=https%3A%2F%2Fraw.githubusercontent.com%2F$thisowner%2F$thisrepo%2F$thisbranch%2Findex%2F$thisowner.json\&query=%24%5B%3F(%40.owner%3D%3D%22$owner%22%20%26%26%20%40.repo%3D%3D%22$repo%22%20%26%26%20%40.package%3D%3D%22$package%22)%5D.downloads\&label=$label\)\]\(https:\/\/github.com\/$owner\/$repo\/pkgs\/$package_type\/$package\)\n\n/g;
-    ' README.md >README.tmp && [ -f README.tmp ] && mv README.tmp README.md || :
     done
 
     # remove the last comma
@@ -137,7 +115,7 @@ refresh_owner() {
     echo "]" >>index/"$owner".json
 
     # if the json is empty, exit
-    jq -e 'length > 0' index/"$owner".json || exit 1
+    jq -e 'length > 0' index/"$owner".json || return
 
     # sort the top level by raw_downloads
     jq -c 'sort_by(.raw_downloads | tonumber) | reverse' index/"$owner".json >index/"$owner".tmp.json
@@ -161,4 +139,10 @@ perl -0777 -pe 's/<GITHUB_OWNER>/'"$GITHUB_OWNER"'/g; s/<GITHUB_REPO>/'"$GITHUB_
 owners=$(sqlite3 "$BKG_INDEX_DB" "select owner from '$BKG_INDEX_TBL_PKG' where date >= '$BKG_BATCH_FIRST_STARTED' group by owner;")
 
 set -x
-run_parallel refresh_owner "${owners[@]}"
+env_parallel -p0 refresh_owner ::: "${owners[@]}"
+
+for owner in "${owners[@]}"; do
+    jq -e 'length > 0' index/"$owner".json && exit || :
+done
+
+exit 1

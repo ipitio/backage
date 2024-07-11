@@ -4,8 +4,17 @@
 # Dependencies: curl
 # Copyright (c) ipitio
 #
-# shellcheck disable=SC1091,SC2015,SC2034
+# shellcheck disable=SC1090,SC1091,SC2015,SC2034
 
+if ! command -v curl &>/dev/null || ! command -v jq &>/dev/null || ! command -v sqlite3 &>/dev/null || ! command -v zstd &>/dev/null || ! command -v parallel &>/dev/null; then
+    echo "Installing dependencies..."
+    sudo apt-get update
+    sudo apt-get install curl jq parallel sqlite3 zstd -y
+fi
+
+# shellcheck disable=SC2046
+. $(which env_parallel.bash)
+env_parallel --session
 [ ! -f .env ] || source .env
 source env.env
 declare SCRIPT_START
@@ -14,12 +23,6 @@ SCRIPT_START=$(date -u +%s)
 TODAY=$(date -u +%Y-%m-%d)
 readonly SCRIPT_START TODAY
 printf -v MAX %x -1 && printf -v MAX %d 0x"${MAX/f/7}"
-
-if ! command -v curl &>/dev/null || ! command -v jq &>/dev/null || ! command -v sqlite3 &>/dev/null || ! command -v zstd &>/dev/null; then
-    echo "Installing dependencies..."
-    sudo apt-get update
-    sudo apt-get install curl jq sqlite3 zstd -y
-fi
 
 # format numbers like 1000 to 1k
 numfmt() {
