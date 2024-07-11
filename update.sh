@@ -377,7 +377,7 @@ update_owner() {
     readarray -t packages <<<"$packages"
 
     # loop through the packages in $packages
-    echo "${packages[@]}" | env_parallel -j"$CORES" update_package
+    env_parallel -j"$CORES" update_package ::: "${packages[@]}"
     echo "Finished $owner_type/$owner"
 }
 
@@ -505,7 +505,7 @@ main() {
     fi
 
     # update the owners
-    echo "${owners[@]}" | env_parallel -j"$CORES" update_owner
+    env_parallel -j"$CORES" update_owner ::: "${owners[@]}"
 }
 
 main "$@"

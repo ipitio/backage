@@ -1,10 +1,10 @@
 name: update
 
 on:
-  workflow_run:
-    workflows: ["refresh"]
-    types:
-      - completed
+#  workflow_run:
+#    workflows: ["refresh"]
+#    types:
+#      - completed
 
   workflow_dispatch:
 
