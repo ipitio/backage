@@ -19,9 +19,11 @@ env_parallel --session
 source env.env
 declare SCRIPT_START
 declare TODAY
+declare CORES
 SCRIPT_START=$(date -u +%s)
 TODAY=$(date -u +%Y-%m-%d)
-readonly SCRIPT_START TODAY
+CORES=$(nproc)
+readonly SCRIPT_START TODAY CORES
 printf -v MAX %x -1 && printf -v MAX %d 0x"${MAX/f/7}"
 
 # format numbers like 1000 to 1k

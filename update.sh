@@ -296,7 +296,7 @@ update_package() {
         # scan the versions
         jq -e . <<<"$versions_json" &>/dev/null || versions_json="[{\"id\":\"latest\",\"name\":\"latest\"}]"
         versions_json=$(jq -r '.[] | @base64' <<<"$versions_json")
-        env_parallel -p0 update_version ::: "$versions_json"
+        env_parallel -j"$CORES" update_version ::: "$versions_json"
 
         # insert the package into the db
         if check_limit; then
@@ -372,7 +372,7 @@ update_owner() {
     readarray -t packages <<<"$packages"
 
     # loop through the packages in $packages
-    env_parallel -p0 update_package ::: "${packages[@]}"
+    env_parallel -j"$CORES" update_package ::: "${packages[@]}"
     echo "Finished $owner_type/$owner"
 }
 
@@ -500,7 +500,7 @@ main() {
     fi
 
     # update the owners
-    env_parallel -p0 update_owner "${owners[@]}"
+    env_parallel -j"$CORES" update_owner "${owners[@]}"
 }
 
 main "$@"
