@@ -296,7 +296,7 @@ update_package() {
         # scan the versions
         jq -e . <<<"$versions_json" &>/dev/null || versions_json="[{\"id\":\"latest\",\"name\":\"latest\"}]"
         versions_json=$(jq -r '.[] | @base64' <<<"$versions_json")
-        env_parallel -p0 update_version ::: "${versions_json[@]}"
+        env_parallel -p0 update_version ::: "$versions_json"
 
         # insert the package into the db
         if check_limit; then
