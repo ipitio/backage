@@ -14,6 +14,9 @@ check_limit() {
     # exit if the script has been running for 5 hours
     rate_limit_end=$(date -u +%s)
     script_limit_diff=$((rate_limit_end - SCRIPT_START))
+    echo "SCRIPT_START: $SCRIPT_START"
+    echo "rate_limit_end: $rate_limit_end"
+    echo "script_limit_diff: $script_limit_diff"
     ((script_limit_diff < 18000)) || { echo "Script has been running for 5 hours!" && return 1; }
 
     # wait if 1000 or more calls have been made in the last hour

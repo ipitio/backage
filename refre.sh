@@ -136,11 +136,10 @@ echo "Total Downloads:"
 \cp templates/.README.md README.md    # copy the template
 perl -0777 -pe 's/<GITHUB_OWNER>/'"$GITHUB_OWNER"'/g; s/<GITHUB_REPO>/'"$GITHUB_REPO"'/g; s/<GITHUB_BRANCH>/'"$GITHUB_BRANCH"'/g' README.md >README.tmp && [ -f README.tmp ] && mv README.tmp README.md || :
 [ -d index ] || mkdir index
-set -x
-owners=$(sqlite3 "$BKG_INDEX_DB" "select distinct owner from '$BKG_INDEX_TBL_PKG';")
+owners=$(sqlite3 "$BKG_INDEX_DB" "select distinct owner from '$BKG_INDEX_TBL_PKG';" | tr '\n' ' ')
 env_parallel -j"$CORES" refresh_owner ::: \$owners
-set +x
-for owner in "${owners[@]}"; do
+
+for owner in $owners; do
     if [ ! -f index/"$owner".json ] || jq -e 'length == 0' index/"$owner".json; then
         exit 1
     fi
