@@ -55,7 +55,16 @@ curl() {
 }
 
 sqlite3() {
-    command sqlite3 -init <(echo -e ".timeout 100000\n.output /dev/null\n") "$@"
+    command sqlite3 -init <(echo "
+.output /dev/null
+.timeout 100000
+PRAGMA synchronous = OFF;
+PRAGMA foreign_keys = ON;
+PRAGMA journal_mode = MEMORY;
+PRAGMA locking_mode = EXCLUSIVE;
+PRAGMA cache_size = -500000;
+.output stdout
+") "$@"
 }
 
 run_parallel() {
