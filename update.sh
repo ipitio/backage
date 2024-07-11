@@ -512,13 +512,11 @@ main() {
     fi
 
     # update the owners
-    set -x
     # env_parallel -j"$CORES" update_owner ::: \$\{owners[@]\}
     for i in "${owners[@]}"; do
         update_owner "$i"
     done
 
-    set +x
     xz_db
     return $?
 }
