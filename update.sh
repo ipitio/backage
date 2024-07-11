@@ -79,6 +79,9 @@ xz_db() {
             echo "Failed to compress the database!"
         fi
 
+        # if the database is smaller than 1kb, return 1
+        [ "$(stat -c %s "$BKG_INDEX_SQL".zst)" -ge 1000 ] || return 1
+
         echo "Creating the CHANGELOG..."
         [ ! -f CHANGELOG.md ] || rm -f CHANGELOG.md
         \cp templates/.CHANGELOG.md CHANGELOG.md
@@ -101,6 +104,7 @@ xz_db() {
     done
 }
 
+# shellcheck disable=SC2317
 update_version() {
     v_obj=$1
 
@@ -175,6 +179,7 @@ update_version() {
     fi
 }
 
+# shellcheck disable=SC2317
 update_package() {
     check_limit || return
     [ -n "$1" ] || return
@@ -295,8 +300,7 @@ update_package() {
 
         # scan the versions
         jq -e . <<<"$versions_json" &>/dev/null || versions_json="[{\"id\":\"latest\",\"name\":\"latest\"}]"
-        versions_json=$(jq -r '.[] | @base64' <<<"$versions_json")
-        env_parallel -j"$CORES" update_version ::: "$versions_json"
+        jq -r '.[] | @base64' <<<"$versions_json" | env_parallel -j"$CORES" update_version
 
         # insert the package into the db
         if check_limit; then
@@ -328,6 +332,7 @@ update_package() {
     fi
 }
 
+# shellcheck disable=SC2317
 update_owner() {
     check_limit || return
     [ -n "$1" ] || return
@@ -372,7 +377,7 @@ update_owner() {
     readarray -t packages <<<"$packages"
 
     # loop through the packages in $packages
-    env_parallel -j"$CORES" update_package ::: "${packages[@]}"
+    echo "${packages[@]}" | env_parallel -j"$CORES" update_package
     echo "Finished $owner_type/$owner"
 }
 
@@ -500,8 +505,9 @@ main() {
     fi
 
     # update the owners
-    env_parallel -j"$CORES" update_owner "${owners[@]}"
+    echo "${owners[@]}" | env_parallel -j"$CORES" update_owner
 }
 
 main "$@"
 xz_db
+exit $?

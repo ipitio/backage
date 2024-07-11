@@ -139,7 +139,7 @@ perl -0777 -pe 's/<GITHUB_OWNER>/'"$GITHUB_OWNER"'/g; s/<GITHUB_REPO>/'"$GITHUB_
 owners=$(sqlite3 "$BKG_INDEX_DB" "select owner from '$BKG_INDEX_TBL_PKG' where date >= '$BKG_BATCH_FIRST_STARTED' group by owner;")
 
 set -x
-env_parallel -j"$CORES" refresh_owner ::: "$owners"
+echo "$owners" | env_parallel -j"$CORES" refresh_owner
 
 [ -d index ] || exit 1
 for owner in "${owners[@]}"; do
