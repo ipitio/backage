@@ -72,8 +72,12 @@ run_parallel() {
     wait "$all"
 }
 
-[ -f "$BKG_INDEX_DB" ] || { command curl -sSLNZO "https://github.com/$GITHUB_OWNER/$GITHUB_REPO/releases/latest/download/$BKG_INDEX_SQL.zst" && zstd -d "$BKG_INDEX_SQL.zst" | sqlite3 "$BKG_INDEX_DB" || :; } || :
-[ -f "$BKG_INDEX_DB" ] || touch "$BKG_INDEX_DB"
+if [ ! -f "$BKG_INDEX_DB" ]; then
+    command curl -sSLNZO "https://github.com/$GITHUB_OWNER/$GITHUB_REPO/releases/latest/download/$BKG_INDEX_SQL.zst"
+    zstd -d "$BKG_INDEX_SQL.zst" | sqlite3 "$BKG_INDEX_DB"
+fi
+
+[ -f "$BKG_INDEX_DB" ] || sqlite3 "$BKG_INDEX_DB" ""
 table_pkg="create table if not exists '$BKG_INDEX_TBL_PKG' (
     owner_id text,
     owner_type text not null,
@@ -90,24 +94,3 @@ table_pkg="create table if not exists '$BKG_INDEX_TBL_PKG' (
     primary key (owner_type, package_type, owner_id, repo, package, date)
 ); pragma auto_vacuum = full;"
 sqlite3 "$BKG_INDEX_DB" "$table_pkg"
-
-# copy and replace table to replace owner in primary key with owner_id
-table_pkg_temp="create table if not exists '${BKG_INDEX_TBL_PKG}_temp' (
-    owner_id text,
-    owner_type text not null,
-    package_type text not null,
-    owner text not null,
-    repo text not null,
-    package text not null,
-    downloads integer not null,
-    downloads_month integer not null,
-    downloads_week integer not null,
-    downloads_day integer not null,
-    size integer not null,
-    date text not null,
-    primary key (owner_type, package_type, owner_id, repo, package, date)
-); pragma auto_vacuum = full;"
-sqlite3 "$BKG_INDEX_DB" "$table_pkg_temp"
-sqlite3 "$BKG_INDEX_DB" "insert or ignore into '${BKG_INDEX_TBL_PKG}_temp' select * from '$BKG_INDEX_TBL_PKG';"
-sqlite3 "$BKG_INDEX_DB" "drop table '$BKG_INDEX_TBL_PKG';"
-sqlite3 "$BKG_INDEX_DB" "alter table '${BKG_INDEX_TBL_PKG}_temp' rename to '$BKG_INDEX_TBL_PKG';"
