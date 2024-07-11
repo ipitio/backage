@@ -136,6 +136,8 @@ echo "Total Downloads:"
 [ ! -f README.md ] || rm -f README.md # remove the old README
 \cp templates/.README.md README.md    # copy the template
 perl -0777 -pe 's/<GITHUB_OWNER>/'"$GITHUB_OWNER"'/g; s/<GITHUB_REPO>/'"$GITHUB_REPO"'/g; s/<GITHUB_BRANCH>/'"$GITHUB_BRANCH"'/g' README.md >README.tmp && [ -f README.tmp ] && mv README.tmp README.md || :
+
+set -x
 owners=$(sqlite3 "$BKG_INDEX_DB" "select owner from '$BKG_INDEX_TBL_PKG' group by owner;")
 env_parallel -j"$CORES" refresh_owner ::: "$owners"
 

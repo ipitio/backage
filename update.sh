@@ -47,54 +47,57 @@ check_limit() {
 }
 
 xz_db() {
-    if [ -f "$BKG_INDEX_DB" ]; then
-        rotated=false
-        echo "Compressing the database..."
-        sqlite3 "$BKG_INDEX_DB" ".dump" | zstd -22 --ultra --long -T0 -o "$BKG_INDEX_SQL".zst.new
+    [ -f "$BKG_INDEX_DB" ] || return 1
+    rotated=false
+    echo "Compressing the database..."
+    sqlite3 "$BKG_INDEX_DB" ".dump" | zstd -22 --ultra --long -T0 -o "$BKG_INDEX_SQL".zst.new
 
-        if [ -f "$BKG_INDEX_SQL".zst.new ]; then
-            # rotate the database if it's greater than 2GB
-            if [ "$(stat -c %s "$BKG_INDEX_SQL".zst.new)" -ge 2000000000 ]; then
-                rotated=true
-                echo "Rotating the database..."
-                [ -d "$BKG_INDEX_SQL".d ] || mkdir "$BKG_INDEX_SQL".d
-                [ ! -f "$BKG_INDEX_SQL".zst ] || mv "$BKG_INDEX_SQL".zst "$BKG_INDEX_SQL".d/"$(date -u +%Y.%m.%d)".zst
-                query="delete from '$BKG_INDEX_TBL_PKG' where date not between date('$BKG_BATCH_FIRST_STARTED') and date('$TODAY');"
+    if [ -f "$BKG_INDEX_SQL".zst.new ]; then
+        # rotate the database if it's greater than 2GB
+        if [ "$(stat -c %s "$BKG_INDEX_SQL".zst.new)" -ge 2000000000 ]; then
+            rotated=true
+            echo "Rotating the database..."
+            [ -d "$BKG_INDEX_SQL".d ] || mkdir "$BKG_INDEX_SQL".d
+            [ ! -f "$BKG_INDEX_SQL".zst ] || mv "$BKG_INDEX_SQL".zst "$BKG_INDEX_SQL".d/"$(date -u +%Y.%m.%d)".zst
+            query="delete from '$BKG_INDEX_TBL_PKG' where date not between date('$BKG_BATCH_FIRST_STARTED') and date('$TODAY');"
+            sqlite3 "$BKG_INDEX_DB" "$query"
+            query="select name from sqlite_master where type='table' and name like '${BKG_INDEX_TBL_VER}_%';"
+            tables=$(sqlite3 "$BKG_INDEX_DB" "$query")
+
+            for table in $tables; do
+                query="delete from '$table' where date not between date('$BKG_BATCH_FIRST_STARTED') and date('$TODAY');"
                 sqlite3 "$BKG_INDEX_DB" "$query"
-                query="select name from sqlite_master where type='table' and name like '${BKG_INDEX_TBL_VER}_%';"
-                tables=$(sqlite3 "$BKG_INDEX_DB" "$query")
+            done
 
-                for table in $tables; do
-                    query="delete from '$table' where date not between date('$BKG_BATCH_FIRST_STARTED') and date('$TODAY');"
-                    sqlite3 "$BKG_INDEX_DB" "$query"
-                done
-
-                sqlite3 "$BKG_INDEX_DB" "vacuum;"
-                sqlite3 "$BKG_INDEX_DB" ".dump" | zstd -22 --ultra --long -T0 -o "$BKG_INDEX_SQL".zst.new
-            fi
-
-            mv "$BKG_INDEX_SQL".zst.new "$BKG_INDEX_SQL".zst
-            echo "Compressed the database"
-        else
-            echo "Failed to compress the database!"
+            sqlite3 "$BKG_INDEX_DB" "vacuum;"
+            sqlite3 "$BKG_INDEX_DB" ".dump" | zstd -22 --ultra --long -T0 -o "$BKG_INDEX_SQL".zst.new
         fi
 
-        # if the database is smaller than 1kb, return 1
-        [ "$(stat -c %s "$BKG_INDEX_SQL".zst)" -ge 1000 ] || return 1
-
-        echo "Creating the CHANGELOG..."
-        [ ! -f CHANGELOG.md ] || rm -f CHANGELOG.md
-        \cp templates/.CHANGELOG.md CHANGELOG.md
-        query="select count(distinct owner) from '$BKG_INDEX_TBL_PKG';"
-        owners=$(sqlite3 "$BKG_INDEX_DB" "$query")
-        query="select count(distinct repo) from '$BKG_INDEX_TBL_PKG';"
-        repos=$(sqlite3 "$BKG_INDEX_DB" "$query")
-        query="select count(distinct package) from '$BKG_INDEX_TBL_PKG';"
-        packages=$(sqlite3 "$BKG_INDEX_DB" "$query")
-        perl -0777 -pe 's/\[VERSION\]/'"$BKG_VERSION"'/g; s/\[OWNERS\]/'"$owners"'/g; s/\[REPOS\]/'"$repos"'/g; s/\[PACKAGES\]/'"$packages"'/g' CHANGELOG.md >CHANGELOG.tmp && [ -f CHANGELOG.tmp ] && mv CHANGELOG.tmp CHANGELOG.md || :
-        ! $rotated || echo " The database grew over 2GB and was rotated, but you can find all previous data under [Releases](https://github.com/$GITHUB_OWNER/$GITHUB_REPO/releases)." >>CHANGELOG.md
+        mv "$BKG_INDEX_SQL".zst.new "$BKG_INDEX_SQL".zst
+        echo "Compressed the database"
     else
-        return 1
+        echo "Failed to compress the database!"
+    fi
+
+    # if the database is smaller than 1kb, return 1
+    [ "$(stat -c %s "$BKG_INDEX_SQL".zst)" -ge 1000 ] || return 1
+    echo "Creating the CHANGELOG..."
+    [ ! -f CHANGELOG.md ] || rm -f CHANGELOG.md
+    \cp templates/.CHANGELOG.md CHANGELOG.md
+    query="select count(distinct owner) from '$BKG_INDEX_TBL_PKG';"
+    owners=$(sqlite3 "$BKG_INDEX_DB" "$query")
+    query="select count(distinct repo) from '$BKG_INDEX_TBL_PKG';"
+    repos=$(sqlite3 "$BKG_INDEX_DB" "$query")
+    query="select count(distinct package) from '$BKG_INDEX_TBL_PKG';"
+    packages=$(sqlite3 "$BKG_INDEX_DB" "$query")
+    perl -0777 -pe 's/\[VERSION\]/'"$BKG_VERSION"'/g; s/\[OWNERS\]/'"$owners"'/g; s/\[REPOS\]/'"$repos"'/g; s/\[PACKAGES\]/'"$packages"'/g' CHANGELOG.md >CHANGELOG.tmp && [ -f CHANGELOG.tmp ] && mv CHANGELOG.tmp CHANGELOG.md || :
+    ! $rotated || echo " The database grew over 2GB and was rotated, but you can find all previous data under [Releases](https://github.com/$GITHUB_OWNER/$GITHUB_REPO/releases)." >>CHANGELOG.md
+
+    # if index db is greater than 100MB, remove it
+    if [ "$(stat -c %s "$BKG_INDEX_DB")" -ge 100000000 ]; then
+        echo "Removing the database..."
+        rm -f "$BKG_INDEX_DB"
+        echo "Removed the database"
     fi
 
     # update env with the current shell variables
@@ -506,8 +509,9 @@ main() {
 
     # update the owners
     env_parallel -j"$CORES" update_owner ::: "${owners[@]}"
+    xz_db
+    return $?
 }
 
 main "$@"
-xz_db
 exit $?
