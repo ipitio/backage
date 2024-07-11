@@ -49,6 +49,24 @@ curl() {
     return 1
 }
 
+sqlite3() {
+    command sqlite3 -init <(echo -e ".timeout 100000\n.output /dev/null\n") "$@"
+}
+
+run_parallel() {
+    # run the function in parallel
+    (
+        for i in "${@:2}"; do
+            "$1" "$i" &
+        done
+        wait
+    ) &
+    all=$!
+
+    # wait for the function to finish
+    wait "$all"
+}
+
 [ -f "$BKG_INDEX_DB" ] || { command curl -sSLNZO "https://github.com/$GITHUB_OWNER/$GITHUB_REPO/releases/latest/download/$BKG_INDEX_SQL.zst" && zstd -d "$BKG_INDEX_SQL.zst" | sqlite3 "$BKG_INDEX_DB" || :; } || :
 [ -f "$BKG_INDEX_DB" ] || touch "$BKG_INDEX_DB"
 table_pkg="create table if not exists '$BKG_INDEX_TBL_PKG' (
