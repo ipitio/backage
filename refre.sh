@@ -104,9 +104,6 @@ refresh_owner() {
         sed -i '$ s/,$//' index/"$owner".json
         echo "]
         }," >>index/"$owner".json
-
-        export owner_type package_type owner repo package
-        printf "%s\t(%s)\t%s/%s/%s (%s/%s)\n" "$(numfmt <<<"$downloads")" "$downloads" "$owner" "$repo" "$package" "$owner_type" "$package_type"
     done
 
     # remove the last comma
@@ -136,7 +133,7 @@ refresh_owner() {
 perl -0777 -pe 's/<GITHUB_OWNER>/'"$GITHUB_OWNER"'/g; s/<GITHUB_REPO>/'"$GITHUB_REPO"'/g; s/<GITHUB_BRANCH>/'"$GITHUB_BRANCH"'/g' README.md >README.tmp && [ -f README.tmp ] && mv README.tmp README.md || :
 [ -d index ] || mkdir index
 owners=$(sqlite3 "$BKG_INDEX_DB" "select distinct owner from '$BKG_INDEX_TBL_PKG';")
-echo "$owners" | env_parallel -j 200% --fg -k --bar refresh_owner
+echo "$owners" | env_parallel -j 1000% --bar refresh_owner >/dev/null
 
 for owner in $owners; do
     if [ ! -f index/"$owner".json ] || jq -e 'length == 0' index/"$owner".json; then

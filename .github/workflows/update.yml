@@ -15,6 +15,12 @@ concurrency:
   group: ${{ github.ref }}
   cancel-in-progress: false
 
+defaults:
+  run:
+    # GitHub Actions run without a TTY device. This is a workaround to get one,
+    # based on https://github.com/actions/runner/issues/241#issuecomment-2019042651
+    shell: 'script --return --quiet --log-out /dev/null --command "bash -e {0}"'
+
 jobs:
   update:
     runs-on: ubuntu-latest

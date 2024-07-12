@@ -12,6 +12,12 @@ on:
 
   workflow_dispatch:
 
+defaults:
+  run:
+    # GitHub Actions run without a TTY device. This is a workaround to get one,
+    # based on https://github.com/actions/runner/issues/241#issuecomment-2019042651
+    shell: 'script --return --quiet --log-out /dev/null --command "bash -e {0}"'
+
 jobs:
   refresh:
     if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' || github.event_name == 'push' }}
