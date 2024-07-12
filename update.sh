@@ -7,11 +7,10 @@
 # shellcheck disable=SC1091,SC2015
 
 source lib.sh
-minute_start=$(date -u +%s)
-minute_calls=0
 
 check_limit() {
     # exit if the script has been running for 5 hours
+    total_calls=$(get_BKG BKG_CALLS_TO_API)
     rate_limit_end=$(date -u +%s)
     script_limit_diff=$((rate_limit_end - SCRIPT_START))
     ((script_limit_diff < 18000)) || { echo "Script has been running for 5 hours!" && return 1; }
@@ -20,8 +19,8 @@ check_limit() {
     rate_limit_diff=$((rate_limit_end - $(get_BKG BKG_RATE_LIMIT_START)))
     hours_passed=$((rate_limit_diff / 3600))
 
-    if (($(get_BKG BKG_CALLS_TO_API) >= 1000 * (hours_passed + 1))); then
-        echo "$(get_BKG BKG_CALLS_TO_API) calls to the GitHub API in $((rate_limit_diff / 60)) minutes"
+    if ((total_calls >= 1000 * (hours_passed + 1))); then
+        echo "$total_calls calls to the GitHub API in $((rate_limit_diff / 60)) minutes"
         remaining_time=$((3600 * (hours_passed + 1) - rate_limit_diff))
         echo "Sleeping for $remaining_time seconds..."
         sleep $remaining_time
@@ -31,8 +30,9 @@ check_limit() {
     fi
 
     # wait if 900 or more calls have been made in the last minute
+    minute_calls=$(get_BKG BKG_MIN_CALLS_TO_API)
     rate_limit_end=$(date -u +%s)
-    sec_limit_diff=$((rate_limit_end - minute_start))
+    sec_limit_diff=$((rate_limit_end - $(get_BKG BKG_MIN_RATE_LIMIT_START)))
     min_passed=$((sec_limit_diff / 60))
 
     if ((minute_calls >= 900 * (min_passed + 1))); then
@@ -41,8 +41,8 @@ check_limit() {
         echo "Sleeping for $remaining_time seconds..."
         sleep $remaining_time
         echo "Resuming..."
-        minute_start=$(date -u +%s)
-        minute_calls=0
+        set_BKG BKG_MIN_RATE_LIMIT_START "$(date -u +%s)"
+        set_BKG BKG_MIN_CALLS_TO_API "0"
     fi
 }
 
@@ -258,7 +258,6 @@ update_package() {
             done < <(sqlite3 "$(get_BKG BKG_INDEX_DB)" "$query")
         fi
 
-        # limit to "max int" versions
         versions_per_page=$(get_BKG BKG_VERSIONS_PER_PAGE)
         while true; do
             check_limit || return
@@ -273,9 +272,11 @@ update_package() {
                     "https://api.github.com/$owner_type/$owner/packages/$package_type/$package/versions?per_page=$versions_per_page&page=$versions_page")
                 # increment BKG_CALLS_TO_API in env.env
                 calls_to_api=$(get_BKG BKG_CALLS_TO_API)
+                min_calls_to_api=$(get_BKG BKG_MIN_CALLS_TO_API)
                 ((calls_to_api++))
+                ((min_calls_to_api++))
                 set_BKG BKG_CALLS_TO_API "$calls_to_api"
-                ((minute_calls++))
+                set_BKG BKG_MIN_CALLS_TO_API "$min_calls_to_api"
                 jq -e . <<<"$versions_json_more" &>/dev/null || versions_json_more="[]"
             fi
 
@@ -420,6 +421,12 @@ main() {
         set_BKG BKG_CALLS_TO_API "0"
     fi
 
+    # reset the secondary rate limit if a minute has passed since the last run started
+    if (($(get_BKG BKG_MIN_RATE_LIMIT_START) + 60 <= $(date -u +%s))); then
+        set_BKG BKG_MIN_RATE_LIMIT_START "$(date -u +%s)"
+        set_BKG BKG_MIN_CALLS_TO_API "0"
+    fi
+
     # if this is a scheduled update, scrape all owners that haven't been scraped in this batch
     if [ "$1" = "0" ]; then
         # get more owners if no more
@@ -441,9 +448,11 @@ main() {
                         "https://api.github.com/users?per_page=100&page=$owners_page&since=$last_scanned_id")
                     # increment BKG_CALLS_TO_API in env.env
                     calls_to_api=$(get_BKG BKG_CALLS_TO_API)
+                    min_calls_to_api=$(get_BKG BKG_MIN_CALLS_TO_API)
                     ((calls_to_api++))
+                    ((min_calls_to_api++))
                     set_BKG BKG_CALLS_TO_API "$calls_to_api"
-                    ((minute_calls++))
+                    set_BKG BKG_MIN_CALLS_TO_API "$min_calls_to_api"
                     jq -e . <<<"$owners_more" &>/dev/null || owners_more="[]"
                 fi
 
@@ -501,11 +510,12 @@ main() {
                     -H "Authorization: Bearer $GITHUB_TOKEN" \
                     -H "X-GitHub-Api-Version: 2022-11-28" \
                     "https://api.github.com/users/$owner" | jq -r '.id')
-                # increment BKG_CALLS_TO_API in env.env
                 calls_to_api=$(get_BKG BKG_CALLS_TO_API)
+                min_calls_to_api=$(get_BKG BKG_MIN_CALLS_TO_API)
                 ((calls_to_api++))
+                ((min_calls_to_api++))
                 set_BKG BKG_CALLS_TO_API "$calls_to_api"
-                ((minute_calls++))
+                set_BKG BKG_MIN_CALLS_TO_API "$min_calls_to_api"
             fi
 
             grep -q "$owner_id/$owner" <<<"${owners[*]}" || owners+=("$owner_id/$owner")
@@ -514,7 +524,7 @@ main() {
 
     # scrape the owners
     echo "Forking jobs..."
-    printf "%s\n" "${owners[@]}" | env_parallel -j 2000% --lb -X update_owners
+    printf "%s\n" "${owners[@]}" | env_parallel -j 1000% --lb -X update_owners
     #update_owners "${owners[@]}"
     echo "Completed jobs"
     xz_db

@@ -18,8 +18,6 @@ env_parallel --session
 [ ! -f .env ] || source .env
 SCRIPT_START=$(date -u +%s)
 TODAY=$(date -u +%Y-%m-%d)
-CORES=$(nproc)
-printf -v MAX %x -1 && printf -v MAX %d 0x"${MAX/f/7}"
 
 # format numbers like 1000 to 1k
 numfmt() {
