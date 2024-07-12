@@ -39,7 +39,7 @@ jobs:
           GITHUB_BRANCH: ${{ github.head_ref || github.ref_name }}
 
       - name: Commit refresh
-        if: ${{ steps.changed.outputs.changed == 'true' }}
+        if: ${{ steps.changed.outputs.changed == '0' }}
         uses: EndBug/add-and-commit@v9
         with:
           message: "refresh endpoint"

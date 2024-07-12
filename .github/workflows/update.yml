@@ -45,14 +45,14 @@ jobs:
 
       - name: Commit update
         id: commit
-        if: ${{ steps.update.outputs.updated == 'true' }}
+        if: ${{ steps.update.outputs.updated == '0' }}
         uses: EndBug/add-and-commit@v9
         with:
           message: "update database"
           pull: "--autostash"
 
       - name: Create release
-        if: ${{ steps.update.outputs.updated == 'true' && steps.commit.outputs.committed == 'true' }}
+        if: ${{ steps.update.outputs.updated == '0' && steps.commit.outputs.committed == 'true' }}
         uses: ncipollo/release-action@v1
         with:
           artifacts: "index.sql.zst,index.sql.d/*"
