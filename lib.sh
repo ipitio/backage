@@ -60,7 +60,7 @@ PRAGMA journal_mode = MEMORY;
 PRAGMA locking_mode = EXCLUSIVE;
 PRAGMA cache_size = -500000;
 .output stdout
-") "$@"
+") "$@" 2>/dev/null
 }
 
 run_parallel() {

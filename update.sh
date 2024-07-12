@@ -327,8 +327,6 @@ update_package() {
             query="insert or replace into '$BKG_INDEX_TBL_PKG' (owner_id, owner_type, package_type, owner, repo, package, downloads, downloads_month, downloads_week, downloads_day, size, date) values ('$owner_id', '$owner_type', '$package_type', '$owner', '$repo', '$package', '$raw_downloads', '$raw_downloads_month', '$raw_downloads_week', '$raw_downloads_day', '$size', '$TODAY');"
             sqlite3 "$BKG_INDEX_DB" "$query"
         fi
-
-        echo "Scraped $owner_type/$owner/$package_type/$repo/$package"
     fi
 }
 
@@ -344,7 +342,6 @@ update_owner() {
     [ -n "$is_org" ] || owner_type="users"
     packages=""
     packages_page=0
-    echo "Starting $owner_type/$owner..."
 
     # get the packages
     while true; do
@@ -375,14 +372,7 @@ update_owner() {
     # deduplicate and array-ify the packages
     packages=$(awk '!seen[$0]++' <<<"$packages")
     readarray -t packages <<<"$packages"
-
-    # loop through the packages in $packages
-    # env_parallel -j"$CORES" update_package ::: \$\{packages[@]\}
-    for i in "${packages[@]}"; do
-        update_package "$i"
-    done
-
-    echo "Finished $owner_type/$owner"
+    printf "%s\n" "${packages[@]}" | env_parallel -j 1000% --bar update_package >/dev/null
 }
 
 main() {
@@ -508,12 +498,8 @@ main() {
         done <owners.txt
     fi
 
-    # update the owners
-    # env_parallel -j"$CORES" update_owner ::: \$\{owners[@]\}
-    for i in "${owners[@]}"; do
-        update_owner "$i"
-    done
-
+    # scrape the owners
+    printf "%s\n" "${owners[@]}" | env_parallel -j 1000% --bar update_owner >/dev/null
     xz_db
     return $?
 }
