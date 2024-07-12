@@ -1,4 +1,4 @@
-# 2024.07.12
+# Changelog
 
 > [!IMPORTANT]
 > The index URL has changed! Please see the README for the new URL.
