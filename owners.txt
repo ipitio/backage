@@ -1,4 +1,3 @@
-aquasecurity
 argoproj
 browserless
 containerd
