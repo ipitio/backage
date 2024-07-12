@@ -66,7 +66,8 @@ PRAGMA cache_size = -500000;
 run_parallel() {
     # run the function in parallel
     (
-        for i in "${@:2}"; do
+        IFS=$'\n'
+        for i in $2; do
             "$1" "$i" &
         done
         wait
@@ -77,13 +78,21 @@ run_parallel() {
     wait "$all"
 }
 
-if [ ! -f "$BKG_INDEX_DB" ]; then
-    command curl -sSLNZO "https://github.com/$GITHUB_OWNER/$GITHUB_REPO/releases/latest/download/$BKG_INDEX_SQL.zst"
-    zstd -d "$BKG_INDEX_SQL.zst" | sqlite3 "$BKG_INDEX_DB"
+get_BKG() {
+    grep -E "^$1=" env.env | cut -d '=' -f2
+}
+
+set_BKG() {
+    sed -i "s/^$1=.*/$1=$2/" env.env
+}
+
+if [ ! -f "$(get_BKG BKG_INDEX_DB)" ]; then
+    command curl -sSLNZO "https://github.com/$GITHUB_OWNER/$GITHUB_REPO/releases/latest/download/$(get_BKG BKG_INDEX_SQL).zst"
+    zstd -d "$(get_BKG BKG_INDEX_SQL).zst" | sqlite3 "$(get_BKG BKG_INDEX_DB)"
 fi
 
-[ -f "$BKG_INDEX_DB" ] || sqlite3 "$BKG_INDEX_DB" ""
-table_pkg="create table if not exists '$BKG_INDEX_TBL_PKG' (
+[ -f "$(get_BKG BKG_INDEX_DB)" ] || sqlite3 "$(get_BKG BKG_INDEX_DB)" ""
+table_pkg="create table if not exists '$(get_BKG BKG_INDEX_TBL_PKG)' (
     owner_id text,
     owner_type text not null,
     package_type text not null,
@@ -98,4 +107,4 @@ table_pkg="create table if not exists '$BKG_INDEX_TBL_PKG' (
     date text not null,
     primary key (owner_type, package_type, owner_id, repo, package, date)
 ); pragma auto_vacuum = full;"
-sqlite3 "$BKG_INDEX_DB" "$table_pkg"
+sqlite3 "$(get_BKG BKG_INDEX_DB)" "$table_pkg"

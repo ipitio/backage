@@ -45,7 +45,7 @@ jobs:
         uses: EndBug/add-and-commit@v9
         with:
           message: "update database"
-          pull: "--autostash"
+          pull: "--autostash --strategy-option=ours"
 
       - name: Create release
         if: ${{ steps.update.outputs.updated == '0' && steps.commit.outputs.committed == 'true' }}
