@@ -81,7 +81,7 @@ xz_db() {
 
     # if the database is smaller than 1kb, return 1
     [ "$(stat -c %s "$(get_BKG BKG_INDEX_SQL)".zst)" -ge 1000 ] || return 1
-    echo "Creating the CHANGELOG..."
+    echo "Updating the CHANGELOG..."
     [ ! -f CHANGELOG.md ] || rm -f CHANGELOG.md
     \cp templates/.CHANGELOG.md CHANGELOG.md
     query="select count(distinct owner) from '$(get_BKG BKG_INDEX_TBL_PKG)';"
@@ -92,19 +92,13 @@ xz_db() {
     packages=$(sqlite3 "$(get_BKG BKG_INDEX_DB)" "$query")
     perl -0777 -pe 's/\[VERSION\]/'"$(get_BKG BKG_VERSION)"'/g; s/\[OWNERS\]/'"$owners"'/g; s/\[REPOS\]/'"$repos"'/g; s/\[PACKAGES\]/'"$packages"'/g' CHANGELOG.md >CHANGELOG.tmp && [ -f CHANGELOG.tmp ] && mv CHANGELOG.tmp CHANGELOG.md || :
     ! $rotated || echo " The database grew over 2GB and was rotated, but you can find all previous data under [Releases](https://github.com/$GITHUB_OWNER/$GITHUB_REPO/releases)." >>CHANGELOG.md
-
+    echo "Updated the CHANGELOG"
     # if index db is greater than 100MB, remove it
     if [ "$(stat -c %s "$(get_BKG BKG_INDEX_DB)")" -ge 100000000 ]; then
         echo "Removing the database..."
         rm -f "$(get_BKG BKG_INDEX_DB)"
         echo "Removed the database"
     fi
-
-    # update env with the current shell variables
-    for var in $(compgen -A variable | grep -E "^BKG_"); do
-        value=$(eval echo "\$$var")
-        sed -i "s/^$var=.*/$var=$value/" env.env
-    done
 }
 
 # shellcheck disable=SC2317
@@ -121,6 +115,7 @@ update_version() {
     version_id=$(_jq '.id')
     version_name=$(_jq '.name')
     version_tags=$(_jq '.tags')
+    echo "Started $owner/$package/$version_id..."
     table_version_name="$(get_BKG BKG_INDEX_TBL_VER)_${owner_type}_${package_type}_${owner}_${repo}_${package}"
     table_version="create table if not exists '$table_version_name' (
         id text not null,
@@ -178,6 +173,7 @@ update_version() {
         query="insert or replace into '$table_version_name' (id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags) values ('$version_id', '$version_name', '$version_size', '$version_raw_downloads', '$version_raw_downloads_month', '$version_raw_downloads_week', '$version_raw_downloads_day', '$TODAY', '$version_tags');"
         sqlite3 "$(get_BKG BKG_INDEX_DB)" "$query"
     fi
+    echo "Finished $owner/$package/$version_id"
 }
 
 # shellcheck disable=SC2317
@@ -216,7 +212,7 @@ update_package() {
     # update stats
     query="select count(*) from '$(get_BKG BKG_INDEX_TBL_PKG)' where owner_type='$owner_type' and package_type='$package_type' and owner_id='$owner_id' and repo='$repo' and package='$package' and date between date('$(get_BKG BKG_BATCH_FIRST_STARTED)') and date('$TODAY');"
     count=$(sqlite3 "$(get_BKG BKG_INDEX_DB)" "$query")
-
+    echo "Getting versions for $owner/$package..."
     if [[ "$count" =~ ^0*$ || "$owner" == "arevindh" ]]; then
         raw_downloads=-1
         raw_downloads_month=-1
@@ -264,7 +260,7 @@ update_package() {
 
         # limit to "max int" versions
         versions_per_page=$(get_BKG BKG_VERSIONS_PER_PAGE)
-        while [ "$versions_page" -lt "$((MAX / versions_per_page))" ]; do
+        while true; do
             check_limit || return
             ((versions_page++))
             # if the repo is public the api request should succeed
@@ -303,12 +299,14 @@ update_package() {
                 fi
             done
         done
+        echo "Got versions for $owner/$package"
 
         # scan the versions
         jq -e . <<<"$versions_json" &>/dev/null || versions_json="[{\"id\":\"latest\",\"name\":\"latest\"}]"
         #jq -r '.[] | @base64' <<<"$versions_json" | env_parallel -j 1000% --bar update_version >/dev/null
+        echo "Scraping $owner/$package..."
         run_parallel update_version "$(jq -r '.[] | @base64' <<<"$versions_json")"
-
+        echo "Scraped $owner/$package"
         # insert the package into the db
         if check_limit; then
             query="select name from sqlite_master where type='table' and name='$table_version_name';"
@@ -342,6 +340,7 @@ update_owners() {
     for login_id in $1; do
         check_limit || return
         owner=$(cut -d'/' -f2 <<<"$login_id")
+        echo "Processing $owner..."
         owner_id=$(cut -d'/' -f1 <<<"$login_id")
         owner_type="orgs"
         html=$(curl "https://github.com/orgs/$owner/people")
@@ -349,9 +348,8 @@ update_owners() {
         [ -n "$is_org" ] || owner_type="users"
         packages=""
         packages_page=0
-
         # get the packages
-        while true; do
+        while [ "$packages_page" -le 100 ]; do
             check_limit || return
             ((packages_page++))
 
@@ -381,6 +379,7 @@ update_owners() {
         readarray -t packages <<<"$packages"
         #printf "%s\n" "${packages[@]}" | env_parallel -j 1000% --bar -X update_packages >/dev/null
         run_parallel update_package "$(printf "%s\n" "${packages[@]}")"
+        echo "Processed $owner"
     done
 }
 
@@ -514,8 +513,10 @@ main() {
     fi
 
     # scrape the owners
-    printf "%s\n" "${owners[@]}" | env_parallel -j 2000% --bar -X update_owners >/dev/null
+    echo "Forking processes..."
+    printf "%s\n" "${owners[@]}" | env_parallel -j 2000% --bar -X update_owners
     #update_owners "${owners[@]}"
+    echo "Forks completed"
     xz_db
     return $?
 }

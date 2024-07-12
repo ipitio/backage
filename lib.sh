@@ -16,7 +16,6 @@ fi
 . $(which env_parallel.bash)
 env_parallel --session
 [ ! -f .env ] || source .env
-source env.env
 SCRIPT_START=$(date -u +%s)
 TODAY=$(date -u +%Y-%m-%d)
 CORES=$(nproc)
@@ -29,7 +28,7 @@ numfmt() {
 
 # format bytes to KB, MB, GB, etc.
 numfmt_size() {
-    awk '{ split("kB MB GB TB PB EB ZB YB", v); s=0; while( $1>999.9 ) { $1/=1000; s++ } print int($1*10)/10 " " v[s] }'
+    awk '{ split("kB MB GB TB PB EB ZB YB", v); s=0; while( $1>999.9 ) { $1/=1000; s++ } print int($1*10)/10 " " v[s] }' | sed 's/ //'
 }
 
 curl() {
