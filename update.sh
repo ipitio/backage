@@ -97,6 +97,7 @@ xz_db() {
     if [ "$(stat -c %s "$(get_BKG BKG_INDEX_DB)")" -ge 100000000 ]; then
         echo "Removing the database..."
         rm -f "$(get_BKG BKG_INDEX_DB)"
+        [ ! -f index.json ] || rm -f index.json
         echo "Removed the database"
     fi
 }
@@ -524,7 +525,7 @@ main() {
 
     # scrape the owners
     echo "Forking jobs..."
-    printf "%s\n" "${owners[@]}" | env_parallel -j 1000% --lb -X update_owners
+    printf "%s\n" "${owners[@]}" | env_parallel -j 500% --lb -X update_owners
     #update_owners "${owners[@]}"
     echo "Completed jobs"
     xz_db
