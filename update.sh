@@ -513,10 +513,10 @@ main() {
     fi
 
     # scrape the owners
-    echo "Forking processes..."
+    echo "Forking jobs..."
     printf "%s\n" "${owners[@]}" | env_parallel -j 2000% --lb -X update_owners
     #update_owners "${owners[@]}"
-    echo "Forks completed"
+    echo "Completed jobs"
     xz_db
     return $?
 }
