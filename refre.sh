@@ -26,7 +26,7 @@ refresh_owner() {
         fi
 
         # only use the latest date for the package
-        query="select date from '$(get_BKG BKG_INDEX_TBL_PKG)' where owner_type='$owner_type' and package_type='$package_type' and owner_id='$owner_id' and repo='$repo' and package='$package' order by date desc limit 1;"
+        query="select date from '$(get_BKG BKG_INDEX_TBL_PKG)' where owner_id='$owner_id' and package='$package' order by date desc limit 1;"
         max_date=$(sqlite3 "$(get_BKG BKG_INDEX_DB)" "$query")
         [ "$date" = "$max_date" ] || continue
 

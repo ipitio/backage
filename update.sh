@@ -84,13 +84,13 @@ xz_db() {
     echo "Updating the CHANGELOG..."
     [ ! -f CHANGELOG.md ] || rm -f CHANGELOG.md
     \cp templates/.CHANGELOG.md CHANGELOG.md
-    query="select count(distinct owner) from '$(get_BKG BKG_INDEX_TBL_PKG)';"
+    query="select count(distinct owner_id) from '$(get_BKG BKG_INDEX_TBL_PKG)';"
     owners=$(sqlite3 "$(get_BKG BKG_INDEX_DB)" "$query")
     query="select count(distinct repo) from '$(get_BKG BKG_INDEX_TBL_PKG)';"
     repos=$(sqlite3 "$(get_BKG BKG_INDEX_DB)" "$query")
     query="select count(distinct package) from '$(get_BKG BKG_INDEX_TBL_PKG)';"
     packages=$(sqlite3 "$(get_BKG BKG_INDEX_DB)" "$query")
-    perl -0777 -pe 's/\[VERSION\]/'"$(get_BKG BKG_VERSION)"'/g; s/\[OWNERS\]/'"$owners"'/g; s/\[REPOS\]/'"$repos"'/g; s/\[PACKAGES\]/'"$packages"'/g' CHANGELOG.md >CHANGELOG.tmp && [ -f CHANGELOG.tmp ] && mv CHANGELOG.tmp CHANGELOG.md || :
+    perl -0777 -pe 's/\[OWNERS\]/'"$owners"'/g; s/\[REPOS\]/'"$repos"'/g; s/\[PACKAGES\]/'"$packages"'/g' CHANGELOG.md >CHANGELOG.tmp && [ -f CHANGELOG.tmp ] && mv CHANGELOG.tmp CHANGELOG.md || :
     ! $rotated || echo " The database grew over 2GB and was rotated, but you can find all previous data under [Releases](https://github.com/$GITHUB_OWNER/$GITHUB_REPO/releases)." >>CHANGELOG.md
     echo "Updated the CHANGELOG"
     # if index db is greater than 100MB, remove it
@@ -192,25 +192,25 @@ update_package() {
 
             if [ "$line" = "$owner/$repo/$package" ]; then
                 # remove the package from the db
-                query="delete from '$(get_BKG BKG_INDEX_TBL_PKG)' where owner_type='$owner_type' and package_type='$package_type' and owner_id='$owner_id' and repo='$repo' and package='$package';"
+                query="delete from '$(get_BKG BKG_INDEX_TBL_PKG)' where owner_id='$owner_id' and package='$package';"
                 sqlite3 "$(get_BKG BKG_INDEX_DB)" "$query"
                 table_version_name="$(get_BKG BKG_INDEX_TBL_VER)_${owner_type}_${package_type}_${owner}_${repo}_${package}"
                 query="drop table if exists '$table_version_name';"
                 sqlite3 "$(get_BKG BKG_INDEX_DB)" "$query"
-                continue 2
+                return
             fi
         done <optout.txt
     fi
 
     # manual update: skip if the package is already in the index; the rest are updated daily
     if [ "$1" = "1" ] && [[ "$owner" != "arevindh" ]]; then
-        query="select count(*) from '$(get_BKG BKG_INDEX_TBL_PKG)' where owner_type='$owner_type' and package_type='$package_type' and owner_id='$owner_id' and repo='$repo' and package='$package';"
+        query="select count(*) from '$(get_BKG BKG_INDEX_TBL_PKG)' where owner_id='$owner_id' and package='$package';"
         count=$(sqlite3 "$(get_BKG BKG_INDEX_DB)" "$query")
         [[ "$count" =~ ^0*$ ]] || return
     fi
 
     # update stats
-    query="select count(*) from '$(get_BKG BKG_INDEX_TBL_PKG)' where owner_type='$owner_type' and package_type='$package_type' and owner_id='$owner_id' and repo='$repo' and package='$package' and date between date('$(get_BKG BKG_BATCH_FIRST_STARTED)') and date('$TODAY');"
+    query="select count(*) from '$(get_BKG BKG_INDEX_TBL_PKG)' where owner_id='$owner_id' and package='$package' and date between date('$(get_BKG BKG_BATCH_FIRST_STARTED)') and date('$TODAY');"
     count=$(sqlite3 "$(get_BKG BKG_INDEX_DB)" "$query")
     echo "Getting versions for $owner/$package..."
     if [[ "$count" =~ ^0*$ || "$owner" == "arevindh" ]]; then
