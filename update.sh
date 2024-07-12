@@ -300,10 +300,10 @@ update_package() {
 
         # scan the versions
         jq -e . <<<"$versions_json" &>/dev/null || versions_json="[{\"id\":\"latest\",\"name\":\"latest\"}]"
-        #jq -r '.[] | @base64' <<<"$versions_json" | env_parallel -j 1000% --bar update_version >/dev/null
-        for version_json in $(jq -r '.[] | @base64' <<<"$versions_json"); do
-            update_version "$version_json"
-        done
+        jq -r '.[] | @base64' <<<"$versions_json" | env_parallel -j 1000% --bar update_version >/dev/null
+        #for version_json in $(jq -r '.[] | @base64' <<<"$versions_json"); do
+        #    update_version "$version_json"
+        #done
 
         # insert the package into the db
         if check_limit; then
@@ -505,7 +505,11 @@ main() {
     fi
 
     # scrape the owners
-    printf "%s\n" "${owners[@]}" | env_parallel -j 1000% --bar update_owner >/dev/null
+    #printf "%s\n" "${owners[@]}" | env_parallel -j 1000% --bar update_owner >/dev/null
+    for owner in "${owners[@]}"; do
+        update_owner "$owner"
+    done
+
     xz_db
     return $?
 }

@@ -56,4 +56,3 @@ jobs:
           tag: "${{ steps.date.outputs.date }}"
           commit: "${{ steps.commit.outputs.commit_long_sha }}"
           allowUpdates: true
-
