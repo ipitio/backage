@@ -11,7 +11,7 @@ source lib.sh
 # shellcheck disable=SC2317
 refresh_owner() {
     owner=$1
-
+    [ -n "$owner" ] || return
     # create the owner's json file
     echo "[" >index/"$owner".json
 
@@ -131,13 +131,12 @@ refresh_owner() {
 }
 
 # refresh the files
-echo "Total Downloads:"
 [ ! -f README.md ] || rm -f README.md # remove the old README
 \cp templates/.README.md README.md    # copy the template
 perl -0777 -pe 's/<GITHUB_OWNER>/'"$GITHUB_OWNER"'/g; s/<GITHUB_REPO>/'"$GITHUB_REPO"'/g; s/<GITHUB_BRANCH>/'"$GITHUB_BRANCH"'/g' README.md >README.tmp && [ -f README.tmp ] && mv README.tmp README.md || :
 [ -d index ] || mkdir index
 owners=$(sqlite3 "$BKG_INDEX_DB" "select distinct owner from '$BKG_INDEX_TBL_PKG';")
-echo "$owners" | env_parallel -j"$CORES" refresh_owner
+echo "$owners" | env_parallel -j 200% --fg -k --bar --joblog /dev/null refresh_owner
 
 for owner in $owners; do
     if [ ! -f index/"$owner".json ] || jq -e 'length == 0' index/"$owner".json; then
