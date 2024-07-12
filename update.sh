@@ -300,7 +300,10 @@ update_package() {
 
         # scan the versions
         jq -e . <<<"$versions_json" &>/dev/null || versions_json="[{\"id\":\"latest\",\"name\":\"latest\"}]"
-        jq -r '.[] | @base64' <<<"$versions_json" | env_parallel -j 1000% --bar update_version >/dev/null
+        #jq -r '.[] | @base64' <<<"$versions_json" | env_parallel -j 1000% --bar update_version >/dev/null
+        for version_json in $(jq -r '.[] | @base64' <<<"$versions_json"); do
+            update_version "$version_json"
+        done
 
         # insert the package into the db
         if check_limit; then
@@ -372,7 +375,10 @@ update_owner() {
     # deduplicate and array-ify the packages
     packages=$(awk '!seen[$0]++' <<<"$packages")
     readarray -t packages <<<"$packages"
-    printf "%s\n" "${packages[@]}" | env_parallel -j 1000% --bar update_package >/dev/null
+    #printf "%s\n" "${packages[@]}" | env_parallel -j 1000% --bar update_package >/dev/null
+    for package in "${packages[@]}"; do
+        update_package "$package"
+    done
 }
 
 main() {
