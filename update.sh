@@ -139,8 +139,6 @@ update_version() {
 
     # insert a new row
     if [[ "$count" =~ ^0*$ || "$owner" == "arevindh" ]]; then
-        echo "Updating $package_type/$repo/$package/$version_name..."
-
         if [ "$package_type" = "container" ]; then
             # get the size by adding up the layers
             [[ "$version_name" =~ ^sha256:.+$ ]] && sep="@" || sep=":"
@@ -178,7 +176,6 @@ update_version() {
 
         query="insert or replace into '$table_version_name' (id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags) values ('$version_id', '$version_name', '$version_size', '$version_raw_downloads', '$version_raw_downloads_month', '$version_raw_downloads_week', '$version_raw_downloads_day', '$TODAY', '$version_tags');"
         sqlite3 "$BKG_INDEX_DB" "$query"
-        echo "Updated $package_type/$repo/$package/$version_name"
     fi
 }
 
@@ -303,7 +300,7 @@ update_package() {
 
         # scan the versions
         jq -e . <<<"$versions_json" &>/dev/null || versions_json="[{\"id\":\"latest\",\"name\":\"latest\"}]"
-        jq -r '.[] | @base64' <<<"$versions_json" | env_parallel -j 200% --fg -k --bar --joblog /dev/null update_version
+        jq -r '.[] | @base64' <<<"$versions_json" | env_parallel -j 200% --fg -k --bar update_version
 
         # insert the package into the db
         if check_limit; then
