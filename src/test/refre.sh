@@ -5,8 +5,8 @@
 #
 # shellcheck disable=SC1091
 
-cd "${0%/*}" || exit
-source ../refre.sh
+cd "${0%/*}" && cd .. || exit
+source refre.sh
 
 # assert that no json is empty after running the refresh script
 for json in "$BKG_INDEX_DIR"/*.json; do

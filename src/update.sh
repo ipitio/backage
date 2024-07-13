@@ -6,7 +6,6 @@
 #
 # shellcheck disable=SC1091,SC2015
 
-cd "${0%/*}" || exit
 source lib.sh
 
 main() {

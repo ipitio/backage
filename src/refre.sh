@@ -6,6 +6,5 @@
 #
 # shellcheck disable=SC1091,SC2015
 
-cd "${0%/*}" || exit
 source lib.sh
 sqlite3 "$BKG_INDEX_DB" "select distinct owner from '$BKG_INDEX_TBL_PKG';" | env_parallel -j 2000% --lb refresh_owner
