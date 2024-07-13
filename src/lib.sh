@@ -493,7 +493,6 @@ refresh_owner() {
             echo "Script has been running for 6 hours. Committing changes..."
             break
         fi
-        echo "Refreshing $owner/$package..."
 
         # only use the latest date for the package
         query="select date from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and package='$package' order by date desc limit 1;"
@@ -574,7 +573,6 @@ refresh_owner() {
         sed -i '$ s/,$//' "$BKG_INDEX_DIR"/"$owner".json
         echo "]
         }," >>"$BKG_INDEX_DIR"/"$owner".json
-        echo
     done
 
     # remove the last comma
