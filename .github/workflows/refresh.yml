@@ -1,12 +1,12 @@
 name: refresh
 
 on:
-#  push:
-#    branches:
-#      - master
+  push:
+    branches:
+      - master
 
   workflow_run:
-    workflows: ["update", "manual"]
+    workflows: ["update"]
     types:
       - completed
 
