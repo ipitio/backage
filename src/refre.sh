@@ -10,9 +10,9 @@ cd "${0%/*}" || exit
 source lib.sh
 
 main() {
-    [ ! -f README.md ] || rm -f README.md
-    \cp ../templates/.README.md README.md
-    perl -0777 -pe 's/<GITHUB_OWNER>/'"$GITHUB_OWNER"'/g; s/<GITHUB_REPO>/'"$GITHUB_REPO"'/g; s/<GITHUB_BRANCH>/'"$GITHUB_BRANCH"'/g' README.md >README.tmp && [ -f README.tmp ] && mv README.tmp README.md || :
+    [ ! -f ../README.md ] || rm -f ../README.md
+    \cp ../templates/.README.md ../README.md
+    perl -0777 -pe 's/<GITHUB_OWNER>/'"$GITHUB_OWNER"'/g; s/<GITHUB_REPO>/'"$GITHUB_REPO"'/g; s/<GITHUB_BRANCH>/'"$GITHUB_BRANCH"'/g' ../README.md >README.tmp && [ -f README.tmp ] && mv README.tmp ../README.md || :
     owners=$(sqlite3 "$(get_BKG BKG_INDEX_DB)" "select distinct owner from '$(get_BKG BKG_INDEX_TBL_PKG)';")
     echo "$owners" | env_parallel -j 2000% --lb refresh_owner
 
