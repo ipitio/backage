@@ -461,6 +461,7 @@ refresh_owners() {
     index_dir=../index
     [ -d $index_dir ] || mkdir $index_dir
     for owner in $1; do
+        echo "Processing $owner..."
         # create the owner's json file
         echo "[" >$index_dir/"$owner".json
 
@@ -473,6 +474,7 @@ refresh_owners() {
                 echo "Script has been running for 6 hours. Committing changes..."
                 break
             fi
+            echo "Refreshing $owner/$package..."
 
             # only use the latest date for the package
             query="select date from '$(get_BKG BKG_INDEX_TBL_PKG)' where owner_id='$owner_id' and package='$package' order by date desc limit 1;"
@@ -553,6 +555,7 @@ refresh_owners() {
             sed -i '$ s/,$//' $index_dir/"$owner".json
             echo "]
             }," >>$index_dir/"$owner".json
+            echo "Refreshed $owner/$package"
         done
 
         # remove the last comma
@@ -574,6 +577,7 @@ refresh_owners() {
             mv $index_dir/"$owner".tmp.json $index_dir/"$owner".json
             json_size=$(stat -c %s $index_dir/"$owner".json)
         done
+        echo "Processed $owner"
     done
 }
 
