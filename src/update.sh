@@ -11,9 +11,10 @@ source lib.sh
 
 main() {
     # remove owners from owners.txt that have already been scraped in this batch
-    [ -n "$(get_BKG BKG_BATCH_FIRST_STARTED)" ] || set_BKG BKG_BATCH_FIRST_STARTED "$TODAY"
+    [ -n "$BKG_BATCH_FIRST_STARTED" ] || set_BKG BKG_BATCH_FIRST_STARTED "$TODAY"
+    BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
 
-    if [ -s "$(get_BKG BKG_OWNERS)" ] && [ "$1" = "0" ]; then
+    if [ -s "$OWNERS_FILE" ] && [ "$1" = "0" ]; then
         owners_to_remove=()
 
         while IFS= read -r owner; do
@@ -22,21 +23,22 @@ main() {
             [[ "$owner" =~ .*\/.* ]] && owner_id=$(cut -d'/' -f1 <<<"$owner") || owner_id=""
 
             if [ -z "$owner_id" ]; then
-                query="select count(*) from '$(get_BKG BKG_INDEX_TBL_PKG)' where owner='$owner' and date between date('$(get_BKG BKG_BATCH_FIRST_STARTED)') and date('$TODAY');"
+                query="select count(*) from '$INDEX_TBL_PKG' where owner='$owner' and date between date('$BKG_BATCH_FIRST_STARTED') and date('$TODAY');"
             else
-                query="select count(*) from '$(get_BKG BKG_INDEX_TBL_PKG)' where owner_id='$owner_id' and date between date('$(get_BKG BKG_BATCH_FIRST_STARTED)') and date('$TODAY');"
+                query="select count(*) from '$INDEX_TBL_PKG' where owner_id='$owner_id' and date between date('$BKG_BATCH_FIRST_STARTED') and date('$TODAY');"
             fi
 
-            count=$(sqlite3 "$(get_BKG BKG_INDEX_DB)" "$query")
+            count=$(sqlite3 "$INDEX_DB" "$query")
             [[ "$count" =~ ^0*$ ]] || owners_to_remove+=("$owner")
-        done <"$(get_BKG BKG_OWNERS)"
+        done <"$OWNERS_FILE"
 
         for owner_to_remove in "${owners_to_remove[@]}"; do
-            sed -i "/$owner_to_remove/d" "$(get_BKG BKG_OWNERS)"
+            sed -i "/$owner_to_remove/d" "$OWNERS_FILE"
         done
     fi
 
-    [ -s "$(get_BKG BKG_OWNERS)" ] || set_BKG BKG_BATCH_FIRST_STARTED "$TODAY"
+    [ -s "$OWNERS_FILE" ] || set_BKG BKG_BATCH_FIRST_STARTED "$TODAY"
+    BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
     [ -n "$(get_BKG BKG_RATE_LIMIT_START)" ] || set_BKG BKG_RATE_LIMIT_START "$(date -u +%s)"
     [ -n "$(get_BKG BKG_CALLS_TO_API)" ] || set_BKG BKG_CALLS_TO_API "0"
 
@@ -55,7 +57,7 @@ main() {
     # if this is a scheduled update, scrape all owners that haven't been scraped in this batch
     if [ "$1" = "0" ]; then
         # get more owners if no more
-        if [ ! -s "$(get_BKG BKG_OWNERS)" ]; then
+        if [ ! -s "$OWNERS_FILE" ]; then
             # get new owners
             echo "Finding more owners..."
             owners_page=0
@@ -85,6 +87,8 @@ main() {
 
                 # add the new owners to the owners array
                 for i in $(jq -r '.[] | @base64' <<<"$owners_more"); do
+                    check_limit || return
+
                     _jq() {
                         echo "$i" | base64 --decode | jq -r "$@"
                     }
@@ -92,31 +96,32 @@ main() {
                     owner=$(_jq '.login')
                     id=$(_jq '.id')
                     [ -n "$owner" ] || continue
-                    grep -q "$owner" "$(get_BKG BKG_OWNERS)" || echo "$id/$owner" >>"$(get_BKG BKG_OWNERS)"
+                    grep -q "$owner" "$OWNERS_FILE" || echo "$id/$owner" >>"$OWNERS_FILE"
+                    set_BKG BKG_LAST_SCANNED_ID "$id"
                 done
             done
         fi
 
         # add the owners in the database to the owners array
         echo "Reading known owners..."
-        query="select owner_id, owner from '$(get_BKG BKG_INDEX_TBL_PKG)' where date not between date('$(get_BKG BKG_BATCH_FIRST_STARTED)') and date('$TODAY') group by owner_id;"
+        query="select owner_id, owner from '$INDEX_TBL_PKG' where date not between date('$BKG_BATCH_FIRST_STARTED') and date('$TODAY') group by owner_id;"
 
         while IFS= read -r owner_id owner; do
             check_limit || return
             [ -n "$owner" ] || continue
-            grep -q "$owner" "$(get_BKG BKG_OWNERS)" || echo "$owner_id/$owner" >>"$(get_BKG BKG_OWNERS)"
-        done < <(sqlite3 "$(get_BKG BKG_INDEX_DB)" "$query")
+            grep -q "$owner" "$OWNERS_FILE" || echo "$owner_id/$owner" >>"$OWNERS_FILE"
+        done < <(sqlite3 "$INDEX_DB" "$query")
     fi
 
     owners=()
 
     # add more owners
-    if [ -s "$(get_BKG BKG_OWNERS)" ]; then
+    if [ -s "$OWNERS_FILE" ]; then
         echo "Queuing owners..."
-        sed -i '/^\s*$/d' "$(get_BKG BKG_OWNERS)"
-        echo >>"$(get_BKG BKG_OWNERS)"
-        awk 'NF' "$(get_BKG BKG_OWNERS)" >owners.tmp && mv owners.tmp "$(get_BKG BKG_OWNERS)"
-        sed -i 's/^[[:space:]]*//;s/[[:space:]]*$//' "$(get_BKG BKG_OWNERS)"
+        sed -i '/^\s*$/d' "$OWNERS_FILE"
+        echo >>"$OWNERS_FILE"
+        awk 'NF' "$OWNERS_FILE" >owners.tmp && mv owners.tmp "$OWNERS_FILE"
+        sed -i 's/^[[:space:]]*//;s/[[:space:]]*$//' "$OWNERS_FILE"
 
         while IFS= read -r owner; do
             check_limit || return
@@ -143,12 +148,12 @@ main() {
             fi
 
             grep -q "$owner_id/$owner" <<<"${owners[*]}" || owners+=("$owner_id/$owner")
-        done <"$(get_BKG BKG_OWNERS)"
+        done <"$OWNERS_FILE"
     fi
 
     # scrape the owners
     echo "Forking jobs..."
-    printf "%s\n" "${owners[@]}" | env_parallel -j 100% --lb update_owner
+    printf "%s\n" "${owners[@]}" | env_parallel -j 1000% --lb update_owner
     echo "Completed jobs"
     xz_db
     return $?
