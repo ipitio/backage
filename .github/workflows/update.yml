@@ -4,10 +4,7 @@ on:
   workflow_run:
     workflows: ["refresh"]
     types:
-      - completed
-
-  schedule:
-    - cron: "0 * * * *"
+      - requested
 
 concurrency:
   group: ${{ github.ref }}
@@ -36,7 +33,7 @@ jobs:
 
       - name: Update database
         id: update
-        run: bash update.sh 0 ; echo "updated=$?" >> "$GITHUB_OUTPUT"
+        run: bash src/update.sh 0 ; echo "updated=$?" >> "$GITHUB_OUTPUT"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BKG_VERSION: ${{ steps.date.outputs.date }}

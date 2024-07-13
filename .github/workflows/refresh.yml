@@ -32,7 +32,7 @@ jobs:
 
       - name: Refresh endpoint
         id: changed
-        run: bash refre.sh ; echo "changed=$?" >> "$GITHUB_OUTPUT"
+        run: bash src/refre.sh ; echo "changed=$?" >> "$GITHUB_OUTPUT"
         env:
           GITHUB_OWNER: ${{ github.repository_owner }}
           GITHUB_REPO: ${{ github.event.repository.name }}
