@@ -71,7 +71,6 @@ main() {
                         -H "Authorization: Bearer $GITHUB_TOKEN" \
                         -H "X-GitHub-Api-Version: 2022-11-28" \
                         "https://api.github.com/users?per_page=100&page=$owners_page&since=$last_scanned_id")
-                    # increment BKG_CALLS_TO_API in env.env
                     calls_to_api=$(get_BKG BKG_CALLS_TO_API)
                     min_calls_to_api=$(get_BKG BKG_MIN_CALLS_TO_API)
                     ((calls_to_api++))
@@ -149,8 +148,7 @@ main() {
 
     # scrape the owners
     echo "Forking jobs..."
-    printf "%s\n" "${owners[@]}" | env_parallel -j 1000% --lb -X update_owners
-    #update_owners "${owners[@]}"
+    printf "%s\n" "${owners[@]}" | env_parallel -j 1000% --lb update_owner
     echo "Completed jobs"
     xz_db
     return $?

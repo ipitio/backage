@@ -410,175 +410,175 @@ update_package() {
     fi
 }
 
-update_owners() {
-    for login_id in $1; do
+update_owner() {
+    check_limit || return
+    login_id=$1
+    [ -n "$login_id" ] || return
+    owner=$(cut -d'/' -f2 <<<"$login_id")
+    echo "Processing $owner..."
+    owner_id=$(cut -d'/' -f1 <<<"$login_id")
+    owner_type="orgs"
+    html=$(curl "https://github.com/orgs/$owner/people")
+    is_org=$(grep -zoP 'href="/orgs/'"$owner"'/people"' <<<"$html" | tr -d '\0')
+    [ -n "$is_org" ] || owner_type="users"
+    packages=""
+    packages_page=0
+    # get the packages
+    while [ "$packages_page" -le 100 ]; do
         check_limit || return
-        owner=$(cut -d'/' -f2 <<<"$login_id")
-        echo "Processing $owner..."
-        owner_id=$(cut -d'/' -f1 <<<"$login_id")
-        owner_type="orgs"
-        html=$(curl "https://github.com/orgs/$owner/people")
-        is_org=$(grep -zoP 'href="/orgs/'"$owner"'/people"' <<<"$html" | tr -d '\0')
-        [ -n "$is_org" ] || owner_type="users"
-        packages=""
-        packages_page=0
-        # get the packages
-        while [ "$packages_page" -le 100 ]; do
-            check_limit || return
-            ((packages_page++))
+        ((packages_page++))
 
-            if [ "$owner_type" = "orgs" ]; then
-                html=$(curl "https://github.com/$owner_type/$owner/packages?visibility=public&per_page=100&page=$packages_page")
-            else
-                html=$(curl "https://github.com/$owner?tab=packages&visibility=public&&per_page=100&page=$packages_page")
-            fi
+        if [ "$owner_type" = "orgs" ]; then
+            html=$(curl "https://github.com/$owner_type/$owner/packages?visibility=public&per_page=100&page=$packages_page")
+        else
+            html=$(curl "https://github.com/$owner?tab=packages&visibility=public&&per_page=100&page=$packages_page")
+        fi
 
-            packages_lines=$(grep -zoP 'href="/'"$owner_type"'/'"$owner"'/packages/[^/]+/package/[^"]+"' <<<"$html" | tr -d '\0')
-            [ -n "$packages_lines" ] || break
-            packages_lines=${packages_lines//href=/\\nhref=}
-            packages_lines=${packages_lines//\\n/$'\n'} # replace \n with newline
+        packages_lines=$(grep -zoP 'href="/'"$owner_type"'/'"$owner"'/packages/[^/]+/package/[^"]+"' <<<"$html" | tr -d '\0')
+        [ -n "$packages_lines" ] || break
+        packages_lines=${packages_lines//href=/\\nhref=}
+        packages_lines=${packages_lines//\\n/$'\n'} # replace \n with newline
 
-            # loop through the packages in $packages_lines
-            while IFS= read -r line; do
-                [ -n "$line" ] || continue
-                package_new=$(cut -d'/' -f7 <<<"$line" | tr -d '"')
-                package_type=$(cut -d'/' -f5 <<<"$line")
-                repo=$(grep -zoP '(?<=href="/'"$owner_type"'/'"$owner"'/packages/'"$package_type"'/package/'"$package_new"'")(.|\n)*?href="/'"$owner"'/[^"]+"' <<<"$html" | tr -d '\0' | grep -oP 'href="/'"$owner"'/[^"]+' | cut -d'/' -f3)
-                [ -n "$packages" ] && packages="$packages"$'\n'"$package_type/$repo/$package_new" || packages="$package_type/$repo/$package_new"
-            done <<<"$packages_lines"
-        done
-
-        # deduplicate and array-ify the packages
-        packages=$(awk '!seen[$0]++' <<<"$packages")
-        readarray -t packages <<<"$packages"
-        #printf "%s\n" "${packages[@]}" | env_parallel -j 1000% --bar -X update_packages >/dev/null
-        run_parallel update_package "$(printf "%s\n" "${packages[@]}")"
-        echo "Processed $owner"
+        # loop through the packages in $packages_lines
+        while IFS= read -r line; do
+            [ -n "$line" ] || continue
+            package_new=$(cut -d'/' -f7 <<<"$line" | tr -d '"')
+            package_type=$(cut -d'/' -f5 <<<"$line")
+            repo=$(grep -zoP '(?<=href="/'"$owner_type"'/'"$owner"'/packages/'"$package_type"'/package/'"$package_new"'")(.|\n)*?href="/'"$owner"'/[^"]+"' <<<"$html" | tr -d '\0' | grep -oP 'href="/'"$owner"'/[^"]+' | cut -d'/' -f3)
+            [ -n "$packages" ] && packages="$packages"$'\n'"$package_type/$repo/$package_new" || packages="$package_type/$repo/$package_new"
+        done <<<"$packages_lines"
     done
+
+    # deduplicate and array-ify the packages
+    packages=$(awk '!seen[$0]++' <<<"$packages")
+    readarray -t packages <<<"$packages"
+    #printf "%s\n" "${packages[@]}" | env_parallel -j 1000% --bar -X update_packages >/dev/null
+    run_parallel update_package "$(printf "%s\n" "${packages[@]}")"
+    echo "Processed $owner"
 }
 
-refresh_owners() {
-    index_dir=../index
-    [ -d $index_dir ] || mkdir $index_dir
-    for owner in $1; do
-        echo "Processing $owner..."
-        # create the owner's json file
-        echo "[" >$index_dir/"$owner".json
+refresh_owner() {
+    index_dir=$(get_BKG BKG_INDEX_DIR)
+    [ -d "$index_dir" ] || mkdir "$index_dir"
+    owner=$1
+    [ -n "$owner" ] || return
+    echo "Processing $owner..."
+    # create the owner's json file
+    echo "[" >"$index_dir"/"$owner".json
 
-        # go through each package in the index
-        sqlite3 "$(get_BKG BKG_INDEX_DB)" "select * from '$(get_BKG BKG_INDEX_TBL_PKG)' where owner='$owner' order by downloads + 0 asc;" | while IFS='|' read -r owner_id owner_type package_type _ repo package downloads downloads_month downloads_week downloads_day size date; do
-            script_now=$(date -u +%s)
-            script_diff=$((script_now - SCRIPT_START))
+    # go through each package in the index
+    sqlite3 "$(get_BKG BKG_INDEX_DB)" "select * from '$(get_BKG BKG_INDEX_TBL_PKG)' where owner='$owner' order by downloads + 0 asc;" | while IFS='|' read -r owner_id owner_type package_type _ repo package downloads downloads_month downloads_week downloads_day size date; do
+        script_now=$(date -u +%s)
+        script_diff=$((script_now - SCRIPT_START))
 
-            if ((script_diff >= 21500)); then
-                echo "Script has been running for 6 hours. Committing changes..."
-                break
-            fi
-            echo "Refreshing $owner/$package..."
+        if ((script_diff >= 21500)); then
+            echo "Script has been running for 6 hours. Committing changes..."
+            break
+        fi
+        echo "Refreshing $owner/$package..."
 
-            # only use the latest date for the package
-            query="select date from '$(get_BKG BKG_INDEX_TBL_PKG)' where owner_id='$owner_id' and package='$package' order by date desc limit 1;"
-            max_date=$(sqlite3 "$(get_BKG BKG_INDEX_DB)" "$query")
-            [ "$date" = "$max_date" ] || continue
+        # only use the latest date for the package
+        query="select date from '$(get_BKG BKG_INDEX_TBL_PKG)' where owner_id='$owner_id' and package='$package' order by date desc limit 1;"
+        max_date=$(sqlite3 "$(get_BKG BKG_INDEX_DB)" "$query")
+        [ "$date" = "$max_date" ] || continue
 
-            fmt_downloads=$(numfmt <<<"$downloads")
-            version_count=0
-            version_with_tag_count=0
-            table_version_name="versions_${owner_type}_${package_type}_${owner}_${repo}_${package}"
+        fmt_downloads=$(numfmt <<<"$downloads")
+        version_count=0
+        version_with_tag_count=0
+        table_version_name="versions_${owner_type}_${package_type}_${owner}_${repo}_${package}"
 
-            # get the version and tagged counts
-            query="select name from sqlite_master where type='table' and name='$table_version_name';"
-            table_exists=$(sqlite3 "$(get_BKG BKG_INDEX_DB)" "$query")
+        # get the version and tagged counts
+        query="select name from sqlite_master where type='table' and name='$table_version_name';"
+        table_exists=$(sqlite3 "$(get_BKG BKG_INDEX_DB)" "$query")
 
-            if [ -n "$table_exists" ]; then
-                query="select count(distinct id) from '$table_version_name';"
-                version_count=$(sqlite3 "$(get_BKG BKG_INDEX_DB)" "$query")
-                query="select count(distinct id) from '$table_version_name' where tags != '' and tags is not null;"
-                version_with_tag_count=$(sqlite3 "$(get_BKG BKG_INDEX_DB)" "$query")
-            fi
+        if [ -n "$table_exists" ]; then
+            query="select count(distinct id) from '$table_version_name';"
+            version_count=$(sqlite3 "$(get_BKG BKG_INDEX_DB)" "$query")
+            query="select count(distinct id) from '$table_version_name' where tags != '' and tags is not null;"
+            version_with_tag_count=$(sqlite3 "$(get_BKG BKG_INDEX_DB)" "$query")
+        fi
 
-            echo "{" >>$index_dir/"$owner".json
-            [[ "$package_type" != "container" ]] || echo "\"image\": \"$package\",\"pulls\": \"$fmt_downloads\"," >>$index_dir/"$owner".json
-            echo "\"owner_type\": \"$owner_type\",
-                \"package_type\": \"$package_type\",
-                \"owner_id\": \"$owner_id\",
-                \"owner\": \"$owner\",
-                \"repo\": \"$repo\",
-                \"package\": \"$package\",
-                \"date\": \"$date\",
-                \"size\": \"$(numfmt_size <<<"$size")\",
-                \"versions\": \"$(numfmt <<<"$version_count")\",
-                \"tagged\": \"$(numfmt <<<"$version_with_tag_count")\",
-                \"downloads\": \"$fmt_downloads\",
-                \"downloads_month\": \"$(numfmt <<<"$downloads_month")\",
-                \"downloads_week\": \"$(numfmt <<<"$downloads_week")\",
-                \"downloads_day\": \"$(numfmt <<<"$downloads_day")\",
-                \"raw_size\": $size,
-                \"raw_versions\": $version_count,
-                \"raw_tagged\": $version_with_tag_count,
-                \"raw_downloads\": $downloads,
-                \"raw_downloads_month\": $downloads_month,
-                \"raw_downloads_week\": $downloads_week,
-                \"raw_downloads_day\": $downloads_day,
-                \"version\": [" >>$index_dir/"$owner".json
+        echo "{" >>"$index_dir"/"$owner".json
+        [[ "$package_type" != "container" ]] || echo "\"image\": \"$package\",\"pulls\": \"$fmt_downloads\"," >>"$index_dir"/"$owner".json
+        echo "\"owner_type\": \"$owner_type\",
+            \"package_type\": \"$package_type\",
+            \"owner_id\": \"$owner_id\",
+            \"owner\": \"$owner\",
+            \"repo\": \"$repo\",
+            \"package\": \"$package\",
+            \"date\": \"$date\",
+            \"size\": \"$(numfmt_size <<<"$size")\",
+            \"versions\": \"$(numfmt <<<"$version_count")\",
+            \"tagged\": \"$(numfmt <<<"$version_with_tag_count")\",
+            \"downloads\": \"$fmt_downloads\",
+            \"downloads_month\": \"$(numfmt <<<"$downloads_month")\",
+            \"downloads_week\": \"$(numfmt <<<"$downloads_week")\",
+            \"downloads_day\": \"$(numfmt <<<"$downloads_day")\",
+            \"raw_size\": $size,
+            \"raw_versions\": $version_count,
+            \"raw_tagged\": $version_with_tag_count,
+            \"raw_downloads\": $downloads,
+            \"raw_downloads_month\": $downloads_month,
+            \"raw_downloads_week\": $downloads_week,
+            \"raw_downloads_day\": $downloads_day,
+            \"version\": [" >>"$index_dir"/"$owner".json
 
-            # add the versions to index/"$owner".json
-            if [ "$version_count" -gt 0 ]; then
-                query="select id from '$table_version_name' order by id desc limit 1;"
-                version_newest_id=$(sqlite3 "$(get_BKG BKG_INDEX_DB)" "$query")
+        # add the versions to index/"$owner".json
+        if [ "$version_count" -gt 0 ]; then
+            query="select id from '$table_version_name' order by id desc limit 1;"
+            version_newest_id=$(sqlite3 "$(get_BKG BKG_INDEX_DB)" "$query")
 
-                # get only the last day each version was updated, which may not be today
-                # desc sort by id
-                query="select id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags from '$table_version_name' group by id order by id desc;"
-                sqlite3 "$(get_BKG BKG_INDEX_DB)" "$query" | while IFS='|' read -r vid vname vsize vdownloads vdownloads_month vdownloads_week vdownloads_day vdate vtags; do
-                    echo "{
-                        \"id\": $vid,
-                        \"name\": \"$vname\",
-                        \"date\": \"$vdate\",
-                        \"newest\": $([ "$vid" = "$version_newest_id" ] && echo "true" || echo "false"),
-                        \"size\": \"$(numfmt_size <<<"$vsize")\",
-                        \"downloads\": \"$(numfmt <<<"$vdownloads")\",
-                        \"downloads_month\": \"$(numfmt <<<"$vdownloads_month")\",
-                        \"downloads_week\": \"$(numfmt <<<"$vdownloads_week")\",
-                        \"downloads_day\": \"$(numfmt <<<"$vdownloads_day")\",
-                        \"raw_size\": $vsize,
-                        \"raw_downloads\": $vdownloads,
-                        \"raw_downloads_month\": $vdownloads_month,
-                        \"raw_downloads_week\": $vdownloads_week,
-                        \"raw_downloads_day\": $vdownloads_day,
-                        \"tags\": [\"${vtags//,/\",\"}\"]
-                        }," >>$index_dir/"$owner".json
-                done
-            fi
-
-            # remove the last comma
-            sed -i '$ s/,$//' $index_dir/"$owner".json
-            echo "]
-            }," >>$index_dir/"$owner".json
-            echo "Refreshed $owner/$package"
-        done
+            # get only the last day each version was updated, which may not be today
+            # desc sort by id
+            query="select id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags from '$table_version_name' group by id order by id desc;"
+            sqlite3 "$(get_BKG BKG_INDEX_DB)" "$query" | while IFS='|' read -r vid vname vsize vdownloads vdownloads_month vdownloads_week vdownloads_day vdate vtags; do
+                echo "{
+                    \"id\": $vid,
+                    \"name\": \"$vname\",
+                    \"date\": \"$vdate\",
+                    \"newest\": $([ "$vid" = "$version_newest_id" ] && echo "true" || echo "false"),
+                    \"size\": \"$(numfmt_size <<<"$vsize")\",
+                    \"downloads\": \"$(numfmt <<<"$vdownloads")\",
+                    \"downloads_month\": \"$(numfmt <<<"$vdownloads_month")\",
+                    \"downloads_week\": \"$(numfmt <<<"$vdownloads_week")\",
+                    \"downloads_day\": \"$(numfmt <<<"$vdownloads_day")\",
+                    \"raw_size\": $vsize,
+                    \"raw_downloads\": $vdownloads,
+                    \"raw_downloads_month\": $vdownloads_month,
+                    \"raw_downloads_week\": $vdownloads_week,
+                    \"raw_downloads_day\": $vdownloads_day,
+                    \"tags\": [\"${vtags//,/\",\"}\"]
+                    }," >>"$index_dir"/"$owner".json
+            done
+        fi
 
         # remove the last comma
-        sed -i '$ s/,$//' $index_dir/"$owner".json
-        echo "]" >>$index_dir/"$owner".json
-
-        # if the json is empty, exit
-        jq -e 'length > 0' $index_dir/"$owner".json || return
-
-        # sort the top level by raw_downloads
-        jq -c 'sort_by(.raw_downloads | tonumber) | reverse' $index_dir/"$owner".json >$index_dir/"$owner".tmp.json
-        mv $index_dir/"$owner".tmp.json $index_dir/"$owner".json
-
-        # if the json is over 100MB, remove oldest versions from the packages with the most versions
-        json_size=$(stat -c %s $index_dir/"$owner".json)
-        while [ "$json_size" -ge 100000000 ]; do
-            jq -e 'map(.version | length > 0) | any' $index_dir/"$owner".json || break
-            jq -c 'sort_by(.versions | tonumber) | reverse | map(select(.versions > 0)) | map(.version |= sort_by(.id | tonumber) | del(.version[0]))' $index_dir/"$owner".json >$index_dir/"$owner".tmp.json
-            mv $index_dir/"$owner".tmp.json $index_dir/"$owner".json
-            json_size=$(stat -c %s $index_dir/"$owner".json)
-        done
-        echo "Processed $owner"
+        sed -i '$ s/,$//' "$index_dir"/"$owner".json
+        echo "]
+        }," >>"$index_dir"/"$owner".json
+        echo
     done
+
+    # remove the last comma
+    sed -i '$ s/,$//' "$index_dir"/"$owner".json
+    echo "]" >>"$index_dir"/"$owner".json
+
+    # if the json is empty, exit
+    jq -e 'length > 0' "$index_dir"/"$owner".json || return
+
+    # sort the top level by raw_downloads
+    jq -c 'sort_by(.raw_downloads | tonumber) | reverse' "$index_dir"/"$owner".json >"$index_dir"/"$owner".tmp.json
+    mv "$index_dir"/"$owner".tmp.json "$index_dir"/"$owner".json
+
+    # if the json is over 100MB, remove oldest versions from the packages with the most versions
+    json_size=$(stat -c %s "$index_dir"/"$owner".json)
+    while [ "$json_size" -ge 100000000 ]; do
+        jq -e 'map(.version | length > 0) | any' "$index_dir"/"$owner".json || break
+        jq -c 'sort_by(.versions | tonumber) | reverse | map(select(.versions > 0)) | map(.version |= sort_by(.id | tonumber) | del(.version[0]))' "$index_dir"/"$owner".json >"$index_dir"/"$owner".tmp.json
+        mv "$index_dir"/"$owner".tmp.json "$index_dir"/"$owner".json
+        json_size=$(stat -c %s "$index_dir"/"$owner".json)
+    done
+    echo "Processed $owner"
 }
 
 if [ ! -f "$(get_BKG BKG_INDEX_DB)" ]; then
