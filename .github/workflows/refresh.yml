@@ -30,15 +30,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Refresh endpoint
+      - name: Dry run
         id: changed
-        run: bash src/refre.sh ; echo "changed=$?" >> "$GITHUB_OUTPUT"
-        env:
-          GITHUB_OWNER: ${{ github.repository_owner }}
-          GITHUB_REPO: ${{ github.event.repository.name }}
-          GITHUB_BRANCH: ${{ github.head_ref || github.ref_name }}
+        run: bash src/test/refre.sh ; echo "changed=$?" >> "$GITHUB_OUTPUT"
 
-      - name: Commit refresh
+      - name: Update endpoint
         if: ${{ steps.changed.outputs.changed == '0' }}
         uses: EndBug/add-and-commit@v9
         with:

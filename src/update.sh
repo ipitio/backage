@@ -13,6 +13,7 @@ main() {
     # remove owners from owners.txt that have already been scraped in this batch
     [ -n "$BKG_BATCH_FIRST_STARTED" ] || set_BKG BKG_BATCH_FIRST_STARTED "$TODAY"
     BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
+    set_BKG BKG_TIMEOUT "2"
 
     if [ -s "$BKG_OWNERS" ] && [ "$1" = "0" ]; then
         owners_to_remove=()
@@ -155,9 +156,7 @@ main() {
     echo "Forking jobs..."
     printf "%s\n" "${owners[@]}" | env_parallel -j 1000% --lb update_owner
     echo "Completed jobs"
-    xz_db
-    return $?
+    clean_up
 }
 
 main "$@"
-exit $?

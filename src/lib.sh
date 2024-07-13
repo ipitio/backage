@@ -105,11 +105,22 @@ set_BKG() {
 }
 
 check_limit() {
-    # exit if the script has been running for 5 hours
     total_calls=$(get_BKG BKG_CALLS_TO_API)
     rate_limit_end=$(date -u +%s)
     script_limit_diff=$((rate_limit_end - SCRIPT_START))
-    ((script_limit_diff < 18000)) || { echo "Script has been running for 5 hours!" && return 1; }
+    timeout=$(get_BKG BKG_TIMEOUT)
+
+    # exit if the script has been running for 5 hours
+    if ((script_limit_diff >= 18000)); then
+        if ((timeout == 0)); then
+            echo "Script has been running for 5 hours! Tidying up..."
+            set_BKG BKG_TIMEOUT "1"
+        elif ((timeout == 2)); then
+            return 1
+        fi
+
+        exit 0
+    fi
 
     # wait if 1000 or more calls have been made in the last hour
     rate_limit_diff=$((rate_limit_end - $(get_BKG BKG_RATE_LIMIT_START)))
@@ -142,7 +153,7 @@ check_limit() {
     fi
 }
 
-xz_db() {
+clean_up() {
     [ -f "$BKG_INDEX_DB" ] || return 1
     rotated=false
     echo "Compressing the database..."
@@ -175,9 +186,7 @@ xz_db() {
         echo "Failed to compress the database!"
     fi
 
-    # if the database is smaller than 1kb, return 1
-    [ "$(stat -c %s "$BKG_INDEX_SQL".zst)" -ge 1000 ] || return 1
-    echo "Updating the CHANGELOG..."
+    echo "Updating templates..."
     [ ! -f ../CHANGELOG.md ] || rm -f ../CHANGELOG.md
     \cp ../templates/.CHANGELOG.md ../CHANGELOG.md
     query="select count(distinct owner_id) from '$BKG_INDEX_TBL_PKG';"
@@ -188,7 +197,11 @@ xz_db() {
     packages=$(sqlite3 "$BKG_INDEX_DB" "$query")
     perl -0777 -pe 's/\[OWNERS\]/'"$owners"'/g; s/\[REPOS\]/'"$repos"'/g; s/\[PACKAGES\]/'"$packages"'/g' ../CHANGELOG.md >CHANGELOG.tmp && [ -f CHANGELOG.tmp ] && mv CHANGELOG.tmp ../CHANGELOG.md || :
     ! $rotated || echo " The database grew over 2GB and was rotated, but you can find all previous data under [Releases](https://github.com/$GITHUB_OWNER/$GITHUB_REPO/releases)." >>../CHANGELOG.md
-    echo "Updated the CHANGELOG"
+    [ ! -f ../README.md ] || rm -f ../README.md
+    \cp ../templates/.README.md ../README.md
+    perl -0777 -pe 's/<GITHUB_OWNER>/'"$GITHUB_OWNER"'/g; s/<GITHUB_REPO>/'"$GITHUB_REPO"'/g; s/<GITHUB_BRANCH>/'"$GITHUB_BRANCH"'/g' ../README.md >README.tmp && [ -f README.tmp ] && mv README.tmp ../README.md || :
+    echo "Updated templates"
+
     # if index db is greater than 100MB, remove it
     if [ "$(stat -c %s "$BKG_INDEX_DB")" -ge 100000000 ]; then
         echo "Removing the database..."
@@ -283,6 +296,7 @@ update_package() {
     # optout.txt has lines like "owner/repo/package"
     if [ -f "$BKG_OPTOUT" ]; then
         while IFS= read -r line; do
+            check_limit || return
             [ -n "$line" ] || continue
 
             if [ "$line" = "$owner/$repo/$package" ]; then
@@ -347,6 +361,7 @@ update_package() {
             query="select id, name, tags from '$table_version_name';"
 
             while IFS='|' read -r id name tags; do
+                check_limit || return
                 if ! jq -e ".[] | select(.id == \"$id\")" <<<"$versions_json" &>/dev/null; then
                     versions_json=$(jq ". += [{\"id\":\"$id\",\"name\":\"$name\",\"tags\":\"$tags\"}]" <<<"$versions_json")
                 fi
@@ -378,6 +393,8 @@ update_package() {
 
             # add the new versions to the versions_json, if they are not already there
             for i in $(jq -r '.[] | @base64' <<<"$versions_json_more"); do
+                check_limit || return
+
                 _jq() {
                     echo "$i" | base64 --decode | jq -r "$@"
                 }
@@ -397,7 +414,6 @@ update_package() {
 
         # scan the versions
         jq -e . <<<"$versions_json" &>/dev/null || versions_json="[{\"id\":\"latest\",\"name\":\"latest\"}]"
-        #jq -r '.[] | @base64' <<<"$versions_json" | env_parallel -j 1000% --bar update_version >/dev/null
         echo "Scraping $owner/$package..."
         run_parallel update_version "$(jq -r '.[] | @base64' <<<"$versions_json")"
         echo "Scraped $owner/$package"
@@ -430,6 +446,7 @@ update_package() {
 }
 
 update_owner() {
+    set_BKG BKG_TIMEOUT "0"
     check_limit || return
     login_id=$1
     [ -n "$login_id" ] || return
@@ -460,6 +477,7 @@ update_owner() {
 
         # loop through the packages in $packages_lines
         while IFS= read -r line; do
+            check_limit || return
             [ -n "$line" ] || continue
             package_new=$(cut -d'/' -f7 <<<"$line" | tr -d '"')
             package_type=$(cut -d'/' -f5 <<<"$line")
@@ -471,7 +489,6 @@ update_owner() {
     # deduplicate and array-ify the packages
     packages=$(awk '!seen[$0]++' <<<"$packages")
     readarray -t packages <<<"$packages"
-    #printf "%s\n" "${packages[@]}" | env_parallel -j 1000% --bar -X update_packages >/dev/null
     run_parallel update_package "$(printf "%s\n" "${packages[@]}")"
     echo "Processed $owner"
 }
@@ -480,7 +497,7 @@ refresh_owner() {
     [ -d "$BKG_INDEX_DIR" ] || mkdir "$BKG_INDEX_DIR"
     owner=$1
     [ -n "$owner" ] || return
-    echo "Processing $owner..."
+    echo "Refreshing $owner..."
     # create the owner's json file
     echo "[" >"$BKG_INDEX_DIR"/"$owner".json
 
@@ -594,7 +611,7 @@ refresh_owner() {
         mv "$BKG_INDEX_DIR"/"$owner".tmp.json "$BKG_INDEX_DIR"/"$owner".json
         json_size=$(stat -c %s "$BKG_INDEX_DIR"/"$owner".json)
     done
-    echo "Processed $owner"
+    echo "Refreshed $owner"
 }
 
 if [ ! -f "$BKG_INDEX_DB" ]; then
