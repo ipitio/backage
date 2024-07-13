@@ -158,7 +158,7 @@ xz_db() {
     [ "$(stat -c %s "$(get_BKG BKG_INDEX_SQL)".zst)" -ge 1000 ] || return 1
     echo "Updating the CHANGELOG..."
     [ ! -f CHANGELOG.md ] || rm -f CHANGELOG.md
-    \cp templates/.CHANGELOG.md CHANGELOG.md
+    \cp ../templates/.CHANGELOG.md CHANGELOG.md
     query="select count(distinct owner_id) from '$(get_BKG BKG_INDEX_TBL_PKG)';"
     owners=$(sqlite3 "$(get_BKG BKG_INDEX_DB)" "$query")
     query="select count(distinct repo) from '$(get_BKG BKG_INDEX_TBL_PKG)';"
