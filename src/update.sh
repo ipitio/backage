@@ -148,7 +148,7 @@ main() {
 
     # scrape the owners
     echo "Forking jobs..."
-    printf "%s\n" "${owners[@]}" | env_parallel -j 100% update_owner
+    printf "%s\n" "${owners[@]}" | env_parallel -j 100% --lb update_owner
     echo "Completed jobs"
     xz_db
     return $?
