@@ -14,7 +14,7 @@ main() {
     [ -n "$BKG_BATCH_FIRST_STARTED" ] || set_BKG BKG_BATCH_FIRST_STARTED "$TODAY"
     BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
 
-    if [ -s "$OWNERS_FILE" ] && [ "$1" = "0" ]; then
+    if [ -s "$BKG_OWNERS" ] && [ "$1" = "0" ]; then
         owners_to_remove=()
 
         while IFS= read -r owner; do
@@ -23,21 +23,21 @@ main() {
             [[ "$owner" =~ .*\/.* ]] && owner_id=$(cut -d'/' -f1 <<<"$owner") || owner_id=""
 
             if [ -z "$owner_id" ]; then
-                query="select count(*) from '$INDEX_TBL_PKG' where owner='$owner' and date between date('$BKG_BATCH_FIRST_STARTED') and date('$TODAY');"
+                query="select count(*) from '$BKG_INDEX_TBL_PKG' where owner='$owner' and date between date('$BKG_BATCH_FIRST_STARTED') and date('$TODAY');"
             else
-                query="select count(*) from '$INDEX_TBL_PKG' where owner_id='$owner_id' and date between date('$BKG_BATCH_FIRST_STARTED') and date('$TODAY');"
+                query="select count(*) from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and date between date('$BKG_BATCH_FIRST_STARTED') and date('$TODAY');"
             fi
 
-            count=$(sqlite3 "$INDEX_DB" "$query")
+            count=$(sqlite3 "$BKG_INDEX_DB" "$query")
             [[ "$count" =~ ^0*$ ]] || owners_to_remove+=("$owner")
-        done <"$OWNERS_FILE"
+        done <"$BKG_OWNERS"
 
         for owner_to_remove in "${owners_to_remove[@]}"; do
-            sed -i "/$owner_to_remove/d" "$OWNERS_FILE"
+            sed -i "/$owner_to_remove/d" "$BKG_OWNERS"
         done
     fi
 
-    [ -s "$OWNERS_FILE" ] || set_BKG BKG_BATCH_FIRST_STARTED "$TODAY"
+    [ -s "$BKG_OWNERS" ] || set_BKG BKG_BATCH_FIRST_STARTED "$TODAY"
     BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
     [ -n "$(get_BKG BKG_RATE_LIMIT_START)" ] || set_BKG BKG_RATE_LIMIT_START "$(date -u +%s)"
     [ -n "$(get_BKG BKG_CALLS_TO_API)" ] || set_BKG BKG_CALLS_TO_API "0"
@@ -57,7 +57,7 @@ main() {
     # if this is a scheduled update, scrape all owners that haven't been scraped in this batch
     if [ "$1" = "0" ]; then
         # get more owners if no more
-        if [ ! -s "$OWNERS_FILE" ]; then
+        if [ ! -s "$BKG_OWNERS" ]; then
             # get new owners
             echo "Finding more owners..."
             owners_page=0
@@ -96,7 +96,7 @@ main() {
                     owner=$(_jq '.login')
                     id=$(_jq '.id')
                     [ -n "$owner" ] || continue
-                    grep -q "$owner" "$OWNERS_FILE" || echo "$id/$owner" >>"$OWNERS_FILE"
+                    grep -q "$owner" "$BKG_OWNERS" || echo "$id/$owner" >>"$BKG_OWNERS"
                     set_BKG BKG_LAST_SCANNED_ID "$id"
                 done
             done
@@ -104,24 +104,24 @@ main() {
 
         # add the owners in the database to the owners array
         echo "Reading known owners..."
-        query="select owner_id, owner from '$INDEX_TBL_PKG' where date not between date('$BKG_BATCH_FIRST_STARTED') and date('$TODAY') group by owner_id;"
+        query="select owner_id, owner from '$BKG_INDEX_TBL_PKG' where date not between date('$BKG_BATCH_FIRST_STARTED') and date('$TODAY') group by owner_id;"
 
         while IFS= read -r owner_id owner; do
             check_limit || return
             [ -n "$owner" ] || continue
-            grep -q "$owner" "$OWNERS_FILE" || echo "$owner_id/$owner" >>"$OWNERS_FILE"
-        done < <(sqlite3 "$INDEX_DB" "$query")
+            grep -q "$owner" "$BKG_OWNERS" || echo "$owner_id/$owner" >>"$BKG_OWNERS"
+        done < <(sqlite3 "$BKG_INDEX_DB" "$query")
     fi
 
     owners=()
 
     # add more owners
-    if [ -s "$OWNERS_FILE" ]; then
+    if [ -s "$BKG_OWNERS" ]; then
         echo "Queuing owners..."
-        sed -i '/^\s*$/d' "$OWNERS_FILE"
-        echo >>"$OWNERS_FILE"
-        awk 'NF' "$OWNERS_FILE" >owners.tmp && mv owners.tmp "$OWNERS_FILE"
-        sed -i 's/^[[:space:]]*//;s/[[:space:]]*$//' "$OWNERS_FILE"
+        sed -i '/^\s*$/d' "$BKG_OWNERS"
+        echo >>"$BKG_OWNERS"
+        awk 'NF' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
+        sed -i 's/^[[:space:]]*//;s/[[:space:]]*$//' "$BKG_OWNERS"
 
         while IFS= read -r owner; do
             check_limit || return
@@ -148,7 +148,7 @@ main() {
             fi
 
             grep -q "$owner_id/$owner" <<<"${owners[*]}" || owners+=("$owner_id/$owner")
-        done <"$OWNERS_FILE"
+        done <"$BKG_OWNERS"
     fi
 
     # scrape the owners
