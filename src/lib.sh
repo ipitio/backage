@@ -84,9 +84,8 @@ get_BKG() {
         sleep 0.1
     done
 
-    touch "$file.lock"
     grep -Po "(?<=^$key=).*" "$file" | tail -n 1
-    rm "$file.lock"
+    rm -f "$file.lock"
 }
 
 set_BKG() {
@@ -100,10 +99,9 @@ set_BKG() {
         sleep 0.1
     done
 
-    touch "$file.lock"
     sed "s/^$key=.*/$key=$value/" "$file" >"$tmp_file"
     mv "$tmp_file" "$file"
-    rm "$file.lock"
+    rm -f "$file.lock"
 }
 
 check_limit() {
