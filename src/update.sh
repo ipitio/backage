@@ -156,6 +156,7 @@ main() {
     printf "%s\n" "${owners[@]}" | env_parallel -j 1000% --lb update_owner
     echo "Completed jobs"
     clean_up
+    grep -q '\.json$' ../.gitignore || echo "*.json" >>../.gitignore
 }
 
 main "$@"

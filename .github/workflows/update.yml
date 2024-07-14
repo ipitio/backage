@@ -7,7 +7,7 @@ on:
       - completed
 
   schedule:
-    - cron: '0 */6 * * *'
+    - cron: '0 */12 * * *'
 
 concurrency:
   group: ${{ github.ref }}
@@ -48,7 +48,6 @@ jobs:
         if: ${{ steps.update.outputs.updated == '0' }}
         uses: EndBug/add-and-commit@v9
         with:
-          add: "README.md,*.env,*.txt,*.db"
           message: "update database"
           pull: "--autostash --strategy-option=ours"
 

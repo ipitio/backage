@@ -8,3 +8,4 @@
 
 source lib.sh
 sqlite3 "$BKG_INDEX_DB" "select distinct owner from '$BKG_INDEX_TBL_PKG';" | env_parallel -j 2000% --lb refresh_owner
+sed -i '/\.json$/d' ../.gitignore
