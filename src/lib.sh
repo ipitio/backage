@@ -502,7 +502,7 @@ refresh_owner() {
     echo "[" >"$BKG_INDEX_DIR"/"$owner".json
 
     # go through each package in the index
-    sqlite3 "$BKG_INDEX_DB" "select * from '$BKG_INDEX_TBL_PKG' where owner='$owner' order by downloads + 0 asc;" | while IFS='|' read -r owner_id owner_type package_type _ repo package downloads downloads_month downloads_week downloads_day size date; do
+    sqlite3 "$BKG_INDEX_DB" "select * from '$BKG_INDEX_TBL_PKG' where owner='$owner' order by package;" | while IFS='|' read -r owner_id owner_type package_type _ repo package downloads downloads_month downloads_week downloads_day size date; do
         script_now=$(date -u +%s)
         script_diff=$((script_now - SCRIPT_START))
 
@@ -548,13 +548,13 @@ refresh_owner() {
             \"downloads_month\": \"$(numfmt <<<"$downloads_month")\",
             \"downloads_week\": \"$(numfmt <<<"$downloads_week")\",
             \"downloads_day\": \"$(numfmt <<<"$downloads_day")\",
-            \"raw_size\": $size,
-            \"raw_versions\": $version_count,
-            \"raw_tagged\": $version_with_tag_count,
-            \"raw_downloads\": $downloads,
-            \"raw_downloads_month\": $downloads_month,
-            \"raw_downloads_week\": $downloads_week,
-            \"raw_downloads_day\": $downloads_day,
+            \"raw_size\": ${size:--1},
+            \"raw_versions\": ${version_count:--1},
+            \"raw_tagged\": ${version_with_tag_count:--1},
+            \"raw_downloads\": ${downloads:--1},
+            \"raw_downloads_month\": ${downloads_month:--1},
+            \"raw_downloads_week\": ${downloads_week:--1},
+            \"raw_downloads_day\": ${downloads_day:--1},
             \"version\": [" >>"$BKG_INDEX_DIR"/"$owner".json
 
         # add the versions to index/"$owner".json
@@ -567,7 +567,7 @@ refresh_owner() {
             query="select id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags from '$table_version_name' group by id order by id desc;"
             sqlite3 "$BKG_INDEX_DB" "$query" | while IFS='|' read -r vid vname vsize vdownloads vdownloads_month vdownloads_week vdownloads_day vdate vtags; do
                 echo "{
-                    \"id\": $vid,
+                    \"id\": ${vid:--1},
                     \"name\": \"$vname\",
                     \"date\": \"$vdate\",
                     \"newest\": $([ "$vid" = "$version_newest_id" ] && echo "true" || echo "false"),
@@ -576,11 +576,11 @@ refresh_owner() {
                     \"downloads_month\": \"$(numfmt <<<"$vdownloads_month")\",
                     \"downloads_week\": \"$(numfmt <<<"$vdownloads_week")\",
                     \"downloads_day\": \"$(numfmt <<<"$vdownloads_day")\",
-                    \"raw_size\": $vsize,
-                    \"raw_downloads\": $vdownloads,
-                    \"raw_downloads_month\": $vdownloads_month,
-                    \"raw_downloads_week\": $vdownloads_week,
-                    \"raw_downloads_day\": $vdownloads_day,
+                    \"raw_size\": ${vsize:--1},
+                    \"raw_downloads\": ${vdownloads:--1},
+                    \"raw_downloads_month\": ${vdownloads_month:--1},
+                    \"raw_downloads_week\": ${vdownloads_week:--1},
+                    \"raw_downloads_day\": ${vdownloads_day:--1},
                     \"tags\": [\"${vtags//,/\",\"}\"]
                     }," >>"$BKG_INDEX_DIR"/"$owner".json
             done
@@ -603,9 +603,9 @@ refresh_owner() {
     jq -c 'sort_by(.raw_downloads | tonumber) | reverse' "$BKG_INDEX_DIR"/"$owner".json >"$BKG_INDEX_DIR"/"$owner".tmp.json
     mv "$BKG_INDEX_DIR"/"$owner".tmp.json "$BKG_INDEX_DIR"/"$owner".json
 
-    # if the json is over 100MB, remove oldest versions from the packages with the most versions
+    # if the json is over 50MB, remove oldest versions from the packages with the most versions
     json_size=$(stat -c %s "$BKG_INDEX_DIR"/"$owner".json)
-    while [ "$json_size" -ge 100000000 ]; do
+    while [ "$json_size" -ge 50000000 ]; do
         jq -e 'map(.version | length > 0) | any' "$BKG_INDEX_DIR"/"$owner".json || break
         jq -c 'sort_by(.versions | tonumber) | reverse | map(select(.versions > 0)) | map(.version |= sort_by(.id | tonumber) | del(.version[0]))' "$BKG_INDEX_DIR"/"$owner".json >"$BKG_INDEX_DIR"/"$owner".tmp.json
         mv "$BKG_INDEX_DIR"/"$owner".tmp.json "$BKG_INDEX_DIR"/"$owner".json
