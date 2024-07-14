@@ -8,10 +8,6 @@ on:
 
   workflow_dispatch:
 
-concurrency:
-  group: ${{ github.ref }}
-  cancel-in-progress: true
-
 defaults:
   run:
     # GitHub Actions run without a TTY device. This is a workaround to get one,
@@ -38,5 +34,6 @@ jobs:
         if: ${{ steps.changed.outputs.changed == '0' }}
         uses: EndBug/add-and-commit@v9
         with:
+          add: '*.json'
           message: "refresh endpoint"
           pull: "--autostash --strategy-option=ours"

@@ -1,19 +1,15 @@
-name: update
+name: manual
 
 on:
-  workflow_run:
-    workflows: ["refresh"]
-    types:
-      - completed
+  push:
+    branches:
+      - master
 
   workflow_dispatch:
 
-  schedule:
-    - cron: '0 */6 * * *'
-
 concurrency:
   group: ${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 defaults:
   run:
@@ -38,7 +34,7 @@ jobs:
 
       - name: Dry run
         id: update
-        run: bash src/test/update.sh 0 ; echo "updated=$?" >> "$GITHUB_OUTPUT"
+        run: bash src/test/update.sh 1 ; echo "updated=$?" >> "$GITHUB_OUTPUT"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_OWNER: ${{ github.repository_owner }}

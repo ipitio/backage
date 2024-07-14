@@ -614,6 +614,8 @@ refresh_owner() {
     echo "Refreshed $owner"
 }
 
+set_BKG BKG_TIMEOUT "0"
+
 if [ ! -f "$BKG_INDEX_DB" ]; then
     command curl -sSLNZO "https://github.com/$GITHUB_OWNER/$GITHUB_REPO/releases/latest/download/$BKG_INDEX_SQL.zst"
     zstd -d "$BKG_INDEX_SQL.zst" | sqlite3 "$BKG_INDEX_DB"
