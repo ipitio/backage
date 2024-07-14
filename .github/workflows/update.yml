@@ -6,8 +6,6 @@ on:
     types:
       - completed
 
-  workflow_dispatch:
-
   schedule:
     - cron: '0 */6 * * *'
 
