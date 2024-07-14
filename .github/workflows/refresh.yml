@@ -2,7 +2,7 @@ name: refresh
 
 on:
   workflow_run:
-    workflows: ["update"]
+    workflows: ["update", "manual"]
     types:
       - completed
 
