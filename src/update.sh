@@ -1,7 +1,6 @@
 #!/bin/bash
 # Scrape each package
 # Usage: ./update.sh
-# Dependencies: curl, jq, sqlite3, docker
 # Copyright (c) ipitio
 #
 # shellcheck disable=SC1091,SC2015
@@ -9,35 +8,15 @@
 source lib.sh
 
 main() {
-    # remove owners from owners.txt that have already been scraped in this batch
+    set_up
+    TODAY=$(get_BKG BKG_TODAY)
+    # remove owners from queue that have already been scraped in this batch
+    echo "Updating environment"
     [ -n "$BKG_BATCH_FIRST_STARTED" ] || set_BKG BKG_BATCH_FIRST_STARTED "$TODAY"
     BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
     set_BKG BKG_TIMEOUT "2"
-
-    if [ -s "$BKG_OWNERS" ] && [ "$1" = "0" ]; then
-        owners_to_remove=()
-
-        while IFS= read -r owner; do
-            check_limit || return
-            [ -n "$owner" ] || continue
-            [[ "$owner" =~ .*\/.* ]] && owner_id=$(cut -d'/' -f1 <<<"$owner") || owner_id=""
-
-            if [ -z "$owner_id" ]; then
-                query="select count(*) from '$BKG_INDEX_TBL_PKG' where owner='$owner' and date between date('$BKG_BATCH_FIRST_STARTED') and date('$TODAY');"
-            else
-                query="select count(*) from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and date between date('$BKG_BATCH_FIRST_STARTED') and date('$TODAY');"
-            fi
-
-            count=$(sqlite3 "$BKG_INDEX_DB" "$query")
-            [[ "$count" =~ ^0*$ ]] || owners_to_remove+=("$owner")
-        done <"$BKG_OWNERS"
-
-        for owner_to_remove in "${owners_to_remove[@]}"; do
-            sed -i "/$owner_to_remove/d" "$BKG_OWNERS"
-        done
-    fi
-
-    [ -s "$BKG_OWNERS" ] || set_BKG BKG_BATCH_FIRST_STARTED "$TODAY"
+    [ -n "$(get_BKG BKG_OWNERS_QUEUE)" ] && [ "$1" = "0" ] && get_BKG BKG_OWNERS_QUEUE | perl -pe 's/\\n/\n/g' | env_parallel --lb remove_owner || :
+    [ -n "$(get_BKG BKG_OWNERS_QUEUE)" ] || set_BKG BKG_BATCH_FIRST_STARTED "$TODAY"
     BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
     [ -n "$(get_BKG BKG_RATE_LIMIT_START)" ] || set_BKG BKG_RATE_LIMIT_START "$(date -u +%s)"
     [ -n "$(get_BKG BKG_CALLS_TO_API)" ] || set_BKG BKG_CALLS_TO_API "0"
@@ -54,109 +33,42 @@ main() {
         set_BKG BKG_MIN_CALLS_TO_API "0"
     fi
 
+    echo "Updated environment"
+
     # if this is a scheduled update, scrape all owners that haven't been scraped in this batch
     if [ "$1" = "0" ]; then
         # get more owners if no more
-        if [ ! -s "$BKG_OWNERS" ]; then
-            # get new owners
+        if [ -z "$(get_BKG BKG_OWNERS_QUEUE)" ]; then
             echo "Finding more owners..."
-            owners_page=0
             [ -n "$(get_BKG BKG_LAST_SCANNED_ID)" ] || set_BKG BKG_LAST_SCANNED_ID "0"
-            last_scanned_id=$(get_BKG BKG_LAST_SCANNED_ID)
-            while [ "$owners_page" -lt 10 ]; do
-                check_limit || return
-                ((owners_page++))
-                owners_more="[]"
-
-                if [ -n "$GITHUB_TOKEN" ]; then
-                    owners_more=$(curl -H "Accept: application/vnd.github+json" \
-                        -H "Authorization: Bearer $GITHUB_TOKEN" \
-                        -H "X-GitHub-Api-Version: 2022-11-28" \
-                        "https://api.github.com/users?per_page=100&page=$owners_page&since=$last_scanned_id")
-                    calls_to_api=$(get_BKG BKG_CALLS_TO_API)
-                    min_calls_to_api=$(get_BKG BKG_MIN_CALLS_TO_API)
-                    ((calls_to_api++))
-                    ((min_calls_to_api++))
-                    set_BKG BKG_CALLS_TO_API "$calls_to_api"
-                    set_BKG BKG_MIN_CALLS_TO_API "$min_calls_to_api"
-                    jq -e . <<<"$owners_more" &>/dev/null || owners_more="[]"
-                fi
-
-                # if owners doesn't have .login, break
-                jq -e '.[].login' <<<"$owners_more" &>/dev/null || break
-
-                # add the new owners to the owners array
-                for i in $(jq -r '.[] | @base64' <<<"$owners_more"); do
-                    check_limit || return
-
-                    _jq() {
-                        echo "$i" | base64 --decode | jq -r "$@"
-                    }
-
-                    owner=$(_jq '.login')
-                    id=$(_jq '.id')
-                    [ -n "$owner" ] || continue
-                    grep -q "$owner" "$BKG_OWNERS" || echo "$id/$owner" >>"$BKG_OWNERS"
-                    set_BKG BKG_LAST_SCANNED_ID "$id"
-                done
-            done
+            seq 1 10 | env_parallel --lb page_owner
+            echo "Found more owners"
         fi
 
         # add the owners in the database to the owners array
         echo "Reading known owners..."
         query="select owner_id, owner from '$BKG_INDEX_TBL_PKG' where date not between date('$BKG_BATCH_FIRST_STARTED') and date('$TODAY') group by owner_id;"
-
-        while IFS= read -r owner_id owner; do
-            check_limit || return
-            [ -n "$owner" ] || continue
-            grep -q "$owner" "$BKG_OWNERS" || echo "$owner_id/$owner" >>"$BKG_OWNERS"
-        done < <(sqlite3 "$BKG_INDEX_DB" "$query")
+        sqlite3 "$BKG_INDEX_DB" "$query" | awk '{print $1"/"$2}' | env_parallel --lb save_owner
+        echo "Read known owners"
     fi
-
-    owners=()
 
     # add more owners
     if [ -s "$BKG_OWNERS" ]; then
-        echo "Queuing owners..."
+        echo "Reading requested owners..."
         sed -i '/^\s*$/d' "$BKG_OWNERS"
         echo >>"$BKG_OWNERS"
         awk 'NF' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
         sed -i 's/^[[:space:]]*//;s/[[:space:]]*$//' "$BKG_OWNERS"
-
-        while IFS= read -r owner; do
-            check_limit || return
-            owner=$(echo "$owner" | tr -d '[:space:]')
-            [ -n "$owner" ] || continue
-            owner_id=""
-
-            if [[ "$owner" =~ .*\/.* ]]; then
-                owner_id=$(cut -d'/' -f1 <<<"$owner")
-                owner=$(cut -d'/' -f2 <<<"$owner")
-            fi
-
-            if [ -z "$owner_id" ]; then
-                owner_id=$(curl -H "Accept: application/vnd.github+json" \
-                    -H "Authorization: Bearer $GITHUB_TOKEN" \
-                    -H "X-GitHub-Api-Version: 2022-11-28" \
-                    "https://api.github.com/users/$owner" | jq -r '.id')
-                calls_to_api=$(get_BKG BKG_CALLS_TO_API)
-                min_calls_to_api=$(get_BKG BKG_MIN_CALLS_TO_API)
-                ((calls_to_api++))
-                ((min_calls_to_api++))
-                set_BKG BKG_CALLS_TO_API "$calls_to_api"
-                set_BKG BKG_MIN_CALLS_TO_API "$min_calls_to_api"
-            fi
-
-            grep -q "$owner_id/$owner" <<<"${owners[*]}" || owners+=("$owner_id/$owner")
-        done <"$BKG_OWNERS"
+        env_parallel --lb add_owner <"$BKG_OWNERS"
+        echo >"$BKG_OWNERS"
+        echo "Read requested owners"
     fi
 
-    # scrape the owners
     echo "Forking jobs..."
-    printf "%s\n" "${owners[@]}" | env_parallel -j 1000% --lb update_owner
+    get_BKG BKG_OWNERS_QUEUE | perl -pe 's/\\n/\n/g' | env_parallel --lb update_owner
     echo "Completed jobs"
     clean_up
-    grep -q '\.json$' ../.gitignore || echo "*.json" >>../.gitignore
+    printf "CHANGELOG.md\n*.json\n" >.gitignore
 }
 
 main "$@"
