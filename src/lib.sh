@@ -12,6 +12,8 @@ if ! command -v curl &>/dev/null || ! command -v jq &>/dev/null || ! command -v 
     sudo apt-get install curl jq parallel sqlite3 zstd -y
 fi
 
+tidying=false
+
 # shellcheck disable=SC2046
 . $(which env_parallel.bash)
 env_parallel --session
@@ -115,8 +117,9 @@ check_limit() {
 
     # exit if the script has been running for 5 hours
     if ((script_limit_diff >= 18000)); then
-        if ((timeout == 0)); then
+        if ((timeout == 0)) && ! $tidying; then
             echo "Script has been running for 5 hours! Tidying up..."
+            tidying=true
             set_BKG BKG_TIMEOUT "1"
         elif ((timeout == 2)); then
             return 1
@@ -199,7 +202,7 @@ clean_up() {
 
     echo "Compressing the database..."
     TODAY=$(get_BKG BKG_TODAY)
-    sqlite3 "$BKG_INDEX_DB" ".dump" | zstd -22 --ultra --long -T0 -o "$BKG_INDEX_SQL".new.zst
+    sqlite3 "$BKG_INDEX_DB" ".dump" | zstd -22 --ultra --long --no-progress -T0 -o "$BKG_INDEX_SQL".new.zst
 
     if [ -f "$BKG_INDEX_SQL".new.zst ]; then
         # rotate the database if it's greater than 2GB
@@ -216,7 +219,7 @@ clean_up() {
             done
 
             sqlite3 "$BKG_INDEX_DB" "vacuum;"
-            sqlite3 "$BKG_INDEX_DB" ".dump" | zstd -22 --ultra --long -T0 -o "$BKG_INDEX_SQL".new.zst
+            sqlite3 "$BKG_INDEX_DB" ".dump" | zstd -22 --ultra --long -T0 --no-progress -o "$BKG_INDEX_SQL".new.zst
         fi
 
         mv "$BKG_INDEX_SQL".new.zst "$BKG_INDEX_SQL".zst
@@ -227,14 +230,14 @@ clean_up() {
 
     echo "Updating templates..."
     [ ! -f ../CHANGELOG.md ] || rm -f ../CHANGELOG.md
-    \cp ../templates/.CHANGELOG.md ../CHANGELOG.md
+    \cp templates/.CHANGELOG.md ../CHANGELOG.md
     owners=$(sqlite3 "$BKG_INDEX_DB" "select count(distinct owner_id) from '$BKG_INDEX_TBL_PKG';")
     repos=$(sqlite3 "$BKG_INDEX_DB" "select count(distinct repo) from '$BKG_INDEX_TBL_PKG';")
     packages=$(sqlite3 "$BKG_INDEX_DB" "select count(distinct package) from '$BKG_INDEX_TBL_PKG';")
     perl -0777 -pe 's/\[OWNERS\]/'"$owners"'/g; s/\[REPOS\]/'"$repos"'/g; s/\[PACKAGES\]/'"$packages"'/g' ../CHANGELOG.md >CHANGELOG.tmp && [ -f CHANGELOG.tmp ] && mv CHANGELOG.tmp ../CHANGELOG.md || :
     ! $rotated || echo " The database grew over 2GB and was rotated, but you can find all previous data under [Releases](https://github.com/$GITHUB_OWNER/$GITHUB_REPO/releases)." >>../CHANGELOG.md
     [ ! -f ../README.md ] || rm -f ../README.md
-    \cp ../templates/.README.md ../README.md
+    \cp templates/.README.md ../README.md
     perl -0777 -pe 's/<GITHUB_OWNER>/'"$GITHUB_OWNER"'/g; s/<GITHUB_REPO>/'"$GITHUB_REPO"'/g; s/<GITHUB_BRANCH>/'"$GITHUB_BRANCH"'/g' ../README.md >README.tmp && [ -f README.tmp ] && mv README.tmp ../README.md || :
     echo "Updated templates"
 
@@ -518,7 +521,7 @@ save_owner() {
     check_limit
     echo "Queuing $1..."
     local owners
-    owners=$(get_BKG BKG_OWNERS_QUEUE)
+    owners=$(get_BKG BKG_OWNERS_QUEUE | perl -pe 's/\\n/\n/g' | awk '!seen[$0]++' | perl -pe 's/\n/\\n/g')
     # shellcheck disable=SC2076
     [[ "$owners" =~ "$1" ]] || owners="${owners:+$owners\n}$1"
     set_BKG BKG_OWNERS_QUEUE "$owners"
@@ -761,7 +764,7 @@ set_up() {
 
     if [ ! -f "$BKG_INDEX_DB" ]; then
         command curl -sSLNZO "https://github.com/$GITHUB_OWNER/$GITHUB_REPO/releases/latest/download/$BKG_INDEX_SQL.zst"
-        zstd -d "$BKG_INDEX_SQL.zst" | sqlite3 "$BKG_INDEX_DB"
+        unzstd --no-progress "$BKG_INDEX_SQL.zst" | sqlite3 "$BKG_INDEX_DB"
     fi
 
     [ -f "$BKG_INDEX_DB" ] || sqlite3 "$BKG_INDEX_DB" ""
