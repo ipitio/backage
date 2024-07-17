@@ -1,5 +1,5 @@
 #!/bin/bash
-# Refresh json and README
+# Refresh json files for all owners
 # Usage: ./refre.sh
 # Copyright (c) ipitio
 #
