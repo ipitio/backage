@@ -627,7 +627,7 @@ update_owner() {
     run_parallel page_package "$(seq -s ' ' 1 1 100)"
     run_parallel update_package "$(get_BKG BKG_PACKAGES_"$owner" | perl -pe 's/\\n/\n/g' | awk '!seen[$0]++')"
     del_BKG BKG_PACKAGES_"$owner"
-    echo "Updating $owner"
+    echo "Updated $owner"
 }
 
 refresh_owner() {
