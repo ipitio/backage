@@ -36,4 +36,4 @@ jobs:
         with:
           add: '*.json'
           message: "refresh endpoint"
-          pull: "--autostash -sours -Xours"
+          pull: "--autostash -Xours"
