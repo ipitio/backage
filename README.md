@@ -186,7 +186,5 @@ The stats for all versions of each package.
 
 Feel free to help with any of these:
 
-* [ ] Make a GitHub Pages badge/JSONPath maker
 * [ ] Get sizes for package types other than `container`
-* [ ] Generate a single JSON on the fly for <https://shields.io/badges/endpoint-badge>
 * [ ] Any other improvements or ideas you have -- see this [discussion](https://github.com/ipitio/backage/discussions/9)
