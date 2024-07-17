@@ -11,7 +11,6 @@ main() {
     set_up
     TODAY=$(get_BKG BKG_TODAY)
     # remove owners from queue that have already been scraped in this batch
-    echo "Updating environment"
     [ -n "$BKG_BATCH_FIRST_STARTED" ] || set_BKG BKG_BATCH_FIRST_STARTED "$TODAY"
     BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
     set_BKG BKG_TIMEOUT "2"
@@ -33,23 +32,12 @@ main() {
         set_BKG BKG_MIN_CALLS_TO_API "0"
     fi
 
-    echo "Updated environment"
-
     # if this is a scheduled update, scrape all owners that haven't been scraped in this batch
     if [ "$1" = "0" ]; then
-        # get more owners if no more
-        if [ -z "$(get_BKG BKG_OWNERS_QUEUE)" ]; then
-            echo "Finding more owners..."
-            [ -n "$(get_BKG BKG_LAST_SCANNED_ID)" ] || set_BKG BKG_LAST_SCANNED_ID "0"
-            seq 1 10 | env_parallel --lb page_owner
-            echo "Found more owners"
-        fi
-
-        # add the owners in the database to the owners array
-        echo "Reading known owners..."
+        [ -n "$(get_BKG BKG_LAST_SCANNED_ID)" ] || set_BKG BKG_LAST_SCANNED_ID "0"
+        seq 1 10 | env_parallel --lb page_owner
         query="select owner_id, owner from '$BKG_INDEX_TBL_PKG' where date not between date('$BKG_BATCH_FIRST_STARTED') and date('$TODAY') group by owner_id;"
         sqlite3 "$BKG_INDEX_DB" "$query" | awk -F'|' '{print $1"/"$2}' | env_parallel --lb save_owner
-        echo "Read known owners"
     fi
 
     # add more owners
