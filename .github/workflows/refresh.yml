@@ -36,4 +36,4 @@ jobs:
         with:
           add: '*.json'
           message: "refresh endpoint"
-          pull: "--autostash --strategy-option=ours"
+          pull: "--autostash -s ours -X ours"
