@@ -10,7 +10,7 @@ source lib.sh
 main() {
     set_up
     sqlite3 "$BKG_INDEX_DB" "select distinct owner from '$BKG_INDEX_TBL_PKG';" | env_parallel --lb refresh_owner
-    [ ! -f ../.gitignore ] || rm -f ../.gitignore
+    [ ! -f ../.gitignore ] || git rm ../.gitignore
 }
 
 main "$@"
