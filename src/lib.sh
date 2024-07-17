@@ -528,6 +528,15 @@ save_owner() {
     echo "Queued $1"
 }
 
+unsave_owner() {
+    check_limit
+    echo "Unqueuing $1..."
+    local owners
+    owners=$(get_BKG BKG_OWNERS_QUEUE | perl -pe 's/\\n/\n/g' | grep -v "$1" | perl -pe 's/\n/\\n/g')
+    set_BKG BKG_OWNERS_QUEUE "$owners"
+    echo "Unqueued $1"
+}
+
 check_owner() {
     check_limit
     local owner
@@ -537,7 +546,7 @@ check_owner() {
     [ -n "$owner" ] || return
     echo "Checking $owner..."
     save_owner "$id/$owner"
-    set_BKG BKG_LAST_SCANNED_ID "$id"
+    [ "$(stat -c %s "$BKG_OWNERS")" -ge 100000000 ] && unsave_owner "$id/$owner" || set_BKG BKG_LAST_SCANNED_ID "$id"
     echo "Checked $owner"
 }
 
