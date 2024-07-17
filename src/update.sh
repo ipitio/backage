@@ -48,7 +48,7 @@ main() {
         # add the owners in the database to the owners array
         echo "Reading known owners..."
         query="select owner_id, owner from '$BKG_INDEX_TBL_PKG' where date not between date('$BKG_BATCH_FIRST_STARTED') and date('$TODAY') group by owner_id;"
-        sqlite3 "$BKG_INDEX_DB" "$query" | awk '{print $1"/"$2}' | env_parallel --lb save_owner
+        sqlite3 "$BKG_INDEX_DB" "$query" | awk -F'|' '{print $1"/"$2}' | env_parallel --lb save_owner
         echo "Read known owners"
     fi
 
@@ -64,11 +64,9 @@ main() {
         echo "Read requested owners"
     fi
 
-    echo "Forking jobs..."
     get_BKG BKG_OWNERS_QUEUE | perl -pe 's/\\n/\n/g' | env_parallel --lb update_owner
-    echo "Completed jobs"
     clean_up
-    printf "CHANGELOG.md\n*.json\n" >.gitignore
+    printf "CHANGELOG.md\n*.json\nindex.sql*" >../.gitignore
 }
 
 main "$@"
