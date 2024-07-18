@@ -1,6 +1,6 @@
 <div align="center">
 
-![logo](img/logo-b.png)
+![logo](src/img/logo-b.png)
 
 # backage
 
