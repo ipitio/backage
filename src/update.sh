@@ -11,8 +11,7 @@ main() {
     set_up
     TODAY=$(get_BKG BKG_TODAY)
     # remove owners from queue that have already been scraped in this batch
-    [ -n "$BKG_BATCH_FIRST_STARTED" ] || set_BKG BKG_BATCH_FIRST_STARTED "$TODAY"
-    BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
+    [ -n "$(get_BKG BKG_BATCH_FIRST_STARTED)" ] || set_BKG BKG_BATCH_FIRST_STARTED "$TODAY"
     set_BKG BKG_TIMEOUT "2"
     [[ "$1" != "0" ]] || get_BKG_set BKG_OWNERS_QUEUE | env_parallel --lb remove_owner
     [ -n "$(get_BKG BKG_OWNERS_QUEUE)" ] || set_BKG BKG_BATCH_FIRST_STARTED "$TODAY"
@@ -37,7 +36,7 @@ main() {
         [ -n "$(get_BKG BKG_LAST_SCANNED_ID)" ] || set_BKG BKG_LAST_SCANNED_ID "0"
         seq 1 10 | env_parallel --lb page_owner
         query="select owner_id, owner from '$BKG_INDEX_TBL_PKG' where date not between date('$BKG_BATCH_FIRST_STARTED') and date('$TODAY') group by owner_id;"
-        sqlite3 "$BKG_INDEX_DB" "$query" | awk -F'|' '{print $1"/"$2}' | env_parallel --lb set_BKG_set
+        sqlite3 "$BKG_INDEX_DB" "$query" | awk -F'|' '{print $1"/"$2}' | env_parallel --lb add_owner
     fi
 
     # add more owners

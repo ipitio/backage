@@ -87,18 +87,10 @@ get_BKG_set() {
 
 set_BKG_set() {
     local list
-    local name=$1
-    local value=$2
-
-    if [ -z "$value" ]; then
-        value=$name
-        name=BKG_OWNERS_QUEUE
-    fi
-
-    list=$(get_BKG_set "$name" | awk '!seen[$0]++' | perl -pe 's/\n/\\n/g')
+    list=$(get_BKG_set "$1" | awk '!seen[$0]++' | perl -pe 's/\n/\\n/g')
     # shellcheck disable=SC2076
-    [[ "$list" =~ "$value" ]] || list="${list:+$list\n}$value"
-    set_BKG "$name" "$list"
+    [[ "$list" =~ "$2" ]] || list="${list:+$list\n}$2"
+    set_BKG "$1" "$(echo "$list" | perl -pe 's/\\n/\n/g' | perl -pe 's/\n/\\n/g')"
 }
 
 del_BKG_set() {
@@ -591,9 +583,12 @@ page_owner() {
 remove_owner() {
     check_limit || return
     [ -n "$1" ] || return
-    echo "Removing $1..."
-    del_BKG_set BKG_OWNERS_QUEUE "$1"
-    echo "Removed $1"
+
+    if [[ "$(sqlite3 "$BKG_INDEX_DB" "select count(*) from '$BKG_INDEX_TBL_PKG' where owner_id='$1' and date between date('$BKG_BATCH_FIRST_STARTED') and date('$TODAY');")" =~ ^0*$ ]]; then
+        echo "Removing $1..."
+        del_BKG_set BKG_OWNERS_QUEUE "$1"
+        echo "Removed $1"
+    fi
 }
 
 add_owner() {
