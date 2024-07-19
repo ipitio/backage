@@ -12,8 +12,6 @@ if ! command -v curl &>/dev/null || ! command -v jq &>/dev/null || ! command -v 
     sudo apt-get install curl jq parallel sqlite3 zstd -y
 fi
 
-tidying=false
-
 # shellcheck disable=SC2046
 . $(which env_parallel.bash)
 env_parallel --session
@@ -83,6 +81,22 @@ set_BKG() {
     rm -f "$file.lock"
 }
 
+get_BKG_set() {
+    get_BKG "$1" | perl -pe 's/\\n/\n/g'
+}
+
+set_BKG_set() {
+    local list
+    list=$(get_BKG "$1" | perl -pe 's/\\n/\n/g' | awk '!seen[$0]++' | perl -pe 's/\n/\\n/g')
+    # shellcheck disable=SC2076
+    [[ "$list" =~ "$2" ]] || list="${list:+$list\n}$2"
+    set_BKG "$1" "$owners"
+}
+
+del_BKG_set() {
+    set_BKG "$1" "$(get_BKG "$1" | perl -pe 's/\\n/\n/g' | grep -v "$2" | perl -pe 's/\n/\\n/g')"
+}
+
 del_BKG() {
     local file=env.env
     local key=$1
@@ -117,9 +131,9 @@ check_limit() {
 
     # exit if the script has been running for 5 hours
     if ((script_limit_diff >= 18000)); then
-        if ((timeout == 0)) && ! $tidying; then
+        if ((timeout == 0)) && (($(get_BKG BKG_TIDY) == 1)); then
             echo "Script has been running for 5 hours! Tidying up..."
-            tidying=true
+            set_BKG BKG_TIDY "0"
             set_BKG BKG_TIMEOUT "1"
         elif ((timeout == 2)); then
             return 1
@@ -244,8 +258,15 @@ clean_up() {
     # if index db is greater than 100MB, remove it
     if [ "$(stat -c %s "$BKG_INDEX_DB")" -ge 100000000 ]; then
         echo "Removing the database..."
-        rm -f "$BKG_INDEX_DB"
-        [ ! -f ../index.json ] || rm -f ../index.json
+
+        if [ -f "$BKG_INDEX_DB" ]; then
+            git rm "$BKG_INDEX_DB" || rm -f "$BKG_INDEX_DB"
+        fi
+
+        if [ -f ../index.json ]; then
+            git rm ../index.json || rm -f ../index.json
+        fi
+
         echo "Removed the database"
     fi
 }
@@ -396,9 +417,7 @@ save_package() {
     package_new=$(cut -d'/' -f7 <<<"$1" | tr -d '"')
     package_type=$(cut -d'/' -f5 <<<"$1")
     repo=$(grep -zoP '(?<=href="/'"$owner_type"'/'"$owner"'/packages/'"$package_type"'/package/'"$package_new"'")(.|\n)*?href="/'"$owner"'/[^"]+"' <<<"$html" | tr -d '\0' | grep -oP 'href="/'"$owner"'/[^"]+' | cut -d'/' -f3)
-    packages=$(get_BKG BKG_PACKAGES_"$owner")
-    [ -n "$packages" ] && packages="$packages\n$package_type/$repo/$package_new" || packages="$package_type/$repo/$package_new"
-    set_BKG BKG_PACKAGES_"$owner" "$packages"
+    set_BKG_set BKG_PACKAGES_"$owner" "$package_type/$repo/$package_new"
     echo "Queued $owner/$package"
 }
 
@@ -419,6 +438,9 @@ page_package() {
 update_package() {
     check_limit
     local html
+    local query
+    local count
+
     package_type=$(cut -d'/' -f1 <<<"$1")
     repo=$(cut -d'/' -f2 <<<"$1")
     package=$(cut -d'/' -f3 <<<"$1")
@@ -460,25 +482,23 @@ update_package() {
 
         # scrape the package page for the total downloads
         html=$(curl "https://github.com/$owner/$repo/pkgs/$package_type/$package")
-        is_public=$(grep -Pzo 'Total downloads' <<<"$html" | tr -d '\0')
-        [ -n "$is_public" ] || return
+        [ -n "$(grep -Pzo 'Total downloads' <<<"$html" | tr -d '\0')" ] || return
         raw_downloads=$(grep -Pzo 'Total downloads[^"]*"\d*' <<<"$html" | grep -Pzo '\d*$' | tr -d '\0') # https://stackoverflow.com/a/74214537
         [[ "$raw_downloads" =~ ^[0-9]+$ ]] || raw_downloads=-1
-        set_BKG BKG_VERSIONS_PAGE_"${owner}_${package}" "1"
+        set_BKG BKG_VERSIONS_PAGE_"${owner}_${package}" "0"
 
         # add all the versions currently in the db to the versions_json, if they are not already there
         table_version_name="${BKG_INDEX_TBL_VER}_${owner_type}_${package_type}_${owner}_${repo}_${package}"
-        table_exists=$(sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name='$table_version_name';")
-        [ -z "$table_exists" ] || run_parallel save_version "$(sqlite3 "$BKG_INDEX_DB" "select id, name, tags from '$table_version_name';" | awk -F'|' '{print $1,$2,$3}' | base64 --wrap=0)"
+        [ -z "$(sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name='$table_version_name';")" ] || run_parallel save_version "$(sqlite3 "$BKG_INDEX_DB" "select id, name, tags from '$table_version_name';" | awk -F'|' '{print $1,$2,$3}' | base64 --wrap=0)"
         echo "Getting versions for $owner/$package..."
 
         while check_limit; do
             versions_page=$(get_BKG BKG_VERSIONS_PAGE_"${owner}_${package}")
             [[ "$versions_page" =~ ^\d+$ ]] || break
-            version_pages=$(seq -s ' ' "$versions_page" 1 "${versions_page}0")
+            version_pages=$(seq "$((versions_page + 1))" "${versions_page}0")
 
             if [ -n "$version_pages" ]; then
-                version_pages=$(seq -s ' ' "$versions_page" 1 "$(get_BKG BKG_MAX)")
+                version_pages=$(seq "$((versions_page + 1))" "$(get_BKG BKG_MAX)")
                 [ -n "$version_pages" ] || break
             fi
 
@@ -492,49 +512,25 @@ update_package() {
         run_parallel update_version "$(jq -r '.[] | @base64' <<<"$versions_json")"
         del_BKG BKG_VERSIONS_JSON_"${owner}_${package}"
         del_BKG BKG_VERSIONS_PAGE_"${owner}_${package}"
-        # insert the package into the db
-        if check_limit; then
-            table_exists=$(sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name='$table_version_name';")
+        check_limit
 
-            if [ -n "$table_exists" ]; then
-                # calculate the total downloads
-                max_date=$(sqlite3 "$BKG_INDEX_DB" "select max(date) from '$table_version_name';")
-                query="select sum(downloads), sum(downloads_month), sum(downloads_week), sum(downloads_day) from '$table_version_name' where date='$max_date';"
-                # summed_raw_downloads=$(sqlite3 "$BKG_INDEX_DB" "$query" | cut -d'|' -f1)
-                raw_downloads_month=$(sqlite3 "$BKG_INDEX_DB" "$query" | cut -d'|' -f2)
-                raw_downloads_week=$(sqlite3 "$BKG_INDEX_DB" "$query" | cut -d'|' -f3)
-                raw_downloads_day=$(sqlite3 "$BKG_INDEX_DB" "$query" | cut -d'|' -f4)
+        if [ -n "$(sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name='$table_version_name';")" ]; then
+            # calculate the total downloads
+            max_date=$(sqlite3 "$BKG_INDEX_DB" "select max(date) from '$table_version_name';")
+            query="select sum(downloads), sum(downloads_month), sum(downloads_week), sum(downloads_day) from '$table_version_name' where date='$max_date';"
+            # summed_raw_downloads=$(sqlite3 "$BKG_INDEX_DB" "$query" | cut -d'|' -f1)
+            raw_downloads_month=$(sqlite3 "$BKG_INDEX_DB" "$query" | cut -d'|' -f2)
+            raw_downloads_week=$(sqlite3 "$BKG_INDEX_DB" "$query" | cut -d'|' -f3)
+            raw_downloads_day=$(sqlite3 "$BKG_INDEX_DB" "$query" | cut -d'|' -f4)
 
-                # use the latest version's size as the package size
-                version_newest_id=$(sqlite3 "$BKG_INDEX_DB" "select id from '${BKG_INDEX_TBL_VER}_${owner_type}_${package_type}_${owner}_${repo}_${package}' order by id desc limit 1;")
-                size=$(sqlite3 "$BKG_INDEX_DB" "select size from '${BKG_INDEX_TBL_VER}_${owner_type}_${package_type}_${owner}_${repo}_${package}' where id='$version_newest_id' order by date desc limit 1;")
-            fi
-
-            sqlite3 "$BKG_INDEX_DB" "insert or replace into '$BKG_INDEX_TBL_PKG' (owner_id, owner_type, package_type, owner, repo, package, downloads, downloads_month, downloads_week, downloads_day, size, date) values ('$owner_id', '$owner_type', '$package_type', '$owner', '$repo', '$package', '$raw_downloads', '$raw_downloads_month', '$raw_downloads_week', '$raw_downloads_day', '$size', '$TODAY');"
+            # use the latest version's size as the package size
+            version_newest_id=$(sqlite3 "$BKG_INDEX_DB" "select id from '${BKG_INDEX_TBL_VER}_${owner_type}_${package_type}_${owner}_${repo}_${package}' order by id desc limit 1;")
+            size=$(sqlite3 "$BKG_INDEX_DB" "select size from '${BKG_INDEX_TBL_VER}_${owner_type}_${package_type}_${owner}_${repo}_${package}' where id='$version_newest_id' order by date desc limit 1;")
         fi
 
+        sqlite3 "$BKG_INDEX_DB" "insert or replace into '$BKG_INDEX_TBL_PKG' (owner_id, owner_type, package_type, owner, repo, package, downloads, downloads_month, downloads_week, downloads_day, size, date) values ('$owner_id', '$owner_type', '$package_type', '$owner', '$repo', '$package', '$raw_downloads', '$raw_downloads_month', '$raw_downloads_week', '$raw_downloads_day', '$size', '$TODAY');"
         echo "Scraped $owner/$package"
     fi
-}
-
-save_owner() {
-    check_limit
-    echo "Queuing $1..."
-    local owners
-    owners=$(get_BKG BKG_OWNERS_QUEUE | perl -pe 's/\\n/\n/g' | awk '!seen[$0]++' | perl -pe 's/\n/\\n/g')
-    # shellcheck disable=SC2076
-    [[ "$owners" =~ "$1" ]] || owners="${owners:+$owners\n}$1"
-    set_BKG BKG_OWNERS_QUEUE "$owners"
-    echo "Queued $1"
-}
-
-unsave_owner() {
-    check_limit
-    echo "Unqueuing $1..."
-    local owners
-    owners=$(get_BKG BKG_OWNERS_QUEUE | perl -pe 's/\\n/\n/g' | grep -v "$1" | perl -pe 's/\n/\\n/g')
-    set_BKG BKG_OWNERS_QUEUE "$owners"
-    echo "Unqueued $1"
 }
 
 check_owner() {
@@ -545,8 +541,8 @@ check_owner() {
     id=$(_jq "$1" '.id')
     [ -n "$owner" ] || return
     echo "Checking $owner..."
-    save_owner "$id/$owner"
-    [ "$(stat -c %s "$BKG_OWNERS")" -ge 100000000 ] && unsave_owner "$id/$owner" || set_BKG BKG_LAST_SCANNED_ID "$id"
+    set_BKG_set BKG_OWNERS_QUEUE "$id/$owner"
+    [ "$(stat -c %s "$BKG_OWNERS")" -ge 100000000 ] && del_BKG_set BKG_OWNERS_QUEUE "$id/$owner" || set_BKG BKG_LAST_SCANNED_ID "$id"
     echo "Checked $owner"
 }
 
@@ -586,7 +582,7 @@ remove_owner() {
     query=" and date between date('$BKG_BATCH_FIRST_STARTED') and date('$(get_BKG BKG_TODAY)');"
     count=$(sqlite3 "$BKG_INDEX_DB" "$query")
     [[ "$count" =~ ^0*$ ]] || return
-    owners=$(get_BKG BKG_OWNERS_QUEUE | perl -pe 's/\\n/\n/g' | grep -v "$1")
+    owners=$(get_BKG_set BKG_OWNERS_QUEUE | grep -v "$1")
     set_BKG BKG_OWNERS_QUEUE "$(perl -pe 's/\n/\\n/g' <<<"$owners")"
     echo "Removed $1"
 }
@@ -618,7 +614,7 @@ add_owner() {
         set_BKG BKG_MIN_CALLS_TO_API "$min_calls_to_api"
     fi
 
-    save_owner "$owner_id/$owner"
+    set_BKG_set BKG_OWNERS_QUEUE "$id/$owner"
     echo "Added $owner"
 }
 
@@ -636,8 +632,8 @@ update_owner() {
     is_org=$(grep -zoP 'href="/orgs/'"$owner"'/people"' <<<"$html" | tr -d '\0')
     [ -n "$is_org" ] || owner_type="users"
     set_BKG BKG_PACKAGES_"$owner" ""
-    run_parallel page_package "$(seq -s ' ' 1 1 100)"
-    run_parallel update_package "$(get_BKG BKG_PACKAGES_"$owner" | perl -pe 's/\\n/\n/g' | awk '!seen[$0]++')"
+    run_parallel page_package "$(seq 1 100)"
+    run_parallel update_package "$(get_BKG_set BKG_PACKAGES_"$owner")"
     del_BKG BKG_PACKAGES_"$owner"
     echo "Updated $owner"
 }
@@ -652,7 +648,6 @@ refresh_owner() {
     local table_version_name
     local query
     local version_newest_id
-    local table_exists
     echo "Refreshing $owner..."
     echo "[" >"$BKG_INDEX_DIR"/"$owner".json
 
@@ -674,10 +669,7 @@ refresh_owner() {
         version_with_tag_count=0
         table_version_name="${BKG_INDEX_TBL_VER}_${owner_type}_${package_type}_${owner}_${repo}_${package}"
 
-        # get the version and tagged counts
-        table_exists=$(sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name='$table_version_name';")
-
-        if [ -n "$table_exists" ]; then
+        if [ -n "$(sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name='$table_version_name';")" ]; then
             version_count=$(sqlite3 "$BKG_INDEX_DB" "select count(distinct id) from '$table_version_name';")
             version_with_tag_count=$(sqlite3 "$BKG_INDEX_DB" "select count(distinct id) from '$table_version_name' where tags != '' and tags is not null;")
         fi
@@ -769,6 +761,7 @@ set_up() {
     set_BKG BKG_TIMEOUT "0"
     set_BKG BKG_TODAY "$(date -u +%Y-%m-%d)"
     set_BKG BKG_SCRIPT_START "$(date -u +%s)"
+    set_BKG BKG_TIDY "1"
 
     if [ ! -f "$BKG_INDEX_DB" ]; then
         command curl -sSLNZO "https://github.com/$GITHUB_OWNER/$GITHUB_REPO/releases/latest/download/$BKG_INDEX_SQL.zst"

@@ -42,19 +42,17 @@ main() {
 
     # add more owners
     if [ -s "$BKG_OWNERS" ]; then
-        echo "Reading requested owners..."
         sed -i '/^\s*$/d' "$BKG_OWNERS"
         echo >>"$BKG_OWNERS"
         awk 'NF' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
         sed -i 's/^[[:space:]]*//;s/[[:space:]]*$//' "$BKG_OWNERS"
         env_parallel --lb add_owner <"$BKG_OWNERS"
         echo >"$BKG_OWNERS"
-        echo "Read requested owners"
     fi
 
     get_BKG BKG_OWNERS_QUEUE | perl -pe 's/\\n/\n/g' | env_parallel --lb update_owner
     clean_up
-    printf "CHANGELOG.md\n*.json\nindex.sql*" >../.gitignore
+    printf "CHANGELOG.md\n*.json\nindex.sql*\n" >../.gitignore
 }
 
 main "$@"
