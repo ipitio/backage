@@ -504,7 +504,7 @@ update_package() {
 
         # add all the versions currently in the db to the versions_json, if they are not already there
         table_version_name="${BKG_INDEX_TBL_VER}_${owner_type}_${package_type}_${owner}_${repo}_${package}"
-        [ -z "$(sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name='$table_version_name';")" ] || run_parallel save_version "$(sqlite3 "$BKG_INDEX_DB" "select id, name, tags from '$table_version_name';" | awk -F'|' '{print "{\"id\":\""$1"\",\"name\":\""$2"\",\"tags\":\""$3"\"}"}' | base64 --wrap=0)"
+        [ -z "$(sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name='$table_version_name';")" ] || run_parallel save_version "$(sqlite3 "$BKG_INDEX_DB" "select id, name, tags from '$table_version_name';" | awk -F'|' '{print $1,$2,$3}')"
         echo "Getting versions for $owner/$package..."
 
         while check_limit; do
@@ -661,7 +661,6 @@ refresh_package() {
     IFS='|' read -r owner_id owner_type package_type owner repo package downloads downloads_month downloads_week downloads_day size date <<<"$1"
     echo "Refreshing $owner/$package..."
     [ -d "$BKG_INDEX_DIR/$owner/$repo" ] || mkdir "$BKG_INDEX_DIR/$owner/$repo"
-    echo "[" >"$BKG_INDEX_DIR/$owner/$repo/$package".json
     script_diff=$(($(date -u +%s) - $(get_BKG BKG_SCRIPT_START)))
 
     if ((script_diff >= 21500)); then
@@ -672,7 +671,6 @@ refresh_package() {
     # only use the latest date for the package
     max_date=$(sqlite3 "$BKG_INDEX_DB" "select date from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and package='$package' order by date desc limit 1;")
     [ "$date" = "$max_date" ] || return
-
     fmt_downloads=$(numfmt <<<"$downloads")
     version_count=0
     version_with_tag_count=0
@@ -736,18 +734,7 @@ refresh_package() {
     # remove the last comma
     sed -i '$ s/,$//' "$BKG_INDEX_DIR/$owner/$repo/$package".json
     echo "]
-    }," >>"$BKG_INDEX_DIR/$owner/$repo/$package".json
-
-    # remove the last comma
-    sed -i '$ s/,$//' "$BKG_INDEX_DIR/$owner/$repo/$package".json
-    echo "]" >>"$BKG_INDEX_DIR/$owner/$repo/$package".json
-
-    # if the json is empty, exit
-    jq -e 'length > 0' "$BKG_INDEX_DIR/$owner/$repo/$package".json || return
-
-    # sort the top level by raw_downloads
-    jq -c 'sort_by(.raw_downloads | tonumber) | reverse' "$BKG_INDEX_DIR/$owner/$repo/$package".json >"$BKG_INDEX_DIR"/"$owner".tmp.json
-    mv "$BKG_INDEX_DIR"/"$owner".tmp.json "$BKG_INDEX_DIR/$owner/$repo/$package".json
+    }" >>"$BKG_INDEX_DIR/$owner/$repo/$package".json
 
     # if the json is over 50MB, remove oldest versions from the packages with the most versions
     json_size=$(stat -c %s "$BKG_INDEX_DIR/$owner/$repo/$package".json)
