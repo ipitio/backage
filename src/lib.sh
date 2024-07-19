@@ -504,7 +504,7 @@ update_package() {
 
         # add all the versions currently in the db to the versions_json, if they are not already there
         table_version_name="${BKG_INDEX_TBL_VER}_${owner_type}_${package_type}_${owner}_${repo}_${package}"
-        [ -z "$(sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name='$table_version_name';")" ] || run_parallel save_version "$(sqlite3 "$BKG_INDEX_DB" "select id, name, tags from '$table_version_name';" | awk -F'|' '{print $1,$2,$3}')"
+        [ -z "$(sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name='$table_version_name';")" ] || run_parallel save_version "$(sqlite3 "$BKG_INDEX_DB" "select id, name, tags from '$table_version_name';" | awk -F'|' '{print $1,$2,$3}' | base64 --wrap=0)"
         echo "Getting versions for $owner/$package..."
 
         while check_limit; do
