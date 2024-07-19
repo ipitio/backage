@@ -288,14 +288,14 @@ save_version() {
     local tags
     local versions_json
     id=$(_jq "$1" '.id')
-    #echo "Queuing $owner/$package/$id..."
+    echo "Queuing $owner/$package/$id..."
     name=$(_jq "$1" '.name')
     tags=$(_jq "$1" '.. | try .tags | join(",")')
     versions_json=$(get_BKG BKG_VERSIONS_JSON_"${owner}_${package}")
     [ -n "$versions_json" ] && jq -e . <<<"$versions_json" &>/dev/null && : || versions_json="[]"
     jq -e ".[] | select(.id == \"$id\")" <<<"$versions_json" &>/dev/null || versions_json=$(jq -c ". + [{\"id\":\"$id\",\"name\":\"$name\",\"tags\":\"$tags\"}]" <<<"$versions_json")
     set_BKG BKG_VERSIONS_JSON_"${owner}_${package}" "$versions_json"
-    #echo "Queued $owner/$package/$id"
+    echo "Queued $owner/$package/$id"
 }
 
 page_version() {
@@ -425,13 +425,13 @@ save_package() {
     package_new=$(cut -d'/' -f7 <<<"$1" | tr -d '"')
     package_new=${package_new%/}
     [ -n "$package_new" ] || return
-    #echo "Queuing $owner/$package_new..."
+    echo "Queuing $owner/$package_new..."
     package_type=$(cut -d'/' -f5 <<<"$1")
     repo=$(grep -zoP '(?<=href="/'"$owner_type"'/'"$owner"'/packages/'"$package_type"'/package/'"$package_new"'")(.|\n)*?href="/'"$owner"'/[^"]+"' <<<"$html" | tr -d '\0' | grep -oP 'href="/'"$owner"'/[^"]+' | cut -d'/' -f3)
     package_type=${package_type%/}
     repo=${repo%/}
     set_BKG_set BKG_PACKAGES_"$owner" "$package_type/$repo/$package_new"
-    #echo "Queued $owner/$package_new"
+    echo "Queued $owner/$package_new"
 }
 
 page_package() {
@@ -521,7 +521,6 @@ update_package() {
         versions_json=$(get_BKG BKG_VERSIONS_JSON_"${owner}_${package}")
         jq -e . <<<"$versions_json" &>/dev/null || versions_json="[{\"id\":\"latest\",\"name\":\"latest\"}]"
         echo "Scraping $owner/$package..."
-        #echo "$versions_json"
         run_parallel update_version "$(jq -r '.[] | @base64' <<<"$versions_json")"
         del_BKG BKG_VERSIONS_JSON_"${owner}_${package}"
         del_BKG BKG_VERSIONS_PAGE_"${owner}_${package}"
@@ -553,10 +552,10 @@ check_owner() {
     local id
     owner=$(_jq "$1" '.login')
     id=$(_jq "$1" '.id')
-    #echo "Checking $owner..."
+    echo "Checking $owner..."
     set_BKG_set BKG_OWNERS_QUEUE "$id/$owner"
     [ "$(stat -c %s "$BKG_OWNERS")" -ge 100000000 ] && del_BKG_set BKG_OWNERS_QUEUE "$id/$owner" || set_BKG BKG_LAST_SCANNED_ID "$id"
-    #echo "Checked $owner"
+    echo "Checked $owner"
 }
 
 page_owner() {
@@ -591,9 +590,9 @@ remove_owner() {
     [ -n "$1" ] || return
 
     if [[ "$(sqlite3 "$BKG_INDEX_DB" "select count(*) from '$BKG_INDEX_TBL_PKG' where owner_id='$1' and date between date('$BKG_BATCH_FIRST_STARTED') and date('$TODAY');")" =~ ^0*$ ]]; then
-        #echo "Removing $1..."
+        echo "Removing $1..."
         del_BKG_set BKG_OWNERS_QUEUE "$1"
-        #echo "Removed $1"
+        echo "Removed $1"
     fi
 }
 
@@ -601,7 +600,7 @@ add_owner() {
     check_limit || return
     owner=$(echo "$1" | tr -d '[:space:]')
     [ -n "$owner" ] || return
-    #echo "Adding $owner..."
+    echo "Adding $owner..."
     owner_id=""
     local calls_to_api
     local min_calls_to_api
@@ -625,7 +624,7 @@ add_owner() {
     fi
 
     set_BKG_set BKG_OWNERS_QUEUE "$owner_id/$owner"
-    #echo "Added $owner"
+    echo "Added $owner"
 }
 
 update_owner() {
