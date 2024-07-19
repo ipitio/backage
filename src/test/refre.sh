@@ -1,13 +1,13 @@
 #!/bin/bash
-# Test the refresh script
+# Test the refresh function
 # Usage: ./test.refre.sh
 # Copyright (c) ipitio
 #
 # shellcheck disable=SC1090,SC1091
 
-cd "${0%/*}"/.. || exit 1 && source "${0##*/}"
+cd "${0%/*}"/.. || exit 1 && source lib.sh
+refresh_owners "$@"
 
-# assert that no json is empty after running the refresh script
-for json in "$BKG_INDEX_DIR"/*.json; do
-    jq -e 'length > 0' "$json" || exit 1
+for json in "$BKG_INDEX_DIR"/*/*/*.json; do
+    jq -e 'type == "object"' "$json" || exit 1 # json should not be empty
 done

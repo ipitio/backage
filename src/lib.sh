@@ -516,6 +516,7 @@ update_package() {
         versions_json=$(get_BKG BKG_VERSIONS_JSON_"${owner}_${package}")
         jq -e . <<<"$versions_json" &>/dev/null || versions_json="[{\"id\":\"latest\",\"name\":\"latest\"}]"
         echo "Scraping $owner/$package..."
+        jq -r '.[] | @base64' <<<"$versions_json"
         run_parallel update_version "$(jq -r '.[] | @base64' <<<"$versions_json")"
         del_BKG BKG_VERSIONS_JSON_"${owner}_${package}"
         del_BKG BKG_VERSIONS_PAGE_"${owner}_${package}"
@@ -802,4 +803,55 @@ set_up() {
     sqlite3 "$BKG_INDEX_DB" "insert or ignore into '${BKG_INDEX_TBL_PKG}_temp' select * from '$BKG_INDEX_TBL_PKG';"
     sqlite3 "$BKG_INDEX_DB" "drop table '$BKG_INDEX_TBL_PKG';"
     sqlite3 "$BKG_INDEX_DB" "alter table '${BKG_INDEX_TBL_PKG}_temp' rename to '$BKG_INDEX_TBL_PKG';"
+}
+
+update_owners() {
+    set_up
+    set_BKG BKG_TIMEOUT "2"
+    TODAY=$(get_BKG BKG_TODAY)
+    [ -n "$(get_BKG BKG_BATCH_FIRST_STARTED)" ] || set_BKG BKG_BATCH_FIRST_STARTED "$TODAY"
+    [[ "$1" != "0" ]] || get_BKG_set BKG_OWNERS_QUEUE | env_parallel --lb remove_owner
+    [ -n "$(get_BKG BKG_OWNERS_QUEUE)" ] || set_BKG BKG_BATCH_FIRST_STARTED "$TODAY"
+    [ -n "$(get_BKG BKG_RATE_LIMIT_START)" ] || set_BKG BKG_RATE_LIMIT_START "$(date -u +%s)"
+    [ -n "$(get_BKG BKG_CALLS_TO_API)" ] || set_BKG BKG_CALLS_TO_API "0"
+    BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
+
+    # reset the rate limit if an hour has passed since the last run started
+    if (($(get_BKG BKG_RATE_LIMIT_START) + 3600 <= $(date -u +%s))); then
+        set_BKG BKG_RATE_LIMIT_START "$(date -u +%s)"
+        set_BKG BKG_CALLS_TO_API "0"
+    fi
+
+    # reset the secondary rate limit if a minute has passed since the last run started
+    if (($(get_BKG BKG_MIN_RATE_LIMIT_START) + 60 <= $(date -u +%s))); then
+        set_BKG BKG_MIN_RATE_LIMIT_START "$(date -u +%s)"
+        set_BKG BKG_MIN_CALLS_TO_API "0"
+    fi
+
+    # if this is a scheduled update, scrape all owners that haven't been scraped in this batch
+    if [ "$1" = "0" ]; then
+        [ -n "$(get_BKG BKG_LAST_SCANNED_ID)" ] || set_BKG BKG_LAST_SCANNED_ID "0"
+        [ -s "$BKG_OWNERS" ] || seq 1 10 | env_parallel --lb page_owner
+        sqlite3 "$BKG_INDEX_DB" "select owner_id, owner from '$BKG_INDEX_TBL_PKG' where date not between date('$BKG_BATCH_FIRST_STARTED') and date('$TODAY') group by owner_id;" | awk -F'|' '{print $1"/"$2}' | env_parallel --lb add_owner
+    fi
+
+    # add more owners
+    if [ -s "$BKG_OWNERS" ]; then
+        sed -i '/^\s*$/d' "$BKG_OWNERS"
+        echo >>"$BKG_OWNERS"
+        awk 'NF' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
+        sed -i 's/^[[:space:]]*//;s/[[:space:]]*$//' "$BKG_OWNERS"
+        env_parallel --lb add_owner <"$BKG_OWNERS"
+        echo >"$BKG_OWNERS"
+    fi
+
+    get_BKG_set BKG_OWNERS_QUEUE | env_parallel --lb update_owner
+    clean_up
+    printf "CHANGELOG.md\n*.json\nindex.sql*\n" >../.gitignore
+}
+
+refresh_owners() {
+    set_up
+    sqlite3 "$BKG_INDEX_DB" "select distinct owner from '$BKG_INDEX_TBL_PKG';" | env_parallel --lb refresh_owner
+    [ ! -f ../.gitignore ] || git rm ../.gitignore
 }
