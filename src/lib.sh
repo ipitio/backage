@@ -426,12 +426,12 @@ save_package() {
     local package_type
     local repo
     local packages
-    echo "Queuing $owner/$package..."
     package_new=$(cut -d'/' -f7 <<<"$1" | tr -d '"')
+    echo "Queuing $owner/$package_new..."
     package_type=$(cut -d'/' -f5 <<<"$1")
     repo=$(grep -zoP '(?<=href="/'"$owner_type"'/'"$owner"'/packages/'"$package_type"'/package/'"$package_new"'")(.|\n)*?href="/'"$owner"'/[^"]+"' <<<"$html" | tr -d '\0' | grep -oP 'href="/'"$owner"'/[^"]+' | cut -d'/' -f3)
     set_BKG_set BKG_PACKAGES_"$owner" "$package_type/$repo/$package_new"
-    echo "Queued $owner/$package"
+    echo "Queued $owner/$package_new"
 }
 
 page_package() {
@@ -501,7 +501,7 @@ update_package() {
 
         # add all the versions currently in the db to the versions_json, if they are not already there
         table_version_name="${BKG_INDEX_TBL_VER}_${owner_type}_${package_type}_${owner}_${repo}_${package}"
-        [ -z "$(sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name='$table_version_name';")" ] || run_parallel save_version "$(sqlite3 "$BKG_INDEX_DB" "select id, name, tags from '$table_version_name';" | awk -F'|' '{print $1,$2,$3}' | base64 --wrap=0)"
+        [ -z "$(sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name='$table_version_name';")" ] || run_parallel save_version "$(sqlite3 "$BKG_INDEX_DB" "select id, name, tags from '$table_version_name';" | awk -F'|' '{print "{\"id\":\""$1"\",\"name\":\""$2"\",\"tags\":\""$3"\"}"}' | base64 --wrap=0)"
         echo "Getting versions for $owner/$package..."
 
         while check_limit; do
@@ -620,7 +620,7 @@ add_owner() {
         set_BKG BKG_MIN_CALLS_TO_API "$min_calls_to_api"
     fi
 
-    set_BKG_set BKG_OWNERS_QUEUE "$id/$owner"
+    set_BKG_set BKG_OWNERS_QUEUE "$owner_id/$owner"
     echo "Added $owner"
 }
 
