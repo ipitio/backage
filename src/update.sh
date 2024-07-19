@@ -14,7 +14,7 @@ main() {
     [ -n "$BKG_BATCH_FIRST_STARTED" ] || set_BKG BKG_BATCH_FIRST_STARTED "$TODAY"
     BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
     set_BKG BKG_TIMEOUT "2"
-    [ -n "$(get_BKG BKG_OWNERS_QUEUE)" ] && [ "$1" = "0" ] && get_BKG BKG_OWNERS_QUEUE | perl -pe 's/\\n/\n/g' | env_parallel --lb remove_owner || :
+    [[ "$1" != "0" ]] || get_BKG_set BKG_OWNERS_QUEUE | env_parallel --lb remove_owner
     [ -n "$(get_BKG BKG_OWNERS_QUEUE)" ] || set_BKG BKG_BATCH_FIRST_STARTED "$TODAY"
     BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
     [ -n "$(get_BKG BKG_RATE_LIMIT_START)" ] || set_BKG BKG_RATE_LIMIT_START "$(date -u +%s)"
@@ -37,7 +37,7 @@ main() {
         [ -n "$(get_BKG BKG_LAST_SCANNED_ID)" ] || set_BKG BKG_LAST_SCANNED_ID "0"
         seq 1 10 | env_parallel --lb page_owner
         query="select owner_id, owner from '$BKG_INDEX_TBL_PKG' where date not between date('$BKG_BATCH_FIRST_STARTED') and date('$TODAY') group by owner_id;"
-        sqlite3 "$BKG_INDEX_DB" "$query" | awk -F'|' '{print $1"/"$2}' | env_parallel --lb save_owner
+        sqlite3 "$BKG_INDEX_DB" "$query" | awk -F'|' '{print $1"/"$2}' | env_parallel --lb set_BKG_set BKG_OWNERS_QUEUE
     fi
 
     # add more owners
@@ -50,7 +50,7 @@ main() {
         echo >"$BKG_OWNERS"
     fi
 
-    get_BKG BKG_OWNERS_QUEUE | perl -pe 's/\\n/\n/g' | env_parallel --lb update_owner
+    get_BKG_set BKG_OWNERS_QUEUE | env_parallel --lb update_owner
     clean_up
     printf "CHANGELOG.md\n*.json\nindex.sql*\n" >../.gitignore
 }

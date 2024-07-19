@@ -454,13 +454,11 @@ update_package() {
 
     # manual update: skip if the package is already in the index; the rest are updated daily
     if [ "$1" = "1" ] && [[ "$owner" != "arevindh" ]]; then
-        count=$(sqlite3 "$BKG_INDEX_DB" "select count(*) from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and package='$package';")
-        [[ "$count" =~ ^0*$ ]] || return
+        [[ "$(sqlite3 "$BKG_INDEX_DB" "select count(*) from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and package='$package';")" =~ ^0*$ ]] || return
     fi
 
     # update stats
-    count=$(sqlite3 "$BKG_INDEX_DB" "select count(*) from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and package='$package' and date between date('$BKG_BATCH_FIRST_STARTED') and date('$TODAY');")
-    if [[ "$count" =~ ^0*$ || "$owner" == "arevindh" ]]; then
+    if [[ "$(sqlite3 "$BKG_INDEX_DB" "select count(*) from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and package='$package' and date between date('$BKG_BATCH_FIRST_STARTED') and date('$TODAY');")" =~ ^0*$ || "$owner" == "arevindh" ]]; then
         raw_downloads=-1
         raw_downloads_month=-1
         raw_downloads_week=-1
@@ -576,14 +574,7 @@ page_owner() {
 remove_owner() {
     check_limit || return
     echo "Removing $1..."
-    [[ "$1" =~ .*\/.* ]] && owner_id=$(cut -d'/' -f1 <<<"$1") || owner_id=""
-    local query="select count(*) from '$BKG_INDEX_TBL_PKG' where owner"
-    [ -z "$owner_id" ] && query="$query='$1'" || query="${query}_id='$owner_id'"
-    query=" and date between date('$BKG_BATCH_FIRST_STARTED') and date('$(get_BKG BKG_TODAY)');"
-    count=$(sqlite3 "$BKG_INDEX_DB" "$query")
-    [[ "$count" =~ ^0*$ ]] || return
-    owners=$(get_BKG_set BKG_OWNERS_QUEUE | grep -v "$1")
-    set_BKG BKG_OWNERS_QUEUE "$(perl -pe 's/\n/\\n/g' <<<"$owners")"
+    del_BKG_set BKG_OWNERS_QUEUE "$1"
     echo "Removed $1"
 }
 
