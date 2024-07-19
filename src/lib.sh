@@ -271,6 +271,9 @@ clean_up() {
 
         echo "Removed the database"
     fi
+
+    # these should have been deleted but jic
+    del_BKG "BKG_VERSIONS_.*"
 }
 
 _jq() {
@@ -301,6 +304,7 @@ page_version() {
     local versions_json_more="[]"
     local calls_to_api
     local min_calls_to_api
+    echo "Searching for more versions of $owner/$package on page $1..."
 
     if [ -n "$GITHUB_TOKEN" ]; then
         versions_json_more=$(curl -H "Accept: application/vnd.github+json" \
@@ -325,6 +329,7 @@ page_version() {
     # add the new versions to the versions_json, if they are not already there
     set_BKG BKG_VERSIONS_PAGE_"${owner}_${package}" "$1"
     run_parallel save_version "$(jq -r '.[] | @base64' <<<"$versions_json_more")"
+    echo "Searched $owner/$package page $1"
 }
 
 update_version() {
@@ -436,11 +441,11 @@ page_package() {
     [ "$owner_type" = "orgs" ] && html=$(curl "https://github.com/$owner_type/$owner/packages?visibility=public&per_page=100&page=$1") || html=$(curl "https://github.com/$owner?tab=packages&visibility=public&&per_page=100&page=$1")
     packages_lines=$(grep -zoP 'href="/'"$owner_type"'/'"$owner"'/packages/[^/]+/package/[^"]+"' <<<"$html" | tr -d '\0')
     [ -n "$packages_lines" ] || return 1
-    echo "Getting packages for $owner..."
+    echo "Searching for packages by $owner on page $1..."
     packages_lines=${packages_lines//href=/\\nhref=}
     packages_lines=${packages_lines//\\n/$'\n'} # replace \n with newline
     run_parallel save_package "$packages_lines"
-    echo "Got packages for $owner"
+    echo "Searched $owner page $1"
 }
 
 update_package() {
@@ -556,7 +561,7 @@ check_owner() {
 
 page_owner() {
     check_limit || return
-    echo "Calling GitHub API for owners page $1..."
+    echo "Searching for more packages on API page $1..."
     local owners_more="[]"
     local calls_to_api
     local min_calls_to_api
@@ -578,7 +583,7 @@ page_owner() {
     # if owners doesn't have .login, break
     jq -e '.[].login' <<<"$owners_more" &>/dev/null || return 1
     run_parallel check_owner "$(jq -r '.[] | @base64' <<<"$owners_more")"
-    echo "Called GitHub API for owners page $1"
+    echo "Searched API page $1"
 }
 
 remove_owner() {
