@@ -37,7 +37,7 @@ main() {
         [ -n "$(get_BKG BKG_LAST_SCANNED_ID)" ] || set_BKG BKG_LAST_SCANNED_ID "0"
         seq 1 10 | env_parallel --lb page_owner
         query="select owner_id, owner from '$BKG_INDEX_TBL_PKG' where date not between date('$BKG_BATCH_FIRST_STARTED') and date('$TODAY') group by owner_id;"
-        sqlite3 "$BKG_INDEX_DB" "$query" | awk -F'|' '{print $1"/"$2}' | env_parallel --lb set_BKG_set BKG_OWNERS_QUEUE
+        sqlite3 "$BKG_INDEX_DB" "$query" | awk -F'|' '{print $1"/"$2}' | env_parallel --lb set_BKG_set
     fi
 
     # add more owners

@@ -87,10 +87,11 @@ get_BKG_set() {
 
 set_BKG_set() {
     local list
-    list=$(get_BKG "$1" | perl -pe 's/\\n/\n/g' | awk '!seen[$0]++' | perl -pe 's/\n/\\n/g')
+    local name=${1:-BKG_OWNERS_QUEUE}
+    list=$(get_BKG "$name" | perl -pe 's/\\n/\n/g' | awk '!seen[$0]++' | perl -pe 's/\n/\\n/g')
     # shellcheck disable=SC2076
     [[ "$list" =~ "$2" ]] || list="${list:+$list\n}$2"
-    set_BKG "$1" "$owners"
+    set_BKG "$name" "$owners"
 }
 
 del_BKG_set() {
@@ -276,7 +277,7 @@ _jq() {
 }
 
 save_version() {
-    check_limit
+    check_limit || return
     local id
     local name
     local tags
@@ -293,7 +294,7 @@ save_version() {
 }
 
 page_version() {
-    check_limit
+    check_limit || return
     local versions_json_more="[]"
     local calls_to_api
     local min_calls_to_api
@@ -324,7 +325,7 @@ page_version() {
 }
 
 update_version() {
-    check_limit
+    check_limit || return
     local version_size=-1
     local version_raw_downloads=-1
     local version_raw_downloads_month=-1
@@ -408,7 +409,7 @@ update_version() {
 }
 
 save_package() {
-    check_limit
+    check_limit || return
     local package_new
     local package_type
     local repo
@@ -422,7 +423,7 @@ save_package() {
 }
 
 page_package() {
-    check_limit
+    check_limit || return
     local packages_lines
     local html
     [ "$owner_type" = "orgs" ] && html=$(curl "https://github.com/$owner_type/$owner/packages?visibility=public&per_page=100&page=$1") || html=$(curl "https://github.com/$owner?tab=packages&visibility=public&&per_page=100&page=$1")
@@ -436,7 +437,7 @@ page_package() {
 }
 
 update_package() {
-    check_limit
+    check_limit || return
     local html
     local query
     local count
@@ -532,7 +533,7 @@ update_package() {
 }
 
 check_owner() {
-    check_limit
+    check_limit || return
     local owner
     local id
     owner=$(_jq "$1" '.login')
@@ -545,7 +546,7 @@ check_owner() {
 }
 
 page_owner() {
-    check_limit
+    check_limit || return
     echo "Calling GitHub API for owners page $1..."
     local owners_more="[]"
     local calls_to_api
