@@ -421,15 +421,18 @@ update_version() {
 
 save_package() {
     check_limit || return
-    [ -n "$1" ] || return
     local package_new
     local package_type
     local repo
     local packages
     package_new=$(cut -d'/' -f7 <<<"$1" | tr -d '"')
+    package_new=${package_new%/}
+    [ -n "$package_new" ] || return
     echo "Queuing $owner/$package_new..."
     package_type=$(cut -d'/' -f5 <<<"$1")
     repo=$(grep -zoP '(?<=href="/'"$owner_type"'/'"$owner"'/packages/'"$package_type"'/package/'"$package_new"'")(.|\n)*?href="/'"$owner"'/[^"]+"' <<<"$html" | tr -d '\0' | grep -oP 'href="/'"$owner"'/[^"]+' | cut -d'/' -f3)
+    package_type=${package_type%/}
+    repo=${repo%/}
     set_BKG_set BKG_PACKAGES_"$owner" "$package_type/$repo/$package_new"
     echo "Queued $owner/$package_new"
 }
