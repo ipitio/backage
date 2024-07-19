@@ -6,6 +6,8 @@
 #
 # shellcheck disable=SC1090,SC1091,SC2015,SC2034
 
+set -x
+
 if ! command -v curl &>/dev/null || ! command -v jq &>/dev/null || ! command -v sqlite3 &>/dev/null || ! command -v zstd &>/dev/null || ! command -v parallel &>/dev/null; then
     echo "Installing dependencies..."
     sudo apt-get update
