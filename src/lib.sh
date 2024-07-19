@@ -516,7 +516,7 @@ update_package() {
         versions_json=$(get_BKG BKG_VERSIONS_JSON_"${owner}_${package}")
         jq -e . <<<"$versions_json" &>/dev/null || versions_json="[{\"id\":\"latest\",\"name\":\"latest\"}]"
         echo "Scraping $owner/$package..."
-        jq -r '.[] | @base64' <<<"$versions_json"
+        echo "$versions_json"
         run_parallel update_version "$(jq -r '.[] | @base64' <<<"$versions_json")"
         del_BKG BKG_VERSIONS_JSON_"${owner}_${package}"
         del_BKG BKG_VERSIONS_PAGE_"${owner}_${package}"
