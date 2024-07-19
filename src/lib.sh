@@ -6,8 +6,6 @@
 #
 # shellcheck disable=SC1090,SC1091,SC2015,SC2034
 
-set -x
-
 if ! command -v curl &>/dev/null || ! command -v jq &>/dev/null || ! command -v sqlite3 &>/dev/null || ! command -v zstd &>/dev/null || ! command -v parallel &>/dev/null; then
     echo "Installing dependencies..."
     sudo apt-get update
@@ -18,7 +16,6 @@ fi
 . $(which env_parallel.bash)
 env_parallel --session
 [ ! -f .env ] || source .env 2>/dev/null
-[ ! -f env.env ] || source env.env 2>/dev/null
 
 # format numbers like 1000 to 1k
 numfmt() {
@@ -861,3 +858,6 @@ refresh_owners() {
     sqlite3 "$BKG_INDEX_DB" "select distinct owner from '$BKG_INDEX_TBL_PKG';" | env_parallel --lb refresh_owner
     [ ! -f ../.gitignore ] || git rm ../.gitignore
 }
+
+del_BKG "BKG_VERSIONS_.*"
+[ ! -f env.env ] || source env.env 2>/dev/null
