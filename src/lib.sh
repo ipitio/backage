@@ -98,7 +98,7 @@ set_BKG_set() {
     list=$(get_BKG_set "$name" | awk '!seen[$0]++' | perl -pe 's/\n/\\n/g')
     # shellcheck disable=SC2076
     [[ "$list" =~ "$value" ]] || list="${list:+$list\n}$value"
-    set_BKG "$name" "$value"
+    set_BKG "$name" "$list"
 }
 
 del_BKG_set() {
