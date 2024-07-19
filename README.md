@@ -29,10 +29,10 @@ Refreshed several times a day, the endpoint is always in sync with the continual
 
 #### URL
 
-Replace `<OWNER>` with the name of the owner of the package(s) you want to query:
+Replace `<OWNER>` and `PACKAGE` with their respective values:
 
 ```markdown
-https://raw.githubusercontent.com/ipitio/backage/master/index/<OWNER>.json
+https://raw.githubusercontent.com/ipitio/backage/master/index/<OWNER>/<PACKAGE>.json
 ```
 
 #### JSONPath
@@ -41,16 +41,16 @@ Just fill in the blanks to get the properties you want. Or get creative and forg
 
 ##### Package
 
-You can query a package for a property using other properties as filters, like so:
+You can query a package for its properties:
 
 ```markdown
-$[<FILTER>].<PROPERTY>
+$.<PROPERTY>
 ```
 
-For instance, to get the size of a package by name:
+For instance, to get the size:
 
 ```markdown
-$[?(@.package == "<NAME>")].size
+$.size
 ```
 
 <details>
