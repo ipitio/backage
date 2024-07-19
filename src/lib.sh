@@ -289,8 +289,8 @@ save_version() {
     name=$(_jq "$1" '.name')
     tags=$(_jq "$1" '.. | try .tags | join(",")')
     versions_json=$(get_BKG BKG_VERSIONS_JSON_"${owner}_${package}")
-    jq -e . <<<"$versions_json" &>/dev/null || versions_json="[]"
-    jq -e ".[] | select(.id == \"$id\")" <<<"$versions_json" &>/dev/null && versions_json=$(jq -c "map(if .id == \"$id\" then . + {\"name\":\"$name\",\"tags\":\"$tags\"} else . end)" <<<"$versions_json") || versions_json=$(jq -c ". + [{\"id\":\"$id\",\"name\":\"$name\",\"tags\":\"$tags\"}]" <<<"$versions_json")
+    [ -n "$versions_json" ] && jq -e . <<<"$versions_json" &>/dev/null && : || versions_json="[]"
+    jq -e ".[] | select(.id == \"$id\")" <<<"$versions_json" &>/dev/null || versions_json=$(jq -c ". + [{\"id\":\"$id\",\"name\":\"$name\",\"tags\":\"$tags\"}]" <<<"$versions_json")
     echo "save json: $versions_json"
     set_BKG BKG_VERSIONS_JSON_"${owner}_${package}" "$versions_json"
     echo "Queued $owner/$package/$id"
