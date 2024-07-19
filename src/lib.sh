@@ -87,11 +87,18 @@ get_BKG_set() {
 
 set_BKG_set() {
     local list
-    local name=${1:-BKG_OWNERS_QUEUE}
+    local name=$1
+    local value=$2
+
+    if [ -z "$value" ]; then
+        name=BKG_OWNERS_QUEUE
+        value=$1
+    fi
+
     list=$(get_BKG "$name" | perl -pe 's/\\n/\n/g' | awk '!seen[$0]++' | perl -pe 's/\n/\\n/g')
     # shellcheck disable=SC2076
-    [[ "$list" =~ "$2" ]] || list="${list:+$list\n}$2"
-    set_BKG "$name" "$owners"
+    [[ "$list" =~ "$value" ]] || list="${list:+$list\n}$value"
+    set_BKG "$name" "$value"
 }
 
 del_BKG_set() {
