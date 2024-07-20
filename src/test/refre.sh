@@ -1,6 +1,6 @@
 #!/bin/bash
 # Test the refresh function
-# Usage: ./test.refre.sh
+# Usage: ./refre.sh
 # Copyright (c) ipitio
 #
 # shellcheck disable=SC1090,SC1091

@@ -1,6 +1,6 @@
 #!/bin/bash
 # Test the update function
-# Usage: ./test.update.sh
+# Usage: ./update.sh
 # Copyright (c) ipitio
 #
 # shellcheck disable=SC1090,SC1091

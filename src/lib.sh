@@ -10,12 +10,12 @@ if ! command -v curl &>/dev/null || ! command -v jq &>/dev/null || ! command -v 
     echo "Installing dependencies..."
     sudo apt-get update
     sudo apt-get install curl jq parallel sqlite3 zstd -y
+    echo "Dependencies installed"
 fi
 
 # shellcheck disable=SC2046
 . $(which env_parallel.bash)
 env_parallel --session
-[ ! -f .env ] || source .env 2>/dev/null
 
 # format numbers like 1000 to 1k
 numfmt() {
@@ -132,10 +132,9 @@ check_limit() {
 
     # exit if the script has been running for 5 hours
     if ((script_limit_diff >= 18000)); then
-        if ((timeout == 0)) && (($(get_BKG BKG_TIDY) == 1)); then
-            echo "Script has been running for 5 hours! Tidying up..."
-            set_BKG BKG_TIDY "0"
+        if ((timeout == 0)); then
             set_BKG BKG_TIMEOUT "1"
+            echo "Script has been running for 5 hours! Saving..."
         elif ((timeout == 2)); then
             return 1
         fi
@@ -152,7 +151,7 @@ check_limit() {
         remaining_time=$((3600 * (hours_passed + 1) - rate_limit_diff))
         echo "Sleeping for $remaining_time seconds..."
         sleep $remaining_time
-        echo "Resuming..."
+        echo "Resuming!"
         set_BKG BKG_RATE_LIMIT_START "$(date -u +%s)"
         set_BKG BKG_CALLS_TO_API "0"
     fi
@@ -168,7 +167,7 @@ check_limit() {
         remaining_time=$((60 * (min_passed + 1) - sec_limit_diff))
         echo "Sleeping for $remaining_time seconds..."
         sleep $remaining_time
-        echo "Resuming..."
+        echo "Resuming!"
         set_BKG BKG_MIN_RATE_LIMIT_START "$(date -u +%s)"
         set_BKG BKG_MIN_CALLS_TO_API "0"
     fi
@@ -227,12 +226,12 @@ clean_up() {
             [ -d "$BKG_INDEX_SQL".d ] || mkdir "$BKG_INDEX_SQL".d
             [ ! -f "$BKG_INDEX_SQL".zst ] || mv "$BKG_INDEX_SQL".zst "$BKG_INDEX_SQL".d/"$(date -u +%Y.%m.%d)".zst
             sqlite3 "$BKG_INDEX_DB" "delete from '$BKG_INDEX_TBL_PKG' where date not between date('$BKG_BATCH_FIRST_STARTED') and date('$TODAY');"
-            tables=$(sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name like '${BKG_INDEX_TBL_VER}_%';")
 
-            for table in $tables; do
+            for table in $(sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name like '${BKG_INDEX_TBL_VER}_%';"); do
                 sqlite3 "$BKG_INDEX_DB" "delete from '$table' where date not between date('$BKG_BATCH_FIRST_STARTED') and date('$TODAY');"
             done
 
+            echo "Rotated the database"
             sqlite3 "$BKG_INDEX_DB" "vacuum;"
             sqlite3 "$BKG_INDEX_DB" ".dump" | zstd -22 --ultra --long -T0 --no-progress -o "$BKG_INDEX_SQL".new.zst
         fi
@@ -287,7 +286,7 @@ save_version() {
     local tags
     local versions_json
     id=$(_jq "$1" '.id')
-    echo "Queuing $owner/$package/$id..."
+    #echo "Queuing $owner/$package/$id..."
     name=$(_jq "$1" '.name')
     tags=$(_jq "$1" '.. | try .tags | join(",")')
     versions_json=$(get_BKG BKG_VERSIONS_JSON_"${owner}_${package}")
@@ -370,8 +369,7 @@ update_version() {
         primary key (id, date)
     );"
     sqlite3 "$BKG_INDEX_DB" "$table_version"
-    search="select count(*) from '$table_version_name' where id='$version_id' and date between date('$BKG_BATCH_FIRST_STARTED') and date('$TODAY');"
-    count=$(sqlite3 "$BKG_INDEX_DB" "$search")
+    count=$(sqlite3 "$BKG_INDEX_DB" "select count(*) from '$table_version_name' where id='$version_id' and date between date('$BKG_BATCH_FIRST_STARTED') and date('$TODAY');")
 
     # insert a new row
     if [[ "$count" =~ ^0*$ || "$owner" == "arevindh" ]]; then
@@ -424,7 +422,7 @@ save_package() {
     package_new=$(cut -d'/' -f7 <<<"$1" | tr -d '"')
     package_new=${package_new%/}
     [ -n "$package_new" ] || return
-    echo "Queuing $owner/$package_new..."
+    #echo "Queuing $owner/$package_new..."
     package_type=$(cut -d'/' -f5 <<<"$1")
     repo=$(grep -zoP '(?<=href="/'"$owner_type"'/'"$owner"'/packages/'"$package_type"'/package/'"$package_new"'")(.|\n)*?href="/'"$owner"'/[^"]+"' <<<"$html" | tr -d '\0' | grep -oP 'href="/'"$owner"'/[^"]+' | cut -d'/' -f3)
     package_type=${package_type%/}
@@ -551,7 +549,7 @@ check_owner() {
     local id
     owner=$(_jq "$1" '.login')
     id=$(_jq "$1" '.id')
-    echo "Checking $owner..."
+    #echo "Checking $owner..."
     set_BKG_set BKG_OWNERS_QUEUE "$id/$owner"
     [ "$(stat -c %s "$BKG_OWNERS")" -ge 100000000 ] && del_BKG_set BKG_OWNERS_QUEUE "$id/$owner" || set_BKG BKG_LAST_SCANNED_ID "$id"
     echo "Checked $owner"
@@ -589,7 +587,7 @@ remove_owner() {
     [ -n "$1" ] || return
 
     if [[ "$(sqlite3 "$BKG_INDEX_DB" "select count(*) from '$BKG_INDEX_TBL_PKG' where owner_id='$1' and date between date('$BKG_BATCH_FIRST_STARTED') and date('$TODAY');")" =~ ^0*$ ]]; then
-        echo "Removing $1..."
+        #echo "Removing $1..."
         del_BKG_set BKG_OWNERS_QUEUE "$1"
         echo "Removed $1"
     fi
@@ -599,7 +597,7 @@ add_owner() {
     check_limit || return
     owner=$(echo "$1" | tr -d '[:space:]')
     [ -n "$owner" ] || return
-    echo "Adding $owner..."
+    #echo "Adding $owner..."
     owner_id=""
     local calls_to_api
     local min_calls_to_api
@@ -663,7 +661,7 @@ refresh_package() {
     script_diff=$(($(date -u +%s) - $(get_BKG BKG_SCRIPT_START)))
 
     if ((script_diff >= 21500)); then
-        echo "Script has been running for 6 hours. Committing changes..."
+        echo "Script has been running for 6 hours. Saving..."
         exit
     fi
 
@@ -739,8 +737,8 @@ refresh_package() {
     json_size=$(stat -c %s "$BKG_INDEX_DIR/$owner/$repo/$package".json)
     while [ "$json_size" -ge 50000000 ]; do
         jq -e 'map(.version | length > 0) | any' "$BKG_INDEX_DIR/$owner/$repo/$package".json || break
-        jq -c 'sort_by(.versions | tonumber) | reverse | map(select(.versions > 0)) | map(.version |= sort_by(.id | tonumber) | del(.version[0]))' "$BKG_INDEX_DIR/$owner/$repo/$package".json >"$BKG_INDEX_DIR"/"$owner".tmp.json
-        mv "$BKG_INDEX_DIR"/"$owner".tmp.json "$BKG_INDEX_DIR/$owner/$repo/$package".json
+        jq -c 'sort_by(.versions | tonumber) | reverse | map(select(.versions > 0)) | map(.version |= sort_by(.id | tonumber) | del(.version[0]))' "$BKG_INDEX_DIR/$owner/$repo/$package".json >"$BKG_INDEX_DIR/$owner/$repo/$package".tmp.json
+        mv "$BKG_INDEX_DIR/$owner/$repo/$package".tmp.json "$BKG_INDEX_DIR/$owner/$repo/$package".json
         json_size=$(stat -c %s "$BKG_INDEX_DIR/$owner/$repo/$package".json)
     done
 }
@@ -761,7 +759,6 @@ set_up() {
     set_BKG BKG_TIMEOUT "0"
     set_BKG BKG_TODAY "$(date -u +%Y-%m-%d)"
     set_BKG BKG_SCRIPT_START "$(date -u +%s)"
-    set_BKG BKG_TIDY "1"
 
     if [ ! -f "$BKG_INDEX_DB" ]; then
         command curl -sSLNZO "https://github.com/$GITHUB_OWNER/$GITHUB_REPO/releases/latest/download/$BKG_INDEX_SQL.zst"
@@ -861,3 +858,4 @@ refresh_owners() {
 
 del_BKG "BKG_VERSIONS_.*"
 [ ! -f env.env ] || source env.env 2>/dev/null
+[ ! -f .env ] || source .env 2>/dev/null
