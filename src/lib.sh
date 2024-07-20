@@ -17,16 +17,6 @@ fi
 . $(which env_parallel.bash)
 env_parallel --session
 
-# format numbers like 1000 to 1k
-numfmt() {
-    awk '{ split("k M B T P E Z Y", v); s=0; while( $1>999.9 ) { $1/=1000; s++ } print int($1*10)/10 v[s] }'
-}
-
-# format bytes to KB, MB, GB, etc.
-numfmt_size() {
-    awk '{ split("kB MB GB TB PB EB ZB YB", v); s=0; while( $1>999.9 ) { $1/=1000; s++ } print int($1*10)/10 " " v[s] }' | sed 's/ //'
-}
-
 sqlite3() {
     command sqlite3 -init <(echo "
 .output /dev/null
@@ -646,6 +636,17 @@ update_owner() {
 }
 
 refresh_package() {
+    # format numbers like 1000 to 1k
+    numfmt() {
+        awk '{ split("k M B T P E Z Y", v); s=0; while( $1>999.9 ) { $1/=1000; s++ } print int($1*10)/10 v[s] }'
+    }
+
+    # format bytes to KB, MB, GB, etc.
+    numfmt_size() {
+        awk '{ split("kB MB GB TB PB EB ZB YB", v); s=0; while( $1>999.9 ) { $1/=1000; s++ } print int($1*10)/10 " " v[s] }' | sed 's/ //'
+    }
+
+
     check_limit || return
     [ -n "$1" ] || return
     local script_diff
@@ -656,8 +657,6 @@ refresh_package() {
     local query
     local version_newest_id
     IFS='|' read -r owner_id owner_type package_type owner repo package downloads downloads_month downloads_week downloads_day size date <<<"$1"
-    echo "Refreshing $owner/$package..."
-    [ -d "$BKG_INDEX_DIR/$owner/$repo" ] || mkdir "$BKG_INDEX_DIR/$owner/$repo"
     script_diff=$(($(date -u +%s) - $(get_BKG BKG_SCRIPT_START)))
 
     if ((script_diff >= 21500)); then
@@ -668,7 +667,9 @@ refresh_package() {
     # only use the latest date for the package
     max_date=$(sqlite3 "$BKG_INDEX_DB" "select date from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and package='$package' order by date desc limit 1;")
     [ "$date" = "$max_date" ] || return
-    fmt_downloads=$(numfmt <<<"$downloads")
+    echo "Refreshing $owner/$package..."
+    [ -d "$BKG_INDEX_DIR/$owner/$repo" ] || mkdir "$BKG_INDEX_DIR/$owner/$repo"
+    fmt_downloads=$(numfmt <<<"${downloads:--1}")
     version_count=0
     version_with_tag_count=0
     table_version_name="${BKG_INDEX_TBL_VER}_${owner_type}_${package_type}_${owner}_${repo}_${package}"
@@ -687,13 +688,13 @@ refresh_package() {
         \"repo\": \"$repo\",
         \"package\": \"$package\",
         \"date\": \"$date\",
-        \"size\": \"$(numfmt_size <<<"$size")\",
-        \"versions\": \"$(numfmt <<<"$version_count")\",
-        \"tagged\": \"$(numfmt <<<"$version_with_tag_count")\",
+        \"size\": \"$(numfmt_size <<<"${size:--1}")\",
+        \"versions\": \"$(numfmt <<<"${version_count:--1}")\",
+        \"tagged\": \"$(numfmt <<<"${version_with_tag_count:--1}")\",
         \"downloads\": \"$fmt_downloads\",
-        \"downloads_month\": \"$(numfmt <<<"$downloads_month")\",
-        \"downloads_week\": \"$(numfmt <<<"$downloads_week")\",
-        \"downloads_day\": \"$(numfmt <<<"$downloads_day")\",
+        \"downloads_month\": \"$(numfmt <<<"${downloads_month:--1}")\",
+        \"downloads_week\": \"$(numfmt <<<"${downloads_week:--1}")\",
+        \"downloads_day\": \"$(numfmt <<<"${downloads_day:--1}")\",
         \"raw_size\": ${size:--1},
         \"raw_versions\": ${version_count:--1},
         \"raw_tagged\": ${version_with_tag_count:--1},
@@ -712,12 +713,12 @@ refresh_package() {
                 \"id\": ${vid:--1},
                 \"name\": \"$vname\",
                 \"date\": \"$vdate\",
-                \"newest\": $([ "$vid" = "$version_newest_id" ] && echo "true" || echo "false"),
-                \"size\": \"$(numfmt_size <<<"$vsize")\",
-                \"downloads\": \"$(numfmt <<<"$vdownloads")\",
-                \"downloads_month\": \"$(numfmt <<<"$vdownloads_month")\",
-                \"downloads_week\": \"$(numfmt <<<"$vdownloads_week")\",
-                \"downloads_day\": \"$(numfmt <<<"$vdownloads_day")\",
+                \"newest\": $([ "${vid:--1}" = "$version_newest_id" ] && echo "true" || echo "false"),
+                \"size\": \"$(numfmt_size <<<"${vsize:--1}")\",
+                \"downloads\": \"$(numfmt <<<"${vdownloads:--1}")\",
+                \"downloads_month\": \"$(numfmt <<<"${vdownloads_month:--1}")\",
+                \"downloads_week\": \"$(numfmt <<<"${vdownloads_week:--1}")\",
+                \"downloads_day\": \"$(numfmt <<<"${vdownloads_day:--1}")\",
                 \"raw_size\": ${vsize:--1},
                 \"raw_downloads\": ${vdownloads:--1},
                 \"raw_downloads_month\": ${vdownloads_month:--1},
@@ -730,17 +731,20 @@ refresh_package() {
 
     # remove the last comma
     sed -i '$ s/,$//' "$BKG_INDEX_DIR/$owner/$repo/$package".json
-    echo "]
-    }" >>"$BKG_INDEX_DIR/$owner/$repo/$package".json
+    echo "]}" >>"$BKG_INDEX_DIR/$owner/$repo/$package".json
+    json_size=$(stat -c %s "$BKG_INDEX_DIR/$owner/$repo/$package".json)
 
     # if the json is over 50MB, remove oldest versions from the packages with the most versions
-    json_size=$(stat -c %s "$BKG_INDEX_DIR/$owner/$repo/$package".json)
-    while [ "$json_size" -ge 50000000 ]; do
-        jq -e 'map(.version | length > 0) | any' "$BKG_INDEX_DIR/$owner/$repo/$package".json || break
-        jq -c 'sort_by(.versions | tonumber) | reverse | map(select(.versions > 0)) | map(.version |= sort_by(.id | tonumber) | del(.version[0]))' "$BKG_INDEX_DIR/$owner/$repo/$package".json >"$BKG_INDEX_DIR/$owner/$repo/$package".tmp.json
-        mv "$BKG_INDEX_DIR/$owner/$repo/$package".tmp.json "$BKG_INDEX_DIR/$owner/$repo/$package".json
-        json_size=$(stat -c %s "$BKG_INDEX_DIR/$owner/$repo/$package".json)
-    done
+    if jq -e . <<<"$(cat "$BKG_INDEX_DIR/$owner/$repo/$package".json)" &>/dev/null; then
+        while [ "$json_size" -ge 50000000 ]; do
+            jq -e 'map(.version | length > 0) | any' "$BKG_INDEX_DIR/$owner/$repo/$package".json || break
+            jq -c 'sort_by(.versions | tonumber) | reverse | map(select(.versions > 0)) | map(.version |= sort_by(.id | tonumber) | del(.version[0]))' "$BKG_INDEX_DIR/$owner/$repo/$package".json >"$BKG_INDEX_DIR/$owner/$repo/$package".tmp.json
+            mv "$BKG_INDEX_DIR/$owner/$repo/$package".tmp.json "$BKG_INDEX_DIR/$owner/$repo/$package".json
+            json_size=$(stat -c %s "$BKG_INDEX_DIR/$owner/$repo/$package".json)
+        done
+    elif [ "$json_size" -ge 100000000 ]; then
+        rm -f "$BKG_INDEX_DIR/$owner/$repo/$package".json
+    fi
 }
 
 refresh_owner() {
