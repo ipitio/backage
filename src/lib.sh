@@ -676,7 +676,7 @@ refresh_package() {
         version_with_tag_count=$(sqlite3 "$BKG_INDEX_DB" "select count(distinct id) from '$table_version_name' where tags != '' and tags is not null;")
     fi
 
-    echo "{" >>"$BKG_INDEX_DIR/$owner/$repo/$package".json
+    echo "{" >"$BKG_INDEX_DIR/$owner/$repo/$package".json
     [[ "$package_type" != "container" ]] || echo "\"image\": \"$package\",\"pulls\": \"$fmt_downloads\"," >>"$BKG_INDEX_DIR/$owner/$repo/$package".json
     echo "\"owner_type\": \"$owner_type\",
         \"package_type\": \"$package_type\",
