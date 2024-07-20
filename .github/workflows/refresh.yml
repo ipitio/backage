@@ -38,6 +38,6 @@ jobs:
         if: ${{ steps.changed.outputs.changed == '0' }}
         uses: EndBug/add-and-commit@v9
         with:
-          add: '*.json'
+          add: "*.json"
           message: "refresh endpoint"
           pull: "--autostash -Xours"

@@ -71,7 +71,7 @@ set_BKG() {
 }
 
 get_BKG_set() {
-    get_BKG "$1" | perl -pe 's/\\n/\n/g'
+    get_BKG "$1" | perl -pe 's/^\\n//' | perl -pe 's/\\n$//' | perl -pe 's/\\n\\n/\\n/'| perl -pe 's/\\n/\n/g'
 }
 
 set_BKG_set() {
@@ -84,8 +84,8 @@ set_BKG_set() {
 
 del_BKG_set() {
     local list
-    list=$(get_BKG_set "$1" | grep -v "$2" | perl -pe 's/\n/\\n/g')
-    set_BKG "$1" "$list"
+    list=$(get_BKG_set "$1" | grep -v "$2")
+    set_BKG "$1" "$(echo "$list" | perl -pe 's/\\n/\n/g' | perl -pe 's/\n/\\n/g' | perl -pe 's/^\\n//' | perl -pe 's/\\n$//' | perl -pe 's/\\n\\n/\\n/')"
 }
 
 del_BKG() {
@@ -509,9 +509,8 @@ update_package() {
         jq -e . <<<"$versions_json" &>/dev/null || versions_json="[{\"id\":\"latest\",\"name\":\"latest\"}]"
         echo "Scraping $owner/$package..."
         run_parallel update_version "$(jq -r '.[] | @base64' <<<"$versions_json")"
-        del_BKG BKG_VERSIONS_JSON_"${owner}_${package}"
-        del_BKG BKG_VERSIONS_PAGE_"${owner}_${package}"
-        check_limit
+        echo "Scraped $owner/$package"
+        check_limit || return
 
         if [ -n "$(sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name='$table_version_name';")" ]; then
             # calculate the total downloads
@@ -528,7 +527,6 @@ update_package() {
         fi
 
         sqlite3 "$BKG_INDEX_DB" "insert or replace into '$BKG_INDEX_TBL_PKG' (owner_id, owner_type, package_type, owner, repo, package, downloads, downloads_month, downloads_week, downloads_day, size, date) values ('$owner_id', '$owner_type', '$package_type', '$owner', '$repo', '$package', '$raw_downloads', '$raw_downloads_month', '$raw_downloads_week', '$raw_downloads_day', '$size', '$TODAY');"
-        echo "Scraped $owner/$package"
     fi
 }
 
@@ -646,7 +644,6 @@ refresh_package() {
         awk '{ split("kB MB GB TB PB EB ZB YB", v); s=0; while( $1>999.9 ) { $1/=1000; s++ } print int($1*10)/10 " " v[s] }' | sed 's/ //'
     }
 
-
     check_limit || return
     [ -n "$1" ] || return
     local script_diff
@@ -732,6 +729,8 @@ refresh_package() {
     # remove the last comma
     sed -i '$ s/,$//' "$BKG_INDEX_DIR/$owner/$repo/$package".json
     echo "]}" >>"$BKG_INDEX_DIR/$owner/$repo/$package".json
+    jq -c . "$BKG_INDEX_DIR/$owner/$repo/$package".json >"$BKG_INDEX_DIR/$owner/$repo/$package".tmp.json
+    mv "$BKG_INDEX_DIR/$owner/$repo/$package".tmp.json "$BKG_INDEX_DIR/$owner/$repo/$package".json
     json_size=$(stat -c %s "$BKG_INDEX_DIR/$owner/$repo/$package".json)
 
     # if the json is over 50MB, remove oldest versions from the packages with the most versions
