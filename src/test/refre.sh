@@ -9,5 +9,5 @@ cd "${0%/*}"/.. || exit 1 && source lib.sh
 refresh_owners "$@"
 
 for json in "$BKG_INDEX_DIR"/*/*/*.json; do
-    jq -e 'type == "object"' "$json" || exit 1 # json should not be empty
+    jq -e . <<<"$(cat "$json")" &>/dev/null || exit 1 # json should be valid
 done
