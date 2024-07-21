@@ -647,7 +647,6 @@ refresh_package() {
     check_limit || return
     [ -n "$1" ] || return
     local script_diff
-    local fmt_downloads
     local version_count
     local version_with_tag_count
     local table_version_name
@@ -665,8 +664,8 @@ refresh_package() {
     max_date=$(sqlite3 "$BKG_INDEX_DB" "select date from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and package='$package' order by date desc limit 1;")
     [ "$date" = "$max_date" ] || return
     echo "Refreshing $owner/$package..."
+    local json_file="$BKG_INDEX_DIR/$owner/$repo/$package.json"
     [ -d "$BKG_INDEX_DIR/$owner/$repo" ] || mkdir "$BKG_INDEX_DIR/$owner/$repo"
-    fmt_downloads=$(numfmt <<<"${downloads:--1}")
     version_count=0
     version_with_tag_count=0
     table_version_name="${BKG_INDEX_TBL_VER}_${owner_type}_${package_type}_${owner}_${repo}_${package}"
@@ -676,8 +675,7 @@ refresh_package() {
         version_with_tag_count=$(sqlite3 "$BKG_INDEX_DB" "select count(distinct id) from '$table_version_name' where tags != '' and tags is not null;")
     fi
 
-    echo "{" >"$BKG_INDEX_DIR/$owner/$repo/$package".json
-    [[ "$package_type" != "container" ]] || echo "\"image\": \"$package\",\"pulls\": \"$fmt_downloads\"," >>"$BKG_INDEX_DIR/$owner/$repo/$package".json
+    echo "{" >"$json_file"
     echo "\"owner_type\": \"$owner_type\",
         \"package_type\": \"$package_type\",
         \"owner_id\": \"$owner_id\",
@@ -688,7 +686,7 @@ refresh_package() {
         \"size\": \"$(numfmt_size <<<"${size:--1}")\",
         \"versions\": \"$(numfmt <<<"${version_count:--1}")\",
         \"tagged\": \"$(numfmt <<<"${version_with_tag_count:--1}")\",
-        \"downloads\": \"$fmt_downloads\",
+        \"downloads\": \"$(numfmt <<<"${downloads:--1}")\",
         \"downloads_month\": \"$(numfmt <<<"${downloads_month:--1}")\",
         \"downloads_week\": \"$(numfmt <<<"${downloads_week:--1}")\",
         \"downloads_day\": \"$(numfmt <<<"${downloads_day:--1}")\",
@@ -699,10 +697,10 @@ refresh_package() {
         \"raw_downloads_month\": ${downloads_month:--1},
         \"raw_downloads_week\": ${downloads_week:--1},
         \"raw_downloads_day\": ${downloads_day:--1},
-        \"version\": [" >>"$BKG_INDEX_DIR/$owner/$repo/$package".json
+        \"version\": [" >>"$json_file"
 
     # add the versions to index/"$owner".json
-    if [ "$version_count" -gt 0 ]; then
+    if [ "${version_count:--1}" -gt 0 ]; then
         version_newest_id=$(sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name' order by id desc limit 1;")
         query="select id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags from '$table_version_name' group by id order by id desc;"
         sqlite3 "$BKG_INDEX_DB" "$query" | while IFS='|' read -r vid vname vsize vdownloads vdownloads_month vdownloads_week vdownloads_day vdate vtags; do
@@ -722,27 +720,46 @@ refresh_package() {
                 \"raw_downloads_week\": ${vdownloads_week:--1},
                 \"raw_downloads_day\": ${vdownloads_day:--1},
                 \"tags\": [\"${vtags//,/\",\"}\"]
-                }," >>"$BKG_INDEX_DIR/$owner/$repo/$package".json
+                }," >>"$json_file"
         done
+    else
+        echo "{
+            \"id\": -1,
+            \"name\": \"latest\",
+            \"date\": \"$date\",
+            \"newest\": true,
+            \"size\": \"$(numfmt_size <<<"${size:--1}")\",
+            \"downloads\": \"$(numfmt <<<"${downloads:--1}")\",
+            \"downloads_month\": \"$(numfmt <<<"${downloads_month:--1}")\",
+            \"downloads_week\": \"$(numfmt <<<"${downloads_week:--1}")\",
+            \"downloads_day\": \"$(numfmt <<<"${downloads_day:--1}")\",
+            \"raw_size\": ${size:--1},
+            \"raw_downloads\": ${downloads:--1},
+            \"raw_downloads_month\": ${downloads_month:--1},
+            \"raw_downloads_week\": ${downloads_week:--1},
+            \"raw_downloads_day\": ${downloads_day:--1},
+            \"tags\": [\"\"]
+            }," >>"$json_file"
     fi
 
     # remove the last comma
-    sed -i '$ s/,$//' "$BKG_INDEX_DIR/$owner/$repo/$package".json
-    echo "]}" >>"$BKG_INDEX_DIR/$owner/$repo/$package".json
-    jq -c . "$BKG_INDEX_DIR/$owner/$repo/$package".json >"$BKG_INDEX_DIR/$owner/$repo/$package".tmp.json
-    mv "$BKG_INDEX_DIR/$owner/$repo/$package".tmp.json "$BKG_INDEX_DIR/$owner/$repo/$package".json
-    json_size=$(stat -c %s "$BKG_INDEX_DIR/$owner/$repo/$package".json)
+    sed -i '$ s/,$//' "$json_file"
+    echo "]}" >>"$json_file"
+    jq -c . "$json_file" >"$json_file".tmp.json
+    mv "$json_file".tmp.json "$json_file"
+    local json_size
+    json_size=$(stat -c %s "$json_file")
 
     # if the json is over 50MB, remove oldest versions from the packages with the most versions
-    if jq -e . <<<"$(cat "$BKG_INDEX_DIR/$owner/$repo/$package".json)" &>/dev/null; then
+    if jq -e . <<<"$(cat "$json_file")" &>/dev/null; then
         while [ "$json_size" -ge 50000000 ]; do
-            jq -e 'map(.version | length > 0) | any' "$BKG_INDEX_DIR/$owner/$repo/$package".json || break
-            jq -c 'sort_by(.versions | tonumber) | reverse | map(select(.versions > 0)) | map(.version |= sort_by(.id | tonumber) | del(.version[0]))' "$BKG_INDEX_DIR/$owner/$repo/$package".json >"$BKG_INDEX_DIR/$owner/$repo/$package".tmp.json
-            mv "$BKG_INDEX_DIR/$owner/$repo/$package".tmp.json "$BKG_INDEX_DIR/$owner/$repo/$package".json
-            json_size=$(stat -c %s "$BKG_INDEX_DIR/$owner/$repo/$package".json)
+            jq -e 'map(.version | length > 0) | any' "$json_file" || break
+            jq -c 'sort_by(.versions | tonumber) | reverse | map(select(.versions > 0)) | map(.version |= sort_by(.id | tonumber) | del(.version[0]))' "$json_file" >"$json_file".tmp.json
+            mv "$json_file".tmp.json "$json_file"
+            json_size=$(stat -c %s "$json_file")
         done
     elif [ "$json_size" -ge 100000000 ]; then
-        rm -f "$BKG_INDEX_DIR/$owner/$repo/$package".json
+        rm -f "$json_file"
     fi
 }
 

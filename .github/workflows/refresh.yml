@@ -8,10 +8,6 @@ on:
 
   workflow_dispatch:
 
-concurrency:
-  group: ${{ github.ref }}
-  cancel-in-progress: true
-
 defaults:
   run:
     # GitHub Actions run without a TTY device. This is a workaround to get one,
