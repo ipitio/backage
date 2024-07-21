@@ -720,7 +720,7 @@ refresh_package() {
                 \"raw_downloads_month\": ${vdownloads_month:--1},
                 \"raw_downloads_week\": ${vdownloads_week:--1},
                 \"raw_downloads_day\": ${vdownloads_day:--1},
-                \"tags\": [\"${vtags:-//,/\",\"}\"]
+                \"tags\": [\"${vtags//,/\",\"}\"]
                 }," >>"$json_file"
         done
     else
