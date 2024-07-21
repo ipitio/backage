@@ -708,7 +708,7 @@ refresh_package() {
                 \"id\": ${vid:--1},
                 \"name\": \"$vname\",
                 \"date\": \"$vdate\",
-                \"newest\": \"$([ "${vid:--1}" = "${version_newest_id:--1}" ] && echo "true" || echo "false")\",
+                \"newest\": $([ "${vid:--1}" = "${version_newest_id:--1}" ] && echo "true" || echo "false"),
                 \"size\": \"$(numfmt_size <<<"${vsize:--1}")\",
                 \"downloads\": \"$(numfmt <<<"${vdownloads:--1}")\",
                 \"downloads_month\": \"$(numfmt <<<"${vdownloads_month:--1}")\",
