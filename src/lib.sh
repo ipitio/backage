@@ -454,7 +454,7 @@ update_package() {
     fi
 
     # manual update: skip if the package is already in the index; the rest are updated daily
-    if [ "$1" = "1" ] && [[ "$owner" != "arevindh" ]]; then
+    if [ "$(get_BKG BKG_AUTO)" = "1" ] && [[ "$owner" != "arevindh" ]]; then
         [[ "$(sqlite3 "$BKG_INDEX_DB" "select count(*) from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and package='$package';")" =~ ^0*$ ]] || return
     fi
 
@@ -829,6 +829,7 @@ set_up() {
 update_owners() {
     set_up
     set_BKG BKG_TIMEOUT "2"
+    set_BKG BKG_AUTO "$1"
     TODAY=$(get_BKG BKG_TODAY)
     [ -n "$(get_BKG BKG_BATCH_FIRST_STARTED)" ] || set_BKG BKG_BATCH_FIRST_STARTED "$TODAY"
     [[ "$1" != "0" ]] || get_BKG_set BKG_OWNERS_QUEUE | env_parallel --lb remove_owner
