@@ -1,7 +1,7 @@
 #!/bin/bash
 # Backage library
 # Usage: ./lib.sh
-# Dependencies: curl, jq, sqlite3, zstd
+# Dependencies: curl, jq, sqlite3, zstd, parallel
 # Copyright (c) ipitio
 #
 # shellcheck disable=SC1090,SC1091,SC2015,SC2034
@@ -746,8 +746,7 @@ refresh_package() {
     # remove the last comma
     sed -i '$ s/,$//' "$json_file"
     echo "]}" >>"$json_file"
-    jq -c . "$json_file" >"$json_file".tmp.json 2>/dev/null # not sure
-    mv "$json_file".tmp.json "$json_file"
+    ! jq -c . "$json_file" >"$json_file".tmp.json 2>/dev/null || mv "$json_file".tmp.json "$json_file"
     local json_size
     json_size=$(stat -c %s "$json_file")
 
