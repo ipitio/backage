@@ -746,7 +746,7 @@ refresh_package() {
     # remove the last comma
     sed -i '$ s/,$//' "$json_file"
     echo "]}" >>"$json_file"
-    jq -c . "$json_file" >"$json_file".tmp.json
+    jq -c . "$json_file" >"$json_file".tmp.json 2>/dev/null # not sure
     mv "$json_file".tmp.json "$json_file"
     local json_size
     json_size=$(stat -c %s "$json_file")
