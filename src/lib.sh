@@ -642,7 +642,7 @@ refresh_package() {
     # format bytes to KB, MB, GB, etc.
     numfmt_size() {
         # use sed to remove trailing \s*$
-        awk '{ split("kB MB GB TB PB EB ZB YB", v); s=0; while( $1>999.9 ) { $1/=1000; s++ } print int($1*10)/10 " " v[s] }' | sed 's/\s*$//'
+        awk '{ split("kB MB GB TB PB EB ZB YB", v); s=0; while( $1>999.9 ) { $1/=1000; s++ } print int($1*10)/10 " " v[s] }' | sed 's/[[:blank:]]*$//'
     }
 
     check_limit || return
