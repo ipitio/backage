@@ -664,7 +664,6 @@ refresh_package() {
     # only use the latest date for the package
     max_date=$(sqlite3 "$BKG_INDEX_DB" "select date from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and package='$package' order by date desc limit 1;")
     [ "$date" = "$max_date" ] || return
-    echo "Refreshing $owner/$package..."
     local json_file="$BKG_INDEX_DIR/$owner/$repo/$package.json"
     [ -d "$BKG_INDEX_DIR/$owner/$repo" ] || mkdir "$BKG_INDEX_DIR/$owner/$repo"
     version_count=0
@@ -746,7 +745,8 @@ refresh_package() {
     # remove the last comma
     sed -i '$ s/,$//' "$json_file"
     echo "]}" >>"$json_file"
-    ! jq -c . "$json_file" >"$json_file".tmp.json 2>/dev/null || mv "$json_file".tmp.json "$json_file"
+    jq -c . "$json_file" >"$json_file".tmp.json 2>/dev/null
+    [ ! -f "$json_file".tmp.json ] || mv "$json_file".tmp.json "$json_file"
     local json_size
     json_size=$(stat -c %s "$json_file")
 
@@ -761,6 +761,7 @@ refresh_package() {
     elif [ "$json_size" -ge 100000000 ]; then
         rm -f "$json_file"
     fi
+    echo "Refreshed $owner/$package"
 }
 
 refresh_owner() {
