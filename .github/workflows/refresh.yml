@@ -1,15 +1,15 @@
 name: refresh
 
 on:
-  push:
-    branches:
-      - master
-
   workflow_run:
     workflows: ["update", "manual"]
     types:
       - completed
-
+  
+  push:
+    branches:
+      - master
+  
   workflow_dispatch:
 
 defaults:
@@ -20,7 +20,6 @@ defaults:
 
 jobs:
   refresh:
-    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
 
     permissions:
