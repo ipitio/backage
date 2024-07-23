@@ -853,6 +853,7 @@ update_owners() {
 
         if [ -n "$owners_already_updated" ]; then
             owners_to_update=$(comm -23 <(echo "$owners_all" | sort) <(echo "$owners_already_updated" | sort))
+            grep -q "arevindh" <<<"$owners_to_update" || owners_to_update=$(echo -e "arevindh\n$owners_to_update")
             [ -n "$(get_BKG BKG_BATCH_FIRST_STARTED)" ] || set_BKG BKG_BATCH_FIRST_STARTED "$TODAY"
         else
             owners_to_update="$owners_all"
