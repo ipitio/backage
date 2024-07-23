@@ -48,7 +48,7 @@ jobs:
         uses: EndBug/add-and-commit@v9
         with:
           message: "update database"
-          pull: "--autostash -X ours"
+          pull: "--rebase --autostash -s ours"
 
       - name: Save database
         if: ${{ steps.update.outputs.updated == '0' && steps.commit.outputs.committed == 'true' }}
