@@ -433,10 +433,10 @@ page_package() {
     check_limit || return
     local packages_lines
     local html
-    [ "$owner_type" = "orgs" ] && html=$(curl "https://github.com/$owner_type/$owner/packages?visibility=public&per_page=100&page=$1") || html=$(curl "https://github.com/$owner?tab=packages&visibility=public&&per_page=100&page=$1")
+    echo "Searching for packages by $owner on page $1..."
+    [ "$owner_type" = "users" ] && html=$(curl "https://github.com/$owner?tab=packages&visibility=public&&per_page=100&page=$1") || html=$(curl "https://github.com/$owner_type/$owner/packages?visibility=public&per_page=100&page=$1")
     packages_lines=$(grep -zoP 'href="/'"$owner_type"'/'"$owner"'/packages/[^/]+/package/[^"]+"' <<<"$html" | tr -d '\0')
     [ -n "$packages_lines" ] || return 1
-    echo "Searching for packages by $owner on page $1..."
     packages_lines=${packages_lines//href=/\\nhref=}
     packages_lines=${packages_lines//\\n/$'\n'} # replace \n with newline
     run_parallel save_package "$packages_lines"
