@@ -279,7 +279,7 @@ save_version() {
     id=$(_jq "$1" '.id')
     #echo "Queuing $owner/$package/$id..."
     name=$(_jq "$1" '.name')
-    tags=$(_jq "$1" '.. | try .tags | split(",")')
+    tags=$(_jq "$1" '.. | try .tags | split(",")' | tr -d '[]' | tr -d '"')
     versions_json=$(get_BKG BKG_VERSIONS_JSON_"${owner}_${package}")
     [ -n "$versions_json" ] && jq -e . <<<"$versions_json" &>/dev/null && : || versions_json="[]"
 
