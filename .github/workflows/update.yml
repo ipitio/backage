@@ -3,8 +3,7 @@ name: update
 on:
   workflow_run:
     workflows: ["refresh"]
-    types:
-      - completed
+    types: [requested, in_progress, completed]
 
   schedule:
     - cron: "0 */12 * * *"
