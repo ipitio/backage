@@ -206,7 +206,7 @@ clean_up() {
 
     echo "Compressing the database..."
     TODAY=$(get_BKG BKG_TODAY)
-    sqlite3 "$BKG_INDEX_DB" ".dump" | zstd -22 --ultra --long --no-progress -T0 -o "$BKG_INDEX_SQL".new.zst
+    sqlite3 "$BKG_INDEX_DB" ".dump" | zstd -22 --ultra --long -T0 -o "$BKG_INDEX_SQL".new.zst
 
     if [ -f "$BKG_INDEX_SQL".new.zst ]; then
         # rotate the database if it's greater than 2GB
@@ -223,7 +223,7 @@ clean_up() {
 
             echo "Rotated the database"
             sqlite3 "$BKG_INDEX_DB" "vacuum;"
-            sqlite3 "$BKG_INDEX_DB" ".dump" | zstd -22 --ultra --long -T0 --no-progress -o "$BKG_INDEX_SQL".new.zst
+            sqlite3 "$BKG_INDEX_DB" ".dump" | zstd -22 --ultra --long -T0 -o "$BKG_INDEX_SQL".new.zst
         fi
 
         mv "$BKG_INDEX_SQL".new.zst "$BKG_INDEX_SQL".zst
@@ -280,7 +280,7 @@ save_version() {
     #echo "Queuing $owner/$package/$id..."
     name=$(_jq "$1" '.name')
     tags=$(_jq "$1" '.. | try .tags | join(",")')
-    echo "json: $1"
+    echo "json: $(echo "$1" | base64 --decode | jq -r .)"
     echo "tags: $tags"
     versions_json=$(get_BKG BKG_VERSIONS_JSON_"${owner}_${package}")
     [ -n "$versions_json" ] && jq -e . <<<"$versions_json" &>/dev/null && : || versions_json="[]"
@@ -789,7 +789,7 @@ set_up() {
 
     if [ ! -f "$BKG_INDEX_DB" ]; then
         command curl -sSLNZO "https://github.com/$GITHUB_OWNER/$GITHUB_REPO/releases/latest/download/$BKG_INDEX_SQL.zst"
-        unzstd --no-progress "$BKG_INDEX_SQL.zst" | sqlite3 "$BKG_INDEX_DB"
+        unzstd "$BKG_INDEX_SQL.zst" | sqlite3 "$BKG_INDEX_DB"
     fi
 
     [ -f "$BKG_INDEX_DB" ] || sqlite3 "$BKG_INDEX_DB" ""
