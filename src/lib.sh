@@ -285,7 +285,7 @@ save_version() {
 
     if jq -e ".[] | select(.id == \"$id\")" <<<"$versions_json" &>/dev/null; then
         # replace name and tags if the version is already in the versions_json
-        versions_json=$(jq -c ".[] | if .id == \"$id\" then .name = \"$name\" | .tags = \"$tags\" else . end" <<<"$versions_json")
+        versions_json=$(jq -c "(.[] | select(.id == \"$id\") | .name = \"$name\" | .tags = \"$tags\") // .[]" <<<"$versions_json")
     else
         versions_json=$(jq -c ". + [{\"id\":\"$id\",\"name\":\"$name\",\"tags\":\"$tags\"}]" <<<"$versions_json")
     fi
