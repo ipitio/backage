@@ -498,9 +498,11 @@ update_package() {
         # add all the versions currently in the db to the versions_json, if they are not already there
         table_version_name="${BKG_INDEX_TBL_VER}_${owner_type}_${package_type}_${owner}_${repo}_${package}"
         [ -z "$(sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name='$table_version_name';")" ] || run_parallel save_version "$(jq -r '.[] | @base64' <<<"$(sqlite3 -json "$BKG_INDEX_DB" "select id, name, tags from '$table_version_name';")")"
-        echo "Getting versions for $owner/$package..."
+        echo "Scraping $owner/$package..."
+        local more_to_scrape=0
 
-        while check_limit; do
+        while [ "$more_to_scrape" -eq 0 ]; do
+            check_limit || exit
             versions_page=$(get_BKG BKG_VERSIONS_PAGE_"${owner}_${package}")
             [[ "$versions_page" =~ ^\d+$ ]] || break
             version_pages=$(seq "$((versions_page + 1))" "${versions_page}0")
@@ -510,16 +512,12 @@ update_package() {
                 [ -n "$version_pages" ] || break
             fi
 
-            run_parallel page_version "$version_pages"
+            run_parallel --halt soon,fail=1 page_version "$version_pages"
+            more_to_scrape=$?
+            versions_json=$(get_BKG BKG_VERSIONS_JSON_"${owner}_${package}")
+            jq -e . <<<"$versions_json" &>/dev/null || versions_json="[{\"id\":\"latest\",\"name\":\"latest\"}]"
+            run_parallel update_version "$(jq -r '.[] | @base64' <<<"$versions_json")"
         done
-
-        echo "Got versions for $owner/$package"
-        versions_json=$(get_BKG BKG_VERSIONS_JSON_"${owner}_${package}")
-        jq -e . <<<"$versions_json" &>/dev/null || versions_json="[{\"id\":\"latest\",\"name\":\"latest\"}]"
-        echo "Scraping $owner/$package..."
-        run_parallel update_version "$(jq -r '.[] | @base64' <<<"$versions_json")"
-        echo "Scraped $owner/$package"
-        check_limit || return
 
         if [ -n "$(sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name='$table_version_name';")" ]; then
             # calculate the total downloads
@@ -536,6 +534,7 @@ update_package() {
         fi
 
         sqlite3 "$BKG_INDEX_DB" "insert or replace into '$BKG_INDEX_TBL_PKG' (owner_id, owner_type, package_type, owner, repo, package, downloads, downloads_month, downloads_week, downloads_day, size, date) values ('$owner_id', '$owner_type', '$package_type', '$owner', '$repo', '$package', '$raw_downloads', '$raw_downloads_month', '$raw_downloads_week', '$raw_downloads_day', '$size', '$TODAY');"
+        echo "Scraped $owner/$package"
     fi
 }
 
