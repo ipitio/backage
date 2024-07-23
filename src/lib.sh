@@ -829,6 +829,7 @@ update_owners() {
     set_up
     set_BKG BKG_TIMEOUT "2"
     set_BKG BKG_AUTO "$1"
+    [ -n "$(get_BKG BKG_LAST_SCANNED_ID)" ] || set_BKG BKG_LAST_SCANNED_ID "0"
     TODAY=$(get_BKG BKG_TODAY)
     local owners_already_updated
     local owners_all
@@ -848,9 +849,6 @@ update_owners() {
 
     # if this is a scheduled update, scrape all owners that haven't been scraped in this batch
     if [ "$1" = "0" ]; then
-        [ -n "$(get_BKG BKG_LAST_SCANNED_ID)" ] || set_BKG BKG_LAST_SCANNED_ID "0"
-        [ -s "$BKG_OWNERS" ] || seq 1 10 | env_parallel --lb page_owner
-
         if [ -n "$owners_already_updated" ]; then
             owners_to_update=$(comm -23 <(echo "$owners_all" | sort) <(echo "$owners_already_updated" | sort))
             grep -q "arevindh" <<<"$owners_to_update" || owners_to_update=$(echo -e "arevindh\n$owners_to_update")
@@ -860,7 +858,7 @@ update_owners() {
             set_BKG BKG_BATCH_FIRST_STARTED "$TODAY"
         fi
 
-        printf "%s\n" "$owners_to_update" | env_parallel --lb add_owner
+        [ -n "$owners_to_update" ] && printf "%s\n" "$owners_to_update" | env_parallel --lb add_owner || seq 1 10 | env_parallel --lb page_owner
     fi
 
     BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
