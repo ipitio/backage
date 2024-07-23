@@ -71,7 +71,7 @@ set_BKG() {
 }
 
 get_BKG_set() {
-    get_BKG "$1" | perl -pe 's/^\\n//' | perl -pe 's/\\n$//' | perl -pe 's/\\n\\n/\\n/'| perl -pe 's/\\n/\n/g'
+    get_BKG "$1" | perl -pe 's/^\\n//' | perl -pe 's/\\n$//' | perl -pe 's/\\n\\n/\\n/' | perl -pe 's/\\n/\n/g'
 }
 
 set_BKG_set() {

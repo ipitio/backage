@@ -5,12 +5,16 @@ on:
     workflows: ["update", "manual"]
     types:
       - completed
-  
+
   push:
     branches:
       - master
-  
+
   workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 defaults:
   run:
