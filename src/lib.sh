@@ -624,7 +624,12 @@ update_owner() {
     is_org=$(grep -zoP 'href="/orgs/'"$owner"'/people"' <<<"$html" | tr -d '\0')
     [ -n "$is_org" ] || owner_type="users"
     set_BKG BKG_PACKAGES_"$owner" ""
-    run_parallel page_package "$(seq 1 100)"
+
+    for i in $(seq 1 100); do
+        check_limit || break
+        page_package "$i" || break
+    done
+
     run_parallel update_package "$(get_BKG_set BKG_PACKAGES_"$owner")"
     del_BKG BKG_PACKAGES_"$owner"
     echo "Updated $owner"
