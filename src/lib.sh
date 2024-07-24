@@ -839,19 +839,19 @@ update_owners() {
     local owners_already_updated
     local owners_all
     local owners_to_update=""
-    owners_already_updated=$(sqlite3 "$BKG_INDEX_DB" "select owner from '$BKG_INDEX_TBL_PKG' where date between date('$BKG_BATCH_FIRST_STARTED') and date('$TODAY') group by owner;")
-    owners_all=$(sqlite3 "$BKG_INDEX_DB" "select owner from '$BKG_INDEX_TBL_PKG' group by owner;")
+    owners_already_updated=$(sqlite3 "$BKG_INDEX_DB" "select owner from '$BKG_INDEX_TBL_PKG' where date between date('$BKG_BATCH_FIRST_STARTED') and date('$TODAY') group by owner;" | sort)
+    owners_all=$(sqlite3 "$BKG_INDEX_DB" "select owner from '$BKG_INDEX_TBL_PKG' group by owner;" | sort)
 
     # if this is a scheduled update, scrape all owners that haven't been scraped in this batch
     if [ "$1" = "0" ]; then
-        owners_to_update=$(comm -13 <(echo "$owners_all" | sort) <(echo "$owners_already_updated" | sort))
-        if [ -n "$owners_to_update" ]; then
-            [ -n "$(get_BKG BKG_BATCH_FIRST_STARTED)" ] || set_BKG BKG_BATCH_FIRST_STARTED "$TODAY"
-        else
+        if [ "$owners_already_updated" = "$owners_all" ]; then
             set_BKG BKG_BATCH_FIRST_STARTED "$TODAY"
+            seq 1 10 | env_parallel --lb page_owner
+        else
+            [ -n "$(get_BKG BKG_BATCH_FIRST_STARTED)" ] || set_BKG BKG_BATCH_FIRST_STARTED "$TODAY"
         fi
 
-        [ -n "$owners_to_update" ] || seq 1 10 | env_parallel --lb page_owner
+        owners_to_update=$(comm -13 <(echo "$owners_all") <(echo "$owners_already_updated"))
     elif [ "$1" = "1" ]; then
         owners_to_update="arevindh"
     fi
