@@ -215,10 +215,10 @@ clean_up() {
             echo "Rotating the database..."
             [ -d "$BKG_INDEX_SQL".d ] || mkdir "$BKG_INDEX_SQL".d
             [ ! -f "$BKG_INDEX_SQL".zst ] || mv "$BKG_INDEX_SQL".zst "$BKG_INDEX_SQL".d/"$(date -u +%Y.%m.%d)".zst
-            sqlite3 "$BKG_INDEX_DB" "delete from '$BKG_INDEX_TBL_PKG' where date not between date('$BKG_BATCH_FIRST_STARTED') and date('$TODAY');"
+            sqlite3 "$BKG_INDEX_DB" "delete from '$BKG_INDEX_TBL_PKG' where date < '$BKG_BATCH_FIRST_STARTED';"
 
             for table in $(sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name like '${BKG_INDEX_TBL_VER}_%';"); do
-                sqlite3 "$BKG_INDEX_DB" "delete from '$table' where date not between date('$BKG_BATCH_FIRST_STARTED') and date('$TODAY');"
+                sqlite3 "$BKG_INDEX_DB" "delete from '$table' where date < '$BKG_BATCH_FIRST_STARTED';"
             done
 
             echo "Rotated the database"
@@ -368,7 +368,7 @@ update_version() {
         primary key (id, date)
     );"
     sqlite3 "$BKG_INDEX_DB" "$table_version"
-    count=$(sqlite3 "$BKG_INDEX_DB" "select count(*) from '$table_version_name' where id='$version_id' and date between date('$BKG_BATCH_FIRST_STARTED') and date('$TODAY');")
+    count=$(sqlite3 "$BKG_INDEX_DB" "select count(*) from '$table_version_name' where id='$version_id' and date >= '$BKG_BATCH_FIRST_STARTED';")
 
     # insert a new row
     if [[ "$count" =~ ^0*$ || "$owner" == "arevindh" ]]; then
@@ -468,7 +468,7 @@ update_package() {
     fi
 
     # update stats
-    if [[ "$(sqlite3 "$BKG_INDEX_DB" "select count(*) from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and package='$package' and date between date('$BKG_BATCH_FIRST_STARTED') and date('$TODAY');")" =~ ^0*$ || "$owner" == "arevindh" ]]; then
+    if [[ "$(sqlite3 "$BKG_INDEX_DB" "select count(*) from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and package='$package' and date >= '$BKG_BATCH_FIRST_STARTED';")" =~ ^0*$ || "$owner" == "arevindh" ]]; then
         raw_downloads=-1
         raw_downloads_month=-1
         raw_downloads_week=-1
@@ -838,8 +838,8 @@ update_owners() {
     TODAY=$(get_BKG BKG_TODAY)
     local owners_already_updated
     local owners_all
-    local owners_to_update=""
-    owners_already_updated=$(sqlite3 "$BKG_INDEX_DB" "select owner from '$BKG_INDEX_TBL_PKG' where date between date('$BKG_BATCH_FIRST_STARTED') and date('$TODAY') group by owner;" | sort)
+    local owners_to_update
+    owners_already_updated=$(sqlite3 "$BKG_INDEX_DB" "select owner from '$BKG_INDEX_TBL_PKG' where date >= '$BKG_BATCH_FIRST_STARTED' group by owner;" | sort)
     owners_all=$(sqlite3 "$BKG_INDEX_DB" "select owner from '$BKG_INDEX_TBL_PKG' group by owner;" | sort)
 
     # if this is a scheduled update, scrape all owners that haven't been scraped in this batch
@@ -851,7 +851,7 @@ update_owners() {
             [ -n "$(get_BKG BKG_BATCH_FIRST_STARTED)" ] || set_BKG BKG_BATCH_FIRST_STARTED "$TODAY"
         fi
 
-        owners_to_update=$(comm -13 <(echo "$owners_all") <(echo "$owners_already_updated"))
+        owners_to_update=$(comm -23 <(echo "$owners_all") <(echo "$owners_already_updated"))
     elif [ "$1" = "1" ]; then
         owners_to_update="arevindh"
     fi
