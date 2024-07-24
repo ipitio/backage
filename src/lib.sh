@@ -842,6 +842,20 @@ update_owners() {
     owners_already_updated=$(sqlite3 "$BKG_INDEX_DB" "select owner from '$BKG_INDEX_TBL_PKG' where date between date('$BKG_BATCH_FIRST_STARTED') and date('$TODAY') group by owner;")
     owners_all=$(sqlite3 "$BKG_INDEX_DB" "select owner from '$BKG_INDEX_TBL_PKG' group by owner;")
 
+    # if this is a scheduled update, scrape all owners that haven't been scraped in this batch
+    if [ "$1" = "0" ]; then
+        owners_to_update=$(comm -13 <(echo "$owners_all" | sort) <(echo "$owners_already_updated" | sort))
+        if [ -n "$owners_to_update" ]; then
+            [ -n "$(get_BKG BKG_BATCH_FIRST_STARTED)" ] || set_BKG BKG_BATCH_FIRST_STARTED "$TODAY"
+        else
+            set_BKG BKG_BATCH_FIRST_STARTED "$TODAY"
+        fi
+
+        [ -n "$owners_to_update" ] || seq 1 10 | env_parallel --lb page_owner
+    elif [ "$1" = "1" ]; then
+        owners_to_update="arevindh"
+    fi
+
     # add more owners
     if [ -s "$BKG_OWNERS" ]; then
         sed -i '/^\s*$/d' "$BKG_OWNERS"
@@ -849,22 +863,7 @@ update_owners() {
         awk 'NF' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
         sed -i 's/^[[:space:]]*//;s/[[:space:]]*$//' "$BKG_OWNERS"
         printf "%s\n" "$owners_all" | parallel --lb "sed -i '/^{}$/d' $BKG_OWNERS" # remove owners that have already been ingested
-        owners_to_update=$(cat "$BKG_OWNERS")
-    fi
-
-    # if this is a scheduled update, scrape all owners that haven't been scraped in this batch
-    if [ "$1" = "0" ]; then
-        if [ -n "$owners_already_updated" ]; then
-            owners_to_update=${owners_to_update:+$owners_to_update$'\n'}$(comm -13 <(echo "$owners_all" | sort) <(echo "$owners_already_updated" | sort))
-            [ -n "$(get_BKG BKG_BATCH_FIRST_STARTED)" ] || set_BKG BKG_BATCH_FIRST_STARTED "$TODAY"
-        else
-            owners_to_update=${owners_to_update:+$owners_to_update$'\n'}"$owners_all"
-            set_BKG BKG_BATCH_FIRST_STARTED "$TODAY"
-        fi
-
-        [ -n "$owners_to_update" ] || seq 1 10 | env_parallel --lb page_owner
-    elif [ "$1" = "1" ]; then
-        grep -q "arevindh" <<<"$owners_to_update" || owners_to_update=${owners_to_update:+$owners_to_update$'\n'}"arevindh"
+        owners_to_update=$(cat "$BKG_OWNERS")${owners_to_update:+$'\n'$owners_to_update}
     fi
 
     BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
