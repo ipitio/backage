@@ -120,11 +120,11 @@ check_limit() {
     script_limit_diff=$((rate_limit_end - $(get_BKG BKG_SCRIPT_START)))
     timeout=$(get_BKG BKG_TIMEOUT)
 
-    # exit if the script has been running for 2 hours
-    if ((script_limit_diff >= 7200)); then
+    # exit if the script has been running for 1 hours
+    if ((script_limit_diff >= 3600)); then
         if ((timeout == 0)); then
             set_BKG BKG_TIMEOUT "1"
-            echo "Script has been running for 2 hours! Saving..."
+            echo "Script has been running for 1 hours! Saving..."
         elif ((timeout == 2)); then
             return 1
         fi
@@ -206,6 +206,14 @@ run_parallel() {
 
 _jq() {
     echo "$1" | base64 --decode | jq -r "${@:2}"
+}
+
+# check if all lines in $2 are in $1
+request_version() {
+    [ -n "$1" ] || return
+    [ -n "$2" ] || return 1
+    # https://unix.stackexchange.com/a/220675
+    [ "$(grep -E "^($(awk '{printf $0"|"}' <<<"$1"))$" <<<"$2" | sort -u)" = "$(sort -u <<<"$2")" ] || return 1
 }
 
 save_version() {
@@ -440,13 +448,12 @@ update_package() {
         run_parallel page_version "$version_pages"
         more_to_scrape=$?
         versions_json=$(get_BKG BKG_VERSIONS_JSON_"${owner}_${package}")
-        versions_all_ids=${versions_json_all_ids:+$versions_json_all_ids$'\n'}$(jq -r '.[] | .id' <<<"$versions_json")
-        versions_all_ids=$(echo "$versions_json_all_ids" | awk '!seen[$0]++' | sort)
-        versions_batch_ids=$(sqlite3 "$BKG_INDEX_DB" "select distinct id from '$table_version_name' where date >= '$BKG_BATCH_FIRST_STARTED';" | sort)
-        echo "count all: $(wc -l <<<"$versions_all_ids")"
-        echo "count batch: $(wc -l <<<"$versions_batch_ids")"
+        local current_ids
+        current_ids=$(jq -r '.[] | .id' <<<"$versions_json")
+        versions_batch_ids=$(sqlite3 "$BKG_INDEX_DB" "select distinct id from '$table_version_name' where date >= '$BKG_BATCH_FIRST_STARTED';")
 
-        if [[ "$versions_all_ids" != "$versions_batch_ids" || -z "$versions_json" ]]; then
+        if run_parallel request_version "$versions_batch_ids" "$current_ids"; then
+            versions_all_ids=${versions_all_ids:+$versions_all_ids$'\n'}$current_ids
             jq -e . <<<"$versions_json" &>/dev/null || versions_json="[{\"id\":\"latest\",\"name\":\"latest\",\"tags\":\"\"}]"
             run_parallel update_version "$(jq -r '.[] | @base64' <<<"$versions_json")"
         fi
@@ -455,7 +462,9 @@ update_package() {
         versions_page=${versions_page}0
     done
 
-    [[ "$versions_all_ids" == "$versions_batch_ids" ]] || return # don't return even if empty
+    versions_all_ids=$(echo "$versions_all_ids" | awk '!seen[$0]++' | sort -u)
+    versions_batch_ids=$(sqlite3 "$BKG_INDEX_DB" "select distinct id from '$table_version_name' where date >= '$BKG_BATCH_FIRST_STARTED';" | sort -u)
+    ! run_parallel request_version "$versions_all_ids" "$versions_batch_ids" || return
 
     if [ -n "$(sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name='$table_version_name';")" ]; then
         # calculate the total downloads
@@ -686,7 +695,7 @@ page_owner() {
     jq -e '.[].login' <<<"$owners_more" &>/dev/null || return 1
     run_parallel request_owner "$(jq -r '.[] | @base64' <<<"$owners_more")"
     local return_code=$?
-    echo "Requested $owner page $1"
+    echo "Requested owners page $1"
     return $return_code
 }
 
@@ -800,8 +809,8 @@ update_owners() {
     local owners
     local repos
     local packages
-    packages_already_updated=$(sqlite3 "$BKG_INDEX_DB" "select owner, package from '$BKG_INDEX_TBL_PKG' where date >= '$BKG_BATCH_FIRST_STARTED' group by owner, package;" | awk '{print $2}' | sort)
-    packages_all=$(sqlite3 "$BKG_INDEX_DB" "select owner, package from '$BKG_INDEX_TBL_PKG' group by owner, package;" | awk '{print $2}' | sort)
+    packages_already_updated=$(sqlite3 "$BKG_INDEX_DB" "select owner, package from '$BKG_INDEX_TBL_PKG' where date >= '$BKG_BATCH_FIRST_STARTED' group by owner, package;" | awk '{print $2}' | sort -u)
+    packages_all=$(sqlite3 "$BKG_INDEX_DB" "select owner, package from '$BKG_INDEX_TBL_PKG' group by owner, package;" | awk '{print $2}' | sort -u)
 
     # if this is a scheduled update, scrape all owners
     if [ "$1" = "0" ]; then
