@@ -326,13 +326,9 @@ page_version() {
     fi
 
     # if versions doesn't have .name, break
-    if ! jq -e '.[].name' <<<"$versions_json_more" &>/dev/null; then
-        set_BKG BKG_VERSIONS_PAGE_"${owner}_${package}" "-$1"
-        return 1
-    fi
+    jq -e '.[].name' <<<"$versions_json_more" &>/dev/null || return 1
 
     # add the new versions to the versions_json, if they are not already there
-    set_BKG BKG_VERSIONS_PAGE_"${owner}_${package}" "$1"
     run_parallel save_version "$(jq -r '.[] | @base64' <<<"$versions_json_more")"
     echo "Searched $owner/$package page $1"
 }
@@ -495,22 +491,21 @@ update_package() {
     [ -n "$(grep -Pzo 'Total downloads' <<<"$html" | tr -d '\0')" ] || return
     raw_downloads=$(grep -Pzo 'Total downloads[^"]*"\d*' <<<"$html" | grep -Pzo '\d*$' | tr -d '\0') # https://stackoverflow.com/a/74214537
     [[ "$raw_downloads" =~ ^[0-9]+$ ]] || raw_downloads=-1
-    set_BKG BKG_VERSIONS_PAGE_"${owner}_${package}" "0"
 
     # add all the versions currently in the db to the versions_json, if they are not already there
     table_version_name="${BKG_INDEX_TBL_VER}_${owner_type}_${package_type}_${owner}_${repo}_${package}"
     [ -z "$(sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name='$table_version_name';")" ] || run_parallel save_version "$(jq -r '.[] | @base64' <<<"$(sqlite3 -json "$BKG_INDEX_DB" "select id, name, tags from '$table_version_name' group by id order by date desc;")")"
     echo "Scraping $owner/$package..."
     local more_to_scrape=0
+    local versions_page=0
 
     while [ "$more_to_scrape" -eq 0 ]; do
         check_limit || return
-        versions_page=$(get_BKG BKG_VERSIONS_PAGE_"${owner}_${package}")
-        [[ "$versions_page" =~ ^\d+$ ]] || break
-        version_pages=$(seq "$((versions_page + 1))" "${versions_page}0")
+        versions_page=${versions_page%0}1
+        version_pages=$(seq "$versions_page" "${versions_page}0")
 
-        if [ -n "$version_pages" ]; then
-            version_pages=$(seq "$((versions_page + 1))" "$(get_BKG BKG_MAX)")
+        if [ -z "$version_pages" ]; then
+            version_pages=$(seq "$versions_page" "$(get_BKG BKG_MAX)")
             [ -n "$version_pages" ] || break
         fi
 
@@ -520,6 +515,7 @@ update_package() {
         jq -e . <<<"$versions_json" &>/dev/null || versions_json="[{\"id\":\"latest\",\"name\":\"latest\",\"tags\":\"\"}]"
         run_parallel update_version "$(jq -r '.[] | @base64' <<<"$versions_json")"
         del_BKG BKG_VERSIONS_JSON_"${owner}_${package}"
+        versions_page=${versions_page}0
     done
 
     # check if all versions have been scraped in this run
