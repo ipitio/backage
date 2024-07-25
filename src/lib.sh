@@ -886,11 +886,9 @@ update_owners() {
 
     get_BKG_set BKG_OWNERS_QUEUE | env_parallel --lb update_owner
     clean_up
-    printf "CHANGELOG.md\n*.json\nindex.sql*\n" >../.gitignore
 }
 
 refresh_owners() {
     set_up
     sqlite3 "$BKG_INDEX_DB" "select distinct owner from '$BKG_INDEX_TBL_PKG';" | env_parallel --lb refresh_owner
-    echo >../.gitignore
 }

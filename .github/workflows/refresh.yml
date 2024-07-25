@@ -40,6 +40,7 @@ jobs:
         if: ${{ steps.changed.outputs.changed == '0' }}
         uses: EndBug/add-and-commit@v9
         with:
+          add: "--ignore-missing -- *.json"
           message: "refresh endpoint"
           pull: "--autostash -s ours"
 
@@ -48,5 +49,6 @@ jobs:
         if: ${{ steps.changed.outputs.changed == '0' && steps.commit.outputs.committed == 'false' }}
         uses: EndBug/add-and-commit@v9
         with:
+          add: "--ignore-missing -- *.json"
           message: "refresh endpoint"
           pull: "--rebase --autostash -s ours"
