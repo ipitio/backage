@@ -443,6 +443,8 @@ update_package() {
         versions_all_ids=${versions_json_all_ids:+$versions_json_all_ids$'\n'}$(jq -r '.[] | .id' <<<"$versions_json")
         versions_all_ids=$(echo "$versions_json_all_ids" | awk '!seen[$0]++' | sort)
         versions_batch_ids=$(sqlite3 "$BKG_INDEX_DB" "select distinct id from '$table_version_name' where date >= '$BKG_BATCH_FIRST_STARTED';" | sort)
+        echo "count all: $(wc -l <<<"$versions_all_ids")"
+        echo "count batch: $(wc -l <<<"$versions_batch_ids")"
 
         if [[ "$versions_all_ids" != "$versions_batch_ids" || -z "$versions_json" ]]; then
             jq -e . <<<"$versions_json" &>/dev/null || versions_json="[{\"id\":\"latest\",\"name\":\"latest\",\"tags\":\"\"}]"
