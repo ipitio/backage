@@ -172,7 +172,7 @@ curl() {
 
     while [ "$i" -lt "$max_attempts" ]; do
         result=$(command curl -sSLNZ --connect-timeout 60 -m 120 "$@" 2>/dev/null)
-        [ -n "$result" ] && echo "$result" && return 0
+        [ -n "$result" ] && echo "$result" && return 0 || :
         check_limit
         sleep "$wait_time"
         ((i++))
@@ -309,7 +309,7 @@ page_version() {
     local versions_json_more="[]"
     local calls_to_api
     local min_calls_to_api
-    echo "Searching for more versions of $owner/$package on page $1..."
+    #echo "Querying $owner/$package/versions page $1..."
 
     if [ -n "$GITHUB_TOKEN" ]; then
         versions_json_more=$(curl -H "Accept: application/vnd.github+json" \
@@ -330,7 +330,7 @@ page_version() {
 
     # add the new versions to the versions_json, if they are not already there
     run_parallel save_version "$(jq -r '.[] | @base64' <<<"$versions_json_more")"
-    echo "Searched $owner/$package page $1"
+    echo "Queried $owner/$package/versions page $1"
 }
 
 update_version() {
@@ -357,7 +357,7 @@ update_version() {
     version_name=$(_jq "$1" '.name')
     version_tags=$(_jq "$1" '.tags')
     TODAY=$(get_BKG BKG_TODAY)
-    echo "Updating $owner/$package/$version_id..."
+    #echo "Updating $owner/$package/$version_id..."
     table_version_name="${BKG_INDEX_TBL_VER}_${owner_type}_${package_type}_${owner}_${repo}_${package}"
     table_version="create table if not exists '$table_version_name' (
         id text not null,
@@ -434,14 +434,14 @@ page_package() {
     check_limit || return
     local packages_lines
     local html
-    echo "Searching for packages by $owner on page $1..."
+    #echo "Scraping $owner/packages page $1..."
     [ "$owner_type" = "users" ] && html=$(curl "https://github.com/$owner?tab=packages&visibility=public&&per_page=100&page=$1") || html=$(curl "https://github.com/$owner_type/$owner/packages?visibility=public&per_page=100&page=$1")
     packages_lines=$(grep -zoP 'href="/'"$owner_type"'/'"$owner"'/packages/[^/]+/package/[^"]+"' <<<"$html" | tr -d '\0')
     [ -n "$packages_lines" ] || return 1
     packages_lines=${packages_lines//href=/\\nhref=}
     packages_lines=${packages_lines//\\n/$'\n'} # replace \n with newline
     run_parallel save_package "$packages_lines"
-    echo "Searched $owner page $1"
+    echo "Scraped $owner/packages page $1"
 }
 
 update_package() {
@@ -558,7 +558,7 @@ check_owner() {
 
 page_owner() {
     check_limit || return
-    echo "Searching for more packages on API page $1..."
+    #echo "Querying $owner/packages page $1..."
     local owners_more="[]"
     local calls_to_api
     local min_calls_to_api
@@ -580,7 +580,7 @@ page_owner() {
     # if owners doesn't have .login, break
     jq -e '.[].login' <<<"$owners_more" &>/dev/null || return 1
     run_parallel check_owner "$(jq -r '.[] | @base64' <<<"$owners_more")"
-    echo "Searched API page $1"
+    echo "Queried $owner/packages page $1"
 }
 
 add_owner() {
