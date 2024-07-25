@@ -42,16 +42,24 @@ jobs:
           GITHUB_REPO: ${{ github.event.repository.name }}
           GITHUB_BRANCH: ${{ github.head_ref || github.ref_name }}
 
-      - name: Update environment
+      - name: Merge changes
         id: commit
         if: ${{ steps.update.outputs.updated == '0' }}
+        uses: EndBug/add-and-commit@v9
+        with:
+          message: "update database"
+          pull: "--autostash -s ours"
+
+      - name: Rebase changes
+        id: rebase
+        if: ${{ steps.update.outputs.updated == '0' && steps.commit.outputs.committed == 'false' }}
         uses: EndBug/add-and-commit@v9
         with:
           message: "update database"
           pull: "--rebase --autostash -s ours"
 
       - name: Save database
-        if: ${{ steps.update.outputs.updated == '0' && steps.commit.outputs.committed == 'true' }}
+        if: ${{ steps.commit.outputs.committed == 'true' || steps.rebase.outputs.committed == 'true' }}
         uses: ncipollo/release-action@v1
         with:
           artifacts: "index.sql.zst,index.sql.d/*"
