@@ -817,7 +817,7 @@ update_owners() {
     if [ "$1" = "0" ]; then
         if [ "$packages_already_updated" = "$packages_all" ]; then
             set_BKG BKG_BATCH_FIRST_STARTED "$TODAY"
-            seq 1 10 | env_parallel --lb --halt soon,fail=1 page_owner
+            [ -s "$BKG_OWNERS" ] || seq 1 10 | env_parallel --lb --halt soon,fail=1 page_owner
         else
             [ -n "$(get_BKG BKG_BATCH_FIRST_STARTED)" ] || set_BKG BKG_BATCH_FIRST_STARTED "$TODAY"
         fi
