@@ -120,11 +120,11 @@ check_limit() {
     script_limit_diff=$((rate_limit_end - $(get_BKG BKG_SCRIPT_START)))
     timeout=$(get_BKG BKG_TIMEOUT)
 
-    # exit if the script has been running for 5 hours
-    if ((script_limit_diff >= 18000)); then
+    # exit if the script has been running for 2 hours
+    if ((script_limit_diff >= 7200)); then
         if ((timeout == 0)); then
             set_BKG BKG_TIMEOUT "1"
-            echo "Script has been running for 5 hours! Saving..."
+            echo "Script has been running for 2 hours! Saving..."
         elif ((timeout == 2)); then
             return 1
         fi
