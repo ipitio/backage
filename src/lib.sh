@@ -628,7 +628,7 @@ request_owner() {
         sleep 0.1
     done
 
-    echo "$id/$owner" >>"$BKG_OWNERS"
+    grep -q "^.*\/*$owner$" "$BKG_OWNERS" || echo "$id/$owner" >>"$BKG_OWNERS"
     local return_code=0
 
     if [ "$(stat -c %s "$BKG_OWNERS")" -ge 100000000 ]; then
@@ -833,6 +833,7 @@ update_owners() {
         echo >>"$BKG_OWNERS"
         awk 'NF' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
         sed -i 's/^[[:space:]]*//;s/[[:space:]]*$//' "$BKG_OWNERS"
+        awk '!seen[$0]++' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
         sqlite3 "$BKG_INDEX_DB" "select owner from '$BKG_INDEX_TBL_PKG' group by owner;" | parallel --lb "sed -i '/^.*?\/*{}$/d' $BKG_OWNERS" # remove owners that have already been ingested
         owners_to_update=$(cat "$BKG_OWNERS")${owners_to_update:+$'\n'$owners_to_update}
     fi
