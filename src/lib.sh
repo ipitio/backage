@@ -120,11 +120,11 @@ check_limit() {
     script_limit_diff=$((rate_limit_end - $(get_BKG BKG_SCRIPT_START)))
     timeout=$(get_BKG BKG_TIMEOUT)
 
-    # exit if the script has been running for 5 hours
-    if ((script_limit_diff >= 18000)); then
+    # exit if the script has been running for 2 hours
+    if ((script_limit_diff >= 7200)); then
         if ((timeout == 0)); then
             set_BKG BKG_TIMEOUT "1"
-            echo "Script has been running for 5 hours! Saving..."
+            echo "Script has been running for 2 hours! Saving..."
         elif ((timeout == 2)); then
             return 1
         fi
@@ -187,7 +187,7 @@ run_parallel() {
     exit_code=$(mktemp)
     echo "0" >"$exit_code"
 
-    (
+    (   # parallel --lb --halt soon,fail=1
         IFS=$'\n'
         for i in $2; do
             [ "$(cat "$exit_code")" = "0" ] || exit
@@ -198,8 +198,10 @@ run_parallel() {
     ) &
 
     wait "$!"
-    [[ ! "$(cat "$exit_code")" =~ ^[0-9]+$ ]] || return "$(cat "$exit_code")"
+    local return_code=0
+    [[ ! "$(cat "$exit_code")" =~ ^[0-9]+$ ]] || return_code=$(cat "$exit_code")
     rm -f "$exit_code"
+    return "$return_code"
 }
 
 _jq() {
@@ -214,7 +216,6 @@ save_version() {
     local tags
     local versions_json
     id=$(_jq "$1" '.id')
-    #echo "Queuing $owner/$package/$id..."
     name=$(_jq "$1" '.name')
     tags=$(_jq "$1" '.. | try .tags | join(",")')
     [ -n "$tags" ] || tags=$(_jq "$1" '.. | try .tags')
@@ -229,7 +230,6 @@ save_version() {
     fi
 
     set_BKG BKG_VERSIONS_JSON_"${owner}_${package}" "$versions_json"
-    #echo "Queued $owner/$package/$id"
 }
 
 page_version() {
@@ -238,7 +238,6 @@ page_version() {
     local versions_json_more="[]"
     local calls_to_api
     local min_calls_to_api
-    echo "Searching for more versions of $owner/$package on page $1..."
 
     if [ -n "$GITHUB_TOKEN" ]; then
         versions_json_more=$(curl -H "Accept: application/vnd.github+json" \
@@ -259,7 +258,7 @@ page_version() {
 
     # add the new versions to the versions_json, if they are not already there
     run_parallel save_version "$(jq -r '.[] | @base64' <<<"$versions_json_more")"
-    echo "Searched $owner/$package page $1"
+    echo "Queued $owner/$package page $1"
 }
 
 update_version() {
@@ -350,27 +349,24 @@ save_package() {
     package_new=$(cut -d'/' -f7 <<<"$1" | tr -d '"')
     package_new=${package_new%/}
     [ -n "$package_new" ] || return
-    #echo "Queuing $owner/$package_new..."
     package_type=$(cut -d'/' -f5 <<<"$1")
     repo=$(grep -zoP '(?<=href="/'"$owner_type"'/'"$owner"'/packages/'"$package_type"'/package/'"$package_new"'")(.|\n)*?href="/'"$owner"'/[^"]+"' <<<"$html" | tr -d '\0' | grep -oP 'href="/'"$owner"'/[^"]+' | cut -d'/' -f3)
     package_type=${package_type%/}
     repo=${repo%/}
     set_BKG_set BKG_PACKAGES_"$owner" "$package_type/$repo/$package_new"
-    echo "Queued $owner/$package_new"
 }
 
 page_package() {
     check_limit || return
     local packages_lines
     local html
-    echo "Searching for packages by $owner on page $1..."
     [ "$owner_type" = "users" ] && html=$(curl "https://github.com/$owner?tab=packages&visibility=public&&per_page=100&page=$1") || html=$(curl "https://github.com/$owner_type/$owner/packages?visibility=public&per_page=100&page=$1")
     packages_lines=$(grep -zoP 'href="/'"$owner_type"'/'"$owner"'/packages/[^/]+/package/[^"]+"' <<<"$html" | tr -d '\0')
     [ -n "$packages_lines" ] || return 1
     packages_lines=${packages_lines//href=/\\nhref=}
     packages_lines=${packages_lines//\\n/$'\n'} # replace \n with newline
     run_parallel save_package "$packages_lines"
-    echo "Searched $owner page $1"
+    echo "Queued $owner page $1"
 }
 
 update_package() {
@@ -475,103 +471,6 @@ update_package() {
 
     sqlite3 "$BKG_INDEX_DB" "insert or replace into '$BKG_INDEX_TBL_PKG' (owner_id, owner_type, package_type, owner, repo, package, downloads, downloads_month, downloads_week, downloads_day, size, date) values ('$owner_id', '$owner_type', '$package_type', '$owner', '$repo', '$package', '$raw_downloads', '$raw_downloads_month', '$raw_downloads_week', '$raw_downloads_day', '$size', '$TODAY');"
     echo "Scraped $owner/$package"
-}
-
-check_owner() {
-    check_limit || return
-    [ -n "$1" ] || return
-    local owner
-    local id
-    owner=$(_jq "$1" '.login')
-    id=$(_jq "$1" '.id')
-    #echo "Checking $owner..."
-    set_BKG_set BKG_OWNERS_QUEUE "$id/$owner"
-    [ "$(stat -c %s "$BKG_OWNERS")" -ge 100000000 ] && del_BKG_set BKG_OWNERS_QUEUE "$id/$owner" || set_BKG BKG_LAST_SCANNED_ID "$id"
-    echo "Checked $owner"
-}
-
-page_owner() {
-    check_limit || return
-    echo "Searching for more packages on API page $1..."
-    local owners_more="[]"
-    local calls_to_api
-    local min_calls_to_api
-
-    if [ -n "$GITHUB_TOKEN" ]; then
-        owners_more=$(curl -H "Accept: application/vnd.github+json" \
-            -H "Authorization: Bearer $GITHUB_TOKEN" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            "https://api.github.com/users?per_page=100&page=$1&since=$(get_BKG BKG_LAST_SCANNED_ID)")
-        calls_to_api=$(get_BKG BKG_CALLS_TO_API)
-        min_calls_to_api=$(get_BKG BKG_MIN_CALLS_TO_API)
-        ((calls_to_api++))
-        ((min_calls_to_api++))
-        set_BKG BKG_CALLS_TO_API "$calls_to_api"
-        set_BKG BKG_MIN_CALLS_TO_API "$min_calls_to_api"
-        jq -e . <<<"$owners_more" &>/dev/null || owners_more="[]"
-    fi
-
-    # if owners doesn't have .login, break
-    jq -e '.[].login' <<<"$owners_more" &>/dev/null || return 1
-    run_parallel check_owner "$(jq -r '.[] | @base64' <<<"$owners_more")"
-    echo "Searched API page $1"
-}
-
-add_owner() {
-    check_limit || return
-    owner=$(echo "$1" | tr -d '[:space:]')
-    [ -n "$owner" ] || return
-    #echo "Adding $owner..."
-    owner_id=""
-    local calls_to_api
-    local min_calls_to_api
-
-    if [[ "$owner" =~ .*\/.* ]]; then
-        owner_id=$(cut -d'/' -f1 <<<"$owner")
-        owner=$(cut -d'/' -f2 <<<"$owner")
-    fi
-
-    if [ -z "$owner_id" ]; then
-        owner_id=$(curl -H "Accept: application/vnd.github+json" \
-            -H "Authorization: Bearer $GITHUB_TOKEN" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            "https://api.github.com/users/$owner" | jq -r '.id')
-        calls_to_api=$(get_BKG BKG_CALLS_TO_API)
-        min_calls_to_api=$(get_BKG BKG_MIN_CALLS_TO_API)
-        ((calls_to_api++))
-        ((min_calls_to_api++))
-        set_BKG BKG_CALLS_TO_API "$calls_to_api"
-        set_BKG BKG_MIN_CALLS_TO_API "$min_calls_to_api"
-    fi
-
-    set_BKG_set BKG_OWNERS_QUEUE "$owner_id/$owner"
-    echo "Added $owner"
-}
-
-update_owner() {
-    set_BKG BKG_TIMEOUT "0"
-    check_limit || return
-    [ -n "$1" ] || return
-    local login_id=$1
-    local html
-    [ -n "$login_id" ] || return
-    owner=$(cut -d'/' -f2 <<<"$login_id")
-    echo "Updating $owner..."
-    owner_id=$(cut -d'/' -f1 <<<"$login_id")
-    owner_type="orgs"
-    html=$(curl "https://github.com/orgs/$owner/people")
-    is_org=$(grep -zoP 'href="/orgs/'"$owner"'/people"' <<<"$html" | tr -d '\0')
-    [ -n "$is_org" ] || owner_type="users"
-    set_BKG BKG_PACKAGES_"$owner" ""
-
-    for i in $(seq 1 100); do
-        check_limit || break
-        page_package "$i" || break
-    done
-
-    run_parallel update_package "$(get_BKG_set BKG_PACKAGES_"$owner")"
-    del_BKG BKG_PACKAGES_"$owner"
-    echo "Updated $owner"
 }
 
 refresh_package() {
@@ -705,6 +604,111 @@ refresh_package() {
     echo "Refreshed $owner/$package"
 }
 
+request_owner() {
+    check_limit || return
+    [ -n "$1" ] || return
+    local owner
+    local id
+    owner=$(_jq "$1" '.login')
+    id=$(_jq "$1" '.id')
+
+    while ! ln "$BKG_OWNERS" "$BKG_OWNERS.lock" 2>/dev/null; do
+        sleep 0.1
+    done
+
+    echo "$id/$owner" >>"$BKG_OWNERS"
+    local return_code=0
+
+    if [ "$(stat -c %s "$BKG_OWNERS")" -ge 100000000 ]; then
+        sed -i '$d' "$BKG_OWNERS"
+        return_code=1
+    else
+        set_BKG BKG_LAST_SCANNED_ID "$id"
+    fi
+
+    rm -f "$BKG_OWNERS.lock"
+    return $return_code
+}
+
+save_owner() {
+    check_limit || return
+    owner=$(echo "$1" | tr -d '[:space:]')
+    [ -n "$owner" ] || return
+    owner_id=""
+    local calls_to_api
+    local min_calls_to_api
+
+    if [[ "$owner" =~ .*\/.* ]]; then
+        owner_id=$(cut -d'/' -f1 <<<"$owner")
+        owner=$(cut -d'/' -f2 <<<"$owner")
+    fi
+
+    if [ -z "$owner_id" ]; then
+        owner_id=$(curl -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/users/$owner" | jq -r '.id')
+        calls_to_api=$(get_BKG BKG_CALLS_TO_API)
+        min_calls_to_api=$(get_BKG BKG_MIN_CALLS_TO_API)
+        ((calls_to_api++))
+        ((min_calls_to_api++))
+        set_BKG BKG_CALLS_TO_API "$calls_to_api"
+        set_BKG BKG_MIN_CALLS_TO_API "$min_calls_to_api"
+    fi
+
+    set_BKG_set BKG_OWNERS_QUEUE "$owner_id/$owner"
+    echo "Queued $owner"
+}
+
+page_owner() {
+    check_limit || return
+    local owners_more="[]"
+    local calls_to_api
+    local min_calls_to_api
+
+    if [ -n "$GITHUB_TOKEN" ]; then
+        owners_more=$(curl -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/users?per_page=100&page=$1&since=$(get_BKG BKG_LAST_SCANNED_ID)")
+        calls_to_api=$(get_BKG BKG_CALLS_TO_API)
+        min_calls_to_api=$(get_BKG BKG_MIN_CALLS_TO_API)
+        ((calls_to_api++))
+        ((min_calls_to_api++))
+        set_BKG BKG_CALLS_TO_API "$calls_to_api"
+        set_BKG BKG_MIN_CALLS_TO_API "$min_calls_to_api"
+        jq -e . <<<"$owners_more" &>/dev/null || owners_more="[]"
+    fi
+
+    # if owners doesn't have .login, break
+    jq -e '.[].login' <<<"$owners_more" &>/dev/null || return 1
+    run_parallel request_owner "$(jq -r '.[] | @base64' <<<"$owners_more")"
+    local return_code=$?
+    echo "Requested $owner page $1"
+    return $return_code
+}
+
+update_owner() {
+    set_BKG BKG_TIMEOUT "0"
+    check_limit || return
+    [ -n "$1" ] || return
+    local login_id=$1
+    local html
+    [ -n "$login_id" ] || return
+    owner=$(cut -d'/' -f2 <<<"$login_id")
+    echo "Updating $owner..."
+    owner_id=$(cut -d'/' -f1 <<<"$login_id")
+    owner_type="orgs"
+    html=$(curl "https://github.com/orgs/$owner/people")
+    is_org=$(grep -zoP 'href="/orgs/'"$owner"'/people"' <<<"$html" | tr -d '\0')
+    [ -n "$is_org" ] || owner_type="users"
+    set_BKG BKG_PACKAGES_"$owner" ""
+    run_parallel page_package "$(seq 1 100)"
+    run_parallel update_package "$(get_BKG_set BKG_PACKAGES_"$owner")"
+    del_BKG BKG_PACKAGES_"$owner"
+    echo "Updated $owner"
+}
+
 refresh_owner() {
     check_limit || return
     [ -n "$1" ] || return
@@ -801,7 +805,7 @@ update_owners() {
     if [ "$1" = "0" ]; then
         if [ "$owners_already_updated" = "$owners_all" ]; then
             set_BKG BKG_BATCH_FIRST_STARTED "$TODAY"
-            seq 1 10 | env_parallel --lb page_owner
+            seq 1 10 | env_parallel --lb --halt soon,fail=1 page_owner
         else
             [ -n "$(get_BKG BKG_BATCH_FIRST_STARTED)" ] || set_BKG BKG_BATCH_FIRST_STARTED "$TODAY"
         fi
@@ -822,7 +826,7 @@ update_owners() {
     fi
 
     BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
-    [ -z "$owners_to_update" ] || printf "%s\n" "$owners_to_update" | env_parallel --lb add_owner
+    [ -z "$owners_to_update" ] || printf "%s\n" "$owners_to_update" | env_parallel --lb save_owner
     [ -n "$(get_BKG BKG_RATE_LIMIT_START)" ] || set_BKG BKG_RATE_LIMIT_START "$(date -u +%s)"
     [ -n "$(get_BKG BKG_CALLS_TO_API)" ] || set_BKG BKG_CALLS_TO_API "0"
 
