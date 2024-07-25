@@ -120,11 +120,11 @@ check_limit() {
     script_limit_diff=$((rate_limit_end - $(get_BKG BKG_SCRIPT_START)))
     timeout=$(get_BKG BKG_TIMEOUT)
 
-    # exit if the script has been running for 2 hours
-    if ((script_limit_diff >= 7200)); then
+    # exit if the script has been running for 5 hours
+    if ((script_limit_diff >= 18000)); then
         if ((timeout == 0)); then
             set_BKG BKG_TIMEOUT "1"
-            echo "Script has been running for 2 hours! Saving..."
+            echo "Script has been running for 5 hours! Saving..."
         elif ((timeout == 2)); then
             return 1
         fi
@@ -200,77 +200,6 @@ run_parallel() {
     wait "$!"
     [[ ! "$(cat "$exit_code")" =~ ^[0-9]+$ ]] || return "$(cat "$exit_code")"
     rm -f "$exit_code"
-}
-
-clean_up() {
-    [ -f "$BKG_INDEX_DB" ] || return 1
-    local rotated=false
-    local query
-    local tables
-    local owners
-    local repos
-    local packages
-    local TODAY
-
-    echo "Compressing the database..."
-    TODAY=$(get_BKG BKG_TODAY)
-    sqlite3 "$BKG_INDEX_DB" ".dump" | zstd -22 --ultra --long -T0 -o "$BKG_INDEX_SQL".new.zst
-
-    if [ -f "$BKG_INDEX_SQL".new.zst ]; then
-        # rotate the database if it's greater than 2GB
-        if [ "$(stat -c %s "$BKG_INDEX_SQL".new.zst)" -ge 2000000000 ]; then
-            rotated=true
-            echo "Rotating the database..."
-            [ -d "$BKG_INDEX_SQL".d ] || mkdir "$BKG_INDEX_SQL".d
-            [ ! -f "$BKG_INDEX_SQL".zst ] || mv "$BKG_INDEX_SQL".zst "$BKG_INDEX_SQL".d/"$(date -u +%Y.%m.%d)".zst
-            sqlite3 "$BKG_INDEX_DB" "delete from '$BKG_INDEX_TBL_PKG' where date < '$BKG_BATCH_FIRST_STARTED';"
-
-            for table in $(sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name like '${BKG_INDEX_TBL_VER}_%';"); do
-                sqlite3 "$BKG_INDEX_DB" "delete from '$table' where date < '$BKG_BATCH_FIRST_STARTED';"
-            done
-
-            echo "Rotated the database"
-            sqlite3 "$BKG_INDEX_DB" "vacuum;"
-            sqlite3 "$BKG_INDEX_DB" ".dump" | zstd -22 --ultra --long -T0 -o "$BKG_INDEX_SQL".new.zst
-        fi
-
-        mv "$BKG_INDEX_SQL".new.zst "$BKG_INDEX_SQL".zst
-        echo "Compressed the database"
-    else
-        echo "Failed to compress the database!"
-    fi
-
-    echo "Updating templates..."
-    [ ! -f ../CHANGELOG.md ] || rm -f ../CHANGELOG.md
-    \cp templates/.CHANGELOG.md ../CHANGELOG.md
-    owners=$(sqlite3 "$BKG_INDEX_DB" "select count(distinct owner_id) from '$BKG_INDEX_TBL_PKG';")
-    repos=$(sqlite3 "$BKG_INDEX_DB" "select count(distinct repo) from '$BKG_INDEX_TBL_PKG';")
-    packages=$(sqlite3 "$BKG_INDEX_DB" "select count(distinct package) from '$BKG_INDEX_TBL_PKG';")
-    perl -0777 -pe 's/\[OWNERS\]/'"$owners"'/g; s/\[REPOS\]/'"$repos"'/g; s/\[PACKAGES\]/'"$packages"'/g' ../CHANGELOG.md >CHANGELOG.tmp && [ -f CHANGELOG.tmp ] && mv CHANGELOG.tmp ../CHANGELOG.md || :
-    ! $rotated || echo " The database grew over 2GB and was rotated, but you can find all previous data under [Releases](https://github.com/$GITHUB_OWNER/$GITHUB_REPO/releases)." >>../CHANGELOG.md
-    [ ! -f ../README.md ] || rm -f ../README.md
-    \cp templates/.README.md ../README.md
-    perl -0777 -pe 's/<GITHUB_OWNER>/'"$GITHUB_OWNER"'/g; s/<GITHUB_REPO>/'"$GITHUB_REPO"'/g; s/<GITHUB_BRANCH>/'"$GITHUB_BRANCH"'/g' ../README.md >README.tmp && [ -f README.tmp ] && mv README.tmp ../README.md || :
-    echo "Updated templates"
-
-    # if index db is greater than 100MB, remove it
-    if [ "$(stat -c %s "$BKG_INDEX_DB")" -ge 100000000 ]; then
-        echo "Removing the database..."
-
-        if [ -f "$BKG_INDEX_DB" ]; then
-            git rm "$BKG_INDEX_DB" || rm -f "$BKG_INDEX_DB"
-        fi
-
-        if [ -f ../index.json ]; then
-            git rm ../index.json || rm -f ../index.json
-        fi
-
-        echo "Removed the database"
-    fi
-
-    del_BKG "BKG_VERSIONS_.*"
-    del_BKG "BKG_PACKAGES_.*"
-    del_BKG "BKG_OWNERS_.*"
 }
 
 _jq() {
@@ -835,6 +764,16 @@ set_up() {
     sqlite3 "$BKG_INDEX_DB" "alter table '${BKG_INDEX_TBL_PKG}_temp' rename to '$BKG_INDEX_TBL_PKG';"
 }
 
+clean_up() {
+    del_BKG "BKG_VERSIONS_.*"
+    del_BKG "BKG_PACKAGES_.*"
+    del_BKG "BKG_OWNERS_.*"
+    del_BKG BKG_MAX
+    del_BKG BKG_TIMEOUT
+    del_BKG BKG_TODAY
+    del_BKG BKG_SCRIPT_START
+}
+
 update_owners() {
     set_up
     set_BKG BKG_TIMEOUT "2"
@@ -844,6 +783,12 @@ update_owners() {
     local owners_already_updated
     local owners_all
     local owners_to_update
+    local rotated=false
+    local query
+    local tables
+    local owners
+    local repos
+    local packages
     owners_already_updated=$(sqlite3 "$BKG_INDEX_DB" "select owner from '$BKG_INDEX_TBL_PKG' where date >= '$BKG_BATCH_FIRST_STARTED' group by owner;" | sort)
     owners_all=$(sqlite3 "$BKG_INDEX_DB" "select owner from '$BKG_INDEX_TBL_PKG' group by owner;" | sort)
 
@@ -889,10 +834,67 @@ update_owners() {
     fi
 
     get_BKG_set BKG_OWNERS_QUEUE | env_parallel --lb update_owner
+    echo "Compressing the database..."
+    sqlite3 "$BKG_INDEX_DB" ".dump" | zstd -22 --ultra --long -T0 -o "$BKG_INDEX_SQL".new.zst
+
+    if [ -f "$BKG_INDEX_SQL".new.zst ]; then
+        # rotate the database if it's greater than 2GB
+        if [ "$(stat -c %s "$BKG_INDEX_SQL".new.zst)" -ge 2000000000 ]; then
+            rotated=true
+            echo "Rotating the database..."
+            [ -d "$BKG_INDEX_SQL".d ] || mkdir "$BKG_INDEX_SQL".d
+            [ ! -f "$BKG_INDEX_SQL".zst ] || mv "$BKG_INDEX_SQL".zst "$BKG_INDEX_SQL".d/"$(date -u +%Y.%m.%d)".zst
+            sqlite3 "$BKG_INDEX_DB" "delete from '$BKG_INDEX_TBL_PKG' where date < '$BKG_BATCH_FIRST_STARTED';"
+
+            for table in $(sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name like '${BKG_INDEX_TBL_VER}_%';"); do
+                sqlite3 "$BKG_INDEX_DB" "delete from '$table' where date < '$BKG_BATCH_FIRST_STARTED';"
+            done
+
+            echo "Rotated the database"
+            sqlite3 "$BKG_INDEX_DB" "vacuum;"
+            rm -f "$BKG_INDEX_SQL".new.zst
+            sqlite3 "$BKG_INDEX_DB" ".dump" | zstd -22 --ultra --long -T0 -o "$BKG_INDEX_SQL".new.zst
+        fi
+
+        mv "$BKG_INDEX_SQL".new.zst "$BKG_INDEX_SQL".zst
+        echo "Compressed the database"
+    else
+        echo "Failed to compress the database!"
+    fi
+
+    echo "Updating templates..."
+    [ ! -f ../CHANGELOG.md ] || rm -f ../CHANGELOG.md
+    \cp templates/.CHANGELOG.md ../CHANGELOG.md
+    owners=$(sqlite3 "$BKG_INDEX_DB" "select count(distinct owner_id) from '$BKG_INDEX_TBL_PKG';")
+    repos=$(sqlite3 "$BKG_INDEX_DB" "select count(distinct repo) from '$BKG_INDEX_TBL_PKG';")
+    packages=$(sqlite3 "$BKG_INDEX_DB" "select count(distinct package) from '$BKG_INDEX_TBL_PKG';")
+    perl -0777 -pe 's/\[OWNERS\]/'"$owners"'/g; s/\[REPOS\]/'"$repos"'/g; s/\[PACKAGES\]/'"$packages"'/g' ../CHANGELOG.md >CHANGELOG.tmp && [ -f CHANGELOG.tmp ] && mv CHANGELOG.tmp ../CHANGELOG.md || :
+    ! $rotated || echo " The database grew over 2GB and was rotated, but you can find all previous data under [Releases](https://github.com/$GITHUB_OWNER/$GITHUB_REPO/releases)." >>../CHANGELOG.md
+    [ ! -f ../README.md ] || rm -f ../README.md
+    \cp templates/.README.md ../README.md
+    perl -0777 -pe 's/<GITHUB_OWNER>/'"$GITHUB_OWNER"'/g; s/<GITHUB_REPO>/'"$GITHUB_REPO"'/g; s/<GITHUB_BRANCH>/'"$GITHUB_BRANCH"'/g' ../README.md >README.tmp && [ -f README.tmp ] && mv README.tmp ../README.md || :
+    echo "Updated templates"
+
+    # if index db is greater than 100MB, remove it
+    if [ "$(stat -c %s "$BKG_INDEX_DB")" -ge 100000000 ]; then
+        echo "Removing the database..."
+
+        if [ -f "$BKG_INDEX_DB" ]; then
+            git rm "$BKG_INDEX_DB" || rm -f "$BKG_INDEX_DB"
+        fi
+
+        if [ -f ../index.json ]; then
+            git rm ../index.json || rm -f ../index.json
+        fi
+
+        echo "Removed the database"
+    fi
+
     clean_up
 }
 
 refresh_owners() {
     set_up
     sqlite3 "$BKG_INDEX_DB" "select distinct owner from '$BKG_INDEX_TBL_PKG';" | env_parallel --lb refresh_owner
+    clean_up
 }
