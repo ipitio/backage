@@ -42,7 +42,7 @@ jobs:
         if: ${{ steps.update.outputs.updated == '0' }}
         uses: EndBug/add-and-commit@v9
         with:
-          add: "*.db,*.txt,README.md"
+          add: "*.db,*.txt,*.env,README.md"
           message: "update database"
           pull: "--autostash -s ours"
 
@@ -51,16 +51,16 @@ jobs:
         if: ${{ steps.update.outputs.updated == '0' && steps.commit.outputs.committed == 'false' }}
         uses: EndBug/add-and-commit@v9
         with:
-          add: "*.db,*.txt,README.md"
+          add: "*.db,*.txt,*.env,README.md"
           message: "update database"
           pull: "--rebase --autostash -s ours"
 
       - name: Save database
-        if: ${{ steps.commit.outputs.committed == 'true' || steps.rebase.outputs.committed == 'true' }}
+        if: ${{ steps.update.outputs.updated == '0' }}
         uses: ncipollo/release-action@v1
         with:
           artifacts: "index.sql.zst,index.sql.d/*"
           bodyFile: "CHANGELOG.md"
           tag: "${{ steps.date.outputs.date }}"
-          commit: "${{ steps.commit.outputs.commit_long_sha }}"
+          commit: "master"
           allowUpdates: true
