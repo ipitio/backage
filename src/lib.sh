@@ -519,7 +519,7 @@ update_package() {
     local version_count
     version_count_batch=$(sqlite3 "$BKG_INDEX_DB" "select count(distinct id) from '$table_version_name' where date >= '$BKG_BATCH_FIRST_STARTED';")
     version_count=$(sqlite3 "$BKG_INDEX_DB" "select count(distinct id) from '$table_version_name';")
-    [ "$version_count" -eq "$version_count_batch" ] || return
+    [ "$version_count" = "$version_count_batch" ] || return
 
     if [ -n "$(sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name='$table_version_name';")" ]; then
         # calculate the total downloads
