@@ -777,7 +777,7 @@ refresh_owner() {
     echo "Refreshing $1..."
     [ -d "$BKG_INDEX_DIR" ] || mkdir "$BKG_INDEX_DIR"
     [ -d "$BKG_INDEX_DIR/$1" ] || mkdir "$BKG_INDEX_DIR/$1"
-    run_parallel refresh_package "$(sqlite3 "$BKG_INDEX_DB" "select * from '$BKG_INDEX_TBL_PKG' where owner='$1' order by package;")"
+    run_parallel refresh_package "$(sqlite3 "$BKG_INDEX_DB" "select * from '$BKG_INDEX_TBL_PKG' where owner='$1' group by package;")"
     echo "Refreshed $1"
 }
 
