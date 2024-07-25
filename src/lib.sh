@@ -427,6 +427,9 @@ update_package() {
     echo "Scraping $owner/$package..."
     local more_to_scrape=0
     local versions_page=0
+    local versions_all_ids=""
+    local versions_batch_ids=""
+    local versions_json=""
 
     while [ "$more_to_scrape" -eq 0 ]; do
         check_limit || return
@@ -441,18 +444,20 @@ update_package() {
         run_parallel page_version "$version_pages"
         more_to_scrape=$?
         versions_json=$(get_BKG BKG_VERSIONS_JSON_"${owner}_${package}")
-        jq -e . <<<"$versions_json" &>/dev/null || versions_json="[{\"id\":\"latest\",\"name\":\"latest\",\"tags\":\"\"}]"
-        run_parallel update_version "$(jq -r '.[] | @base64' <<<"$versions_json")"
+        versions_all_ids=${versions_json_all_ids:+$versions_json_all_ids$'\n'}$(jq -r '.[] | .id' <<<"$versions_json")
+        versions_all_ids=$(echo "$versions_json_all_ids" | awk '!seen[$0]++' | sort)
+        versions_batch_ids=$(sqlite3 "$BKG_INDEX_DB" "select distinct id from '$table_version_name' where date >= '$BKG_BATCH_FIRST_STARTED';" | sort)
+
+        if [[ "$versions_all_ids" != "$versions_batch_ids" || -z "$versions_json" ]]; then
+            jq -e . <<<"$versions_json" &>/dev/null || versions_json="[{\"id\":\"latest\",\"name\":\"latest\",\"tags\":\"\"}]"
+            run_parallel update_version "$(jq -r '.[] | @base64' <<<"$versions_json")"
+        fi
+
         del_BKG BKG_VERSIONS_JSON_"${owner}_${package}"
         versions_page=${versions_page}0
     done
 
-    # check if all versions have been scraped in this run
-    local version_count_batch
-    local version_count
-    version_count_batch=$(sqlite3 "$BKG_INDEX_DB" "select count(distinct id) from '$table_version_name' where date >= '$BKG_BATCH_FIRST_STARTED';")
-    version_count=$(sqlite3 "$BKG_INDEX_DB" "select count(distinct id) from '$table_version_name';")
-    [ "$version_count" = "$version_count_batch" ] || return
+    [[ "$versions_all_ids" == "$versions_batch_ids" ]] || return # don't return even if empty
 
     if [ -n "$(sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name='$table_version_name';")" ]; then
         # calculate the total downloads
