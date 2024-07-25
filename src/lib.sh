@@ -183,15 +183,23 @@ curl() {
 }
 
 run_parallel() {
+    local exit_code
+    exit_code=$(mktemp)
+    echo "0" >"$exit_code"
+
     (
         IFS=$'\n'
         for i in $2; do
+            [ "$(cat "$exit_code")" = "0" ] || exit
             check_limit || exit
-            "$1" "$i" &
+            { "$1" "$i" || echo "$?" >"$exit_code"; } &
         done
         wait
     ) &
+
     wait "$!"
+    [[ ! "$(cat "$exit_code")" =~ ^[0-9]+$ ]] || return "$(cat "$exit_code")"
+    rm -f "$exit_code"
 }
 
 clean_up() {
@@ -506,7 +514,7 @@ update_package() {
             [ -n "$version_pages" ] || break
         fi
 
-        run_parallel --halt soon,fail=1 page_version "$version_pages"
+        run_parallel page_version "$version_pages"
         more_to_scrape=$?
         versions_json=$(get_BKG BKG_VERSIONS_JSON_"${owner}_${package}")
         jq -e . <<<"$versions_json" &>/dev/null || versions_json="[{\"id\":\"latest\",\"name\":\"latest\",\"tags\":\"\"}]"
