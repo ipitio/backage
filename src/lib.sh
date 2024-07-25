@@ -120,11 +120,11 @@ check_limit() {
     script_limit_diff=$((rate_limit_end - $(get_BKG BKG_SCRIPT_START)))
     timeout=$(get_BKG BKG_TIMEOUT)
 
-    # exit if the script has been running for 1 hours
-    if ((script_limit_diff >= 3600)); then
+    # exit if the script has been running for 5 hours
+    if ((script_limit_diff >= 18000)); then
         if ((timeout == 0)); then
             set_BKG BKG_TIMEOUT "1"
-            echo "Script has been running for 1 hours! Saving..."
+            echo "Script has been running for 5 hours! Saving..."
         elif ((timeout == 2)); then
             return 1
         fi
@@ -833,7 +833,7 @@ update_owners() {
         echo >>"$BKG_OWNERS"
         awk 'NF' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
         sed -i 's/^[[:space:]]*//;s/[[:space:]]*$//' "$BKG_OWNERS"
-        printf "%s\n" "$packages_all" | parallel --lb "sed -i '/^{}$/d' $BKG_OWNERS" # remove owners that have already been ingested
+        sqlite3 "$BKG_INDEX_DB" "select owner from '$BKG_INDEX_TBL_PKG' group by owner;" | parallel --lb "sed -i '/^.*?\/*{}$/d' $BKG_OWNERS" # remove owners that have already been ingested
         owners_to_update=$(cat "$BKG_OWNERS")${owners_to_update:+$'\n'$owners_to_update}
     fi
 
