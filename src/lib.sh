@@ -187,7 +187,7 @@ run_parallel() {
     exit_code=$(mktemp)
     echo "0" >"$exit_code"
 
-    (   # parallel --lb --halt soon,fail=1
+    ( # parallel --lb --halt soon,fail=1
         IFS=$'\n'
         for i in $2; do
             [ "$(cat "$exit_code")" = "0" ] || exit
@@ -791,8 +791,8 @@ update_owners() {
     set_BKG BKG_AUTO "$1"
     [ -n "$(get_BKG BKG_LAST_SCANNED_ID)" ] || set_BKG BKG_LAST_SCANNED_ID "0"
     TODAY=$(get_BKG BKG_TODAY)
-    local owners_already_updated
-    local owners_all
+    local packages_already_updated
+    local packages_all
     local owners_to_update
     local rotated=false
     local query
@@ -800,19 +800,19 @@ update_owners() {
     local owners
     local repos
     local packages
-    owners_already_updated=$(sqlite3 "$BKG_INDEX_DB" "select owner from '$BKG_INDEX_TBL_PKG' where date >= '$BKG_BATCH_FIRST_STARTED' group by owner;" | sort)
-    owners_all=$(sqlite3 "$BKG_INDEX_DB" "select owner from '$BKG_INDEX_TBL_PKG' group by owner;" | sort)
+    packages_already_updated=$(sqlite3 "$BKG_INDEX_DB" "select owner, package from '$BKG_INDEX_TBL_PKG' where date >= '$BKG_BATCH_FIRST_STARTED' group by owner, package;" | awk '{print $2}' | sort)
+    packages_all=$(sqlite3 "$BKG_INDEX_DB" "select owner, package from '$BKG_INDEX_TBL_PKG' group by owner, package;" | awk '{print $2}' | sort)
 
-    # if this is a scheduled update, scrape all owners that haven't been scraped in this batch
+    # if this is a scheduled update, scrape all owners
     if [ "$1" = "0" ]; then
-        if [ "$owners_already_updated" = "$owners_all" ]; then
+        if [ "$packages_already_updated" = "$packages_all" ]; then
             set_BKG BKG_BATCH_FIRST_STARTED "$TODAY"
             seq 1 10 | env_parallel --lb --halt soon,fail=1 page_owner
         else
             [ -n "$(get_BKG BKG_BATCH_FIRST_STARTED)" ] || set_BKG BKG_BATCH_FIRST_STARTED "$TODAY"
         fi
 
-        owners_to_update=$(comm -23 <(echo "$owners_all") <(echo "$owners_already_updated"))
+        owners_to_update=$(sqlite3 "$BKG_INDEX_DB" "select owner from '$BKG_INDEX_TBL_PKG' group by owner;")
     elif [ "$1" = "1" ]; then
         owners_to_update="arevindh"
     fi
@@ -823,7 +823,7 @@ update_owners() {
         echo >>"$BKG_OWNERS"
         awk 'NF' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
         sed -i 's/^[[:space:]]*//;s/[[:space:]]*$//' "$BKG_OWNERS"
-        printf "%s\n" "$owners_all" | parallel --lb "sed -i '/^{}$/d' $BKG_OWNERS" # remove owners that have already been ingested
+        printf "%s\n" "$packages_all" | parallel --lb "sed -i '/^{}$/d' $BKG_OWNERS" # remove owners that have already been ingested
         owners_to_update=$(cat "$BKG_OWNERS")${owners_to_update:+$'\n'$owners_to_update}
     fi
 
