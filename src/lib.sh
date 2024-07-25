@@ -210,7 +210,8 @@ _jq() {
 
 # check if all lines in $2 are in $1
 request_version() {
-    [ -n "$1" ] || return
+    [[ -n "$1" && -n "$2" ]] || return
+    [ -n "$1" ] || return 1
     [ -n "$2" ] || return 1
     # https://unix.stackexchange.com/a/220675
     [ "$(grep -E "^($(awk '{printf $0"|"}' <<<"$1"))$" <<<"$2" | sort -u)" = "$(sort -u <<<"$2")" ] || return 1
