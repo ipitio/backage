@@ -15,10 +15,7 @@ fi
 
 # shellcheck disable=SC2046
 source $(which env_parallel.bash)
-[ -d ~/.parallel ] || mkdir ~/.parallel
-[ -f ~/.parallel/ignored_vars ] || touch ~/.parallel/ignored_vars
 env_parallel --session
-echo -e "packages_all\npackages_already_updated\nowners_to_update\n" >>~/.parallel/ignored_vars
 BKG_ROOT=..
 BKG_ENV=env.env
 BKG_OWNERS=$BKG_ROOT/owners.txt
@@ -670,7 +667,6 @@ save_owner() {
         set_BKG BKG_MIN_CALLS_TO_API "$min_calls_to_api"
     fi
 
-    ((owner_id >= 0)) || return
     set_BKG_set BKG_OWNERS_QUEUE "$owner_id/$owner"
     echo "Queued $owner"
 }
@@ -797,12 +793,6 @@ clean_up() {
     del_BKG BKG_AUTO
     sed -i '/^\s*$/d' env.env
     echo >>env.env
-
-    if [ -f ~/.parallel/ignored_vars ]; then
-        sed -i '/^packages_already_updated$/d' ~/.parallel/ignored_vars
-        sed -i '/^packages_all$/d' ~/.parallel/ignored_vars
-        sed -i '/^owners_to_update$/d' ~/.parallel/ignored_vars
-    fi
 }
 
 update_owners() {
