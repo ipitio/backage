@@ -43,11 +43,12 @@ PRAGMA cache_size = -500000;
 }
 
 get_BKG() {
+    local res=""
+
     while ! ln "$BKG_ENV" "$BKG_ENV.lock" 2>/dev/null; do
         sleep 0.1
     done
 
-    local res=""
     ! grep -q "^$1=" "$BKG_ENV" || res=$(grep "^$1=" "$BKG_ENV" | cut -d'=' -f2)
     rm -f "$BKG_ENV.lock"
     echo "$res"
@@ -643,7 +644,6 @@ request_owner() {
 }
 
 save_owner() {
-    set -x
     check_limit || return
     owner=$(echo "$1" | tr -d '[:space:]')
     [ -n "$owner" ] || return
