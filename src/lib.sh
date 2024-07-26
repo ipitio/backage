@@ -119,17 +119,17 @@ check_limit() {
     local minute_calls
     local sec_limit_diff
     local min_passed
-
+    local max_len=18000
     total_calls=$(get_BKG BKG_CALLS_TO_API)
     rate_limit_end=$(date -u +%s)
     script_limit_diff=$((rate_limit_end - $(get_BKG BKG_SCRIPT_START)))
     timeout=$(get_BKG BKG_TIMEOUT)
+    (($(get_BKG BKG_AUTO) != 1)) || max_len=3600
 
-    # exit if the script has been running for 5 hours
-    if ((script_limit_diff >= 18000)); then
+    if ((script_limit_diff >= max_len)); then
         if ((timeout == 0)); then
             set_BKG BKG_TIMEOUT "1"
-            echo "Script has been running for 5 hours! Saving..."
+            echo "Script has been running for $((max_len / 3600)) hours. Saving..."
         elif ((timeout == 2)); then
             return 1
         fi
