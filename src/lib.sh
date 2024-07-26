@@ -673,6 +673,7 @@ save_owner() {
         set_BKG BKG_MIN_CALLS_TO_API "$min_calls_to_api"
     fi
 
+    ((owner_id >= 0)) || return
     set_BKG_set BKG_OWNERS_QUEUE "$owner_id/$owner"
     echo "Queued $owner"
 }
@@ -845,7 +846,7 @@ update_owners() {
             [ -n "$(get_BKG BKG_BATCH_FIRST_STARTED)" ] || set_BKG BKG_BATCH_FIRST_STARTED "$TODAY"
         fi
     elif [ "$1" = "1" ]; then
-        owners_to_update="693151/arevindh\n0/test"
+        owners_to_update="693151/arevindh\\n-1/test"
     fi
 
     BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
