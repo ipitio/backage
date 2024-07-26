@@ -847,7 +847,7 @@ update_owners() {
     fi
 
     BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
-    [ -z "$owners_to_update" ] || printf "%s\n" "$owners_to_update" | env_parallel --lb save_owner
+    [ -z "$owners_to_update" ] || printf "%s\n" "${owners_to_update//\\n/$'\n'}" | env_parallel --lb save_owner
     [ -n "$(get_BKG BKG_RATE_LIMIT_START)" ] || set_BKG BKG_RATE_LIMIT_START "$(date -u +%s)"
     [ -n "$(get_BKG BKG_CALLS_TO_API)" ] || set_BKG BKG_CALLS_TO_API "0"
 
