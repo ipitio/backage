@@ -19,15 +19,15 @@ source $(which env_parallel.bash)
 [ -f ~/.parallel/ignored_vars ] || touch ~/.parallel/ignored_vars
 echo -e "packages_all\npackages_already_updated\nowners_to_update\n" >>~/.parallel/ignored_vars
 env_parallel --session
-declare -r BKG_ROOT=..
-declare -r BKG_ENV=env.env
-declare -r BKG_OWNERS=$BKG_ROOT/owners.txt
-declare -r BKG_OPTOUT=$BKG_ROOT/optout.txt
-declare -r BKG_INDEX_DB=$BKG_ROOT/index.db
-declare -r BKG_INDEX_SQL=$BKG_ROOT/index.sql
-declare -r BKG_INDEX_DIR=$BKG_ROOT/index
-declare -r BKG_INDEX_TBL_PKG=packages
-declare -r BKG_INDEX_TBL_VER=versions
+BKG_ROOT=..
+BKG_ENV=env.env
+BKG_OWNERS=$BKG_ROOT/owners.txt
+BKG_OPTOUT=$BKG_ROOT/optout.txt
+BKG_INDEX_DB=$BKG_ROOT/index.db
+BKG_INDEX_SQL=$BKG_ROOT/index.sql
+BKG_INDEX_DIR=$BKG_ROOT/index
+BKG_INDEX_TBL_PKG=packages
+BKG_INDEX_TBL_VER=versions
 
 sqlite3() {
     command sqlite3 -init <(echo "
