@@ -1,4 +1,3 @@
-godatadriven
 6451/tob1k
 6452/bleepster
 6453/FEckEZ
@@ -52,7 +51,6 @@ godatadriven
 6502/clouder
 6501/toupeira
 6509/shermanl
-6508/vdemeester
 6505/htj
 6512/ovamode
 6513/spielstein
@@ -170,7 +168,6 @@ godatadriven
 6629/israelzuniga
 6632/tobyaw
 6627/mcammaert
-6628/hiteshjasani
 6635/tomdee
 6631/danaspiegel
 6637/TTimo
