@@ -5,9 +5,6 @@ on:
     workflows: ["refresh"]
     types: [requested, in_progress, completed]
 
-  schedule:
-    - cron: "0 */12 * * *"
-
 concurrency:
   group: ${{ github.ref }}
   cancel-in-progress: false
@@ -49,7 +46,7 @@ jobs:
         with:
           add: "-- *.db *.txt *.env README.md"
           message: "update database"
-          pull: "--autostash -s ours"
+          pull: "--autostash -X ours"
 
       - name: Rebase changes
         id: rebase
@@ -58,7 +55,7 @@ jobs:
         with:
           add: "-- *.db *.txt *.env README.md"
           message: "update database"
-          pull: "--rebase --autostash -s ours"
+          pull: "--rebase --autostash -X ours"
 
       - name: Save database
         if: ${{ steps.update.outputs.updated == '0' }}

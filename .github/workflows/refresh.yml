@@ -42,7 +42,7 @@ jobs:
         with:
           add: "*.json"
           message: "refresh endpoint"
-          pull: "--autostash -s ours"
+          pull: "--autostash -X ours"
 
       - name: Rebase changes
         id: rebase
@@ -51,4 +51,4 @@ jobs:
         with:
           add: "*.json"
           message: "refresh endpoint"
-          pull: "--rebase --autostash -s ours"
+          pull: "--rebase --autostash -X ours"
