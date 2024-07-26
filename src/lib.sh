@@ -46,7 +46,6 @@ get_BKG() {
     local res=""
 
     while ! ln "$BKG_ENV" "$BKG_ENV.lock" 2>/dev/null; do
-        echo "file: $BKG_ENV.lock"
         sleep 0.1
     done
 
@@ -62,6 +61,7 @@ set_BKG() {
     tmp_file=$(mktemp)
 
     while ! ln "$BKG_ENV" "$BKG_ENV.lock" 2>/dev/null; do
+        echo "file: $BKG_ENV.lock"
         sleep 0.1
     done
 
