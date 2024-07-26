@@ -645,7 +645,6 @@ request_owner() {
 }
 
 save_owner() {
-    set -x
     check_limit || return
     owner=$(echo "$1" | tr -d '[:space:]')
     [ -n "$owner" ] || return
