@@ -401,11 +401,6 @@ update_package() {
         return
     fi
 
-    # manual update: skip if the package is already in the index; the rest are updated daily
-    if [ "$(get_BKG BKG_AUTO)" = "1" ] && [[ "$owner" != "arevindh" ]]; then
-        [[ "$(sqlite3 "$BKG_INDEX_DB" "select count(*) from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and package='$package';")" =~ ^0*$ ]] || return
-    fi
-
     local raw_downloads=-1
     local raw_downloads_month=-1
     local raw_downloads_week=-1
