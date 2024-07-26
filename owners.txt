@@ -177,7 +177,6 @@
 6640/drewreeve
 6641/danielvlopes
 6644/gabrielmarcondes
-6642/luizirber
 6643/dschn
 6647/yangzx554
 6646/pberry
