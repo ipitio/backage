@@ -375,6 +375,7 @@ page_package() {
     check_limit || return
     local packages_lines
     local html
+    echo "Queuing $owner page $1"
     [ "$owner_type" = "users" ] && html=$(curl "https://github.com/$owner?tab=packages&visibility=public&&per_page=100&page=$1") || html=$(curl "https://github.com/$owner_type/$owner/packages?visibility=public&per_page=100&page=$1")
     packages_lines=$(grep -zoP 'href="/'"$owner_type"'/'"$owner"'/packages/[^/]+/package/[^"]+"' <<<"$html" | tr -d '\0')
     [ -n "$packages_lines" ] || return 1
@@ -796,6 +797,12 @@ clean_up() {
     del_BKG BKG_AUTO
     sed -i '/^\s*$/d' env.env
     echo >>env.env
+
+    if [ -f ~/.parallel/ignored_vars ]; then
+        sed -i '/^packages_already_updated$/d' ~/.parallel/ignored_vars
+        sed -i '/^packages_all$/d' ~/.parallel/ignored_vars
+        sed -i '/^owners_to_update$/d' ~/.parallel/ignored_vars
+    fi
 }
 
 update_owners() {
@@ -892,16 +899,16 @@ update_owners() {
     fi
 
     echo "Updating templates..."
-    [ ! -f ../CHANGELOG.md ] || rm -f ../CHANGELOG.md
-    \cp templates/.CHANGELOG.md ../CHANGELOG.md
+    [ ! -f $BKG_ROOT/CHANGELOG.md ] || rm -f $BKG_ROOT/CHANGELOG.md
+    \cp templates/.CHANGELOG.md $BKG_ROOT/CHANGELOG.md
     owners=$(sqlite3 "$BKG_INDEX_DB" "select count(distinct owner_id) from '$BKG_INDEX_TBL_PKG';")
     repos=$(sqlite3 "$BKG_INDEX_DB" "select count(distinct repo) from '$BKG_INDEX_TBL_PKG';")
     packages=$(sqlite3 "$BKG_INDEX_DB" "select count(distinct package) from '$BKG_INDEX_TBL_PKG';")
-    perl -0777 -pe 's/\[OWNERS\]/'"$owners"'/g; s/\[REPOS\]/'"$repos"'/g; s/\[PACKAGES\]/'"$packages"'/g' ../CHANGELOG.md >CHANGELOG.tmp && [ -f CHANGELOG.tmp ] && mv CHANGELOG.tmp ../CHANGELOG.md || :
-    ! $rotated || echo " The database grew over 2GB and was rotated, but you can find all previous data under [Releases](https://github.com/$GITHUB_OWNER/$GITHUB_REPO/releases)." >>../CHANGELOG.md
-    [ ! -f ../README.md ] || rm -f ../README.md
-    \cp templates/.README.md ../README.md
-    perl -0777 -pe 's/<GITHUB_OWNER>/'"$GITHUB_OWNER"'/g; s/<GITHUB_REPO>/'"$GITHUB_REPO"'/g; s/<GITHUB_BRANCH>/'"$GITHUB_BRANCH"'/g' ../README.md >README.tmp && [ -f README.tmp ] && mv README.tmp ../README.md || :
+    perl -0777 -pe 's/\[OWNERS\]/'"$owners"'/g; s/\[REPOS\]/'"$repos"'/g; s/\[PACKAGES\]/'"$packages"'/g' $BKG_ROOT/CHANGELOG.md >CHANGELOG.tmp && [ -f CHANGELOG.tmp ] && mv CHANGELOG.tmp $BKG_ROOT/CHANGELOG.md || :
+    ! $rotated || echo " The database grew over 2GB and was rotated, but you can find all previous data under [Releases](https://github.com/$GITHUB_OWNER/$GITHUB_REPO/releases)." >>$BKG_ROOT/CHANGELOG.md
+    [ ! -f $BKG_ROOT/README.md ] || rm -f $BKG_ROOT/README.md
+    \cp templates/.README.md $BKG_ROOT/README.md
+    perl -0777 -pe 's/<GITHUB_OWNER>/'"$GITHUB_OWNER"'/g; s/<GITHUB_REPO>/'"$GITHUB_REPO"'/g; s/<GITHUB_BRANCH>/'"$GITHUB_BRANCH"'/g' $BKG_ROOT/README.md >README.tmp && [ -f README.tmp ] && mv README.tmp $BKG_ROOT/README.md || :
     echo "Updated templates"
 
     # if index db is greater than 100MB, remove it
@@ -912,8 +919,8 @@ update_owners() {
             git rm "$BKG_INDEX_DB" || rm -f "$BKG_INDEX_DB"
         fi
 
-        if [ -f ../index.json ]; then
-            git rm ../index.json || rm -f ../index.json
+        if [ -f $BKG_ROOT/index.json ]; then
+            git rm $BKG_ROOT/index.json || rm -f $BKG_ROOT/index.json
         fi
 
         echo "Removed the database"
