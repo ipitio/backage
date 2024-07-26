@@ -813,7 +813,6 @@ update_owners() {
     local owners
     local repos
     local packages
-    set -x
     packages_already_updated=$(sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, package from '$BKG_INDEX_TBL_PKG' where date >= '$BKG_BATCH_FIRST_STARTED' group by owner_id, owner, package;" | sort -u)
     packages_all=$(sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, package from '$BKG_INDEX_TBL_PKG' group by owner_id, owner, package;" | sort -u)
 
@@ -827,23 +826,23 @@ update_owners() {
         else
             [ -n "$(get_BKG BKG_BATCH_FIRST_STARTED)" ] || set_BKG BKG_BATCH_FIRST_STARTED "$TODAY"
         fi
+
+        # add more owners
+        if [ -s "$BKG_OWNERS" ]; then
+            sed -i '/^\s*$/d' "$BKG_OWNERS"
+            echo >>"$BKG_OWNERS"
+            awk 'NF' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
+            sed -i 's/^[[:space:]]*//;s/[[:space:]]*$//' "$BKG_OWNERS"
+            awk '!seen[$0]++' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
+            # remove lines from $BKG_OWNERS that are in $packages_all
+            echo "$(
+                echo "$packages_all" | awk -F'|' '{print $1/$2}'
+                echo "$packages_all" | awk -F'|' '{print $2}'
+            )" | sort -u | parallel "sed -i '/^{}$/d' $BKG_OWNERS"
+            owners_to_update=$(cat "$BKG_OWNERS")${owners_to_update:+$'\n'$owners_to_update}
+        fi
     elif [ "$1" = "1" ]; then
         owners_to_update="693151/arevindh"
-    fi
-
-    # add more owners
-    if [ -s "$BKG_OWNERS" ]; then
-        sed -i '/^\s*$/d' "$BKG_OWNERS"
-        echo >>"$BKG_OWNERS"
-        awk 'NF' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
-        sed -i 's/^[[:space:]]*//;s/[[:space:]]*$//' "$BKG_OWNERS"
-        awk '!seen[$0]++' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
-        # remove lines from $BKG_OWNERS that are in $packages_all
-        echo "$(
-            echo "$packages_all" | awk -F'|' '{print $1/$2}'
-            echo "$packages_all" | awk -F'|' '{print $2}'
-        )" | sort -u | parallel "sed -i '/^{}$/d' $BKG_OWNERS"
-        owners_to_update=$(cat "$BKG_OWNERS")${owners_to_update:+$'\n'$owners_to_update}
     fi
 
     BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
