@@ -824,21 +824,6 @@ update_owners() {
     if [ "$1" = "0" ]; then
         owners_to_update=$(comm -13 <(echo "$packages_already_updated" | awk -F'|' '{print $1"/"$2}' | sort -u) <(echo "$packages_all" | awk -F'|' '{print $1"/"$2}' | sort -u))
 
-        # add more owners
-        if [ -s "$BKG_OWNERS" ]; then
-            sed -i '/^\s*$/d' "$BKG_OWNERS"
-            echo >>"$BKG_OWNERS"
-            awk 'NF' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
-            sed -i 's/^[[:space:]]*//;s/[[:space:]]*$//' "$BKG_OWNERS"
-            awk '!seen[$0]++' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
-            # remove lines from $BKG_OWNERS that are in $packages_all
-            echo "$(
-                echo "$packages_all" | awk -F'|' '{print $1"/"$2}'
-                echo "$packages_all" | awk -F'|' '{print $2}'
-            )" | sort -u | parallel "sed -i '/^{}$/d' $BKG_OWNERS"
-            owners_to_update=$(cat "$BKG_OWNERS")${owners_to_update:+$'\n'$owners_to_update}
-        fi
-
         if [ -z "$owners_to_update" ]; then
             set_BKG BKG_BATCH_FIRST_STARTED "$TODAY"
             [ -s "$BKG_OWNERS" ] || seq 1 10 | env_parallel --lb --halt soon,fail=1 page_owner
@@ -846,7 +831,22 @@ update_owners() {
             [ -n "$(get_BKG BKG_BATCH_FIRST_STARTED)" ] || set_BKG BKG_BATCH_FIRST_STARTED "$TODAY"
         fi
     elif [ "$1" = "1" ]; then
-        owners_to_update="693151/arevindh\\n-1/test"
+        owners_to_update="693151/arevindh"
+    fi
+
+    # add more owners
+    if [ -s "$BKG_OWNERS" ]; then
+        sed -i '/^\s*$/d' "$BKG_OWNERS"
+        echo >>"$BKG_OWNERS"
+        awk 'NF' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
+        sed -i 's/^[[:space:]]*//;s/[[:space:]]*$//' "$BKG_OWNERS"
+        awk '!seen[$0]++' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
+        # remove lines from $BKG_OWNERS that are in $packages_all
+        echo "$(
+            echo "$packages_all" | awk -F'|' '{print $1"/"$2}'
+            echo "$packages_all" | awk -F'|' '{print $2}'
+        )" | sort -u | parallel "sed -i '/^{}$/d' $BKG_OWNERS"
+        owners_to_update=$(cat "$BKG_OWNERS")${owners_to_update:+$'\n'$owners_to_update}
     fi
 
     BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
