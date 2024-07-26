@@ -845,7 +845,9 @@ update_owners() {
             echo "$packages_all" | awk -F'|' '{print $1"/"$2}'
             echo "$packages_all" | awk -F'|' '{print $2}'
         )" | sort -u | parallel "sed -i '\,^{}$,d' $BKG_OWNERS"
-        owners_to_update=$(cat "$BKG_OWNERS")${owners_to_update:+$owners_to_update}
+        local request_owners
+        request_owners=$(cat "$BKG_OWNERS")
+        owners_to_update=$request_owners${owners_to_update:+$owners_to_update}
     fi
 
     BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
