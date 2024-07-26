@@ -17,8 +17,8 @@ fi
 source $(which env_parallel.bash)
 [ -d ~/.parallel ] || mkdir ~/.parallel
 [ -f ~/.parallel/ignored_vars ] || touch ~/.parallel/ignored_vars
-echo -e "packages_all\npackages_already_updated\nowners_to_update\n" >>~/.parallel/ignored_vars
 env_parallel --session
+echo -e "packages_all\npackages_already_updated\nowners_to_update\n" >>~/.parallel/ignored_vars
 BKG_ROOT=..
 BKG_ENV=env.env
 BKG_OWNERS=$BKG_ROOT/owners.txt
