@@ -13,9 +13,11 @@ if ! command -v curl &>/dev/null || ! command -v jq &>/dev/null || ! command -v 
     echo "Dependencies installed"
 fi
 
-echo -e "packages_all\npackages_already_updated\nowners_to_update\n" >>~/.parallel/ignored_vars
 # shellcheck disable=SC2046
-. $(which env_parallel.bash)
+source $(which env_parallel.bash)
+[ -d ~/.parallel ] || mkdir ~/.parallel
+[ -f ~/.parallel/ignored_vars ] || touch ~/.parallel/ignored_vars
+echo -e "packages_all\npackages_already_updated\nowners_to_update\n" >>~/.parallel/ignored_vars
 env_parallel --session
 declare -r BKG_ROOT=..
 declare -r BKG_ENV=env.env
@@ -671,7 +673,6 @@ save_owner() {
         set_BKG BKG_MIN_CALLS_TO_API "$min_calls_to_api"
     fi
 
-    ((owner_id >= 0)) || return
     set_BKG_set BKG_OWNERS_QUEUE "$owner_id/$owner"
     echo "Queued $owner"
 }
@@ -843,9 +844,8 @@ update_owners() {
         else
             [ -n "$(get_BKG BKG_BATCH_FIRST_STARTED)" ] || set_BKG BKG_BATCH_FIRST_STARTED "$TODAY"
         fi
-
     elif [ "$1" = "1" ]; then
-        owners_to_update="693151/arevindh\n-1/test"
+        owners_to_update="693151/arevindh\n0/test"
     fi
 
     BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
