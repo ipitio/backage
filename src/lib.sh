@@ -818,7 +818,7 @@ update_owners() {
 
     # if this is a scheduled update, scrape all owners
     if [ "$1" = "0" ]; then
-        owners_to_update=$(comm -13 <(echo "$packages_already_updated" | awk -F'|' '{print $1/$2}' | sort -u) <(echo "$packages_all" | awk -F'|' '{print $1/$2}' | sort -u))
+        owners_to_update=$(comm -13 <(echo "$packages_already_updated" | awk -F'|' '{print $1"/"$2}' | sort -u) <(echo "$packages_all" | awk -F'|' '{print $1"/"$2}' | sort -u))
 
         if [ -z "$owners_to_update" ]; then
             set_BKG BKG_BATCH_FIRST_STARTED "$TODAY"
@@ -836,7 +836,7 @@ update_owners() {
             awk '!seen[$0]++' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
             # remove lines from $BKG_OWNERS that are in $packages_all
             echo "$(
-                echo "$packages_all" | awk -F'|' '{print $1/$2}'
+                echo "$packages_all" | awk -F'|' '{print $1"/"$2}'
                 echo "$packages_all" | awk -F'|' '{print $2}'
             )" | sort -u | parallel "sed -i '/^{}$/d' $BKG_OWNERS"
             owners_to_update=$(cat "$BKG_OWNERS")${owners_to_update:+$'\n'$owners_to_update}
