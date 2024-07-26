@@ -845,7 +845,7 @@ update_owners() {
         echo "$(
             echo "$packages_all" | awk -F'|' '{print $1"/"$2}'
             echo "$packages_all" | awk -F'|' '{print $2}'
-        )" | sort -u | parallel "sed -i '/^{}$/d' $BKG_OWNERS"
+        )" | sort -u | parallel "sed -i '\,^{}$,d' $BKG_OWNERS"
         owners_to_update=$(cat "$BKG_OWNERS")${owners_to_update:+$'\n'$owners_to_update}
     fi
 
