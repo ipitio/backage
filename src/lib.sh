@@ -16,6 +16,15 @@ fi
 # shellcheck disable=SC2046
 . $(which env_parallel.bash)
 env_parallel --session
+declare -r BKG_ROOT=..
+declare -r BKG_ENV=env.env
+declare -r BKG_OWNERS=$BKG_ROOT/owners.txt
+declare -r BKG_OPTOUT=$BKG_ROOT/optout.txt
+declare -r BKG_INDEX_DB=$BKG_ROOT/index.db
+declare -r BKG_INDEX_SQL=$BKG_ROOT/index.sql
+declare -r BKG_INDEX_DIR=$BKG_ROOT/index
+declare -r BKG_INDEX_TBL_PKG=packages
+declare -r BKG_INDEX_TBL_VER=versions
 
 sqlite3() {
     command sqlite3 -init <(echo "
@@ -31,43 +40,38 @@ PRAGMA cache_size = -500000;
 }
 
 get_BKG() {
-    local file=env.env
-    local key=$1
-
-    while ! ln "$file" "$file.lock" 2>/dev/null; do
+    while ! ln "$BKG_ENV" "$BKG_ENV.lock" 2>/dev/null; do
         sleep 0.1
     done
 
-    res=""
-    ! grep -q "^$key=" "$file" || res=$(grep "^$key=" "$file" | cut -d'=' -f2)
-    rm -f "$file.lock"
+    local res=""
+    ! grep -q "^$1=" "$BKG_ENV" || res=$(grep "^$1=" "$BKG_ENV" | cut -d'=' -f2)
+    rm -f "$BKG_ENV.lock"
     echo "$res"
 }
 
 set_BKG() {
-    local file=env.env
-    local key=$1
     local value
     local tmp_file
     value=$(echo "$2" | perl -pe 'chomp if eof')
     tmp_file=$(mktemp)
 
-    while ! ln "$file" "$file.lock" 2>/dev/null; do
+    while ! ln "$BKG_ENV" "$BKG_ENV.lock" 2>/dev/null; do
         sleep 0.1
     done
 
-    if ! grep -q "^$key=" "$file"; then
-        echo "$key=$value" >>"$file"
+    if ! grep -q "^$1=" "$BKG_ENV"; then
+        echo "$1=$value" >>"$BKG_ENV"
     else
-        grep -v "^$key=" "$file" >"$tmp_file"
-        echo "$key=$value" >>"$tmp_file"
-        mv "$tmp_file" "$file"
+        grep -v "^$1=" "$BKG_ENV" >"$tmp_file"
+        echo "$1=$value" >>"$tmp_file"
+        mv "$tmp_file" "$BKG_ENV"
     fi
 
-    sed -i '/^\s*$/d' $file
-    echo >>$file
+    sed -i '/^\s*$/d' $BKG_ENV
+    echo >>$BKG_ENV
 
-    rm -f "$file.lock"
+    rm -f "$BKG_ENV.lock"
 }
 
 get_BKG_set() {
@@ -89,18 +93,16 @@ del_BKG_set() {
 }
 
 del_BKG() {
-    local file=env.env
-    local key=$1
     local tmp_file
     tmp_file=$(mktemp)
 
-    while ! ln "$file" "$file.lock" 2>/dev/null; do
+    while ! ln "$BKG_ENV" "$BKG_ENV.lock" 2>/dev/null; do
         sleep 0.1
     done
 
-    grep -v "^$key=" "$file" >"$tmp_file"
-    mv "$tmp_file" "$file"
-    rm -f "$file.lock"
+    grep -v "^$1=" "$BKG_ENV" >"$tmp_file"
+    mv "$tmp_file" "$BKG_ENV"
+    rm -f "$BKG_ENV.lock"
 }
 
 check_limit() {
@@ -737,8 +739,6 @@ set_up() {
     set_BKG BKG_TIMEOUT "0"
     set_BKG BKG_TODAY "$(date -u +%Y-%m-%d)"
     set_BKG BKG_SCRIPT_START "$(date -u +%s)"
-    [ ! -f env.env ] || source env.env 2>/dev/null
-    [ ! -f .env ] || source .env 2>/dev/null
 
     if [ ! -f "$BKG_INDEX_DB" ]; then
         command curl -sSLNZO "https://github.com/$GITHUB_OWNER/$GITHUB_REPO/releases/latest/download/$BKG_INDEX_SQL.zst"
@@ -793,6 +793,9 @@ clean_up() {
     del_BKG BKG_TIMEOUT
     del_BKG BKG_TODAY
     del_BKG BKG_SCRIPT_START
+    del_BKG BKG_AUTO
+    sed -i '/^\s*$/d' env.env
+    echo >>env.env
 }
 
 update_owners() {
@@ -810,21 +813,21 @@ update_owners() {
     local owners
     local repos
     local packages
-    packages_already_updated=$(sqlite3 "$BKG_INDEX_DB" "select owner, package from '$BKG_INDEX_TBL_PKG' where date >= '$BKG_BATCH_FIRST_STARTED' group by owner, package;" | awk '{print $2}' | sort -u)
-    packages_all=$(sqlite3 "$BKG_INDEX_DB" "select owner, package from '$BKG_INDEX_TBL_PKG' group by owner, package;" | awk '{print $2}' | sort -u)
+    packages_already_updated=$(sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, package from '$BKG_INDEX_TBL_PKG' where date >= '$BKG_BATCH_FIRST_STARTED' group by owner_id, owner, package;" | sort -u)
+    packages_all=$(sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, package from '$BKG_INDEX_TBL_PKG' group by owner_id, owner, package;" | sort -u)
 
     # if this is a scheduled update, scrape all owners
     if [ "$1" = "0" ]; then
-        if [ "$packages_already_updated" = "$packages_all" ]; then
+        owners_to_update=$(comm -13 <(echo "$packages_already_updated" | awk -F'|' '{print $1/$2}' | sort -u) <(echo "$packages_all" | awk -F'|' '{print $1/$2}' | sort -u))
+
+        if [ -z "$owners_to_update" ]; then
             set_BKG BKG_BATCH_FIRST_STARTED "$TODAY"
             [ -s "$BKG_OWNERS" ] || seq 1 10 | env_parallel --lb --halt soon,fail=1 page_owner
         else
             [ -n "$(get_BKG BKG_BATCH_FIRST_STARTED)" ] || set_BKG BKG_BATCH_FIRST_STARTED "$TODAY"
         fi
-
-        owners_to_update=$(sqlite3 "$BKG_INDEX_DB" "select owner from '$BKG_INDEX_TBL_PKG' group by owner;")
     elif [ "$1" = "1" ]; then
-        owners_to_update="arevindh"
+        owners_to_update="693151/arevindh"
     fi
 
     # add more owners
@@ -834,7 +837,11 @@ update_owners() {
         awk 'NF' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
         sed -i 's/^[[:space:]]*//;s/[[:space:]]*$//' "$BKG_OWNERS"
         awk '!seen[$0]++' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
-        sqlite3 "$BKG_INDEX_DB" "select owner from '$BKG_INDEX_TBL_PKG' group by owner;" | parallel --lb "sed -i '/^.*?\/*{}$/d' $BKG_OWNERS" # remove owners that have already been ingested
+        # remove lines from $BKG_OWNERS that are in $packages_all
+        echo "$(
+            echo "$packages_all" | awk -F'|' '{print $1/$2}'
+            echo "$packages_all" | awk -F'|' '{print $2}'
+        )" | sort -u | parallel "sed -i '/^{}$/d' $BKG_OWNERS"
         owners_to_update=$(cat "$BKG_OWNERS")${owners_to_update:+$'\n'$owners_to_update}
     fi
 
