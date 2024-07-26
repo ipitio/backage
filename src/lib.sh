@@ -375,7 +375,13 @@ page_package() {
     echo "Queuing $owner page $1"
     [ "$owner_type" = "users" ] && html=$(curl "https://github.com/$owner?tab=packages&visibility=public&&per_page=100&page=$1") || html=$(curl "https://github.com/$owner_type/$owner/packages?visibility=public&per_page=100&page=$1")
     packages_lines=$(grep -zoP 'href="/'"$owner_type"'/'"$owner"'/packages/[^/]+/package/[^"]+"' <<<"$html" | tr -d '\0')
-    [ -n "$packages_lines" ] || return 1
+
+    if [ -z "$packages_lines" ]; then
+        sed -i '/^'"$owner"'$/d' "$BKG_OWNERS"
+        sed -i '/^'"$owner_id"'\/'"$owner"'$/d' "$BKG_OWNERS"
+        return 1
+    fi
+
     packages_lines=${packages_lines//href=/\\nhref=}
     packages_lines=${packages_lines//\\n/$'\n'} # replace \n with newline
     run_parallel save_package "$packages_lines"
