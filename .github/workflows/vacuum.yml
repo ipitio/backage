@@ -1,0 +1,24 @@
+name: vacuum
+
+on:
+    release:
+        types: [published]
+
+jobs:
+    delete:
+        runs-on: ubuntu-latest
+
+        permissions:
+            contents: write
+
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+
+            - name: Delete old releases
+              uses: Nats-ji/delete-old-releases@v1
+              with:
+                token: ${{ secrets.GITHUB_TOKEN }}
+                remove-tags: true
+                keep-count: 1
+                keep-old-minor-releases: true

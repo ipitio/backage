@@ -122,7 +122,7 @@ check_limit() {
     rate_limit_end=$(date -u +%s)
     script_limit_diff=$((rate_limit_end - $(get_BKG BKG_SCRIPT_START)))
     timeout=$(get_BKG BKG_TIMEOUT)
-    (($(get_BKG BKG_AUTO) != 1)) || max_len=3600
+    (($(get_BKG BKG_AUTO) == 0)) || max_len=3600
 
     if ((script_limit_diff >= max_len)); then
         if ((timeout == 0)); then
@@ -858,6 +858,9 @@ update_owners() {
         request_owners=""
     fi
 
+    # preserve older versions
+    [ -d "$BKG_INDEX_SQL.zst.d" ] || mkdir "$BKG_INDEX_SQL.zst.d"
+    curl "https://github.com/$GITHUB_OWNER/$GITHUB_REPO/releases/latest" | grep -oP 'href="/'"$GITHUB_OWNER/$GITHUB_REPO"'/releases/download/[^"]+' | grep -oP '^\/'"$GITHUB_OWNER\/$GITHUB_REPO"'\/releases\/download\/\.zst$' | grep -v "$BKG_INDEX_SQL.zst" | parallel --lb "curl -sSLNZ 'https://github.com/$GITHUB_OWNER/$GITHUB_REPO{}' -o '$BKG_INDEX_SQL.zst.d/{}'"
     BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
     [ -z "$owners_to_update" ] || printf "%s\n" "${owners_to_update//\\n/$'\n'}" | env_parallel --lb save_owner
     [ -n "$(get_BKG BKG_RATE_LIMIT_START)" ] || set_BKG BKG_RATE_LIMIT_START "$(date -u +%s)"
@@ -881,21 +884,20 @@ update_owners() {
 
     if [ -f "$BKG_INDEX_SQL".new.zst ]; then
         # rotate the database if it's greater than 2GB
-        if [ "$(stat -c %s "$BKG_INDEX_SQL".new.zst)" -ge 2000000000 ]; then
+        if [ -f "$BKG_INDEX_SQL".zst ] && [ "$(stat -c %s "$BKG_INDEX_SQL".new.zst)" -ge 2000000000 ]; then
             rotated=true
             echo "Rotating the database..."
             [ -d "$BKG_INDEX_SQL".d ] || mkdir "$BKG_INDEX_SQL".d
-            [ ! -f "$BKG_INDEX_SQL".zst ] || mv "$BKG_INDEX_SQL".zst "$BKG_INDEX_SQL".d/"$(date -u +%Y.%m.%d)".zst
+            local older_db
+            older_db="$BKG_INDEX_SQL".d/"$(date -u +%Y.%m.%d)".zst
+            [ ! -f "$older_db" ] || rm -f "$older_db"
+            mv "$BKG_INDEX_SQL".zst "$older_db"
             sqlite3 "$BKG_INDEX_DB" "delete from '$BKG_INDEX_TBL_PKG' where date < '$BKG_BATCH_FIRST_STARTED';"
-
-            for table in $(sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name like '${BKG_INDEX_TBL_VER}_%';"); do
-                sqlite3 "$BKG_INDEX_DB" "delete from '$table' where date < '$BKG_BATCH_FIRST_STARTED';"
-            done
-
-            echo "Rotated the database"
+            sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name like '${BKG_INDEX_TBL_VER}_%';" | parallel --lb "sqlite3 '$BKG_INDEX_DB' 'delete from {} where date < \"$BKG_BATCH_FIRST_STARTED\";'"
             sqlite3 "$BKG_INDEX_DB" "vacuum;"
             rm -f "$BKG_INDEX_SQL".new.zst
             sqlite3 "$BKG_INDEX_DB" ".dump" | zstd -22 --ultra --long -T0 -o "$BKG_INDEX_SQL".new.zst
+            echo "Rotated the database"
         fi
 
         mv "$BKG_INDEX_SQL".new.zst "$BKG_INDEX_SQL".zst
