@@ -352,6 +352,29 @@ update_version() {
     echo "Updated $owner/$package/$version_id"
 }
 
+refresh_version() {
+    check_limit || return
+    [ -n "$1" ] || return
+    IFS='|' read -r vid vname vsize vdownloads vdownloads_month vdownloads_week vdownloads_day vdate vtags <<<"$1"
+    echo "{
+        \"id\": ${vid:--1},
+        \"name\": \"$vname\",
+        \"date\": \"$vdate\",
+        \"newest\": $([ "${vid:--1}" = "${version_newest_id:--1}" ] && echo "true" || echo "false"),
+        \"size\": \"$(numfmt_size <<<"${vsize:--1}")\",
+        \"downloads\": \"$(numfmt <<<"${vdownloads:--1}")\",
+        \"downloads_month\": \"$(numfmt <<<"${vdownloads_month:--1}")\",
+        \"downloads_week\": \"$(numfmt <<<"${vdownloads_week:--1}")\",
+        \"downloads_day\": \"$(numfmt <<<"${vdownloads_day:--1}")\",
+        \"raw_size\": ${vsize:--1},
+        \"raw_downloads\": ${vdownloads:--1},
+        \"raw_downloads_month\": ${vdownloads_month:--1},
+        \"raw_downloads_week\": ${vdownloads_week:--1},
+        \"raw_downloads_day\": ${vdownloads_day:--1},
+        \"tags\": [\"${vtags//,/\",\"}\"]
+    }," >>"$json_file.$vid.json"
+}
+
 save_package() {
     check_limit || return
     local package_new
@@ -506,9 +529,6 @@ refresh_package() {
     local script_diff
     local version_count
     local version_with_tag_count
-    local table_version_name
-    local query
-    local version_newest_id
     IFS='|' read -r owner_id owner_type package_type owner repo package downloads downloads_month downloads_week downloads_day size date <<<"$1"
     script_diff=$(($(date -u +%s) - $(get_BKG BKG_SCRIPT_START)))
 
@@ -520,7 +540,7 @@ refresh_package() {
     # only use the latest date for the package
     max_date=$(sqlite3 "$BKG_INDEX_DB" "select date from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and package='$package' order by date desc limit 1;")
     [ "$date" = "$max_date" ] || return
-    local json_file="$BKG_INDEX_DIR/$owner/$repo/$package.json"
+    json_file="$BKG_INDEX_DIR/$owner/$repo/$package.json"
     [ -d "$BKG_INDEX_DIR/$owner/$repo" ] || mkdir "$BKG_INDEX_DIR/$owner/$repo"
     version_count=0
     version_with_tag_count=0
@@ -531,8 +551,8 @@ refresh_package() {
         version_with_tag_count=$(sqlite3 "$BKG_INDEX_DB" "select count(distinct id) from '$table_version_name' where tags != '' and tags is not null;")
     fi
 
-    echo "{" >"$json_file"
-    echo "\"owner_type\": \"$owner_type\",
+    echo "{
+        \"owner_type\": \"$owner_type\",
         \"package_type\": \"$package_type\",
         \"owner_id\": \"$owner_id\",
         \"owner\": \"$owner\",
@@ -553,31 +573,15 @@ refresh_package() {
         \"raw_downloads_month\": ${downloads_month:--1},
         \"raw_downloads_week\": ${downloads_week:--1},
         \"raw_downloads_day\": ${downloads_day:--1},
-        \"version\": [" >>"$json_file"
+        \"version\":
+    [" >"$json_file"
 
     # add the versions to index/"$owner".json
     if [ "${version_count:--1}" -gt 0 ]; then
         version_newest_id=$(sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name' order by id desc limit 1;")
-        query="select id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags from '$table_version_name' group by id order by id desc;"
-        sqlite3 "$BKG_INDEX_DB" "$query" | while IFS='|' read -r vid vname vsize vdownloads vdownloads_month vdownloads_week vdownloads_day vdate vtags; do
-            echo "{
-                \"id\": ${vid:--1},
-                \"name\": \"$vname\",
-                \"date\": \"$vdate\",
-                \"newest\": $([ "${vid:--1}" = "${version_newest_id:--1}" ] && echo "true" || echo "false"),
-                \"size\": \"$(numfmt_size <<<"${vsize:--1}")\",
-                \"downloads\": \"$(numfmt <<<"${vdownloads:--1}")\",
-                \"downloads_month\": \"$(numfmt <<<"${vdownloads_month:--1}")\",
-                \"downloads_week\": \"$(numfmt <<<"${vdownloads_week:--1}")\",
-                \"downloads_day\": \"$(numfmt <<<"${vdownloads_day:--1}")\",
-                \"raw_size\": ${vsize:--1},
-                \"raw_downloads\": ${vdownloads:--1},
-                \"raw_downloads_month\": ${vdownloads_month:--1},
-                \"raw_downloads_week\": ${vdownloads_week:--1},
-                \"raw_downloads_day\": ${vdownloads_day:--1},
-                \"tags\": [\"${vtags//,/\",\"}\"]
-                }," >>"$json_file"
-        done
+        run_parallel refresh_version "$(sqlite3 "$BKG_INDEX_DB" "select id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags from '$table_version_name' group by id order by id desc;")"
+        cat "$json_file".*.json >>"$json_file"
+        rm -f "$json_file".*.json
     else
         echo "{
             \"id\": -1,
@@ -804,7 +808,6 @@ clean_up() {
 update_owners() {
     set_up "$@"
     set_BKG BKG_TIMEOUT "2"
-    set_BKG BKG_AUTO "$1"
     [ -n "$(get_BKG BKG_LAST_SCANNED_ID)" ] || set_BKG BKG_LAST_SCANNED_ID "0"
     TODAY=$(get_BKG BKG_TODAY)
     local packages_already_updated
