@@ -816,16 +816,24 @@ update_owners() {
     local owners
     local repos
     local packages
-    packages_already_updated=$(sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, package from '$BKG_INDEX_TBL_PKG' where date >= '$BKG_BATCH_FIRST_STARTED' group by owner_id, owner, package;" | sort -u)
-    packages_all=$(sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, package from '$BKG_INDEX_TBL_PKG' group by owner_id, owner, package;" | sort -u)
+
+    packages_already_updated() {
+        sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, package from '$BKG_INDEX_TBL_PKG' where date >= '$BKG_BATCH_FIRST_STARTED' group by owner_id, owner, package;" | sort -u
+
+    }
+
+    packages_all() {
+        sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, package from '$BKG_INDEX_TBL_PKG' group by owner_id, owner, package;" | sort -u
+    }
 
     # if this is a scheduled update, scrape all owners
     if [ "$1" = "0" ]; then
-        owners_to_update=$(comm -13 <(echo "$packages_already_updated" | awk -F'|' '{print $1"/"$2}' | sort -u) <(echo "$packages_all" | awk -F'|' '{print $1"/"$2}' | sort -u))
+        comm -13 <(packages_already_updated | awk -F'|' '{print $1"/"$2}' | sort -u) <(packages_all | awk -F'|' '{print $1"/"$2}' | sort -u) | env_parallel --lb save_owner
 
-        if [ -z "$owners_to_update" ]; then
+        if [ -z "$(get_BKG BKG_OWNERS_QUEUE)" ]; then
             set_BKG BKG_BATCH_FIRST_STARTED "$TODAY"
             [ -s "$BKG_OWNERS" ] || seq 1 10 | env_parallel --lb --halt soon,fail=1 page_owner
+            packages_all | awk -F'|' '{print $1"/"$2}' | sort -u | env_parallel --lb save_owner
         else
             [ -n "$(get_BKG BKG_BATCH_FIRST_STARTED)" ] || set_BKG BKG_BATCH_FIRST_STARTED "$TODAY"
         fi
@@ -848,6 +856,7 @@ update_owners() {
         local request_owners
         request_owners=$(cat "$BKG_OWNERS")
         owners_to_update=$request_owners${owners_to_update:+$owners_to_update}
+        request_owners=""
     fi
 
     BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
