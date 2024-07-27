@@ -1,6 +1,10 @@
 name: update
 
 on:
+  push:
+    branches:
+      - master
+
   workflow_run:
     workflows: ["refresh"]
     types: [requested, in_progress, completed]
