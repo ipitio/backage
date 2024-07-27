@@ -122,7 +122,7 @@ check_limit() {
     rate_limit_end=$(date -u +%s)
     script_limit_diff=$((rate_limit_end - $(get_BKG BKG_SCRIPT_START)))
     timeout=$(get_BKG BKG_TIMEOUT)
-    (($(get_BKG BKG_AUTO) == 0)) || max_len=3600
+    [[ "$(get_BKG BKG_AUTO)" -eq '0' ]] || max_len=3600
 
     if ((script_limit_diff >= max_len)); then
         if ((timeout == 0)); then
