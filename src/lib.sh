@@ -803,7 +803,7 @@ clean_up() {
 update_owners() {
     set_up
     set_BKG BKG_TIMEOUT "2"
-    set_BKG BKG_AUTO "$1"
+    set_BKG BKG_AUTO "${1:-0}"
     [ -n "$(get_BKG BKG_LAST_SCANNED_ID)" ] || set_BKG BKG_LAST_SCANNED_ID "0"
     TODAY=$(get_BKG BKG_TODAY)
     local packages_already_updated
