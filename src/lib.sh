@@ -579,6 +579,7 @@ refresh_package() {
     # add the versions to index/"$owner".json
     if [ "${version_count:--1}" -gt 0 ]; then
         version_newest_id=$(sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name' order by id desc limit 1;")
+        rm -f "$json_file".*.json
         run_parallel refresh_version "$(sqlite3 "$BKG_INDEX_DB" "select id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags from '$table_version_name' group by id order by id desc;")"
         cat "$json_file".*.json >>"$json_file"
         rm -f "$json_file".*.json
