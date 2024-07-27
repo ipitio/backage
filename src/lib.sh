@@ -741,6 +741,7 @@ set_up() {
     set_BKG BKG_TIMEOUT "0"
     set_BKG BKG_TODAY "$(date -u +%Y-%m-%d)"
     set_BKG BKG_SCRIPT_START "$(date -u +%s)"
+    set_BKG BKG_AUTO "${1:-0}"
 
     if [ ! -f "$BKG_INDEX_DB" ]; then
         command curl -sSLNZO "https://github.com/$GITHUB_OWNER/$GITHUB_REPO/releases/latest/download/$BKG_INDEX_SQL.zst"
@@ -801,7 +802,7 @@ clean_up() {
 }
 
 update_owners() {
-    set_up
+    set_up "$@"
     set_BKG BKG_TIMEOUT "2"
     set_BKG BKG_AUTO "$1"
     [ -n "$(get_BKG BKG_LAST_SCANNED_ID)" ] || set_BKG BKG_LAST_SCANNED_ID "0"
@@ -938,7 +939,7 @@ update_owners() {
 }
 
 refresh_owners() {
-    set_up
+    set_up "$@"
     sqlite3 "$BKG_INDEX_DB" "select distinct owner from '$BKG_INDEX_TBL_PKG';" | env_parallel --lb refresh_owner
     clean_up
 }
