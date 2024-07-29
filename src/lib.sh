@@ -213,6 +213,7 @@ _jq() {
 
 # check if all lines in $2 are in $1
 request_version() {
+    check_limit || return
     [[ -n "$1" && -n "$2" ]] || return
     [ -n "$1" ] || return 1
     [ -n "$2" ] || return 1
@@ -524,7 +525,6 @@ refresh_package() {
         awk '{ split("kB MB GB TB PB EB ZB YB", v); s=0; while( $1>999.9 ) { $1/=1000; s++ } print int($1*10)/10 " " v[s] }' | sed 's/[[:blank:]]*$//'
     }
 
-    check_limit || return
     [ -n "$1" ] || return
     local script_diff
     local version_count
