@@ -1,9 +1,8 @@
 name: update
 
 on:
-  workflow_run:
-    workflows: ["refresh"]
-    types: [requested, in_progress, completed]
+  schedule:
+    - cron: '* */1 * * *'
 
 concurrency:
   group: ${{ github.ref }}
