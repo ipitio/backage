@@ -830,7 +830,7 @@ update_owners() {
     local owners
     local repos
     local packages
-    sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, package from '$BKG_INDEX_TBL_PKG' where date >= '$BKG_BATCH_FIRST_STARTED' group by owner_id, owner, package;" | sort -u >packages_already_updated
+    sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, package from '$BKG_INDEX_TBL_PKG' where date >= '$(get_BKG BKG_BATCH_FIRST_STARTED)' group by owner_id, owner, package;" | sort -u >packages_already_updated
     sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, package from '$BKG_INDEX_TBL_PKG' group by owner_id, owner, package;" | sort -u >packages_all
 
     # if this is a scheduled update, scrape all owners
