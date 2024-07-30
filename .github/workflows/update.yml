@@ -25,10 +25,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Get date
-        id: date
-        run: echo "date=$(date -u +'%Y.%m.%d')" >> "$GITHUB_OUTPUT"
-
       - name: Dry run
         id: update
         run: bash src/test/update.sh -m 0 ; echo "updated=$?" >> "$GITHUB_OUTPUT"
@@ -46,6 +42,10 @@ jobs:
           add: "-- *.db *.txt *.env README.md"
           message: "update database"
           pull: "--autostash -s ours"
+
+      - name: Get date
+        id: date
+        run: echo "date=$(grep -oP 'BKG_BATCH_FIRST_STARTED=\K.*' src/env.env | sed 's/-/./g')" >> "$GITHUB_OUTPUT"
 
       - name: Save database
         if: ${{ steps.update.outputs.updated == '0' }}
