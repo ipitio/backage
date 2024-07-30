@@ -297,7 +297,6 @@ update_version() {
     version_id=$(_jq "$1" '.id')
     version_name=$(_jq "$1" '.name')
     version_tags=$(_jq "$1" '.tags')
-    echo "Updating $owner/$package/$version_id..."
     table_version_name="${BKG_INDEX_TBL_VER}_${owner_type}_${package_type}_${owner}_${repo}_${package}"
     table_version="create table if not exists '$table_version_name' (
         id text not null,
@@ -676,7 +675,7 @@ save_owner() {
         set_BKG BKG_MIN_CALLS_TO_API "$min_calls_to_api"
     fi
 
-    ! set_BKG_set BKG_OWNERS_QUEUE "$owner_id/$owner" || echo "Queued $owner"
+    set_BKG_set BKG_OWNERS_QUEUE "$owner_id/$owner"
 }
 
 page_owner() {
@@ -841,6 +840,7 @@ update_owners() {
         echo "done: $(wc -l <packages_already_updated)"
         echo "left: $(wc -l <packages_to_update)"
         awk -F'|' '{print $1"/"$2}' <packages_to_update | sort -u | env_parallel --lb save_owner
+
         if [ -z "$(get_BKG_set BKG_OWNERS_QUEUE)" ]; then
             set_BKG BKG_BATCH_FIRST_STARTED "$TODAY"
             [ -s "$BKG_OWNERS" ] || seq 1 10 | env_parallel --lb --halt soon,fail=1 page_owner
