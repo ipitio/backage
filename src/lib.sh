@@ -823,6 +823,7 @@ update_owners() {
     set_BKG BKG_TIMEOUT "2"
     [ -n "$(get_BKG BKG_LAST_SCANNED_ID)" ] || set_BKG BKG_LAST_SCANNED_ID "0"
     TODAY=$(get_BKG BKG_TODAY)
+    BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
     local owners_to_update
     local rotated=false
     local query
@@ -830,17 +831,16 @@ update_owners() {
     local owners
     local repos
     local packages
-    sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, package from '$BKG_INDEX_TBL_PKG' where date >= '$(get_BKG BKG_BATCH_FIRST_STARTED)' group by owner_id, owner, package;" | sort -u >packages_already_updated
+    sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, package from '$BKG_INDEX_TBL_PKG' where date >= '$BKG_BATCH_FIRST_STARTED' group by owner_id, owner, package;" | sort -u >packages_already_updated
     sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, package from '$BKG_INDEX_TBL_PKG' group by owner_id, owner, package;" | sort -u >packages_all
 
     # if this is a scheduled update, scrape all owners
-    if [ "$mode" -eq 0 ] || [ "$mode" -eq 1 ]; then
+    if [ "$mode" -eq 0 ]; then
         comm -13 packages_already_updated packages_all >packages_to_update
-        echo "updated: $(wc -l <packages_already_updated)"
         echo "all: $(wc -l <packages_all)"
-        echo "to update: $(wc -l <packages_to_update)"
+        echo "done: $(wc -l <packages_already_updated)"
+        echo "left: $(wc -l <packages_to_update)"
         awk -F'|' '{print $1"/"$2}' <packages_to_update | sort -u | env_parallel --lb save_owner
-        echo "The queue: $(get_BKG_set BKG_OWNERS_QUEUE)"
         if [ -z "$(get_BKG_set BKG_OWNERS_QUEUE)" ]; then
             set_BKG BKG_BATCH_FIRST_STARTED "$TODAY"
             [ -s "$BKG_OWNERS" ] || seq 1 10 | env_parallel --lb --halt soon,fail=1 page_owner
