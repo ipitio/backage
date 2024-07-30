@@ -805,26 +805,7 @@ clean_up() {
 }
 
 update_owners() {
-    set_up "$@"
-    set_BKG BKG_TIMEOUT "2"
-    [ -n "$(get_BKG BKG_LAST_SCANNED_ID)" ] || set_BKG BKG_LAST_SCANNED_ID "0"
-    TODAY=$(get_BKG BKG_TODAY)
-    local owners_to_update
-    local rotated=false
-    local query
-    local tables
-    local owners
-    local repos
-    local packages
     local mode=-1
-
-    packages_already_updated() {
-        sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, package from '$BKG_INDEX_TBL_PKG' where date >= '$BKG_BATCH_FIRST_STARTED' group by owner_id, owner, package;" | sort -u
-    }
-
-    packages_all() {
-        sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, package from '$BKG_INDEX_TBL_PKG' group by owner_id, owner, package;" | sort -u
-    }
 
     while getopts "m:" flag; do
         case ${flag} in
@@ -838,15 +819,29 @@ update_owners() {
         esac
     done
 
+    set_up "$mode"
+    set_BKG BKG_TIMEOUT "2"
+    [ -n "$(get_BKG BKG_LAST_SCANNED_ID)" ] || set_BKG BKG_LAST_SCANNED_ID "0"
+    TODAY=$(get_BKG BKG_TODAY)
+    local owners_to_update
+    local rotated=false
+    local query
+    local tables
+    local owners
+    local repos
+    local packages
+    local packages_already_updated="select owner_id, owner, package from '$BKG_INDEX_TBL_PKG' where date >= '$BKG_BATCH_FIRST_STARTED' group by owner_id, owner, package;"
+    local packages_all="select owner_id, owner, package from '$BKG_INDEX_TBL_PKG' group by owner_id, owner, package;"
+
     # if this is a scheduled update, scrape all owners
-    if [ "$mode" -eq 0 ] || [ "$mode" -eq 1 ]; then
-        echo "remaining owners: $(comm -13 <(packages_already_updated | awk -F'|' '{print $1"/"$2}' | sort -u) <(packages_all | awk -F'|' '{print $1"/"$2}' | sort -u))"
-        comm -13 <(packages_already_updated | awk -F'|' '{print $1"/"$2}' | sort -u) <(packages_all | awk -F'|' '{print $1"/"$2}' | sort -u) | env_parallel --lb save_owner
+    if [ "$mode" -eq 0 ]; then
+        echo "remaining owners: $(comm -13 <(sqlite3 "$BKG_INDEX_DB" "$packages_already_updated" | sort -u) <(sqlite3 "$BKG_INDEX_DB" "$packages_all" | sort -u))"
+        comm -13 <(sqlite3 "$BKG_INDEX_DB" "$packages_already_updated" | sort -u) <(sqlite3 "$BKG_INDEX_DB" "$packages_all" | sort -u) | awk -F'|' '{print $1"/"$2}' | sort -u | env_parallel --lb save_owner
         echo "The queue: $(get_BKG_set BKG_OWNERS_QUEUE)"
         if [ -z "$(get_BKG_set BKG_OWNERS_QUEUE)" ]; then
             set_BKG BKG_BATCH_FIRST_STARTED "$TODAY"
             [ -s "$BKG_OWNERS" ] || seq 1 10 | env_parallel --lb --halt soon,fail=1 page_owner
-            packages_all | awk -F'|' '{print $1"/"$2}' | sort -u | env_parallel --lb save_owner
+            sqlite3 "$BKG_INDEX_DB" "$packages_all" | awk -F'|' '{print $1"/"$2}' | sort -u | env_parallel --lb save_owner
         else
             [ -n "$(get_BKG BKG_BATCH_FIRST_STARTED)" ] || set_BKG BKG_BATCH_FIRST_STARTED "$TODAY"
         fi
@@ -863,8 +858,8 @@ update_owners() {
         awk '!seen[$0]++' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
         # remove lines from $BKG_OWNERS that are in $packages_all
         echo "$(
-            packages_all | awk -F'|' '{print $1"/"$2}'
-            packages_all | awk -F'|' '{print $2}'
+            sqlite3 "$BKG_INDEX_DB" "$packages_all" | awk -F'|' '{print $1"/"$2}'
+            sqlite3 "$BKG_INDEX_DB" "$packages_all" | awk -F'|' '{print $2}'
         )" | sort -u | parallel "sed -i '\,^{}$,d' $BKG_OWNERS"
         local request_owners
         request_owners=$(cat "$BKG_OWNERS")
