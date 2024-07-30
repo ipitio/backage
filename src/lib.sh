@@ -839,7 +839,7 @@ update_owners() {
     done
 
     # if this is a scheduled update, scrape all owners
-    if [ "$mode" -eq 0 ]; then
+    if [ "$mode" -eq 0 ] || [ "$mode" -eq 1 ]; then
         comm -13 <(packages_already_updated | awk -F'|' '{print $1"/"$2}' | sort -u) <(packages_all | awk -F'|' '{print $1"/"$2}' | sort -u) | env_parallel --lb save_owner
         echo "The queue: $(get_BKG_set BKG_OWNERS_QUEUE)"
         if [ -z "$(get_BKG_set BKG_OWNERS_QUEUE)" ]; then
