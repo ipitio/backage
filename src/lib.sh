@@ -112,7 +112,6 @@ check_limit() {
     local total_calls
     local rate_limit_end
     local script_limit_diff
-    local timeout
     local rate_limit_diff
     local hours_passed
     local remaining_time
@@ -123,14 +122,13 @@ check_limit() {
     total_calls=$(get_BKG BKG_CALLS_TO_API)
     rate_limit_end=$(date -u +%s)
     script_limit_diff=$((rate_limit_end - $(get_BKG BKG_SCRIPT_START)))
-    timeout=$(get_BKG BKG_TIMEOUT)
     (($(get_BKG BKG_AUTO) == 0)) || max_len=3600
 
     if ((script_limit_diff >= max_len)); then
-        if ((timeout == 0)); then
+        if (($(get_BKG BKG_TIMEOUT) == 0)); then
             set_BKG BKG_TIMEOUT "1"
             echo "Stopping $$..."
-        elif ((timeout == 2)); then
+        elif (($(get_BKG BKG_TIMEOUT) == 2)); then
             return 1
         fi
 
@@ -406,7 +404,7 @@ page_package() {
     packages_lines=${packages_lines//href=/\\nhref=}
     packages_lines=${packages_lines//\\n/$'\n'} # replace \n with newline
     run_parallel save_package "$packages_lines"
-    echo "Queued $owner page $1"
+    echo "Checked $owner page $1"
 }
 
 update_package() {
@@ -414,7 +412,6 @@ update_package() {
     [ -n "$1" ] || return
     local html
     local query
-    local count
     package_type=$(cut -d'/' -f1 <<<"$1")
     repo=$(cut -d'/' -f2 <<<"$1")
     package=$(cut -d'/' -f3 <<<"$1")
