@@ -528,7 +528,7 @@ refresh_package() {
     local script_diff
     local version_count
     local version_with_tag_count
-    IFS='|' read -r owner_id owner_type package_type owner repo package downloads downloads_month downloads_week downloads_day size date <<<"$1"
+    IFS='|' read -r owner_id owner_type package_type owner repo package downloads downloads_month downloads_week downloads_day size date tags <<<"$1"
     script_diff=$(($(date -u +%s) - $(get_BKG BKG_SCRIPT_START)))
 
     if ((script_diff >= 21500)); then
