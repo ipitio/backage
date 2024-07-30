@@ -426,6 +426,7 @@ update_package() {
         return
     fi
 
+    [[ "$(sqlite3 "$BKG_INDEX_DB" "select count(*) from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and package='$package' and date >= '$BKG_BATCH_FIRST_STARTED';")" =~ ^0*$ || "$owner" == "arevindh" ]] || return
     local raw_downloads=-1
     local raw_downloads_month=-1
     local raw_downloads_week=-1
@@ -454,7 +455,7 @@ update_package() {
     # add all the versions currently in the db to the versions_json, if they are not already there
     table_version_name="${BKG_INDEX_TBL_VER}_${owner_type}_${package_type}_${owner}_${repo}_${package}"
     [ -z "$(sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name='$table_version_name';")" ] || run_parallel save_version "$(jq -r '.[] | @base64' <<<"$(sqlite3 -json "$BKG_INDEX_DB" "select id, name, tags from '$table_version_name' group by id order by date desc;")")"
-    echo "Scraping $owner/$package..."
+    echo "Updating $owner/$package..."
     local more_to_scrape=0
     local versions_page=0
     local versions_all_ids=""
@@ -507,7 +508,7 @@ update_package() {
     fi
 
     sqlite3 "$BKG_INDEX_DB" "insert or replace into '$BKG_INDEX_TBL_PKG' (owner_id, owner_type, package_type, owner, repo, package, downloads, downloads_month, downloads_week, downloads_day, size, date) values ('$owner_id', '$owner_type', '$package_type', '$owner', '$repo', '$package', '$raw_downloads', '$raw_downloads_month', '$raw_downloads_week', '$raw_downloads_day', '$size', '$BKG_BATCH_FIRST_STARTED');"
-    echo "Scraped $owner/$package"
+    echo "Updated $owner/$package"
 }
 
 refresh_package() {
@@ -522,20 +523,11 @@ refresh_package() {
         awk '{ split("kB MB GB TB PB EB ZB YB", v); s=0; while( $1>999.9 ) { $1/=1000; s++ } print int($1*10)/10 " " v[s] }' | sed 's/[[:blank:]]*$//'
     }
 
-    check_limit || return
+    (($(($(date -u +%s) - $(get_BKG BKG_SCRIPT_START))) < 21500)) || exit
     [ -n "$1" ] || return
-    local script_diff
     local version_count
     local version_with_tag_count
     IFS='|' read -r owner_id owner_type package_type owner repo package downloads downloads_month downloads_week downloads_day size date tags <<<"$1"
-    script_diff=$(($(date -u +%s) - $(get_BKG BKG_SCRIPT_START)))
-
-    if ((script_diff >= 21500)); then
-        echo "Script has been running for 6 hours. Saving..."
-        exit
-    fi
-
-    # only use the latest date for the package
     max_date=$(sqlite3 "$BKG_INDEX_DB" "select date from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and package='$package' order by date desc limit 1;")
     [ "$date" = "$max_date" ] || return
     json_file="$BKG_INDEX_DIR/$owner/$repo/$package.json"
