@@ -81,10 +81,12 @@ get_BKG_set() {
 
 set_BKG_set() {
     local list
+    local code=0
     list=$(get_BKG_set "$1" | awk '!seen[$0]++' | perl -pe 's/\n/\\n/g')
     # shellcheck disable=SC2076
-    [[ "$list" =~ "$2" ]] || list="${list:+$list\n}$2"
+    [[ "$list" =~ "$2" ]] && code=1 || list="${list:+$list\n}$2"
     set_BKG "$1" "$(echo "$list" | perl -pe 's/\\n/\n/g' | perl -pe 's/\n/\\n/g')"
+    return $code
 }
 
 del_BKG_set() {
@@ -292,11 +294,9 @@ update_version() {
     local count
     local manifest
     local sep
-    local TODAY
     version_id=$(_jq "$1" '.id')
     version_name=$(_jq "$1" '.name')
     version_tags=$(_jq "$1" '.tags')
-    TODAY=$(get_BKG BKG_TODAY)
     echo "Updating $owner/$package/$version_id..."
     table_version_name="${BKG_INDEX_TBL_VER}_${owner_type}_${package_type}_${owner}_${repo}_${package}"
     table_version="create table if not exists '$table_version_name' (
@@ -420,7 +420,6 @@ update_package() {
     repo=$(cut -d'/' -f2 <<<"$1")
     package=$(cut -d'/' -f3 <<<"$1")
     package=${package%/}
-    TODAY=$(get_BKG BKG_TODAY)
 
     if grep -q "$owner/$repo/$package" "$BKG_OPTOUT"; then
         sqlite3 "$BKG_INDEX_DB" "delete from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and package='$package';"
@@ -677,8 +676,7 @@ save_owner() {
         set_BKG BKG_MIN_CALLS_TO_API "$min_calls_to_api"
     fi
 
-    set_BKG_set BKG_OWNERS_QUEUE "$owner_id/$owner"
-    echo "Queued $owner"
+    ! set_BKG_set BKG_OWNERS_QUEUE "$owner_id/$owner" || echo "Queued $owner"
 }
 
 page_owner() {
@@ -811,8 +809,6 @@ update_owners() {
     set_BKG BKG_TIMEOUT "2"
     [ -n "$(get_BKG BKG_LAST_SCANNED_ID)" ] || set_BKG BKG_LAST_SCANNED_ID "0"
     TODAY=$(get_BKG BKG_TODAY)
-    local packages_already_updated
-    local packages_all
     local owners_to_update
     local rotated=false
     local query
@@ -823,7 +819,6 @@ update_owners() {
 
     packages_already_updated() {
         sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, package from '$BKG_INDEX_TBL_PKG' where date >= '$BKG_BATCH_FIRST_STARTED' group by owner_id, owner, package;" | sort -u
-
     }
 
     packages_all() {
@@ -854,8 +849,8 @@ update_owners() {
         awk '!seen[$0]++' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
         # remove lines from $BKG_OWNERS that are in $packages_all
         echo "$(
-            echo "$packages_all" | awk -F'|' '{print $1"/"$2}'
-            echo "$packages_all" | awk -F'|' '{print $2}'
+            packages_all | awk -F'|' '{print $1"/"$2}'
+            packages_all | awk -F'|' '{print $2}'
         )" | sort -u | parallel "sed -i '\,^{}$,d' $BKG_OWNERS"
         local request_owners
         request_owners=$(cat "$BKG_OWNERS")
