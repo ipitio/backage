@@ -816,6 +816,7 @@ update_owners() {
     local owners
     local repos
     local packages
+    local mode=-1
 
     packages_already_updated() {
         sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, package from '$BKG_INDEX_TBL_PKG' where date >= '$BKG_BATCH_FIRST_STARTED' group by owner_id, owner, package;" | sort -u
@@ -825,8 +826,20 @@ update_owners() {
         sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, package from '$BKG_INDEX_TBL_PKG' group by owner_id, owner, package;" | sort -u
     }
 
+    while getopts "m:" flag; do
+        case ${flag} in
+        m)
+            mode=${OPTARG}
+            ;;
+        ?)
+            echo "Invalid option found: -${OPTARG}."
+            exit 1
+            ;;
+        esac
+    done
+
     # if this is a scheduled update, scrape all owners
-    if [ "$1" = "0" ]; then
+    if [ "$mode" -eq 0 ]; then
         comm -13 <(packages_already_updated | awk -F'|' '{print $1"/"$2}' | sort -u) <(packages_all | awk -F'|' '{print $1"/"$2}' | sort -u) | env_parallel --lb save_owner
 
         if [ -z "$(get_BKG_set BKG_OWNERS_QUEUE)" ]; then
@@ -836,7 +849,7 @@ update_owners() {
         else
             [ -n "$(get_BKG BKG_BATCH_FIRST_STARTED)" ] || set_BKG BKG_BATCH_FIRST_STARTED "$TODAY"
         fi
-    elif [ "$1" = "1" ]; then
+    elif [ "$mode" -eq 1 ]; then
         owners_to_update="693151/arevindh"
     fi
 
