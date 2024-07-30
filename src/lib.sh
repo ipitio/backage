@@ -829,7 +829,7 @@ update_owners() {
     if [ "$1" = "0" ]; then
         comm -13 <(packages_already_updated | awk -F'|' '{print $1"/"$2}' | sort -u) <(packages_all | awk -F'|' '{print $1"/"$2}' | sort -u) | env_parallel --lb save_owner
 
-        if [ -z "$(get_BKG BKG_OWNERS_QUEUE)" ]; then
+        if [ -z "$(get_BKG_set BKG_OWNERS_QUEUE)" ]; then
             set_BKG BKG_BATCH_FIRST_STARTED "$TODAY"
             [ -s "$BKG_OWNERS" ] || seq 1 10 | env_parallel --lb --halt soon,fail=1 page_owner
             packages_all | awk -F'|' '{print $1"/"$2}' | sort -u | env_parallel --lb save_owner
