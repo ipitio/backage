@@ -830,25 +830,18 @@ update_owners() {
     local owners
     local repos
     local packages
-
-    packages_already_updated() {
-        sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, package from '$BKG_INDEX_TBL_PKG' where date >= '$BKG_BATCH_FIRST_STARTED' group by owner_id, owner, package;" | sort -u
-    }
-
-    packages_all() {
-        sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, package from '$BKG_INDEX_TBL_PKG' group by owner_id, owner, package;" | sort -u
-    }
+    sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, package from '$BKG_INDEX_TBL_PKG' where date >= '$BKG_BATCH_FIRST_STARTED' group by owner_id, owner, package;" | sort -u >packages_already_updated
+    sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, package from '$BKG_INDEX_TBL_PKG' group by owner_id, owner, package;" | sort -u >packages_all
 
     # if this is a scheduled update, scrape all owners
     if [ "$mode" -eq 0 ] || [ "$mode" -eq 1 ]; then
-        echo "packages done: $(packages_already_updated)"
-        echo "remaining owners: $(packages_already_updated | grep -Fxv -f <(packages_all))"
-        packages_already_updated | grep -Fxv -f <(packages_all) | awk -F'|' '{print $1"/"$2}' | sort -u | env_parallel --lb save_owner
+        comm -13 packages_already_updated packages_all >packages_to_update
+        awk -F'|' '{print $1"/"$2}' <packages_to_update | sort -u | env_parallel --lb save_owner
         echo "The queue: $(get_BKG_set BKG_OWNERS_QUEUE)"
         if [ -z "$(get_BKG_set BKG_OWNERS_QUEUE)" ]; then
             set_BKG BKG_BATCH_FIRST_STARTED "$TODAY"
             [ -s "$BKG_OWNERS" ] || seq 1 10 | env_parallel --lb --halt soon,fail=1 page_owner
-            packages_all | awk -F'|' '{print $1"/"$2}' | sort -u | env_parallel --lb save_owner
+            awk -F'|' '{print $1"/"$2}' <packages_all | sort -u | env_parallel --lb save_owner
         else
             [ -n "$(get_BKG BKG_BATCH_FIRST_STARTED)" ] || set_BKG BKG_BATCH_FIRST_STARTED "$TODAY"
         fi
@@ -865,8 +858,8 @@ update_owners() {
         awk '!seen[$0]++' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
         # remove lines from $BKG_OWNERS that are in $packages_all
         echo "$(
-            packages_all | awk -F'|' '{print $1"/"$2}'
-            packages_all | awk -F'|' '{print $2}'
+            awk -F'|' '{print $1"/"$2}' <packages_all
+            awk -F'|' '{print $2}' <packages_all
         )" | sort -u | parallel "sed -i '\,^{}$,d' $BKG_OWNERS"
         local request_owners
         request_owners=$(cat "$BKG_OWNERS")
@@ -875,6 +868,7 @@ update_owners() {
     fi
 
     # preserve older versions
+    rm -f packages_already_updated packages_all packages_to_update
     [ -d "$BKG_INDEX_SQL.zst.d" ] || mkdir "$BKG_INDEX_SQL.zst.d"
     curl "https://github.com/$GITHUB_OWNER/$GITHUB_REPO/releases/latest" | grep -oP 'href="/'"$GITHUB_OWNER/$GITHUB_REPO"'/releases/download/[^"]+' | grep -oP '^\/'"$GITHUB_OWNER\/$GITHUB_REPO"'\/releases\/download\/\.zst$' | grep -v "$BKG_INDEX_SQL.zst" | parallel --lb "curl -sSLNZ 'https://github.com/$GITHUB_OWNER/$GITHUB_REPO{}' -o '$BKG_INDEX_SQL.zst.d/{}'"
     BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
