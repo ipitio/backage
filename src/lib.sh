@@ -570,7 +570,7 @@ refresh_package() {
     if [ "${version_count:--1}" -gt 0 ]; then
         version_newest_id=$(sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name' order by id desc limit 1;")
         rm -f "$json_file".*.json
-        run_parallel refresh_version "$(sqlite3 "$BKG_INDEX_DB" "select id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags from '$table_version_name' group by id;")"
+        run_parallel refresh_version "$(sqlite3 "$BKG_INDEX_DB" "select * from '$table_version_name' where date >= '$(get_BKG BKG_BATCH_FIRST_STARTED)' group by id;")"
         cat "$json_file".*.json >>"$json_file"
         rm -f "$json_file".*.json
     else
@@ -725,7 +725,7 @@ refresh_owner() {
     echo "Refreshing $1..."
     [ -d "$BKG_INDEX_DIR" ] || mkdir "$BKG_INDEX_DIR"
     [ -d "$BKG_INDEX_DIR/$1" ] || mkdir "$BKG_INDEX_DIR/$1"
-    run_parallel refresh_package "$(sqlite3 "$BKG_INDEX_DB" "select * from '$BKG_INDEX_TBL_PKG' where owner='$1' group by package;")"
+    run_parallel refresh_package "$(sqlite3 "$BKG_INDEX_DB" "select * from '$BKG_INDEX_TBL_PKG' where owner='$1' and date >= '$(get_BKG BKG_BATCH_FIRST_STARTED)' group by package;")"
     echo "Refreshed $1"
 }
 
