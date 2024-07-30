@@ -129,7 +129,7 @@ check_limit() {
     if ((script_limit_diff >= max_len)); then
         if ((timeout == 0)); then
             set_BKG BKG_TIMEOUT "1"
-            echo "Script has been running for $((max_len / 3600)) hours. Saving..."
+            echo "Stopping $$..."
         elif ((timeout == 2)); then
             return 1
         fi
