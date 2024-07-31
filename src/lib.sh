@@ -735,10 +735,8 @@ set_up() {
     BKG_INDEX_DIR=$BKG_ROOT/index
     BKG_INDEX_TBL_PKG=packages
     BKG_INDEX_TBL_VER=versions
-
     [ ! -f "$BKG_INDEX_DB" ] || mv "$BKG_INDEX_DB" "$BKG_INDEX_DB.bak"
-    command curl -sSLNZO "https://github.com/$GITHUB_OWNER/$GITHUB_REPO/releases/latest/download/$BKG_INDEX_SQL.zst"
-    unzstd "$BKG_INDEX_SQL.zst" | sqlite3 "$BKG_INDEX_DB"
+    [ ! -f "$BKG_INDEX_SQL.zst" ] || unzstd "$BKG_INDEX_SQL.zst" | sqlite3 "$BKG_INDEX_DB"
 
     if [ ! -f "$BKG_INDEX_DB" ]; then
         [ -f "$BKG_INDEX_DB.bak" ] && mv "$BKG_INDEX_DB.bak" "$BKG_INDEX_DB" || sqlite3 "$BKG_INDEX_DB" ""
