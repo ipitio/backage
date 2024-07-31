@@ -31,11 +31,20 @@ jobs:
         id: changed
         run: bash src/test/refre.sh ; echo "changed=$?" >> "$GITHUB_OUTPUT"
 
-      - name: Merge changes
+      - name: Commit changes
         id: commit
         if: ${{ steps.changed.outputs.changed == '0' }}
         uses: EndBug/add-and-commit@v9
         with:
-          add: "*.json"
-          message: "refresh endpoint"
+          add: "-- *.db *.txt *.env README.md"
+          message: "update database"
+          pull: "--autostash"
+
+      - name: Merge changes
+        id: merge
+        if: ${{ steps.changed.outputs.changed == '0' && steps.commit.outputs.committed != 'true' }}
+        uses: EndBug/add-and-commit@v9
+        with:
+          add: "-- *.db *.txt *.env README.md"
+          message: "update database"
           pull: "--autostash -s ours"

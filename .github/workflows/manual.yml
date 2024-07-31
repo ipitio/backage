@@ -33,9 +33,18 @@ jobs:
           GITHUB_REPO: ${{ github.event.repository.name }}
           GITHUB_BRANCH: ${{ github.head_ref || github.ref_name }}
 
-      - name: Merge changes
+      - name: Commit changes
         id: commit
         if: ${{ steps.update.outputs.updated == '0' }}
+        uses: EndBug/add-and-commit@v9
+        with:
+          add: "-- *.db *.txt *.env README.md"
+          message: "update database"
+          pull: "--autostash"
+
+      - name: Merge changes
+        id: merge
+        if: ${{ steps.update.outputs.updated == '0' && steps.commit.outputs.committed != 'true' }}
         uses: EndBug/add-and-commit@v9
         with:
           add: "-- *.db *.txt *.env README.md"
