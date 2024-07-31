@@ -60,8 +60,8 @@ set_BKG() {
         mv "$tmp_file" "$BKG_ENV"
     fi
 
-    sed -i '/^\s*$/d' $BKG_ENV
-    echo >>$BKG_ENV
+    sed -i '/^\s*$/d' "$BKG_ENV"
+    echo >>"$BKG_ENV"
 
     rm -f "$BKG_ENV.lock"
 }
