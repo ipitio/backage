@@ -16,15 +16,6 @@ fi
 # shellcheck disable=SC2046
 source $(which env_parallel.bash)
 env_parallel --session
-BKG_ROOT=..
-BKG_ENV=env.env
-BKG_OWNERS=$BKG_ROOT/owners.txt
-BKG_OPTOUT=$BKG_ROOT/optout.txt
-BKG_INDEX_DB=$BKG_ROOT/index.db
-BKG_INDEX_SQL=$BKG_ROOT/index.sql
-BKG_INDEX_DIR=$BKG_ROOT/index
-BKG_INDEX_TBL_PKG=packages
-BKG_INDEX_TBL_VER=versions
 
 sqlite3() {
     command sqlite3 -init <(echo "
@@ -735,6 +726,15 @@ set_up() {
     set_BKG BKG_AUTO "${1:-0}"
     TODAY=$(get_BKG BKG_TODAY)
     BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
+    BKG_ROOT=..
+    BKG_ENV=env.env
+    BKG_OWNERS=$BKG_ROOT/owners.txt
+    BKG_OPTOUT=$BKG_ROOT/optout.txt
+    BKG_INDEX_DB=$BKG_ROOT/index.db
+    BKG_INDEX_SQL=$BKG_ROOT/index.sql
+    BKG_INDEX_DIR=$BKG_ROOT/index
+    BKG_INDEX_TBL_PKG=packages
+    BKG_INDEX_TBL_VER=versions
 
     [ ! -f "$BKG_INDEX_DB" ] || mv "$BKG_INDEX_DB" "$BKG_INDEX_DB.bak"
     command curl -sSLNZO "https://github.com/$GITHUB_OWNER/$GITHUB_REPO/releases/latest/download/$BKG_INDEX_SQL.zst"
