@@ -735,13 +735,14 @@ set_up() {
     BKG_INDEX_DIR=$BKG_ROOT/index
     BKG_INDEX_TBL_PKG=packages
     BKG_INDEX_TBL_VER=versions
+    echo "Getting database..."
     [ ! -f "$BKG_INDEX_DB" ] || mv "$BKG_INDEX_DB" "$BKG_INDEX_DB.bak"
-    [ ! -f "$BKG_INDEX_SQL.zst" ] || unzstd "$BKG_INDEX_SQL.zst" | sqlite3 "$BKG_INDEX_DB"
+    [ ! -f "$BKG_INDEX_SQL.zst" ] || unzstd -v "$BKG_INDEX_SQL.zst" | sqlite3 "$BKG_INDEX_DB"
 
     if [ ! -f "$BKG_INDEX_DB" ]; then
         [ -f "$BKG_INDEX_DB.bak" ] && mv "$BKG_INDEX_DB.bak" "$BKG_INDEX_DB" || sqlite3 "$BKG_INDEX_DB" ""
     fi
-
+    echo "Got database"
     local table_pkg="create table if not exists '$BKG_INDEX_TBL_PKG' (
         owner_id text,
         owner_type text not null,
