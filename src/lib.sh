@@ -203,12 +203,11 @@ run_parallel() {
         IFS=$'\n'
         for i in $2; do
             if [ "$(cat "$exit_code")" = "2" ]; then
-                echo "0" >"$exit_code"
                 break
             elif [ "$(cat "$exit_code")" = "1" ]; then
                 exit
             else
-                { "$1" "$i" || echo "$?" >"$exit_code"; } &
+                (! "$1" "$i" && [[ "$(cat "$exit_code")" != "1" ]] && echo "$?" >"$exit_code" || :) &
             fi
         done
         wait
@@ -218,7 +217,7 @@ run_parallel() {
     local return_code=0
     [[ ! "$(cat "$exit_code")" =~ ^[0-9]+$ ]] || return_code=$(cat "$exit_code")
     rm -f "$exit_code"
-    return "$return_code"
+    ((return_code == 2)) && return 0 || return "$return_code"
 }
 
 _jq() {
