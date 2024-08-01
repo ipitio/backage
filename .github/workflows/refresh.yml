@@ -31,7 +31,7 @@ jobs:
         uses: robinraju/release-downloader@v1
         with:
           latest: true
-          fileName: 'index.sql.zst'
+          fileName: "index.sql.zst"
           tarBall: false
           zipBall: false
 

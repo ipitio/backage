@@ -257,7 +257,7 @@ page_version() {
     fi
 
     # if versions doesn't have .name, break
-    jq -e '.[].name' <<<"$versions_json_more" &>/dev/null || return 1
+    jq -e '.[].name' <<<"$versions_json_more" &>/dev/null || exit 1
 
     # add the new versions to the versions_json, if they are not already there
     run_parallel save_version "$(jq -r '.[] | @base64' <<<"$versions_json_more")"
@@ -389,7 +389,7 @@ page_package() {
     if [ -z "$packages_lines" ]; then
         sed -i '/^'"$owner"'$/d' "$BKG_OWNERS"
         sed -i '/^'"$owner_id"'\/'"$owner"'$/d' "$BKG_OWNERS"
-        return 1
+        exit 1
     fi
 
     packages_lines=${packages_lines//href=/\\nhref=}
@@ -452,16 +452,15 @@ update_package() {
     [ "$versions_all_ids" = "$(sqlite3 "$BKG_INDEX_DB" "select distinct id from '$table_version_name' where date >= '$BKG_BATCH_FIRST_STARTED';")" ] || run_parallel update_version "$(jq -r '.[] | @base64' <<<"$versions_json")"
     [ "$versions_all_ids" = "$(sqlite3 "$BKG_INDEX_DB" "select distinct id from '$table_version_name' where date >= '$BKG_BATCH_FIRST_STARTED';")" ] || return
 
+    # calculate the overall downloads and size
     if [ -n "$(sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name='$table_version_name';")" ]; then
-        # calculate the total downloads
         max_date=$(sqlite3 "$BKG_INDEX_DB" "select date from '$table_version_name' order by date desc limit 1;")
         query="select sum(downloads), sum(downloads_month), sum(downloads_week), sum(downloads_day) from '$table_version_name' where date='$max_date';"
-        # summed_raw_downloads=$(sqlite3 "$BKG_INDEX_DB" "$query" | cut -d'|' -f1)
+        summed_raw_downloads=$(sqlite3 "$BKG_INDEX_DB" "$query" | cut -d'|' -f1)
         raw_downloads_month=$(sqlite3 "$BKG_INDEX_DB" "$query" | cut -d'|' -f2)
         raw_downloads_week=$(sqlite3 "$BKG_INDEX_DB" "$query" | cut -d'|' -f3)
         raw_downloads_day=$(sqlite3 "$BKG_INDEX_DB" "$query" | cut -d'|' -f4)
-
-        # use the latest version's size as the package size
+        [[ "$summed_raw_downloads" =~ ^[0-9]+$ ]] && ((summed_raw_downloads > raw_downloads)) && raw_downloads=$summed_raw_downloads || :
         version_newest_id=$(sqlite3 "$BKG_INDEX_DB" "select id from '${BKG_INDEX_TBL_VER}_${owner_type}_${package_type}_${owner}_${repo}_${package}' order by id desc limit 1;")
         size=$(sqlite3 "$BKG_INDEX_DB" "select size from '${BKG_INDEX_TBL_VER}_${owner_type}_${package_type}_${owner}_${repo}_${package}' where id='$version_newest_id' order by date desc limit 1;")
     fi
@@ -650,7 +649,7 @@ page_owner() {
     fi
 
     # if owners doesn't have .login, break
-    jq -e '.[].login' <<<"$owners_more" &>/dev/null || return 1
+    jq -e '.[].login' <<<"$owners_more" &>/dev/null || exit 1
     run_parallel request_owner "$(jq -r '.[] | @base64' <<<"$owners_more")"
     local return_code=$?
     echo "Requested owners page $1"
@@ -843,9 +842,8 @@ update_owners() {
         if [ -f "$BKG_INDEX_SQL".zst ] && [ "$(stat -c %s "$BKG_INDEX_SQL".new.zst)" -ge 2000000000 ]; then
             rotated=true
             echo "Rotating the database..."
-            [ -d "$BKG_INDEX_SQL".d ] || mkdir "$BKG_INDEX_SQL".d
             local older_db
-            older_db="$BKG_INDEX_SQL".d/"$(date -u +%Y.%m.%d)".zst
+            older_db="$(date -u +%Y.%m.%d)".zst
             [ ! -f "$older_db" ] || rm -f "$older_db"
             mv "$BKG_INDEX_SQL".zst "$older_db"
             sqlite3 "$BKG_INDEX_DB" "delete from '$BKG_INDEX_TBL_PKG' where date < '$BKG_BATCH_FIRST_STARTED';"

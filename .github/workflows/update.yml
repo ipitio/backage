@@ -2,7 +2,7 @@ name: update
 
 on:
   schedule:
-    - cron: '* */1 * * *'
+    - cron: "* */1 * * *"
 
 concurrency:
   group: ${{ github.ref }}
@@ -29,7 +29,7 @@ jobs:
         uses: robinraju/release-downloader@v1
         with:
           latest: true
-          fileName: '*.zst'
+          fileName: "*.zst"
           tarBall: false
           zipBall: false
 
