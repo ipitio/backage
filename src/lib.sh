@@ -718,13 +718,6 @@ refresh_owner() {
 }
 
 set_up() {
-    set -x
-    printf -v MAX %x -1 && printf -v MAX %d 0x"${MAX/f/7}"
-    set_BKG BKG_MAX "$MAX"
-    set_BKG BKG_TIMEOUT "0"
-    set_BKG BKG_TODAY "$(date -u +%Y-%m-%d)"
-    set_BKG BKG_SCRIPT_START "$(date -u +%s)"
-    set_BKG BKG_AUTO "${1:-0}"
     TODAY=$(get_BKG BKG_TODAY)
     BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
     BKG_ROOT=..
@@ -736,6 +729,12 @@ set_up() {
     BKG_INDEX_DIR=$BKG_ROOT/index
     BKG_INDEX_TBL_PKG=packages
     BKG_INDEX_TBL_VER=versions
+    printf -v MAX %x -1 && printf -v MAX %d 0x"${MAX/f/7}"
+    set_BKG BKG_MAX "$MAX"
+    set_BKG BKG_TIMEOUT "0"
+    set_BKG BKG_TODAY "$(date -u +%Y-%m-%d)"
+    set_BKG BKG_SCRIPT_START "$(date -u +%s)"
+    set_BKG BKG_AUTO "${1:-0}"
     echo "Getting database..."
     [ ! -f "$BKG_INDEX_DB" ] || mv "$BKG_INDEX_DB" "$BKG_INDEX_DB.bak"
     [ ! -f "$BKG_INDEX_SQL.zst" ] || unzstd -v "$BKG_INDEX_SQL.zst" | sqlite3 "$BKG_INDEX_DB"
@@ -743,6 +742,7 @@ set_up() {
     if [ ! -f "$BKG_INDEX_DB" ]; then
         [ -f "$BKG_INDEX_DB.bak" ] && mv "$BKG_INDEX_DB.bak" "$BKG_INDEX_DB" || sqlite3 "$BKG_INDEX_DB" ""
     fi
+
     echo "Got database"
     local table_pkg="create table if not exists '$BKG_INDEX_TBL_PKG' (
         owner_id text,
