@@ -735,7 +735,7 @@ set_up() {
     set_BKG BKG_AUTO "${1:-0}"
     BKG_TODAY=$(get_BKG BKG_TODAY)
     BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
-    [ ! -f "$BKG_INDEX_SQL.zst" ] || unzstd -vv -c "$BKG_INDEX_SQL.zst" | sqlite3 "$BKG_INDEX_DB"
+    [ ! -f "$BKG_INDEX_SQL.zst" ] || unzstd -v -c "$BKG_INDEX_SQL.zst" | sqlite3 "$BKG_INDEX_DB"
     [ -f "$BKG_INDEX_DB" ] || sqlite3 "$BKG_INDEX_DB" ""
     local table_pkg="create table if not exists '$BKG_INDEX_TBL_PKG' (
         owner_id text,
