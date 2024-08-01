@@ -28,7 +28,8 @@ jobs:
       - name: Fetch database
         uses: dsaltares/fetch-gh-release-asset@master
         with:
-          file: 'index.sql.zst'
+          file: '.*\\.zst'
+          regex: true
 
       - name: Dry run
         id: update
@@ -45,7 +46,7 @@ jobs:
         if: ${{ steps.update.outputs.updated == '0' }}
         uses: EndBug/add-and-commit@v9
         with:
-          add: "-- *.db *.txt *.env README.md"
+          add: "-- *.txt *.env README.md"
           message: "update database"
           pull: "--autostash"
 
@@ -66,7 +67,7 @@ jobs:
         if: ${{ steps.update.outputs.updated == '0' }}
         uses: ncipollo/release-action@v1
         with:
-          artifacts: "index.sql.zst,index.sql.d/*"
+          artifacts: "*.zst"
           bodyFile: "CHANGELOG.md"
           tag: "${{ steps.date.outputs.date }}"
           commit: "master"
