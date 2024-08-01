@@ -28,6 +28,7 @@ jobs:
       - name: Fetch database
         uses: robinraju/release-downloader@v1
         with:
+          latest: true
           fileName: '*.zst'
           tarBall: false
           zipBall: false
