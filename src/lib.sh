@@ -139,11 +139,9 @@ check_limit() {
         if (($(get_BKG BKG_TIMEOUT) == 0)); then
             set_BKG BKG_TIMEOUT "1"
             echo "Stopping $$..."
-        elif (($(get_BKG BKG_TIMEOUT) == 2)); then
-            return 1
         fi
 
-        exit 0
+        return 1
     fi
 
     # wait if 1000 or more calls have been made in the last hour
@@ -187,7 +185,7 @@ curl() {
     while [ "$i" -lt "$max_attempts" ]; do
         result=$(command curl -sSLNZ --connect-timeout 60 -m 120 "$@" 2>/dev/null)
         [ -n "$result" ] && echo "$result" && return 0
-        check_limit
+        check_limit || break
         sleep "$wait_time"
         ((i++))
         ((wait_time *= 2))
@@ -204,9 +202,14 @@ run_parallel() {
     ( # parallel --lb --halt soon,fail=1
         IFS=$'\n'
         for i in $2; do
-            [ "$(cat "$exit_code")" = "0" ] || exit
-            check_limit || exit
-            { "$1" "$i" || echo "$?" >"$exit_code"; } &
+            if [ "$(cat "$exit_code")" = "2" ]; then
+                echo "0" >"$exit_code"
+                break
+            elif [ "$(cat "$exit_code")" = "1" ]; then
+                exit
+            else
+                { "$1" "$i" || echo "$?" >"$exit_code"; } &
+            fi
         done
         wait
     ) &
@@ -223,7 +226,7 @@ _jq() {
 }
 
 save_version() {
-    check_limit || return
+    check_limit || return $?
     [ -n "$1" ] || return
     local id
     local name
@@ -247,7 +250,7 @@ save_version() {
 }
 
 page_version() {
-    check_limit || return
+    check_limit || return $?
     [ -n "$1" ] || return
     local versions_json_more="[]"
     local calls_to_api
@@ -268,15 +271,13 @@ page_version() {
     fi
 
     # if versions doesn't have .name, break
-    jq -e '.[].name' <<<"$versions_json_more" &>/dev/null || exit 1
-
-    # add the new versions to the versions_json, if they are not already there
-    run_parallel save_version "$(jq -r '.[] | @base64' <<<"$versions_json_more")"
+    jq -e '.[].name' <<<"$versions_json_more" &>/dev/null || return 2
+    run_parallel save_version "$(jq -r '.[] | @base64' <<<"$versions_json_more")" || return $?
     echo "Queued $owner/$package page $1"
 }
 
 update_version() {
-    check_limit || return
+    check_limit || return $?
     [ -n "$1" ] || return
     local version_size=-1
     local version_raw_downloads=-1
@@ -352,7 +353,7 @@ update_version() {
 }
 
 refresh_version() {
-    check_limit 21500 || return
+    check_limit 21500 || return $?
     [ -n "$1" ] || return
     IFS='|' read -r vid vname vsize vdownloads vdownloads_month vdownloads_week vdownloads_day vdate vtags <<<"$1"
     echo "{
@@ -375,7 +376,7 @@ refresh_version() {
 }
 
 save_package() {
-    check_limit || return
+    check_limit || return $?
     [ -n "$1" ] || return
     local package_new
     local package_type
@@ -392,7 +393,7 @@ save_package() {
 }
 
 page_package() {
-    check_limit || return
+    check_limit || return $?
     [ -n "$1" ] || return
     local packages_lines
     local html
@@ -402,17 +403,17 @@ page_package() {
     if [ -z "$packages_lines" ]; then
         sed -i '/^'"$owner"'$/d' "$BKG_OWNERS"
         sed -i '/^'"$owner_id"'\/'"$owner"'$/d' "$BKG_OWNERS"
-        exit 1
+        return 2
     fi
 
     packages_lines=${packages_lines//href=/\\nhref=}
     packages_lines=${packages_lines//\\n/$'\n'} # replace \n with newline
-    run_parallel save_package "$packages_lines"
+    run_parallel save_package "$packages_lines" || return $?
     echo "Checked $owner page $1"
 }
 
 update_package() {
-    check_limit || return
+    check_limit || return $?
     [ -n "$1" ] || return
     package_type=$(cut -d'/' -f1 <<<"$1")
     repo=$(cut -d'/' -f2 <<<"$1")
@@ -456,15 +457,14 @@ update_package() {
     raw_downloads=$(grep -Pzo 'Total downloads[^"]*"\d*' <<<"$html" | grep -Pzo '\d*$' | tr -d '\0') # https://stackoverflow.com/a/74214537
     [[ "$raw_downloads" =~ ^[0-9]+$ ]] || raw_downloads=-1
     table_version_name="${BKG_INDEX_TBL_VER}_${owner_type}_${package_type}_${owner}_${repo}_${package}"
-    [ -z "$(sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name='$table_version_name';")" ] || run_parallel save_version "$(jq -r '.[] | @base64' <<<"$(sqlite3 -json "$BKG_INDEX_DB" "select id, name, tags from '$table_version_name' group by id order by date desc;")")"
+    [ -z "$(sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name='$table_version_name';")" ] || run_parallel save_version "$(jq -r '.[] | @base64' <<<"$(sqlite3 -json "$BKG_INDEX_DB" "select id, name, tags from '$table_version_name' group by id order by date desc;")")" || return $?
     set_BKG BKG_VERSIONS_JSON_"${owner}_${package}" "[]"
-    run_parallel page_version "$(seq 1 100)"
+    run_parallel page_version "$(seq 1 100)" || return $?
     versions_json=$(get_BKG BKG_VERSIONS_JSON_"${owner}_${package}")
     jq -e . <<<"$versions_json" &>/dev/null || versions_json="[{\"id\":\"latest\",\"name\":\"latest\",\"tags\":\"\"}]"
     del_BKG BKG_VERSIONS_JSON_"${owner}_${package}"
     versions_all_ids=$(jq -r '.[] | .id' <<<"$versions_json" | sort -u)
-    [ "$versions_all_ids" = "$(sqlite3 "$BKG_INDEX_DB" "select distinct id from '$table_version_name' where date >= '$BKG_BATCH_FIRST_STARTED';")" ] || run_parallel update_version "$(jq -r '.[] | @base64' <<<"$versions_json")"
-    [ "$versions_all_ids" = "$(sqlite3 "$BKG_INDEX_DB" "select distinct id from '$table_version_name' where date >= '$BKG_BATCH_FIRST_STARTED';")" ] || exit 1
+    [ "$versions_all_ids" = "$(sqlite3 "$BKG_INDEX_DB" "select distinct id from '$table_version_name' where date >= '$BKG_BATCH_FIRST_STARTED';")" ] || run_parallel update_version "$(jq -r '.[] | @base64' <<<"$versions_json")" || return $?
 
     # calculate the overall downloads and size
     if [ -n "$(sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name='$table_version_name';")" ]; then
@@ -484,7 +484,7 @@ update_package() {
 }
 
 refresh_package() {
-    check_limit 21500 || return
+    check_limit 21500 || return $?
     [ -n "$1" ] || return
     local version_count
     local version_with_tag_count
@@ -577,7 +577,7 @@ refresh_package() {
 }
 
 request_owner() {
-    check_limit || return
+    check_limit || return $?
     [ -n "$1" ] || return
     local owner
     local id
@@ -593,7 +593,7 @@ request_owner() {
 
     if [ "$(stat -c %s "$BKG_OWNERS")" -ge 100000000 ]; then
         sed -i '$d' "$BKG_OWNERS"
-        return_code=1
+        return_code=2
     else
         set_BKG BKG_LAST_SCANNED_ID "$id"
     fi
@@ -603,7 +603,7 @@ request_owner() {
 }
 
 save_owner() {
-    check_limit || return
+    check_limit || return $?
     owner=$(echo "$1" | tr -d '[:space:]')
     [ -n "$owner" ] || return
     owner_id=""
@@ -632,7 +632,7 @@ save_owner() {
 }
 
 page_owner() {
-    check_limit || return
+    check_limit || return $?
     [ -n "$1" ] || return
     local owners_more="[]"
     local calls_to_api
@@ -653,23 +653,21 @@ page_owner() {
     fi
 
     # if owners doesn't have .login, break
-    jq -e '.[].login' <<<"$owners_more" &>/dev/null || exit 1
-    run_parallel request_owner "$(jq -r '.[] | @base64' <<<"$owners_more")"
-    local return_code=$?
+    jq -e '.[].login' <<<"$owners_more" &>/dev/null || return 2
+    run_parallel request_owner "$(jq -r '.[] | @base64' <<<"$owners_more")" || return $?
     echo "Requested owners page $1"
-    return $return_code
 }
 
 update_owner() {
-    check_limit || return
+    check_limit || return $?
     [ -n "$1" ] || return
-    echo "Updating $owner..."
     owner=$(cut -d'/' -f2 <<<"$1")
     owner_id=$(cut -d'/' -f1 <<<"$1")
+    echo "Updating $owner..."
     [ -n "$(curl "https://github.com/orgs/$owner/people" | grep -zoP 'href="/orgs/'"$owner"'/people"' | tr -d '\0')" ] && owner_type="orgs" || owner_type="users"
     set_BKG BKG_PACKAGES_"$owner" ""
-    run_parallel page_package "$(seq 1 100)"
-    run_parallel update_package "$(get_BKG_set BKG_PACKAGES_"$owner")"
+    run_parallel page_package "$(seq 1 100)" || return $?
+    run_parallel update_package "$(get_BKG_set BKG_PACKAGES_"$owner")" || return $?
     del_BKG BKG_PACKAGES_"$owner"
     echo "Updated $owner"
 }
