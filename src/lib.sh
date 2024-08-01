@@ -26,6 +26,17 @@ BKG_INDEX_DIR=$BKG_ROOT/index
 BKG_INDEX_TBL_PKG=packages
 BKG_INDEX_TBL_VER=versions
 
+# format numbers like 1000 to 1k
+numfmt() {
+    awk '{ split("k M B T P E Z Y", v); s=0; while( $1>999.9 ) { $1/=1000; s++ } print int($1*10)/10 v[s] }'
+}
+
+# format bytes to KB, MB, GB, etc.
+numfmt_size() {
+    # use sed to remove trailing \s*$
+    awk '{ split("kB MB GB TB PB EB ZB YB", v); s=0; while( $1>999.9 ) { $1/=1000; s++ } print int($1*10)/10 " " v[s] }' | sed 's/[[:blank:]]*$//'
+}
+
 sqlite3() {
     command sqlite3 -init <(echo "
 .output /dev/null
@@ -118,11 +129,11 @@ check_limit() {
     local minute_calls
     local sec_limit_diff
     local min_passed
-    local max_len=18000
+    local max_len=${1:-18000}
     total_calls=$(get_BKG BKG_CALLS_TO_API)
     rate_limit_end=$(date -u +%s)
     script_limit_diff=$((rate_limit_end - $(get_BKG BKG_SCRIPT_START)))
-    (($(get_BKG BKG_AUTO) == 0)) || max_len=3600
+    [[ $(get_BKG BKG_AUTO) -eq 0 || $max_len -lt 3600 ]] || max_len=3600
 
     if ((script_limit_diff >= max_len)); then
         if (($(get_BKG BKG_TIMEOUT) == 0)); then
@@ -341,7 +352,7 @@ update_version() {
 }
 
 refresh_version() {
-    check_limit || return
+    check_limit 21500 || return
     [ -n "$1" ] || return
     IFS='|' read -r vid vname vsize vdownloads vdownloads_month vdownloads_week vdownloads_day vdate vtags <<<"$1"
     echo "{
@@ -365,6 +376,7 @@ refresh_version() {
 
 save_package() {
     check_limit || return
+    [ -n "$1" ] || return
     local package_new
     local package_type
     local repo
@@ -381,6 +393,7 @@ save_package() {
 
 page_package() {
     check_limit || return
+    [ -n "$1" ] || return
     local packages_lines
     local html
     [ "$owner_type" = "users" ] && html=$(curl "https://github.com/$owner?tab=packages&visibility=public&&per_page=100&page=$1") || html=$(curl "https://github.com/$owner_type/$owner/packages?visibility=public&per_page=100&page=$1")
@@ -444,13 +457,14 @@ update_package() {
     [[ "$raw_downloads" =~ ^[0-9]+$ ]] || raw_downloads=-1
     table_version_name="${BKG_INDEX_TBL_VER}_${owner_type}_${package_type}_${owner}_${repo}_${package}"
     [ -z "$(sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name='$table_version_name';")" ] || run_parallel save_version "$(jq -r '.[] | @base64' <<<"$(sqlite3 -json "$BKG_INDEX_DB" "select id, name, tags from '$table_version_name' group by id order by date desc;")")"
+    set_BKG BKG_VERSIONS_JSON_"${owner}_${package}" "[]"
     run_parallel page_version "$(seq 1 100)"
     versions_json=$(get_BKG BKG_VERSIONS_JSON_"${owner}_${package}")
     jq -e . <<<"$versions_json" &>/dev/null || versions_json="[{\"id\":\"latest\",\"name\":\"latest\",\"tags\":\"\"}]"
     del_BKG BKG_VERSIONS_JSON_"${owner}_${package}"
     versions_all_ids=$(jq -r '.[] | .id' <<<"$versions_json" | sort -u)
     [ "$versions_all_ids" = "$(sqlite3 "$BKG_INDEX_DB" "select distinct id from '$table_version_name' where date >= '$BKG_BATCH_FIRST_STARTED';")" ] || run_parallel update_version "$(jq -r '.[] | @base64' <<<"$versions_json")"
-    [ "$versions_all_ids" = "$(sqlite3 "$BKG_INDEX_DB" "select distinct id from '$table_version_name' where date >= '$BKG_BATCH_FIRST_STARTED';")" ] || return
+    [ "$versions_all_ids" = "$(sqlite3 "$BKG_INDEX_DB" "select distinct id from '$table_version_name' where date >= '$BKG_BATCH_FIRST_STARTED';")" ] || exit 1
 
     # calculate the overall downloads and size
     if [ -n "$(sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name='$table_version_name';")" ]; then
@@ -470,18 +484,7 @@ update_package() {
 }
 
 refresh_package() {
-    # format numbers like 1000 to 1k
-    numfmt() {
-        awk '{ split("k M B T P E Z Y", v); s=0; while( $1>999.9 ) { $1/=1000; s++ } print int($1*10)/10 v[s] }'
-    }
-
-    # format bytes to KB, MB, GB, etc.
-    numfmt_size() {
-        # use sed to remove trailing \s*$
-        awk '{ split("kB MB GB TB PB EB ZB YB", v); s=0; while( $1>999.9 ) { $1/=1000; s++ } print int($1*10)/10 " " v[s] }' | sed 's/[[:blank:]]*$//'
-    }
-
-    (($(($(date -u +%s) - $(get_BKG BKG_SCRIPT_START))) < 21500)) || exit
+    check_limit 21500 || return
     [ -n "$1" ] || return
     local version_count
     local version_with_tag_count
@@ -630,6 +633,7 @@ save_owner() {
 
 page_owner() {
     check_limit || return
+    [ -n "$1" ] || return
     local owners_more="[]"
     local calls_to_api
     local min_calls_to_api
@@ -660,16 +664,10 @@ update_owner() {
     set_BKG BKG_TIMEOUT "0"
     check_limit || return
     [ -n "$1" ] || return
-    local login_id=$1
-    local html
-    [ -n "$login_id" ] || return
-    owner=$(cut -d'/' -f2 <<<"$login_id")
     echo "Updating $owner..."
-    owner_id=$(cut -d'/' -f1 <<<"$login_id")
-    owner_type="orgs"
-    html=$(curl "https://github.com/orgs/$owner/people")
-    is_org=$(grep -zoP 'href="/orgs/'"$owner"'/people"' <<<"$html" | tr -d '\0')
-    [ -n "$is_org" ] || owner_type="users"
+    owner=$(cut -d'/' -f2 <<<"$1")
+    owner_id=$(cut -d'/' -f1 <<<"$1")
+    [ -n "$(curl "https://github.com/orgs/$owner/people" | grep -zoP 'href="/orgs/'"$owner"'/people"' | tr -d '\0')" ] && owner_type="orgs" || owner_type="users"
     set_BKG BKG_PACKAGES_"$owner" ""
     run_parallel page_package "$(seq 1 100)"
     run_parallel update_package "$(get_BKG_set BKG_PACKAGES_"$owner")"
@@ -678,7 +676,7 @@ update_owner() {
 }
 
 refresh_owner() {
-    check_limit || return
+    check_limit 21500 || return
     [ -n "$1" ] || return
     echo "Refreshing $1..."
     [ -d "$BKG_INDEX_DIR" ] || mkdir "$BKG_INDEX_DIR"
@@ -777,6 +775,7 @@ update_owners() {
     local packages
     sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, package from '$BKG_INDEX_TBL_PKG' where date >= '$BKG_BATCH_FIRST_STARTED' group by owner_id, owner, package;" | sort -u >packages_already_updated
     sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, package from '$BKG_INDEX_TBL_PKG' group by owner_id, owner, package;" | sort -u >packages_all
+    set_BKG BKG_OWNERS_QUEUE ""
 
     # if this is a scheduled update, scrape all owners
     if [ "$mode" -eq 0 ]; then
