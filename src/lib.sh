@@ -718,6 +718,7 @@ refresh_owner() {
 }
 
 set_up() {
+    set -x
     printf -v MAX %x -1 && printf -v MAX %d 0x"${MAX/f/7}"
     set_BKG BKG_MAX "$MAX"
     set_BKG BKG_TIMEOUT "0"
