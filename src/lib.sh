@@ -16,6 +16,15 @@ fi
 # shellcheck disable=SC2046
 source $(which env_parallel.bash)
 env_parallel --session
+BKG_ROOT=..
+BKG_ENV=env.env
+BKG_OWNERS=$BKG_ROOT/owners.txt
+BKG_OPTOUT=$BKG_ROOT/optout.txt
+BKG_INDEX_DB=$BKG_ROOT/index.db
+BKG_INDEX_SQL=$BKG_ROOT/index.sql
+BKG_INDEX_DIR=$BKG_ROOT/index
+BKG_INDEX_TBL_PKG=packages
+BKG_INDEX_TBL_VER=versions
 
 sqlite3() {
     command sqlite3 -init <(echo "
@@ -718,23 +727,14 @@ refresh_owner() {
 }
 
 set_up() {
-    TODAY=$(get_BKG BKG_TODAY)
-    BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
-    BKG_ROOT=..
-    BKG_ENV=env.env
-    BKG_OWNERS=$BKG_ROOT/owners.txt
-    BKG_OPTOUT=$BKG_ROOT/optout.txt
-    BKG_INDEX_DB=$BKG_ROOT/index.db
-    BKG_INDEX_SQL=$BKG_ROOT/index.sql
-    BKG_INDEX_DIR=$BKG_ROOT/index
-    BKG_INDEX_TBL_PKG=packages
-    BKG_INDEX_TBL_VER=versions
     printf -v MAX %x -1 && printf -v MAX %d 0x"${MAX/f/7}"
     set_BKG BKG_MAX "$MAX"
     set_BKG BKG_TIMEOUT "0"
     set_BKG BKG_TODAY "$(date -u +%Y-%m-%d)"
     set_BKG BKG_SCRIPT_START "$(date -u +%s)"
     set_BKG BKG_AUTO "${1:-0}"
+    BKG_TODAY=$(get_BKG BKG_TODAY)
+    BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
     echo "Getting database..."
     [ ! -f "$BKG_INDEX_DB" ] || mv "$BKG_INDEX_DB" "$BKG_INDEX_DB.bak"
     [ ! -f "$BKG_INDEX_SQL.zst" ] || unzstd -v "$BKG_INDEX_SQL.zst" | sqlite3 "$BKG_INDEX_DB"
@@ -833,11 +833,11 @@ update_owners() {
         awk -F'|' '{print $1"/"$2}' <packages_to_update | sort -u | env_parallel --lb save_owner
 
         if [ -z "$(get_BKG_set BKG_OWNERS_QUEUE)" ]; then
-            set_BKG BKG_BATCH_FIRST_STARTED "$TODAY"
+            set_BKG BKG_BATCH_FIRST_STARTED "$BKG_TODAY"
             [ -s "$BKG_OWNERS" ] || seq 1 10 | env_parallel --lb --halt soon,fail=1 page_owner
             awk -F'|' '{print $1"/"$2}' <packages_all | sort -u | env_parallel --lb save_owner
         else
-            [ -n "$(get_BKG BKG_BATCH_FIRST_STARTED)" ] || set_BKG BKG_BATCH_FIRST_STARTED "$TODAY"
+            [ -n "$(get_BKG BKG_BATCH_FIRST_STARTED)" ] || set_BKG BKG_BATCH_FIRST_STARTED "$BKG_TODAY"
         fi
     elif [ "$mode" -eq 1 ]; then
         owners_to_update="693151/arevindh"
