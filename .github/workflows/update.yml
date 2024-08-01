@@ -28,7 +28,7 @@ jobs:
       - name: Fetch database
         uses: dsaltares/fetch-gh-release-asset@master
         with:
-          file: '.*\\.zst'
+          file: '.*\.zst'
           regex: true
 
       - name: Dry run
