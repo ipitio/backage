@@ -26,10 +26,11 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Fetch database
-        uses: dsaltares/fetch-gh-release-asset@master
+        uses: robinraju/release-downloader@v1
         with:
-          file: '.*\.zst'
-          regex: true
+          fileName: '*.zst'
+          tarBall: false
+          zipBall: false
 
       - name: Dry run
         id: update
