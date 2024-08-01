@@ -345,7 +345,7 @@ update_version() {
         version_raw_downloads_day=-1
     fi
 
-    sqlite3 "$BKG_INDEX_DB" "insert or replace into '$table_version_name' (id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags) values ('$version_id', '$version_name', '$version_size', '$version_raw_downloads', '$version_raw_downloads_month', '$version_raw_downloads_week', '$version_raw_downloads_day', '$BKG_BATCH_FIRST_STARTED', '$version_tags');"
+    sqlite3 "$BKG_INDEX_DB" "insert or replace into '$table_version_name' (id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags) values ('$version_id', '$version_name', '$version_size', '$version_raw_downloads', '$version_raw_downloads_month', '$version_raw_downloads_week', '$version_raw_downloads_day', '$BKG_TODAY', '$version_tags');"
     echo "Updated $owner/$package/$version_id"
 }
 
@@ -545,7 +545,7 @@ refresh_package() {
         \"owner\": \"$owner\",
         \"repo\": \"$repo\",
         \"package\": \"$package\",
-        \"date\": \"$date\",
+        \"date\": \"$(sqlite3 "$BKG_INDEX_DB" "select date from '$table_version_name' order by date desc limit 1;")\",
         \"size\": \"$(numfmt_size <<<"${size:--1}")\",
         \"versions\": \"$(numfmt <<<"${version_count:--1}")\",
         \"tagged\": \"$(numfmt <<<"${version_with_tag_count:--1}")\",
@@ -735,15 +735,8 @@ set_up() {
     set_BKG BKG_AUTO "${1:-0}"
     BKG_TODAY=$(get_BKG BKG_TODAY)
     BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
-    echo "Getting database..."
-    [ ! -f "$BKG_INDEX_DB" ] || mv "$BKG_INDEX_DB" "$BKG_INDEX_DB.bak"
-    [ ! -f "$BKG_INDEX_SQL.zst" ] || unzstd -c "$BKG_INDEX_SQL.zst" | sqlite3 "$BKG_INDEX_DB"
-
-    if [ ! -f "$BKG_INDEX_DB" ]; then
-        [ -f "$BKG_INDEX_DB.bak" ] && mv "$BKG_INDEX_DB.bak" "$BKG_INDEX_DB" || sqlite3 "$BKG_INDEX_DB" ""
-    fi
-
-    echo "Got database"
+    [ ! -f "$BKG_INDEX_SQL.zst" ] || unzstd -vv -c "$BKG_INDEX_SQL.zst" | sqlite3 "$BKG_INDEX_DB"
+    [ -f "$BKG_INDEX_DB" ] || sqlite3 "$BKG_INDEX_DB" ""
     local table_pkg="create table if not exists '$BKG_INDEX_TBL_PKG' (
         owner_id text,
         owner_type text not null,
@@ -922,22 +915,6 @@ update_owners() {
     \cp templates/.README.md $BKG_ROOT/README.md
     perl -0777 -pe 's/<GITHUB_OWNER>/'"$GITHUB_OWNER"'/g; s/<GITHUB_REPO>/'"$GITHUB_REPO"'/g; s/<GITHUB_BRANCH>/'"$GITHUB_BRANCH"'/g' $BKG_ROOT/README.md >README.tmp && [ -f README.tmp ] && mv README.tmp $BKG_ROOT/README.md || :
     echo "Updated templates"
-
-    # if index db is greater than 100MB, remove it
-    if [ "$(stat -c %s "$BKG_INDEX_DB")" -ge 100000000 ]; then
-        echo "Removing the database..."
-
-        if [ -f "$BKG_INDEX_DB" ]; then
-            git rm "$BKG_INDEX_DB" || rm -f "$BKG_INDEX_DB"
-        fi
-
-        if [ -f $BKG_ROOT/index.json ]; then
-            git rm $BKG_ROOT/index.json || rm -f $BKG_ROOT/index.json
-        fi
-
-        echo "Removed the database"
-    fi
-
     clean_up
 }
 
