@@ -737,7 +737,7 @@ set_up() {
     BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
     echo "Getting database..."
     [ ! -f "$BKG_INDEX_DB" ] || mv "$BKG_INDEX_DB" "$BKG_INDEX_DB.bak"
-    [ ! -f "$BKG_INDEX_SQL.zst" ] || unzstd -v "$BKG_INDEX_SQL.zst" | sqlite3 "$BKG_INDEX_DB"
+    [ ! -f "$BKG_INDEX_SQL.zst" ] || unzstd -c "$BKG_INDEX_SQL.zst" | sqlite3 "$BKG_INDEX_DB"
 
     if [ ! -f "$BKG_INDEX_DB" ]; then
         [ -f "$BKG_INDEX_DB.bak" ] && mv "$BKG_INDEX_DB.bak" "$BKG_INDEX_DB" || sqlite3 "$BKG_INDEX_DB" ""
@@ -864,7 +864,7 @@ update_owners() {
     # preserve older versions
     rm -f packages_already_updated packages_all packages_to_update
     [ -d "$BKG_INDEX_SQL.zst.d" ] || mkdir "$BKG_INDEX_SQL.zst.d"
-    curl "https://github.com/$GITHUB_OWNER/$GITHUB_REPO/releases/latest" | grep -oP 'href="/'"$GITHUB_OWNER/$GITHUB_REPO"'/releases/download/[^"]+' | grep -oP '^\/'"$GITHUB_OWNER\/$GITHUB_REPO"'\/releases\/download\/\.zst$' | grep -v "$BKG_INDEX_SQL.zst" | parallel --lb "curl -sSLNZ 'https://github.com/$GITHUB_OWNER/$GITHUB_REPO{}' -o '$BKG_INDEX_SQL.zst.d/{}'"
+    curl "https://github.com/$GITHUB_OWNER/$GITHUB_REPO/releases/latest" | grep -oP 'href="/'"$GITHUB_OWNER/$GITHUB_REPO"'/releases/download/[^"]+' | grep -oP '^\/'"$GITHUB_OWNER\/$GITHUB_REPO"'\/releases\/download\/\.zst$' | grep -v "index.sql.zst" | parallel --lb "curl -sSLNZ 'https://github.com/$GITHUB_OWNER/$GITHUB_REPO{}' -o '$BKG_INDEX_SQL.zst.d/{}'"
     BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
     [ -z "$owners_to_update" ] || printf "%s\n" "${owners_to_update//\\n/$'\n'}" | env_parallel --lb save_owner
     [ -n "$(get_BKG BKG_RATE_LIMIT_START)" ] || set_BKG BKG_RATE_LIMIT_START "$(date -u +%s)"
