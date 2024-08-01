@@ -661,7 +661,6 @@ page_owner() {
 }
 
 update_owner() {
-    set_BKG BKG_TIMEOUT "0"
     check_limit || return
     [ -n "$1" ] || return
     echo "Updating $owner..."
@@ -832,6 +831,7 @@ update_owners() {
         set_BKG BKG_MIN_CALLS_TO_API "0"
     fi
 
+    set_BKG BKG_TIMEOUT "0"
     get_BKG_set BKG_OWNERS_QUEUE | env_parallel --lb update_owner
     echo "Compressing the database..."
     sqlite3 "$BKG_INDEX_DB" ".dump" | zstd -22 --ultra --long -T0 -o "$BKG_INDEX_SQL".new.zst
