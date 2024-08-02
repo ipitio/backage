@@ -261,7 +261,7 @@ page_version() {
     local min_calls_to_api
 
     if [ -n "$GITHUB_TOKEN" ]; then
-        echo "Checking $owner/$package page $1..."
+        echo "Starting $owner/$package page $1..."
         versions_json_more=$(curl -H "Accept: application/vnd.github+json" \
             -H "Authorization: Bearer $GITHUB_TOKEN" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
@@ -280,7 +280,7 @@ page_version() {
     local version_lines
     version_lines=$(jq -r '.[] | @base64' <<<"$versions_json_more")
     run_parallel save_version "$version_lines" || return $?
-    echo "Checked $owner/$package page $1"
+    echo "Started $owner/$package page $1"
     # if there are fewer than 100 lines, break
     [ "$(wc -l <<<"$version_lines")" -lt 100 ] || return 2
 }
@@ -307,7 +307,6 @@ update_version() {
     version_id=$(_jq "$1" '.id')
     version_name=$(_jq "$1" '.name')
     version_tags=$(_jq "$1" '.tags')
-    echo "Updating $owner/$package/$version_id..."
     table_version_name="${BKG_INDEX_TBL_VER}_${owner_type}_${package_type}_${owner}_${repo}_${package}"
     table_version="create table if not exists '$table_version_name' (
         id text not null,
@@ -359,7 +358,6 @@ update_version() {
     fi
 
     sqlite3 "$BKG_INDEX_DB" "insert or replace into '$table_version_name' (id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags) values ('$version_id', '$version_name', '$version_size', '$version_raw_downloads', '$version_raw_downloads_month', '$version_raw_downloads_week', '$version_raw_downloads_day', '$BKG_TODAY', '$version_tags');"
-    echo "Updated $owner/$package/$version_id"
 }
 
 refresh_version() {
@@ -382,7 +380,7 @@ refresh_version() {
         \"raw_downloads_week\": ${vdownloads_week:--1},
         \"raw_downloads_day\": ${vdownloads_day:--1},
         \"tags\": [\"${vtags//,/\",\"}\"]
-    }," >>"$json_file.$vid.json"
+    }," >>"$json_file.$vid"
 }
 
 save_package() {
@@ -407,7 +405,7 @@ page_package() {
     [ -n "$1" ] || return
     local packages_lines
     local html
-    echo "Checking $owner page $1..."
+    echo "Starting $owner page $1..."
     [ "$owner_type" = "users" ] && html=$(curl "https://github.com/$owner?tab=packages&visibility=public&&per_page=100&page=$1") || html=$(curl "https://github.com/$owner_type/$owner/packages?visibility=public&per_page=100&page=$1")
     packages_lines=$(grep -zoP 'href="/'"$owner_type"'/'"$owner"'/packages/[^/]+/package/[^"]+"' <<<"$html" | tr -d '\0')
 
@@ -420,7 +418,7 @@ page_package() {
     packages_lines=${packages_lines//href=/\\nhref=}
     packages_lines=${packages_lines//\\n/$'\n'} # replace \n with newline
     run_parallel save_package "$packages_lines" || return $?
-    echo "Checked $owner page $1"
+    echo "Started $owner page $1"
     # if there are fewer than 100 lines, break
     [ "$(wc -l <<<"$packages_lines")" -lt 100 ] || return 2
 }
@@ -554,10 +552,10 @@ refresh_package() {
     # add the versions to index/"$owner".json
     if [ "${version_count:--1}" -gt 0 ]; then
         version_newest_id=$(sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name' order by id desc limit 1;")
-        rm -f "$json_file".*.json
+        rm -f "$json_file".*
         run_parallel refresh_version "$(sqlite3 "$BKG_INDEX_DB" "select * from '$table_version_name' where date >= '$BKG_BATCH_FIRST_STARTED' group by id;")"
-        cat "$json_file".*.json >>"$json_file"
-        rm -f "$json_file".*.json
+        cat "$json_file".* >>"$json_file"
+        rm -f "$json_file".*
     else
         echo "{
             \"id\": -1,
