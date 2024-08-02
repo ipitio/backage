@@ -240,7 +240,7 @@ save_version() {
     versions_json=$(get_BKG BKG_VERSIONS_JSON_"${owner}_${package}")
 
     if [ -z "$versions_json" ] || ! jq -e . <<<"$versions_json" &>/dev/null; then
-         versions_json="[]"
+        versions_json="[]"
     fi
 
     if jq -e ".[] | select(.id == \"$id\")" <<<"$versions_json" &>/dev/null; then
@@ -251,7 +251,6 @@ save_version() {
     fi
 
     set_BKG BKG_VERSIONS_JSON_"${owner}_${package}" "$versions_json"
-    echo "Queued $owner/$package/$id"
 }
 
 page_version() {
@@ -401,7 +400,6 @@ save_package() {
     package_type=${package_type%/}
     repo=${repo%/}
     set_BKG_set BKG_PACKAGES_"$owner" "$package_type/$repo/$package_new"
-    echo "Queued $owner/$package_new"
 }
 
 page_package() {
@@ -472,33 +470,24 @@ update_package() {
     raw_downloads=$(grep -Pzo 'Total downloads[^"]*"\d*' <<<"$html" | grep -Pzo '\d*$' | tr -d '\0') # https://stackoverflow.com/a/74214537
     [[ "$raw_downloads" =~ ^[0-9]+$ ]] || raw_downloads=-1
     table_version_name="${BKG_INDEX_TBL_VER}_${owner_type}_${package_type}_${owner}_${repo}_${package}"
-    set_BKG BKG_VERSIONS_JSON_"${owner}_${package}" "[]"
 
     if [ -n "$(sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name='$table_version_name';")" ]; then
         run_parallel save_version "$(sqlite3 -json "$BKG_INDEX_DB" "select id, name, tags from '$table_version_name' group by id order by date desc;" | jq -r '.[] | @base64')" || return $?
     fi
 
     for page in $(seq 1 100); do
+        local pages_left=0
+        set_BKG BKG_VERSIONS_JSON_"${owner}_${package}" "[]"
         page_version "$page"
-
-        case $? in
-        1)
-            return 1
-            ;;
-        2)
-            break
-            ;;
-        *)
-            :
-            ;;
-        esac
+        pages_left=$?
+        ((pages_left != 1)) || return 1
+        versions_json=$(get_BKG BKG_VERSIONS_JSON_"${owner}_${package}")
+        jq -e . <<<"$versions_json" &>/dev/null || versions_json="[{\"id\":\"latest\",\"name\":\"latest\",\"tags\":\"\"}]"
+        del_BKG BKG_VERSIONS_JSON_"${owner}_${package}"
+        versions_all_ids=$(jq -r '.[] | .id' <<<"$versions_json" | sort -u)
+        [ "$versions_all_ids" = "$(sqlite3 "$BKG_INDEX_DB" "select distinct id from '$table_version_name' where date >= '$BKG_BATCH_FIRST_STARTED';")" ] || { run_parallel update_version "$(jq -r '.[] | @base64' <<<"$versions_json")" || return $?; }
+        ((pages_left != 2)) || break
     done
-
-    versions_json=$(get_BKG BKG_VERSIONS_JSON_"${owner}_${package}")
-    jq -e . <<<"$versions_json" &>/dev/null || versions_json="[{\"id\":\"latest\",\"name\":\"latest\",\"tags\":\"\"}]"
-    del_BKG BKG_VERSIONS_JSON_"${owner}_${package}"
-    versions_all_ids=$(jq -r '.[] | .id' <<<"$versions_json" | sort -u)
-    [ "$versions_all_ids" = "$(sqlite3 "$BKG_INDEX_DB" "select distinct id from '$table_version_name' where date >= '$BKG_BATCH_FIRST_STARTED';")" ] || { run_parallel update_version "$(jq -r '.[] | @base64' <<<"$versions_json")" || return $?; }
 
     # calculate the overall downloads and size
     if [ -n "$(sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name='$table_version_name';")" ]; then
@@ -706,26 +695,18 @@ update_owner() {
     owner_id=$(cut -d'/' -f1 <<<"$1")
     echo "Updating $owner..."
     [ -n "$(curl "https://github.com/orgs/$owner/people" | grep -zoP 'href="/orgs/'"$owner"'/people"' | tr -d '\0')" ] && owner_type="orgs" || owner_type="users"
-    set_BKG BKG_PACKAGES_"$owner" ""
 
     for page in $(seq 1 100); do
+        local pages_left=0
+        set_BKG BKG_PACKAGES_"$owner" ""
         page_package "$page"
-
-        case $? in
-        1)
-            return 1
-            ;;
-        2)
-            break
-            ;;
-        *)
-            :
-            ;;
-        esac
+        pages_left=$?
+        ((pages_left != 1)) || return 1
+        run_parallel update_package "$(get_BKG_set BKG_PACKAGES_"$owner")" || return $?
+        del_BKG BKG_PACKAGES_"$owner"
+        ((pages_left != 2)) || break
     done
 
-    run_parallel update_package "$(get_BKG_set BKG_PACKAGES_"$owner")" || return $?
-    del_BKG BKG_PACKAGES_"$owner"
     echo "Updated $owner"
 }
 
