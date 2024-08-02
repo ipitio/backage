@@ -207,7 +207,7 @@ run_parallel() {
             elif [ "$(cat "$exit_code")" = "1" ]; then
                 exit
             else
-                (! "$1" "$i" || [ "$(cat "$exit_code")" = "1" ] || echo "$?" >"$exit_code") &
+                ("$1" "$i" || [ "$(cat "$exit_code")" = "1" ] || echo "$?" >"$exit_code") &
             fi
         done
         wait
