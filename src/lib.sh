@@ -440,6 +440,7 @@ update_package() {
     fi
 
     [[ "$(sqlite3 "$BKG_INDEX_DB" "select count(*) from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and package='$package' and date >= '$BKG_BATCH_FIRST_STARTED';")" =~ ^0*$ || "$owner" == "arevindh" ]] || return
+    echo "Count 0 for $owner/$package"
     local html
     local query
     local raw_downloads=-1
@@ -449,7 +450,6 @@ update_package() {
     local size=-1
     local versions_all_ids=""
     local versions_json=""
-    echo "Updating $owner/$package..."
 
     # decode percent-encoded characters and make lowercase (eg. for docker manifest)
     if [ "$package_type" = "container" ]; then
@@ -467,6 +467,7 @@ update_package() {
     # scrape the package page for the total downloads
     html=$(curl "https://github.com/$owner/$repo/pkgs/$package_type/$package")
     [ -n "$(grep -Pzo 'Total downloads' <<<"$html" | tr -d '\0')" ] || return
+    echo "Updating $owner/$package..."
     raw_downloads=$(grep -Pzo 'Total downloads[^"]*"\d*' <<<"$html" | grep -Pzo '\d*$' | tr -d '\0') # https://stackoverflow.com/a/74214537
     [[ "$raw_downloads" =~ ^[0-9]+$ ]] || raw_downloads=-1
     table_version_name="${BKG_INDEX_TBL_VER}_${owner_type}_${package_type}_${owner}_${repo}_${package}"
