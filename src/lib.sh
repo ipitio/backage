@@ -471,9 +471,15 @@ update_package() {
     raw_downloads=$(grep -Pzo 'Total downloads[^"]*"\d*' <<<"$html" | grep -Pzo '\d*$' | tr -d '\0') # https://stackoverflow.com/a/74214537
     [[ "$raw_downloads" =~ ^[0-9]+$ ]] || raw_downloads=-1
     table_version_name="${BKG_INDEX_TBL_VER}_${owner_type}_${package_type}_${owner}_${repo}_${package}"
-    [ -z "$(sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name='$table_version_name';")" ] || { run_parallel save_version "$(jq -r '.[] | @base64' <<<"$(sqlite3 -json "$BKG_INDEX_DB" "select id, name, tags from '$table_version_name' group by id order by date desc;")")" || return $?; }
-    set_BKG BKG_VERSIONS_JSON_"${owner}_${package}" "[]"
 
+    if [ -n "$(sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name='$table_version_name';")" ]; then
+        echo "if start for $owner/$package"
+        run_parallel save_version "$(jq -r '.[] | @base64' <<<"$(sqlite3 -json "$BKG_INDEX_DB" "select id, name, tags from '$table_version_name' group by id order by date desc;")")" || return $?
+        echo "if end for $owner/$package"
+    fi
+
+    set_BKG BKG_VERSIONS_JSON_"${owner}_${package}" "[]"
+    echo "starting for $owner/$package"
     for page in $(seq 1 100); do
         echo "page: $page"
         page_version "$page"
