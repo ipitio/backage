@@ -380,7 +380,7 @@ refresh_version() {
         \"raw_downloads_week\": ${vdownloads_week:--1},
         \"raw_downloads_day\": ${vdownloads_day:--1},
         \"tags\": [\"${vtags//,/\",\"}\"]
-    }," >>"$json_file.$vid.json"
+    }," >>"$json_file.$vid"
 }
 
 save_package() {
@@ -554,8 +554,8 @@ refresh_package() {
         version_newest_id=$(sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name' order by id desc limit 1;")
         rm -f "$json_file".*.json
         run_parallel refresh_version "$(sqlite3 "$BKG_INDEX_DB" "select * from '$table_version_name' where date >= '$BKG_BATCH_FIRST_STARTED' group by id;")"
-        cat "$json_file".*.json >>"$json_file"
-        rm -f "$json_file".*.json
+        cat "$json_file".* >>"$json_file"
+        rm -f "$json_file".*
     else
         echo "{
             \"id\": -1,
