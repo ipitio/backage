@@ -259,7 +259,7 @@ page_version() {
     local versions_json_more="[]"
     local calls_to_api
     local min_calls_to_api
-
+    echo "\$1: $1"
     if [ -n "$GITHUB_TOKEN" ]; then
         echo "Checking $owner/$package page $1..."
         versions_json_more=$(curl -H "Accept: application/vnd.github+json" \
@@ -474,6 +474,7 @@ update_package() {
     set_BKG BKG_VERSIONS_JSON_"${owner}_${package}" "[]"
 
     for page in $(seq 1 100); do
+        echo "page: $page"
         page_version "$page"
 
         case $? in
