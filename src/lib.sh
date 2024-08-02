@@ -207,7 +207,12 @@ run_parallel() {
             elif [ "$(cat "$exit_code")" = "1" ]; then
                 exit
             else
-                ("$1" "$i" || [ "$(cat "$exit_code")" = "1" ] || echo "$?" >"$exit_code") &
+                (
+                    local limit_reached=0
+                    "$1" "$i"
+                    limit_reached=$?
+                    ((limit_reached == 0)) || [ "$(cat "$exit_code")" = "1" ] || echo "$limit_reached" >"$exit_code"
+                ) &
             fi
         done
         wait
