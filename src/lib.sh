@@ -208,7 +208,6 @@ run_parallel() {
                 exit
             else
                 (
-                    set -x
                     local limit_reached=0
                     "$1" "$i"
                     limit_reached=$?
@@ -262,6 +261,7 @@ page_version() {
     local min_calls_to_api
 
     if [ -n "$GITHUB_TOKEN" ]; then
+        echo "Checking $owner/$package page $1..."
         versions_json_more=$(curl -H "Accept: application/vnd.github+json" \
             -H "Authorization: Bearer $GITHUB_TOKEN" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
@@ -278,7 +278,7 @@ page_version() {
     # if versions doesn't have .name, break
     jq -e '.[].name' <<<"$versions_json_more" &>/dev/null || return 2
     run_parallel save_version "$(jq -r '.[] | @base64' <<<"$versions_json_more")" || return $?
-    echo "Queued $owner/$package page $1"
+    echo "Checked $owner/$package page $1"
 }
 
 update_version() {
@@ -303,6 +303,7 @@ update_version() {
     version_id=$(_jq "$1" '.id')
     version_name=$(_jq "$1" '.name')
     version_tags=$(_jq "$1" '.tags')
+    echo "Updating $owner/$package/$version_id..."
     table_version_name="${BKG_INDEX_TBL_VER}_${owner_type}_${package_type}_${owner}_${repo}_${package}"
     table_version="create table if not exists '$table_version_name' (
         id text not null,
@@ -402,6 +403,7 @@ page_package() {
     [ -n "$1" ] || return
     local packages_lines
     local html
+    echo "Checking $owner page $1..."
     [ "$owner_type" = "users" ] && html=$(curl "https://github.com/$owner?tab=packages&visibility=public&&per_page=100&page=$1") || html=$(curl "https://github.com/$owner_type/$owner/packages?visibility=public&per_page=100&page=$1")
     packages_lines=$(grep -zoP 'href="/'"$owner_type"'/'"$owner"'/packages/[^/]+/package/[^"]+"' <<<"$html" | tr -d '\0')
 
@@ -496,6 +498,7 @@ refresh_package() {
     IFS='|' read -r owner_id owner_type package_type owner repo package downloads downloads_month downloads_week downloads_day size date tags <<<"$1"
     max_date=$(sqlite3 "$BKG_INDEX_DB" "select date from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and package='$package' order by date desc limit 1;")
     [ "$date" = "$max_date" ] || return
+    echo "Refreshing $owner/$package..."
     json_file="$BKG_INDEX_DIR/$owner/$repo/$package.json"
     [ -d "$BKG_INDEX_DIR/$owner/$repo" ] || mkdir "$BKG_INDEX_DIR/$owner/$repo"
     version_count=0
@@ -644,6 +647,7 @@ page_owner() {
     local min_calls_to_api
 
     if [ -n "$GITHUB_TOKEN" ]; then
+        echo "Checking owners page $1..."
         owners_more=$(curl -H "Accept: application/vnd.github+json" \
             -H "Authorization: Bearer $GITHUB_TOKEN" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
@@ -660,7 +664,7 @@ page_owner() {
     # if owners doesn't have .login, break
     jq -e '.[].login' <<<"$owners_more" &>/dev/null || return 2
     run_parallel request_owner "$(jq -r '.[] | @base64' <<<"$owners_more")" || return $?
-    echo "Requested owners page $1"
+    echo "Checked owners page $1"
 }
 
 update_owner() {
