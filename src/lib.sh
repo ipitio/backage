@@ -261,7 +261,7 @@ page_version() {
     local min_calls_to_api
 
     if [ -n "$GITHUB_TOKEN" ]; then
-        echo "Checking $owner/$package page $1..."
+        echo "Starting $owner/$package page $1..."
         versions_json_more=$(curl -H "Accept: application/vnd.github+json" \
             -H "Authorization: Bearer $GITHUB_TOKEN" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
@@ -280,7 +280,7 @@ page_version() {
     local version_lines
     version_lines=$(jq -r '.[] | @base64' <<<"$versions_json_more")
     run_parallel save_version "$version_lines" || return $?
-    echo "Checked $owner/$package page $1"
+    echo "Started $owner/$package page $1"
     # if there are fewer than 100 lines, break
     [ "$(wc -l <<<"$version_lines")" -lt 100 ] || return 2
 }
@@ -405,7 +405,7 @@ page_package() {
     [ -n "$1" ] || return
     local packages_lines
     local html
-    echo "Checking $owner page $1..."
+    echo "Starting $owner page $1..."
     [ "$owner_type" = "users" ] && html=$(curl "https://github.com/$owner?tab=packages&visibility=public&&per_page=100&page=$1") || html=$(curl "https://github.com/$owner_type/$owner/packages?visibility=public&per_page=100&page=$1")
     packages_lines=$(grep -zoP 'href="/'"$owner_type"'/'"$owner"'/packages/[^/]+/package/[^"]+"' <<<"$html" | tr -d '\0')
 
@@ -418,7 +418,7 @@ page_package() {
     packages_lines=${packages_lines//href=/\\nhref=}
     packages_lines=${packages_lines//\\n/$'\n'} # replace \n with newline
     run_parallel save_package "$packages_lines" || return $?
-    echo "Checked $owner page $1"
+    echo "Started $owner page $1"
     # if there are fewer than 100 lines, break
     [ "$(wc -l <<<"$packages_lines")" -lt 100 ] || return 2
 }
