@@ -41,19 +41,9 @@ jobs:
 
       - name: Commit changes
         id: commit
-        continue-on-error: true
         if: ${{ steps.changed.outputs.changed == '0' }}
         uses: EndBug/add-and-commit@v9
         with:
           add: "-- *.json"
           message: "refresh endpoint"
-          pull: "--autostash"
-
-      - name: Merge changes
-        id: merge
-        if: ${{ steps.changed.outputs.changed == '0' && steps.commit.outputs.committed != 'true' }}
-        uses: EndBug/add-and-commit@v9
-        with:
-          add: "-- *.json"
-          message: "refresh endpoint"
-          pull: "--autostash -s ours"
+          pull: "--rebase --autostash -s ours"

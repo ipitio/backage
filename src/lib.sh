@@ -195,34 +195,31 @@ curl() {
 }
 
 run_parallel() {
+    local code
     local exit_code
     exit_code=$(mktemp)
-    echo "0" >"$exit_code"
 
     ( # parallel --lb --halt soon,fail=1
-        IFS=$'\n'
-        for i in $2; do
-            if [ "$(cat "$exit_code")" = "2" ]; then
-                break
-            elif [ "$(cat "$exit_code")" = "1" ]; then
-                exit
-            else
-                (
-                    local limit_reached=0
-                    "$1" "$i"
-                    limit_reached=$?
-                    ((limit_reached == 0)) || { [ "$(cat "$exit_code")" = "1" ] || echo "$limit_reached" >"$exit_code"; }
-                ) &
+        local i=0
+
+        for j in $2; do
+            code=$(cat "$exit_code")
+            ! grep -q "1" <<<"$code" || exit
+            ! grep -q "2" <<<"$code" || break
+            ((i++))
+            ("$1" "$j" || echo "$?" >>"$exit_code") &
+
+            if ((i >= $(nproc))); then
+                wait
+                i=0
             fi
         done
-        wait
     ) &
 
     wait "$!"
-    local return_code=0
-    [[ ! "$(cat "$exit_code")" =~ ^[0-9]+$ ]] || return_code=$(cat "$exit_code")
+    code=$(cat "$exit_code")
     rm -f "$exit_code"
-    ((return_code == 2)) && return 0 || return "$return_code"
+    ! grep -q "1" <<<"$code" || return 1
 }
 
 _jq() {
@@ -263,7 +260,7 @@ page_version() {
     local versions_json_more="[]"
     local calls_to_api
     local min_calls_to_api
-    echo "\$1: $1"
+
     if [ -n "$GITHUB_TOKEN" ]; then
         echo "Checking $owner/$package page $1..."
         versions_json_more=$(curl -H "Accept: application/vnd.github+json" \
@@ -404,6 +401,7 @@ save_package() {
     package_type=${package_type%/}
     repo=${repo%/}
     set_BKG_set BKG_PACKAGES_"$owner" "$package_type/$repo/$package_new"
+    echo "Queued $owner/$package_new"
 }
 
 page_package() {
@@ -444,7 +442,6 @@ update_package() {
     fi
 
     [[ "$(sqlite3 "$BKG_INDEX_DB" "select count(*) from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and package='$package' and date >= '$BKG_BATCH_FIRST_STARTED';")" =~ ^0*$ || "$owner" == "arevindh" ]] || return
-    echo "Count 0 for $owner/$package"
     local html
     local query
     local raw_downloads=-1
@@ -667,6 +664,7 @@ save_owner() {
     fi
 
     set_BKG_set BKG_OWNERS_QUEUE "$owner_id/$owner"
+    echo "Queued $owner"
 }
 
 page_owner() {
