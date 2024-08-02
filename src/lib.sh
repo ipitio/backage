@@ -241,7 +241,10 @@ save_version() {
     tags=$(_jq "$1" '.. | try .tags | join(",")')
     [ -n "$tags" ] || tags=$(_jq "$1" '.. | try .tags')
     versions_json=$(get_BKG BKG_VERSIONS_JSON_"${owner}_${package}")
-    [ -n "$versions_json" ] && jq -e . <<<"$versions_json" &>/dev/null && : || versions_json="[]"
+
+    if [ -z "$versions_json" ] || ! jq -e . <<<"$versions_json" &>/dev/null; then
+         versions_json="[]"
+    fi
 
     if jq -e ".[] | select(.id == \"$id\")" <<<"$versions_json" &>/dev/null; then
         # replace name and tags if the version is already in the versions_json
@@ -251,6 +254,7 @@ save_version() {
     fi
 
     set_BKG BKG_VERSIONS_JSON_"${owner}_${package}" "$versions_json"
+    echo "Queued $owner/$package/$id"
 }
 
 page_version() {
@@ -471,17 +475,13 @@ update_package() {
     raw_downloads=$(grep -Pzo 'Total downloads[^"]*"\d*' <<<"$html" | grep -Pzo '\d*$' | tr -d '\0') # https://stackoverflow.com/a/74214537
     [[ "$raw_downloads" =~ ^[0-9]+$ ]] || raw_downloads=-1
     table_version_name="${BKG_INDEX_TBL_VER}_${owner_type}_${package_type}_${owner}_${repo}_${package}"
+    set_BKG BKG_VERSIONS_JSON_"${owner}_${package}" "[]"
 
     if [ -n "$(sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name='$table_version_name';")" ]; then
-        echo "if start for $owner/$package"
-        run_parallel save_version "$(jq -r '.[] | @base64' <<<"$(sqlite3 -json "$BKG_INDEX_DB" "select id, name, tags from '$table_version_name' group by id order by date desc;")")" || return $?
-        echo "if end for $owner/$package"
+        run_parallel save_version "$(sqlite3 -json "$BKG_INDEX_DB" "select id, name, tags from '$table_version_name' group by id order by date desc;" | jq -r '.[] | @base64')" || return $?
     fi
 
-    set_BKG BKG_VERSIONS_JSON_"${owner}_${package}" "[]"
-    echo "starting for $owner/$package"
     for page in $(seq 1 100); do
-        echo "page: $page"
         page_version "$page"
 
         case $? in
