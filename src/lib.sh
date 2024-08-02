@@ -277,8 +277,12 @@ page_version() {
 
     # if versions doesn't have .name, break
     jq -e '.[].name' <<<"$versions_json_more" &>/dev/null || return 2
-    run_parallel save_version "$(jq -r '.[] | @base64' <<<"$versions_json_more")" || return $?
+    local version_lines
+    version_lines=$(jq -r '.[] | @base64' <<<"$versions_json_more")
+    run_parallel save_version "$version_lines" || return $?
     echo "Checked $owner/$package page $1"
+    # if there are fewer than 100 lines, break
+    [ "$(wc -l <<<"$version_lines")" -lt 100 ] || return 2
 }
 
 update_version() {
@@ -417,6 +421,8 @@ page_package() {
     packages_lines=${packages_lines//\\n/$'\n'} # replace \n with newline
     run_parallel save_package "$packages_lines" || return $?
     echo "Checked $owner page $1"
+    # if there are fewer than 100 lines, break
+    [ "$(wc -l <<<"$packages_lines")" -lt 100 ] || return 2
 }
 
 update_package() {
@@ -680,8 +686,12 @@ page_owner() {
 
     # if owners doesn't have .login, break
     jq -e '.[].login' <<<"$owners_more" &>/dev/null || return 2
-    run_parallel request_owner "$(jq -r '.[] | @base64' <<<"$owners_more")" || return $?
+    local owners_lines
+    owners_lines=$(jq -r '.[] | @base64' <<<"$owners_more")
+    run_parallel request_owner "$owners_lines" || return $?
     echo "Checked owners page $1"
+    # if there are fewer than 100 lines, break
+    [ "$(wc -l <<<"$owners_lines")" -lt 100 ] || return 2
 }
 
 update_owner() {
