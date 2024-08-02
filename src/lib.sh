@@ -208,7 +208,7 @@ run_parallel() {
                 exit
             else
                 (
-                    set -xs
+                    set -x
                     local limit_reached=0
                     "$1" "$i"
                     limit_reached=$?
