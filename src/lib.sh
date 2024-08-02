@@ -467,6 +467,23 @@ update_package() {
     [ -z "$(sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name='$table_version_name';")" ] || { run_parallel save_version "$(jq -r '.[] | @base64' <<<"$(sqlite3 -json "$BKG_INDEX_DB" "select id, name, tags from '$table_version_name' group by id order by date desc;")")" || return $?; }
     set_BKG BKG_VERSIONS_JSON_"${owner}_${package}" "[]"
     run_parallel page_version "$(seq 1 100)" || return $?
+
+    for page in $(seq 1 100); do
+        page_version "$page"
+
+        case $? in
+        1)
+            return 1
+            ;;
+        2)
+            break
+            ;;
+        *)
+            :
+            ;;
+        esac
+    done
+
     versions_json=$(get_BKG BKG_VERSIONS_JSON_"${owner}_${package}")
     jq -e . <<<"$versions_json" &>/dev/null || versions_json="[{\"id\":\"latest\",\"name\":\"latest\",\"tags\":\"\"}]"
     del_BKG BKG_VERSIONS_JSON_"${owner}_${package}"
@@ -675,7 +692,23 @@ update_owner() {
     echo "Updating $owner..."
     [ -n "$(curl "https://github.com/orgs/$owner/people" | grep -zoP 'href="/orgs/'"$owner"'/people"' | tr -d '\0')" ] && owner_type="orgs" || owner_type="users"
     set_BKG BKG_PACKAGES_"$owner" ""
-    run_parallel page_package "$(seq 1 100)" || return $?
+
+    for page in $(seq 1 100); do
+        page_package "$page"
+
+        case $? in
+        1)
+            return 1
+            ;;
+        2)
+            break
+            ;;
+        *)
+            :
+            ;;
+        esac
+    done
+
     run_parallel update_package "$(get_BKG_set BKG_PACKAGES_"$owner")" || return $?
     del_BKG BKG_PACKAGES_"$owner"
     echo "Updated $owner"
@@ -692,8 +725,6 @@ refresh_owner() {
 }
 
 set_up() {
-    printf -v MAX %x -1 && printf -v MAX %d 0x"${MAX/f/7}"
-    set_BKG BKG_MAX "$MAX"
     set_BKG BKG_TIMEOUT "0"
     set_BKG BKG_TODAY "$(date -u +%Y-%m-%d)"
     set_BKG BKG_SCRIPT_START "$(date -u +%s)"
@@ -745,7 +776,6 @@ clean_up() {
     del_BKG "BKG_VERSIONS_.*"
     del_BKG "BKG_PACKAGES_.*"
     del_BKG "BKG_OWNERS_.*"
-    del_BKG BKG_MAX
     del_BKG BKG_TIMEOUT
     del_BKG BKG_TODAY
     del_BKG BKG_SCRIPT_START
@@ -770,7 +800,6 @@ update_owners() {
     done
 
     set_up "$mode"
-    set_BKG BKG_TIMEOUT "2"
     [ -n "$(get_BKG BKG_LAST_SCANNED_ID)" ] || set_BKG BKG_LAST_SCANNED_ID "0"
     local owners_to_update
     local rotated=false
@@ -838,7 +867,6 @@ update_owners() {
         set_BKG BKG_MIN_CALLS_TO_API "0"
     fi
 
-    set_BKG BKG_TIMEOUT "0"
     get_BKG_set BKG_OWNERS_QUEUE | env_parallel --lb update_owner
     echo "Compressing the database..."
     sqlite3 "$BKG_INDEX_DB" ".dump" | zstd -22 --ultra --long -T0 -o "$BKG_INDEX_SQL".new.zst
