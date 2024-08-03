@@ -911,7 +911,7 @@ update_owners() {
 
 refresh_owners() {
     set_up "$@"
-    sqlite3 "$BKG_INDEX_DB" "select distinct owner from '$BKG_INDEX_TBL_PKG' where date >= '$BKG_BATCH_FIRST_STARTED';" | env_parallel --lb refresh_owner
+    sqlite3 "$BKG_INDEX_DB" "select distinct owner from '$BKG_INDEX_TBL_PKG' where date >= '$(date -u -d "$BKG_TODAY - 1 day" +%Y-%m-%d)';" | env_parallel --lb refresh_owner
     clean_up
 }
 
