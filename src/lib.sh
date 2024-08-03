@@ -247,10 +247,11 @@ save_version() {
         versions_json="[]"
     fi
 
-    if jq -e ".[] | select(.id == $id)" <<<"$versions_json" &>/dev/null; then
-        versions_json=$(jq ".[] |= if .id == $id then . + {\"name\": \"$name\", \"tags\": [\"$tags\"]} else . end" <<<"$versions_json")
+    if jq -e ".[] | select(.id == \"$id\")" <<<"$versions_json" &>/dev/null; then
+        # replace name and tags if the version is already in the versions_json
+        versions_json=$(jq -c "map(if .id == \"$id\" then . + {\"name\":\"$name\",\"tags\":\"$tags\"} else . end)" <<<"$versions_json")
     else
-        versions_json=$(jq ". += [{\"id\": $id, \"name\": \"$name\", \"tags\": [\"$tags\"]}]" <<<"$versions_json")
+        versions_json=$(jq -c ". + [{\"id\":\"$id\",\"name\":\"$name\",\"tags\":\"$tags\"}]" <<<"$versions_json")
     fi
 
     set_BKG BKG_VERSIONS_JSON_"${owner}_${package}" "$versions_json"
