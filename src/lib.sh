@@ -397,6 +397,7 @@ save_package() {
     package_type=${package_type%/}
     repo=${repo%/}
     set_BKG_set BKG_PACKAGES_"$owner" "$package_type/$repo/$package_new"
+    echo "Queued $owner/$package_new"
 }
 
 page_package() {
