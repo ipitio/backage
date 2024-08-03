@@ -141,7 +141,7 @@ check_limit() {
             echo "Stopping $$..."
         fi
 
-        return 1
+        return 3
     fi
 
     # wait if 1000 or more calls have been made in the last hour
@@ -185,7 +185,7 @@ curl() {
     while [ "$i" -lt "$max_attempts" ]; do
         result=$(command curl -sSLNZ --connect-timeout 60 -m 120 "$@" 2>/dev/null)
         [ -n "$result" ] && echo "$result" && return 0
-        check_limit || break
+        check_limit || return $?
         sleep "$wait_time"
         ((i++))
         ((wait_time *= 2))
@@ -204,7 +204,7 @@ run_parallel() {
 
         for j in $2; do
             code=$(cat "$exit_code")
-            ! grep -q "1" <<<"$code" || exit
+            ! grep -q "3" <<<"$code" || exit
             ! grep -q "2" <<<"$code" || break
             ((i++))
             ("$1" "$j" || echo "$?" >>"$exit_code") &
@@ -219,7 +219,7 @@ run_parallel() {
     wait "$!"
     code=$(cat "$exit_code")
     rm -f "$exit_code"
-    ! grep -q "1" <<<"$code" || return 1
+    ! grep -q "3" <<<"$code" || return 3
 }
 
 _jq() {
@@ -478,7 +478,7 @@ update_package() {
         set_BKG BKG_VERSIONS_JSON_"${owner}_${package}" "[]"
         page_version "$page"
         pages_left=$?
-        ((pages_left != 1)) || return 1
+        ((pages_left != 3)) || return 3
         versions_json=$(get_BKG BKG_VERSIONS_JSON_"${owner}_${package}")
         jq -e . <<<"$versions_json" &>/dev/null || versions_json="[{\"id\":\"latest\",\"name\":\"latest\",\"tags\":\"\"}]"
         del_BKG BKG_VERSIONS_JSON_"${owner}_${package}"
@@ -554,6 +554,10 @@ refresh_package() {
         version_newest_id=$(sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name' order by id desc limit 1;")
         rm -f "$json_file".*
         run_parallel refresh_version "$(sqlite3 "$BKG_INDEX_DB" "select * from '$table_version_name' where date >= '$BKG_BATCH_FIRST_STARTED' group by id;")"
+    fi
+
+    # use find to check if the files exist
+    if find "$json_file".* -type f -print -quit 2>/dev/null; then
         cat "$json_file".* >>"$json_file"
         rm -f "$json_file".*
     else
@@ -595,6 +599,7 @@ refresh_package() {
     elif [ "$json_size" -ge 100000000 ]; then
         rm -f "$json_file"
     fi
+
     echo "Refreshed $owner/$package"
 }
 
@@ -698,7 +703,7 @@ update_owner() {
         set_BKG BKG_PACKAGES_"$owner" ""
         page_package "$page"
         pages_left=$?
-        ((pages_left != 1)) || return 1
+        ((pages_left != 3)) || return 3
         run_parallel update_package "$(get_BKG_set BKG_PACKAGES_"$owner")" || return $?
         del_BKG BKG_PACKAGES_"$owner"
         ((pages_left != 2)) || break
@@ -708,7 +713,7 @@ update_owner() {
 }
 
 refresh_owner() {
-    check_limit 21500 || return
+    check_limit 21500 || return $?
     [ -n "$1" ] || return
     echo "Refreshing $1..."
     [ -d "$BKG_INDEX_DIR" ] || mkdir "$BKG_INDEX_DIR"
