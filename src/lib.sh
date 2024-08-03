@@ -320,7 +320,7 @@ update_version() {
         primary key (id, date)
     );"
     sqlite3 "$BKG_INDEX_DB" "$table_version"
-    [[ "$(sqlite3 "$BKG_INDEX_DB" "select count(*) from '$table_version_name' where id='$version_id' and date >= '$BKG_BATCH_FIRST_STARTED';")" =~ ^0*$ || "$owner" == "arevindh" || "$owner" == "timeplus-io" ]] || return
+    [[ "$(sqlite3 "$BKG_INDEX_DB" "select count(*) from '$table_version_name' where id='$version_id' and date >= '$BKG_BATCH_FIRST_STARTED';")" =~ ^0*$ ||"$owner" == "timeplus-io" ]] || return
 
     if [ "$package_type" = "container" ]; then
         # get the size by adding up the layers
@@ -436,7 +436,7 @@ update_package() {
         return
     fi
 
-    [[ "$(sqlite3 "$BKG_INDEX_DB" "select count(*) from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and package='$package' and date >= '$BKG_BATCH_FIRST_STARTED';")" =~ ^0*$ || "$owner" == "arevindh" || "$owner" == "timeplus-io" ]] || return
+    [[ "$(sqlite3 "$BKG_INDEX_DB" "select count(*) from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and package='$package' and date >= '$BKG_BATCH_FIRST_STARTED';")" =~ ^0*$ || "$owner" == "timeplus-io" ]] || return
     local html
     local query
     local raw_downloads=-1
@@ -823,7 +823,6 @@ update_owners() {
             [ -n "$(get_BKG BKG_BATCH_FIRST_STARTED)" ] || set_BKG BKG_BATCH_FIRST_STARTED "$BKG_TODAY"
         fi
     elif [ "$mode" -eq 1 ]; then
-        save_owner 693151/arevindh
         save_owner 87796806/timeplus-io
     fi
 
