@@ -247,10 +247,10 @@ save_version() {
         versions_json="[]"
     fi
 
-    if [ -n "$(jq -e '.[] | select(.id == "'"$id"'")' <<<"$versions_json")" ]; then
-        versions_json=$(jq '.[] |= if .id == "'"$id"'" then . + {"name": "'"$name"'", "tags": "'"$tags"'"} else . end' <<<"$versions_json")
+    if jq -e ".[] | select(.id == $id)" <<<"$versions_json" &>/dev/null; then
+        versions_json=$(jq ".[] |= if .id == $id then . + {\"name\": \"$name\", \"tags\": [\"$tags\"]} else . end" <<<"$versions_json")
     else
-        versions_json=$(jq '.[] |= . + {"id": "'"$id"'", "name": "'"$name"'", "tags": "'"$tags"'"}' <<<"$versions_json")
+        versions_json=$(jq ". += [{\"id\": $id, \"name\": \"$name\", \"tags\": [\"$tags\"]}]" <<<"$versions_json")
     fi
 
     set_BKG BKG_VERSIONS_JSON_"${owner}_${package}" "$versions_json"
@@ -429,7 +429,6 @@ page_package() {
 }
 
 update_package() {
-    echo "starting update_package"
     check_limit || return $?
     [ -n "$1" ] || return
     package_type=$(cut -d'/' -f1 <<<"$1")
@@ -442,7 +441,7 @@ update_package() {
         sqlite3 "$BKG_INDEX_DB" "drop table if exists '${BKG_INDEX_TBL_VER}_${owner_type}_${package_type}_${owner}_${repo}_${package}';"
         return
     fi
-    echo "in update_package"
+
     [[ "$(sqlite3 "$BKG_INDEX_DB" "select count(*) from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and package='$package' and date >= '$BKG_BATCH_FIRST_STARTED';")" =~ ^0*$ || "$owner" == "timeplus-io" ]] || return
     local html
     local query
@@ -452,7 +451,7 @@ update_package() {
     local raw_downloads_day=-1
     local size=-1
     local versions_json=""
-    echo "passed the first check"
+
     # decode percent-encoded characters and make lowercase (eg. for docker manifest)
     if [ "$package_type" = "container" ]; then
         lower_owner=$owner
@@ -490,7 +489,6 @@ update_package() {
         del_BKG BKG_VERSIONS_JSON_"${owner}_${package}"
 
         if [[ "$(jq -r '.[] | .id' <<<"$versions_json" | sort -u)" != "$(sqlite3 "$BKG_INDEX_DB" "select distinct id from '$table_version_name' where date >= '$BKG_BATCH_FIRST_STARTED';" | sort -u)" || "$owner" == "timeplus-io" ]]; then
-            echo "Updating versions..."
             run_parallel update_version "$(jq -r '.[] | @base64' <<<"$versions_json")" || return $?
         fi
 
