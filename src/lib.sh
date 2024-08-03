@@ -706,6 +706,7 @@ update_owner() {
         page_package "$page"
         pages_left=$?
         ((pages_left != 3)) || return 3
+        echo "queue: $(get_BKG_set BKG_PACKAGES_"$owner")"
         run_parallel update_package "$(get_BKG_set BKG_PACKAGES_"$owner")" || return $?
         del_BKG BKG_PACKAGES_"$owner"
         ((pages_left != 2)) || break
