@@ -281,7 +281,7 @@ page_version() {
     run_parallel save_version "$version_lines" || return $?
     echo "Started $owner/$package page $1"
     # if there are fewer than 100 lines, break
-    [ "$(wc -l <<<"$version_lines")" -lt 100 ] || return 2
+    [ "$(wc -l <<<"$version_lines")" -eq 100 ] || return 2
 }
 
 update_version() {
@@ -419,7 +419,7 @@ page_package() {
     run_parallel save_package "$packages_lines" || return $?
     echo "Started $owner page $1"
     # if there are fewer than 100 lines, break
-    [ "$(wc -l <<<"$packages_lines")" -lt 100 ] || return 2
+    [ "$(wc -l <<<"$packages_lines")" -eq 100 ] || return 2
 }
 
 update_package() {
@@ -689,7 +689,7 @@ page_owner() {
     run_parallel request_owner "$owners_lines" || return $?
     echo "Checked owners page $1"
     # if there are fewer than 100 lines, break
-    [ "$(wc -l <<<"$owners_lines")" -lt 100 ] || return 2
+    [ "$(wc -l <<<"$owners_lines")" -eq 100 ] || return 2
 }
 
 update_owner() {
@@ -827,7 +827,7 @@ update_owners() {
             [ -n "$(get_BKG BKG_BATCH_FIRST_STARTED)" ] || set_BKG BKG_BATCH_FIRST_STARTED "$BKG_TODAY"
         fi
     elif [ "$mode" -eq 1 ]; then
-        save_owner 87796806/timeplus-io
+        save_owner timeplus-io
     fi
 
     # add more owners
