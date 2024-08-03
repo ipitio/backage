@@ -243,11 +243,10 @@ save_version() {
         versions_json="[]"
     fi
 
-    if jq -e ".[] | select(.id == \"$id\")" <<<"$versions_json" &>/dev/null; then
-        # replace name and tags if the version is already in the versions_json
-        versions_json=$(jq -c "map(if .id == \"$id\" then . + {\"name\":\"$name\",\"tags\":\"$tags\"} else . end)" <<<"$versions_json")
+    if [ -n "$(jq -e '.[] | select(.id == "'"$id"'")' <<<"$versions_json")" ]; then
+        versions_json=$(jq '.[] | if .id == "'"$id"'" then .name = "'"$name"'" | .tags = "'"$tags"'" else . end' <<<"$versions_json")
     else
-        versions_json=$(jq -c ". + [{\"id\":\"$id\",\"name\":\"$name\",\"tags\":\"$tags\"}]" <<<"$versions_json")
+        versions_json=$(jq '. + [{"id":"'"$id"'","name":"'"$name"'","tags":"'"$tags"'"}]' <<<"$versions_json")
     fi
 
     set_BKG BKG_VERSIONS_JSON_"${owner}_${package}" "$versions_json"
@@ -557,7 +556,7 @@ refresh_package() {
     fi
 
     # use find to check if the files exist
-    if find "$json_file".* -type f -print -quit 2>/dev/null; then
+    if find "$json_file".* -type f -quit 2>/dev/null; then
         cat "$json_file".* >>"$json_file"
         rm -f "$json_file".*
     else
@@ -911,4 +910,13 @@ refresh_owners() {
     set_up "$@"
     sqlite3 "$BKG_INDEX_DB" "select distinct owner from '$BKG_INDEX_TBL_PKG' where date >= '$BKG_BATCH_FIRST_STARTED';" | env_parallel --lb refresh_owner
     clean_up
+}
+
+dldb() {
+    # `cd src && source lib.sh && dldb` to dl the latest db
+    [ ! -f "$BKG_INDEX_DB" ] || mv "$BKG_INDEX_DB" "$BKG_INDEX_DB".bak
+    command curl -sSLNZ "https://github.com/ipitio/backage/releases/download/$(command curl -sSLNZ "https://github.com/ipitio/backage/releases/latest" | grep -oP 'href="/ipitio/backage/releases/tag/[^"]+' | cut -d'/' -f6)/index.sql.zst" | unzstd -v -c | sqlite3 "$BKG_INDEX_DB"
+    [ ! -f "$BKG_INDEX_DB" ] || rm -f "$BKG_INDEX_DB".bak
+    [ -f "$BKG_ROOT/.gitignore" ] || echo "index.db*" >>$BKG_ROOT/.gitignore
+    grep -q "index.db" "$BKG_ROOT/.gitignore" || echo "index.db*" >>$BKG_ROOT/.gitignore
 }
