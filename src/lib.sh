@@ -482,6 +482,7 @@ update_package() {
         del_BKG BKG_VERSIONS_JSON_"${owner}_${package}"
 
         if [[ "$(jq -r '.[] | .id' <<<"$versions_json" | sort -u)" != "$(sqlite3 "$BKG_INDEX_DB" "select distinct id from '$table_version_name' where date >= '$BKG_BATCH_FIRST_STARTED';" | sort -u)" || "$owner" == "timeplus-io" ]]; then
+            echo "json: $(jq . <<<"$versions_json")"
             run_parallel update_version "$(jq -r '.[] | @base64' <<<"$versions_json")" || return $?
         fi
 
