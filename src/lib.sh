@@ -515,6 +515,7 @@ update_package() {
 refresh_package() {
     check_limit 21500 || return $?
     [ -n "$1" ] || return
+    local max_date
     local version_count
     local version_with_tag_count
     IFS='|' read -r owner_id owner_type package_type owner repo package downloads downloads_month downloads_week downloads_day size date tags <<<"$1"
@@ -525,6 +526,8 @@ refresh_package() {
     version_count=0
     version_with_tag_count=0
     table_version_name="${BKG_INDEX_TBL_VER}_${owner_type}_${package_type}_${owner}_${repo}_${package}"
+    max_date=$(sqlite3 "$BKG_INDEX_DB" "select date from '$table_version_name' order by date desc limit 1;")
+    [[ ! "$max_date" < "$(date -d "$BKG_TODAY - 1 day" +%Y-%m-%d)" ]] || return
 
     if [ -n "$(sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name='$table_version_name';")" ]; then
         version_count=$(sqlite3 "$BKG_INDEX_DB" "select count(distinct id) from '$table_version_name';")
@@ -911,7 +914,7 @@ update_owners() {
 
 refresh_owners() {
     set_up "$@"
-    sqlite3 "$BKG_INDEX_DB" "select distinct owner from '$BKG_INDEX_TBL_PKG' where date >= '$(date -u -d "$BKG_TODAY - 1 day" +%Y-%m-%d)';" | env_parallel --lb refresh_owner
+    sqlite3 "$BKG_INDEX_DB" "select distinct owner from '$BKG_INDEX_TBL_PKG' where date >= '$BKG_BATCH_FIRST_STARTED';" | env_parallel --lb refresh_owner
     clean_up
 }
 
