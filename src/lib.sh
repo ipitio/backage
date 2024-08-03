@@ -437,7 +437,7 @@ update_package() {
         sqlite3 "$BKG_INDEX_DB" "drop table if exists '${BKG_INDEX_TBL_VER}_${owner_type}_${package_type}_${owner}_${repo}_${package}';"
         return
     fi
-
+    echo "in update_package"
     [[ "$(sqlite3 "$BKG_INDEX_DB" "select count(*) from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and package='$package' and date >= '$BKG_BATCH_FIRST_STARTED';")" =~ ^0*$ || "$owner" == "timeplus-io" ]] || return
     local html
     local query
@@ -447,7 +447,7 @@ update_package() {
     local raw_downloads_day=-1
     local size=-1
     local versions_json=""
-
+    echo "passed the first check"
     # decode percent-encoded characters and make lowercase (eg. for docker manifest)
     if [ "$package_type" = "container" ]; then
         lower_owner=$owner
