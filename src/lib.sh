@@ -199,22 +199,26 @@ run_parallel() {
     local exit_code
     exit_code=$(mktemp)
 
-    ( # parallel --lb --halt soon,fail=1
-        local i=0
+    if [ "$(wc -l <<<"$2")" -gt 1 ]; then
+        ( # parallel --lb --halt soon,fail=1
+            local i=0
 
-        for j in $2; do
-            code=$(cat "$exit_code")
-            ! grep -q "3" <<<"$code" || exit
-            ! grep -q "2" <<<"$code" || break
-            ((i++))
-            ("$1" "$j" || echo "$?" >>"$exit_code") &
+            for j in $2; do
+                code=$(cat "$exit_code")
+                ! grep -q "3" <<<"$code" || exit
+                ! grep -q "2" <<<"$code" || break
+                ((i++))
+                ("$1" "$j" || echo "$?" >>"$exit_code") &
 
-            if ((i >= $(nproc))); then
-                wait
-                i=0
-            fi
-        done
-    ) &
+                if ((i >= $(nproc))); then
+                    wait
+                    i=0
+                fi
+            done
+        ) &
+    else
+        ("$1" "$2" || echo "$?" >>"$exit_code") &
+    fi
 
     wait "$!"
     code=$(cat "$exit_code")
@@ -432,7 +436,7 @@ update_package() {
     repo=$(cut -d'/' -f2 <<<"$1")
     package=$(cut -d'/' -f3 <<<"$1")
     package=${package%/}
-    echo "trp: $package_type $repo $package"
+
     if grep -q "$owner/$repo/$package" "$BKG_OPTOUT"; then
         sqlite3 "$BKG_INDEX_DB" "delete from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and package='$package';"
         sqlite3 "$BKG_INDEX_DB" "drop table if exists '${BKG_INDEX_TBL_VER}_${owner_type}_${package_type}_${owner}_${repo}_${package}';"
