@@ -430,6 +430,7 @@ update_package() {
     repo=$(cut -d'/' -f2 <<<"$1")
     package=$(cut -d'/' -f3 <<<"$1")
     package=${package%/}
+    [[ -n "$package" && -n "$repo" && -n "$package_type" ]] || return
 
     if grep -q "$owner/$repo/$package" "$BKG_OPTOUT"; then
         sqlite3 "$BKG_INDEX_DB" "delete from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and package='$package';"
