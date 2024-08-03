@@ -258,6 +258,7 @@ save_version() {
     fi
 
     set_BKG BKG_VERSIONS_JSON_"${owner}_${package}" "$versions_json"
+    echo "Queued $owner/$package/$id"
 }
 
 page_version() {
@@ -328,6 +329,7 @@ update_version() {
         tags text,
         primary key (id, date)
     );"
+    echo "Updating $owner/$package/$version_id..."
     sqlite3 "$BKG_INDEX_DB" "$table_version"
     [[ "$(sqlite3 "$BKG_INDEX_DB" "select count(*) from '$table_version_name' where id='$version_id' and date >= '$BKG_BATCH_FIRST_STARTED';")" =~ ^0*$ || "$owner" == "timeplus-io" ]] || return
 
@@ -367,6 +369,7 @@ update_version() {
     fi
 
     sqlite3 "$BKG_INDEX_DB" "insert or replace into '$table_version_name' (id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags) values ('$version_id', '$version_name', '$version_size', '$version_raw_downloads', '$version_raw_downloads_month', '$version_raw_downloads_week', '$version_raw_downloads_day', '$BKG_TODAY', '$version_tags');"
+    echo "Updated $owner/$package/$version_id"
 }
 
 refresh_version() {
