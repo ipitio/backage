@@ -244,9 +244,9 @@ save_version() {
     fi
 
     if [ -n "$(jq -e '.[] | select(.id == "'"$id"'")' <<<"$versions_json")" ]; then
-        versions_json=$(jq '.[] | if .id == "'"$id"'" then .name = "'"$name"'" | .tags = "'"$tags"'" else . end' <<<"$versions_json")
+        versions_json=$(jq '.[] |= if .id == "'"$id"'" then . + {"name": "'"$name"'", "tags": "'"$tags"'"} else . end' <<<"$versions_json")
     else
-        versions_json=$(jq '. + [{"id":"'"$id"'","name":"'"$name"'","tags":"'"$tags"'"}]' <<<"$versions_json")
+        versions_json=$(jq '.[] |= . + {"id": "'"$id"'", "name": "'"$name"'", "tags": "'"$tags"'"}' <<<"$versions_json")
     fi
 
     set_BKG BKG_VERSIONS_JSON_"${owner}_${package}" "$versions_json"
@@ -511,7 +511,6 @@ refresh_package() {
     IFS='|' read -r owner_id owner_type package_type owner repo package downloads downloads_month downloads_week downloads_day size date tags <<<"$1"
     max_date=$(sqlite3 "$BKG_INDEX_DB" "select date from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and package='$package' order by date desc limit 1;")
     [ "$date" = "$max_date" ] || return
-    echo "Refreshing $owner/$package..."
     json_file="$BKG_INDEX_DIR/$owner/$repo/$package.json"
     [ -d "$BKG_INDEX_DIR/$owner/$repo" ] || mkdir "$BKG_INDEX_DIR/$owner/$repo"
     version_count=0
