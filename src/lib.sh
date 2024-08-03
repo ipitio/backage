@@ -320,7 +320,7 @@ update_version() {
         primary key (id, date)
     );"
     sqlite3 "$BKG_INDEX_DB" "$table_version"
-    [[ "$(sqlite3 "$BKG_INDEX_DB" "select count(*) from '$table_version_name' where id='$version_id' and date >= '$BKG_BATCH_FIRST_STARTED';")" =~ ^0*$ ||"$owner" == "timeplus-io" ]] || return
+    [[ "$(sqlite3 "$BKG_INDEX_DB" "select count(*) from '$table_version_name' where id='$version_id' and date >= '$BKG_BATCH_FIRST_STARTED';")" =~ ^0*$ || "$owner" == "timeplus-io" ]] || return
 
     if [ "$package_type" = "container" ]; then
         # get the size by adding up the layers
@@ -444,7 +444,6 @@ update_package() {
     local raw_downloads_week=-1
     local raw_downloads_day=-1
     local size=-1
-    local versions_all_ids=""
     local versions_json=""
 
     # decode percent-encoded characters and make lowercase (eg. for docker manifest)
@@ -481,8 +480,11 @@ update_package() {
         versions_json=$(get_BKG BKG_VERSIONS_JSON_"${owner}_${package}")
         jq -e . <<<"$versions_json" &>/dev/null || versions_json="[{\"id\":\"latest\",\"name\":\"latest\",\"tags\":\"\"}]"
         del_BKG BKG_VERSIONS_JSON_"${owner}_${package}"
-        versions_all_ids=$(jq -r '.[] | .id' <<<"$versions_json" | sort -u)
-        [ "$versions_all_ids" = "$(sqlite3 "$BKG_INDEX_DB" "select distinct id from '$table_version_name' where date >= '$BKG_BATCH_FIRST_STARTED';")" ] || { run_parallel update_version "$(jq -r '.[] | @base64' <<<"$versions_json")" || return $?; }
+
+        if [[ "$(jq -r '.[] | .id' <<<"$versions_json" | sort -u)" != "$(sqlite3 "$BKG_INDEX_DB" "select distinct id from '$table_version_name' where date >= '$BKG_BATCH_FIRST_STARTED';" | sort -u)" || "$owner" == "timeplus-io" ]]; then
+            run_parallel update_version "$(jq -r '.[] | @base64' <<<"$versions_json")" || return $?
+        fi
+
         ((pages_left != 2)) || break
     done
 
