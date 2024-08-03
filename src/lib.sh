@@ -258,7 +258,6 @@ save_version() {
     fi
 
     set_BKG BKG_VERSIONS_JSON_"${owner}_${package}" "$versions_json"
-    echo "Queued $owner/$package/$id"
 }
 
 page_version() {
@@ -329,9 +328,9 @@ update_version() {
         tags text,
         primary key (id, date)
     );"
-    echo "Updating $owner/$package/$version_id..."
     sqlite3 "$BKG_INDEX_DB" "$table_version"
-    [[ "$(sqlite3 "$BKG_INDEX_DB" "select count(*) from '$table_version_name' where id='$version_id' and date >= '$BKG_BATCH_FIRST_STARTED';")" =~ ^0*$ || "$owner" == "timeplus-io" ]] || return
+    #[[ "$(sqlite3 "$BKG_INDEX_DB" "select count(*) from '$table_version_name' where id='$version_id' and date >= '$BKG_BATCH_FIRST_STARTED';")" =~ ^0*$ || "$owner" == "timeplus-io" ]] || return
+    echo "Updating $owner/$package/$version_id..."
 
     if [ "$package_type" = "container" ]; then
         # get the size by adding up the layers
@@ -452,7 +451,7 @@ update_package() {
         return
     fi
 
-    [[ "$(sqlite3 "$BKG_INDEX_DB" "select count(*) from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and package='$package' and date >= '$BKG_BATCH_FIRST_STARTED';")" =~ ^0*$ || "$owner" == "timeplus-io" ]] || return
+    #[[ "$(sqlite3 "$BKG_INDEX_DB" "select count(*) from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and package='$package' and date >= '$BKG_BATCH_FIRST_STARTED';")" =~ ^0*$ || "$owner" == "timeplus-io" ]] || return
     local html
     local query
     local raw_downloads=-1
