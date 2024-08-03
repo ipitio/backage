@@ -798,7 +798,6 @@ update_owners() {
 
     set_up "$mode"
     [ -n "$(get_BKG BKG_LAST_SCANNED_ID)" ] || set_BKG BKG_LAST_SCANNED_ID "0"
-    local owners_to_update
     local rotated=false
     local query
     local tables
@@ -825,7 +824,8 @@ update_owners() {
             [ -n "$(get_BKG BKG_BATCH_FIRST_STARTED)" ] || set_BKG BKG_BATCH_FIRST_STARTED "$BKG_TODAY"
         fi
     elif [ "$mode" -eq 1 ]; then
-        owners_to_update="693151/arevindh"
+        save_owner 693151/arevindh
+        save_owner 87796806/timeplus-io
     fi
 
     # add more owners
@@ -840,15 +840,11 @@ update_owners() {
             awk -F'|' '{print $1"/"$2}' <packages_all
             awk -F'|' '{print $2}' <packages_all
         )" | sort -u | parallel "sed -i '\,^{}$,d' $BKG_OWNERS"
-        local request_owners
-        request_owners=$(cat "$BKG_OWNERS")
-        owners_to_update=$request_owners${owners_to_update:+$owners_to_update}
-        request_owners=""
+        env_parallel --lb save_owner <"$BKG_OWNERS"
     fi
 
     rm -f packages_already_updated packages_all packages_to_update
     BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
-    [ -z "$owners_to_update" ] || printf "%s\n" "${owners_to_update//\\n/$'\n'}" | env_parallel --lb save_owner
     [ -n "$(get_BKG BKG_RATE_LIMIT_START)" ] || set_BKG BKG_RATE_LIMIT_START "$(date -u +%s)"
     [ -n "$(get_BKG BKG_CALLS_TO_API)" ] || set_BKG BKG_CALLS_TO_API "0"
 
