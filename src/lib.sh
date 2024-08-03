@@ -681,6 +681,7 @@ save_owner() {
     fi
 
     set_BKG_set BKG_OWNERS_QUEUE "$owner_id/$owner"
+    echo "Queued $owner"
 }
 
 page_owner() {
