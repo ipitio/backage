@@ -199,28 +199,31 @@ run_parallel() {
     local exit_code
     exit_code=$(mktemp)
 
-    if [ "$(wc -l <<<"$2")" -gt 1 ]; then
-        ( # parallel --lb --halt soon,fail=1
-            local i=0
+    if [ "$(wc -l <<<"$2")" -gt 0 ]; then
+        if [ "$(wc -l <<<"$2")" -gt 1 ]; then
+            ( # parallel --lb --halt soon,fail=1
+                local i=0
 
-            for j in $2; do
-                code=$(cat "$exit_code")
-                ! grep -q "3" <<<"$code" || exit
-                ! grep -q "2" <<<"$code" || break
-                ((i++))
-                ("$1" "$j" || echo "$?" >>"$exit_code") &
+                for j in $2; do
+                    code=$(cat "$exit_code")
+                    ! grep -q "3" <<<"$code" || exit
+                    ! grep -q "2" <<<"$code" || break
+                    ((i++))
+                    ("$1" "$j" || echo "$?" >>"$exit_code") &
 
-                if ((i >= $(nproc))); then
-                    wait
-                    i=0
-                fi
-            done
-        ) &
-    else
-        ("$1" "$2" || echo "$?" >>"$exit_code") &
+                    if ((i >= $(nproc))); then
+                        wait
+                        i=0
+                    fi
+                done
+            ) &
+        else
+            ("$1" "$2" || echo "$?" >>"$exit_code") &
+        fi
+
+        wait "$!"
     fi
 
-    wait "$!"
     code=$(cat "$exit_code")
     rm -f "$exit_code"
     ! grep -q "3" <<<"$code" || return 3
@@ -521,13 +524,14 @@ refresh_package() {
     IFS='|' read -r owner_id owner_type package_type owner repo package downloads downloads_month downloads_week downloads_day size date tags <<<"$1"
     max_date=$(sqlite3 "$BKG_INDEX_DB" "select date from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and package='$package' order by date desc limit 1;")
     [ "$date" = "$max_date" ] || return
+    table_version_name="${BKG_INDEX_TBL_VER}_${owner_type}_${package_type}_${owner}_${repo}_${package}"
+    max_date=$(sqlite3 "$BKG_INDEX_DB" "select date from '$table_version_name' order by date desc limit 1;")
+    [[ ! "$max_date" < "$(date -d "$BKG_TODAY - 1 day" +%Y-%m-%d)" ]] || return
+    echo "Refreshing $owner/$package..."
     json_file="$BKG_INDEX_DIR/$owner/$repo/$package.json"
     [ -d "$BKG_INDEX_DIR/$owner/$repo" ] || mkdir "$BKG_INDEX_DIR/$owner/$repo"
     version_count=0
     version_with_tag_count=0
-    table_version_name="${BKG_INDEX_TBL_VER}_${owner_type}_${package_type}_${owner}_${repo}_${package}"
-    max_date=$(sqlite3 "$BKG_INDEX_DB" "select date from '$table_version_name' order by date desc limit 1;")
-    [[ ! "$max_date" < "$(date -d "$BKG_TODAY - 1 day" +%Y-%m-%d)" ]] || return
 
     if [ -n "$(sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name='$table_version_name';")" ]; then
         version_count=$(sqlite3 "$BKG_INDEX_DB" "select count(distinct id) from '$table_version_name';")
@@ -563,10 +567,10 @@ refresh_package() {
     if [ "${version_count:--1}" -gt 0 ]; then
         version_newest_id=$(sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name' order by id desc limit 1;")
         rm -f "$json_file".*
-        run_parallel refresh_version "$(sqlite3 "$BKG_INDEX_DB" "select * from '$table_version_name' where date >= '$BKG_BATCH_FIRST_STARTED' group by id;")"
+        run_parallel refresh_version "$(sqlite3 "$BKG_INDEX_DB" "select * from '$table_version_name' where date >= '$max_date' group by id;")"
     fi
 
-    # use find to check if the files exist
+    # use find to check if the files exist, and also check if all are valid json
     if find "$json_file".* -type f -quit 2>/dev/null; then
         cat "$json_file".* >>"$json_file"
         rm -f "$json_file".*
