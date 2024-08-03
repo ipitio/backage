@@ -396,6 +396,7 @@ save_package() {
     repo=$(grep -zoP '(?<=href="/'"$owner_type"'/'"$owner"'/packages/'"$package_type"'/package/'"$package_new"'")(.|\n)*?href="/'"$owner"'/[^"]+"' <<<"$html" | tr -d '\0' | grep -oP 'href="/'"$owner"'/[^"]+' | cut -d'/' -f3)
     package_type=${package_type%/}
     repo=${repo%/}
+    [ -n "$repo" ] || return
     set_BKG_set BKG_PACKAGES_"$owner" "$package_type/$repo/$package_new"
     echo "Queued $owner/$package_new"
 }
@@ -430,7 +431,6 @@ update_package() {
     repo=$(cut -d'/' -f2 <<<"$1")
     package=$(cut -d'/' -f3 <<<"$1")
     package=${package%/}
-    [[ -n "$package" && -n "$repo" && -n "$package_type" ]] || return
 
     if grep -q "$owner/$repo/$package" "$BKG_OPTOUT"; then
         sqlite3 "$BKG_INDEX_DB" "delete from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and package='$package';"
