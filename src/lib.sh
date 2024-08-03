@@ -425,6 +425,7 @@ page_package() {
 }
 
 update_package() {
+    echo "starting update_package"
     check_limit || return $?
     [ -n "$1" ] || return
     package_type=$(cut -d'/' -f1 <<<"$1")
