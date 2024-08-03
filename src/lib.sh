@@ -273,6 +273,7 @@ page_version() {
             -H "Authorization: Bearer $GITHUB_TOKEN" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
             "https://api.github.com/$owner_type/$owner/packages/$package_type/$package/versions?per_page=$BKG_VERSIONS_PER_PAGE&page=$1")
+        (($? != 3)) || return 3
         calls_to_api=$(get_BKG BKG_CALLS_TO_API)
         min_calls_to_api=$(get_BKG BKG_MIN_CALLS_TO_API)
         ((calls_to_api++))
@@ -348,6 +349,7 @@ update_version() {
 
     # get the downloads
     version_html=$(curl "https://github.com/$owner/$repo/pkgs/$package_type/$package/$version_id")
+    (($? != 3)) || return 3
     version_raw_downloads=$(echo "$version_html" | grep -Pzo 'Total downloads<[^<]*<[^<]*' | grep -Pzo '\d*$' | tr -d '\0' | tr -d ',')
 
     if [[ "$version_raw_downloads" =~ ^[0-9]+$ ]]; then
@@ -416,6 +418,7 @@ page_package() {
     local html
     echo "Starting $owner page $1..."
     [ "$owner_type" = "users" ] && html=$(curl "https://github.com/$owner?tab=packages&visibility=public&&per_page=100&page=$1") || html=$(curl "https://github.com/$owner_type/$owner/packages?visibility=public&per_page=100&page=$1")
+    (($? != 3)) || return 3
     packages_lines=$(grep -zoP 'href="/'"$owner_type"'/'"$owner"'/packages/[^/]+/package/[^"]+"' <<<"$html" | tr -d '\0')
 
     if [ -z "$packages_lines" ]; then
@@ -471,6 +474,7 @@ update_package() {
 
     # scrape the package page for the total downloads
     html=$(curl "https://github.com/$owner/$repo/pkgs/$package_type/$package")
+    (($? != 3)) || return 3
     [ -n "$(grep -Pzo 'Total downloads' <<<"$html" | tr -d '\0')" ] || return
     echo "Updating $owner/$package..."
     raw_downloads=$(grep -Pzo 'Total downloads[^"]*"\d*' <<<"$html" | grep -Pzo '\d*$' | tr -d '\0') # https://stackoverflow.com/a/74214537
@@ -525,24 +529,26 @@ refresh_package() {
     max_date=$(sqlite3 "$BKG_INDEX_DB" "select date from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and package='$package' order by date desc limit 1;")
     [ "$date" = "$max_date" ] || return
     table_version_name="${BKG_INDEX_TBL_VER}_${owner_type}_${package_type}_${owner}_${repo}_${package}"
+    max_date=$(sqlite3 "$BKG_INDEX_DB" "select date from '$table_version_name' order by date desc limit 1;")
+    [[ ! "$max_date" < "$(date -d "$BKG_TODAY - 1 day" +%Y-%m-%d)" ]] || return
+    echo "Refreshing $owner/$package..."
     json_file="$BKG_INDEX_DIR/$owner/$repo/$package.json"
     [ -d "$BKG_INDEX_DIR/$owner/$repo" ] || mkdir "$BKG_INDEX_DIR/$owner/$repo"
     version_count=0
     version_with_tag_count=0
 
-    # if json_file exists, is valid json, and [].date is either not a valid date or is >= BKG_BATCH_FIRST_STARTED, skip
+    # if json_file exists, is valid json, and .date is either not a valid date or is >= BKG_BATCH_FIRST_STARTED, skip
     if [ -f "$json_file" ] && jq -e . <<<"$(cat "$json_file")" &>/dev/null; then
-        max_date=$(jq -r '.[].date' <<<"$(cat "$json_file")" | sort -u | tail -n1)
+        max_date=$(jq -r '.date' <"$json_file")
         [[ "$max_date" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] && [ "$max_date" \< "$BKG_BATCH_FIRST_STARTED" ] || return
     fi
-
-    echo "Refreshing $owner/$package..."
 
     if [ -n "$(sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name='$table_version_name';")" ]; then
         version_count=$(sqlite3 "$BKG_INDEX_DB" "select count(distinct id) from '$table_version_name';")
         version_with_tag_count=$(sqlite3 "$BKG_INDEX_DB" "select count(distinct id) from '$table_version_name' where tags != '' and tags is not null;")
     fi
 
+    echo "Refreshing $owner/$package..."
     echo "{
         \"owner_type\": \"$owner_type\",
         \"package_type\": \"$package_type\",
@@ -572,7 +578,7 @@ refresh_package() {
     if [ "${version_count:--1}" -gt 0 ]; then
         version_newest_id=$(sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name' order by id desc limit 1;")
         rm -f "$json_file".*
-        run_parallel refresh_version "$(sqlite3 "$BKG_INDEX_DB" "select * from '$table_version_name' where date >= '$BKG_BATCH_FIRST_STARTED' group by id;")"
+        run_parallel refresh_version "$(sqlite3 "$BKG_INDEX_DB" "select * from '$table_version_name' where date >= '$max_date' group by id;")"
     fi
 
     # use find to check if the files exist, and also check if all are valid json
@@ -690,6 +696,7 @@ page_owner() {
             -H "Authorization: Bearer $GITHUB_TOKEN" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
             "https://api.github.com/users?per_page=100&page=$1&since=$(get_BKG BKG_LAST_SCANNED_ID)")
+        (($? != 3)) || return 3
         calls_to_api=$(get_BKG BKG_CALLS_TO_API)
         min_calls_to_api=$(get_BKG BKG_MIN_CALLS_TO_API)
         ((calls_to_api++))
