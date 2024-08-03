@@ -273,6 +273,7 @@ page_version() {
             -H "Authorization: Bearer $GITHUB_TOKEN" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
             "https://api.github.com/$owner_type/$owner/packages/$package_type/$package/versions?per_page=$BKG_VERSIONS_PER_PAGE&page=$1")
+        (($? != 3)) || return 3
         calls_to_api=$(get_BKG BKG_CALLS_TO_API)
         min_calls_to_api=$(get_BKG BKG_MIN_CALLS_TO_API)
         ((calls_to_api++))
@@ -348,6 +349,7 @@ update_version() {
 
     # get the downloads
     version_html=$(curl "https://github.com/$owner/$repo/pkgs/$package_type/$package/$version_id")
+    (($? != 3)) || return 3
     version_raw_downloads=$(echo "$version_html" | grep -Pzo 'Total downloads<[^<]*<[^<]*' | grep -Pzo '\d*$' | tr -d '\0' | tr -d ',')
 
     if [[ "$version_raw_downloads" =~ ^[0-9]+$ ]]; then
@@ -416,6 +418,7 @@ page_package() {
     local html
     echo "Starting $owner page $1..."
     [ "$owner_type" = "users" ] && html=$(curl "https://github.com/$owner?tab=packages&visibility=public&&per_page=100&page=$1") || html=$(curl "https://github.com/$owner_type/$owner/packages?visibility=public&per_page=100&page=$1")
+    (($? != 3)) || return 3
     packages_lines=$(grep -zoP 'href="/'"$owner_type"'/'"$owner"'/packages/[^/]+/package/[^"]+"' <<<"$html" | tr -d '\0')
 
     if [ -z "$packages_lines" ]; then
@@ -471,6 +474,7 @@ update_package() {
 
     # scrape the package page for the total downloads
     html=$(curl "https://github.com/$owner/$repo/pkgs/$package_type/$package")
+    (($? != 3)) || return 3
     [ -n "$(grep -Pzo 'Total downloads' <<<"$html" | tr -d '\0')" ] || return
     echo "Updating $owner/$package..."
     raw_downloads=$(grep -Pzo 'Total downloads[^"]*"\d*' <<<"$html" | grep -Pzo '\d*$' | tr -d '\0') # https://stackoverflow.com/a/74214537
@@ -533,11 +537,18 @@ refresh_package() {
     version_count=0
     version_with_tag_count=0
 
+    # if json_file exists, is valid json, and .date is either not a valid date or is >= BKG_BATCH_FIRST_STARTED, skip
+    if [ -f "$json_file" ] && jq -e . <<<"$(cat "$json_file")" &>/dev/null; then
+        max_date=$(jq -r '.date' <"$json_file")
+        [[ "$max_date" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] && [ "$max_date" \< "$BKG_BATCH_FIRST_STARTED" ] || return
+    fi
+
     if [ -n "$(sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name='$table_version_name';")" ]; then
         version_count=$(sqlite3 "$BKG_INDEX_DB" "select count(distinct id) from '$table_version_name';")
         version_with_tag_count=$(sqlite3 "$BKG_INDEX_DB" "select count(distinct id) from '$table_version_name' where tags != '' and tags is not null;")
     fi
 
+    echo "Refreshing $owner/$package..."
     echo "{
         \"owner_type\": \"$owner_type\",
         \"package_type\": \"$package_type\",
@@ -685,6 +696,7 @@ page_owner() {
             -H "Authorization: Bearer $GITHUB_TOKEN" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
             "https://api.github.com/users?per_page=100&page=$1&since=$(get_BKG BKG_LAST_SCANNED_ID)")
+        (($? != 3)) || return 3
         calls_to_api=$(get_BKG BKG_CALLS_TO_API)
         min_calls_to_api=$(get_BKG BKG_MIN_CALLS_TO_API)
         ((calls_to_api++))
