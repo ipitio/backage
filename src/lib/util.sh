@@ -212,13 +212,12 @@ run_parallel() {
                 ((i++))
                 ("$1" "$j" || echo "$?" >>"$exit_code") &
 
-                if ((i >= $(nproc))); then
+                if ((i >= $(nproc))) || [ "$j" == "$(tail -n1 <<<"$2")" ]; then
                     wait
                     i=0
                 fi
             done
 
-            wait
         ) &
 
         wait "$!"
