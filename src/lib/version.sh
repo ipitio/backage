@@ -101,6 +101,9 @@ update_version() {
         return
     fi
 
+    version_html=$(curl "https://github.com/$owner/$repo/pkgs/$package_type/$package/$version_id")
+    (($? != 3)) || return 3
+    version_raw_downloads=$(echo "$version_html" | grep -Pzo 'Total downloads<[^<]*<[^<]*' | grep -Pzo '\d*$' | tr -d '\0' | tr -d ',')
     echo "Updating $owner/$package/$version_id..."
 
     if [ "$package_type" = "container" ]; then
@@ -118,11 +121,6 @@ update_version() {
     else
         : # TODO: support other package types
     fi
-
-    # get the downloads
-    version_html=$(curl "https://github.com/$owner/$repo/pkgs/$package_type/$package/$version_id")
-    (($? != 3)) || return 3
-    version_raw_downloads=$(echo "$version_html" | grep -Pzo 'Total downloads<[^<]*<[^<]*' | grep -Pzo '\d*$' | tr -d '\0' | tr -d ',')
 
     if [[ "$version_raw_downloads" =~ ^[0-9]+$ ]]; then
         version_raw_downloads_month=$(grep -Pzo 'Last 30 days<[^<]*<[^<]*' <<<"$version_html" | grep -Pzo '\d*$' | tr -d '\0')
