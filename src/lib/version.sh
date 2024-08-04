@@ -96,7 +96,7 @@ update_version() {
     );"
     sqlite3 "$BKG_INDEX_DB" "$table_version"
 
-    if sqlite3 "$BKG_INDEX_DB" "select exists(select 1 from '$table_version_name' where id='$version_id' and date >= '$BKG_BATCH_FIRST_STARTED');" && [[ "$owner" != "arevindh" ]]; then
+    if [[ "$(sqlite3 "$BKG_INDEX_DB" "select exists(select 1 from '$table_version_name' where id='$version_id' and date >= '$BKG_BATCH_FIRST_STARTED');")" == "1" && "$owner" != "arevindh" ]]; then
         echo "$owner/$package/$version_id was already updated!"
         return
     fi

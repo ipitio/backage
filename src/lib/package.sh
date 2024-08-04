@@ -58,7 +58,7 @@ update_package() {
         return
     fi
 
-    if sqlite3 "$BKG_INDEX_DB" "select exists(select 1 from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and package='$package');" && [[ "$owner" != "arevindh" ]]; then
+    if [[ "$(sqlite3 "$BKG_INDEX_DB" "select exists(select 1 from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and package='$package');")" && "$owner" != "arevindh" ]]; then
         echo "$owner/$package was already updated!"
         return
     fi
