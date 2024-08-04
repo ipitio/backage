@@ -74,7 +74,6 @@ update_version() {
     local version_tags
     local version_size
     local version_id
-    local version_newest_id
     local table_version_name
     local manifest
     local sep

@@ -124,8 +124,7 @@ update_package() {
         raw_downloads_week=$(sqlite3 "$BKG_INDEX_DB" "$query" | cut -d'|' -f3)
         raw_downloads_day=$(sqlite3 "$BKG_INDEX_DB" "$query" | cut -d'|' -f4)
         [[ "$summed_raw_downloads" =~ ^[0-9]+$ ]] && ((summed_raw_downloads > raw_downloads)) && raw_downloads=$summed_raw_downloads || :
-        version_newest_id=$(sqlite3 "$BKG_INDEX_DB" "select id from '${BKG_INDEX_TBL_VER}_${owner_type}_${package_type}_${owner}_${repo}_${package}' order by id desc limit 1;")
-        size=$(sqlite3 "$BKG_INDEX_DB" "select size from '${BKG_INDEX_TBL_VER}_${owner_type}_${package_type}_${owner}_${repo}_${package}' where id='$version_newest_id' order by date desc limit 1;")
+        size=$(sqlite3 "$BKG_INDEX_DB" "select size from '$table_version_name' where id='$(sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name' order by id desc limit 1;")' order by date desc limit 1;")
     fi
 
     sqlite3 "$BKG_INDEX_DB" "insert or replace into '$BKG_INDEX_TBL_PKG' (owner_id, owner_type, package_type, owner, repo, package, downloads, downloads_month, downloads_week, downloads_day, size, date) values ('$owner_id', '$owner_type', '$package_type', '$owner', '$repo', '$package', '$raw_downloads', '$raw_downloads_month', '$raw_downloads_week', '$raw_downloads_day', '$size', '$BKG_BATCH_FIRST_STARTED');"
@@ -151,10 +150,13 @@ refresh_package() {
     version_count=0
     version_with_tag_count=0
 
-    # if json_file exists, is valid json, and .date is either not a valid date or is >= BKG_BATCH_FIRST_STARTED, skip
-    if [ -f "$json_file" ] && jq -e . <<<"$(cat "$json_file")" &>/dev/null; then
-        max_date=$(jq -r '.date' <"$json_file")
-        [[ "$max_date" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] && [ "$max_date" \< "$BKG_BATCH_FIRST_STARTED" ] || return
+    if [ -f "$json_file" ] && [ -s "$json_file" ] && jq -e . <<<"$(cat "$json_file")" &>/dev/null; then
+        local another_date
+        another_date=$(jq -r '.date' <"$json_file")
+
+        if [[ "$another_date" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ && ! "$another_date" < "$BKG_BATCH_FIRST_STARTED" ]]; then
+            return
+        fi
     fi
 
     if [ -n "$(sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name='$table_version_name';")" ]; then
@@ -170,7 +172,7 @@ refresh_package() {
         \"owner\": \"$owner\",
         \"repo\": \"$repo\",
         \"package\": \"$package\",
-        \"date\": \"$(sqlite3 "$BKG_INDEX_DB" "select date from '$table_version_name' order by date desc limit 1;")\",
+        \"date\": \"$max_date\",
         \"size\": \"$(numfmt_size <<<"${size:--1}")\",
         \"versions\": \"$(numfmt <<<"${version_count:--1}")\",
         \"tagged\": \"$(numfmt <<<"${version_with_tag_count:--1}")\",
@@ -190,9 +192,10 @@ refresh_package() {
 
     # add the versions to index/"$owner".json
     if [ "${version_count:--1}" -gt 0 ]; then
+        export version_newest_id
         version_newest_id=$(sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name' order by id desc limit 1;")
         rm -f "$json_file".*
-        run_parallel refresh_version "$(sqlite3 "$BKG_INDEX_DB" "select * from '$table_version_name' where date >= '$max_date' group by id;")"
+        run_parallel refresh_version "$(sqlite3 "$BKG_INDEX_DB" "select * from '$table_version_name' where date >= '$max_date' group by id;")" || return $?
     fi
 
     if [[ -n $(find "$BKG_INDEX_DIR/$owner/$repo" -type f -name "$package.json.*") ]]; then
