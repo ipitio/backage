@@ -10,6 +10,7 @@ source bkg.sh
 main -r "$@"
 
 check_json() {
+    [ -s "$1" ] || exit 1 # json should not be empty
     jq -e . <<<"$(cat "$1")" &>/dev/null || exit 1 # json should be valid
 }
 

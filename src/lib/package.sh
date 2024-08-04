@@ -195,8 +195,7 @@ refresh_package() {
         run_parallel refresh_version "$(sqlite3 "$BKG_INDEX_DB" "select * from '$table_version_name' where date >= '$max_date' group by id;")"
     fi
 
-    # use find to check if the files exist, and also check if all are valid json
-    if find "$json_file".* -type f -quit 2>/dev/null; then
+    if [[ -n $(find "$BKG_INDEX_DIR/$owner/$repo" -type f -name "$package.json.*") ]]; then
         cat "$json_file".* >>"$json_file"
         rm -f "$json_file".*
     else

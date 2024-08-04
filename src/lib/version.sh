@@ -163,4 +163,5 @@ refresh_version() {
         \"raw_downloads_day\": ${vdownloads_day:--1},
         \"tags\": [\"${vtags//,/\",\"}\"]
     }," >>"$json_file.$vid"
+    echo "Refreshed $owner/$package/$vid"
 }
