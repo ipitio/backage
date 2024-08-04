@@ -195,7 +195,7 @@ refresh_package() {
         export version_newest_id
         version_newest_id=$(sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name' where id regexp '^[0-9]+$' order by id desc limit 1;")
         rm -f "$json_file".*
-        run_parallel refresh_version "$(sqlite3 "$BKG_INDEX_DB" "select * from '$table_version_name' where date >= '$max_date' group by id;")" || return $?
+        run_parallel refresh_version "$(sqlite3 "$BKG_INDEX_DB" "select * from '$table_version_name' where date >= '$max_date';")" || return $?
     fi
 
     if [[ -n $(find "$BKG_INDEX_DIR/$owner/$repo" -type f -name "$package.json.*") ]]; then
