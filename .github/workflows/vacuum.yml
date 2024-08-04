@@ -2,7 +2,7 @@ name: vacuum
 
 on:
   release:
-    types: [published, created]
+    types: [published, created, released]
 
 jobs:
   delete:
