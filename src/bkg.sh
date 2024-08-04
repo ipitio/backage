@@ -1,6 +1,9 @@
 #!/bin/bash
 # shellcheck disable=SC1091,SC2015
 
+source lib/util.sh
+source lib/version.sh
+source lib/package.sh
 source lib/owner.sh
 
 main() {

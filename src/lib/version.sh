@@ -1,7 +1,5 @@
 #!/bin/bash
-# shellcheck disable=SC1091,SC2015,SC2154
-
-source lib.sh
+# shellcheck disable=SC2015,SC2154
 
 save_version() {
     check_limit || return $?

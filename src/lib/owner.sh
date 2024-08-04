@@ -1,7 +1,5 @@
 #!/bin/bash
-# shellcheck disable=SC1091,SC2015
-
-source package.sh
+# shellcheck disable=SC2015
 
 request_owner() {
     check_limit || return $?
