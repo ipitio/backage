@@ -99,7 +99,7 @@ update_package() {
         set_BKG BKG_VERSIONS_JSON_"${owner}_${package}" "[]"
 
         if ((page == 1)) && [ -n "$(sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name='$table_version_name';")" ]; then
-            run_parallel save_version "$(sqlite3 -json "$BKG_INDEX_DB" "select id, name, MAX(date), tags from '$table_version_name' group by id;" | jq -r '.[] | @base64')" || return $?
+            run_parallel save_version "$(sqlite3 -json "$BKG_INDEX_DB" "select id, name, max(date), tags from '$table_version_name' where id regexp '^[0-9]+$' group by id;" | jq -r '.[] | @base64')" || return $?
         fi
 
         page_version "$page"
@@ -161,8 +161,8 @@ refresh_package() {
     fi
 
     if [ -n "$(sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name='$table_version_name';")" ]; then
-        version_count=$(sqlite3 "$BKG_INDEX_DB" "select count(distinct id) from '$table_version_name' where id >= 0;")
-        version_with_tag_count=$(sqlite3 "$BKG_INDEX_DB" "select count(distinct id) from '$table_version_name' where id >= 0 and tags != '' and tags is not null;")
+        version_count=$(sqlite3 "$BKG_INDEX_DB" "select count(distinct id) from '$table_version_name' where id regexp '^[0-9]+$';")
+        version_with_tag_count=$(sqlite3 "$BKG_INDEX_DB" "select count(distinct id) from '$table_version_name' where id regexp '^[0-9]+$' and tags != '' and tags is not null;")
     fi
 
     echo "Refreshing $owner/$package..."
@@ -194,7 +194,7 @@ refresh_package() {
     # add the versions to index/"$owner".json
     if [ "${version_count:--1}" -gt 0 ]; then
         export version_newest_id
-        version_newest_id=$(sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name' order by id desc limit 1;")
+        version_newest_id=$(sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name' where id regexp '^[0-9]+$' order by id desc limit 1;")
         rm -f "$json_file".*
         run_parallel refresh_version "$(sqlite3 "$BKG_INDEX_DB" "select * from '$table_version_name' where date >= '$max_date' group by id;")" || return $?
     fi
