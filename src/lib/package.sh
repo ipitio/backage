@@ -113,7 +113,7 @@ update_package() {
             run_parallel update_version "$(jq -r '.[] | @base64' <<<"$versions_json")" || return $?
         fi
 
-        ((pages_left != 2)) || break
+        #((pages_left != 2)) || break
     done
 
     # calculate the overall downloads and size
