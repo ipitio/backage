@@ -6,8 +6,8 @@
 # shellcheck disable=SC1090,SC1091,SC2317
 
 cd "${0%/*}"/.. || exit 1
-source lib.sh
-refresh_owners "$@"
+source bkg.sh
+main -r "$@"
 
 check_json() {
     jq -e . <<<"$(cat "$1")" &>/dev/null || exit 1 # json should be valid
