@@ -201,29 +201,29 @@ run_parallel() {
     local exit_code
     exit_code=$(mktemp)
 
-    if [ "$(wc -l <<<"$2")" -gt 0 ]; then
-        if [ "$(wc -l <<<"$2")" -gt 1 ]; then
-            ( # parallel --lb --halt soon,fail=1
-                local i=0
+    if [ "$(wc -l <<<"$2")" -gt 1 ]; then
+        ( # parallel --lb --halt soon,fail=1
+            local i=0
 
-                for j in $2; do
-                    code=$(cat "$exit_code")
-                    ! grep -q "3" <<<"$code" || exit
-                    ! grep -q "2" <<<"$code" || break
-                    ((i++))
-                    ("$1" "$j" || echo "$?" >>"$exit_code") &
+            for j in $2; do
+                code=$(cat "$exit_code")
+                ! grep -q "3" <<<"$code" || exit
+                ! grep -q "2" <<<"$code" || break
+                ((i++))
+                ("$1" "$j" || echo "$?" >>"$exit_code") &
 
-                    if ((i >= $(nproc))); then
-                        wait
-                        i=0
-                    fi
-                done
-            ) &
-        else
-            ("$1" "$2" || echo "$?" >>"$exit_code") &
-        fi
+                if ((i >= $(nproc))); then
+                    wait
+                    i=0
+                fi
+            done
+
+            wait
+        ) &
 
         wait "$!"
+    else
+        "$1" "$2" || echo "$?" >>"$exit_code"
     fi
 
     code=$(cat "$exit_code")
