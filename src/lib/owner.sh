@@ -106,7 +106,7 @@ update_owner() {
         ((pages_left != 3)) || return 3
         run_parallel update_package "$(get_BKG_set BKG_PACKAGES_"$owner")" || return $?
         del_BKG BKG_PACKAGES_"$owner"
-        #((pages_left != 2)) || break
+        ((pages_left != 2)) || break
     done
 
     echo "Updated $owner"
