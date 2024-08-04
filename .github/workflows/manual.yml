@@ -34,7 +34,7 @@ jobs:
 
       - name: Dry run
         id: update
-        run: bash src/test/update.sh ; echo "updated=$?" >> "$GITHUB_OUTPUT"
+        run: bash src/test/update.sh -m 1; echo "updated=$?" >> "$GITHUB_OUTPUT"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_OWNER: ${{ github.repository_owner }}
