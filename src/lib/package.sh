@@ -145,13 +145,12 @@ refresh_package() {
     table_version_name="${BKG_INDEX_TBL_VER}_${owner_type}_${package_type}_${owner}_${repo}_${package}"
     max_date=$(sqlite3 "$BKG_INDEX_DB" "select date from '$table_version_name' order by date desc limit 1;")
     [[ ! "$max_date" < "$(date -d "$BKG_TODAY - 1 day" +%Y-%m-%d)" ]] || return
-    echo "Refreshing $owner/$package..."
     json_file="$BKG_INDEX_DIR/$owner/$repo/$package.json"
     [ -d "$BKG_INDEX_DIR/$owner/$repo" ] || mkdir "$BKG_INDEX_DIR/$owner/$repo"
     version_count=0
     version_with_tag_count=0
 
-    if [ -f "$json_file" ] && [ -s "$json_file" ] && jq -e . <<<"$(cat "$json_file")" &>/dev/null; then
+    if [ "$owner" != "arevindh" ] && [ -f "$json_file" ] && [ -s "$json_file" ] && jq -e . <<<"$(cat "$json_file")" &>/dev/null; then
         local another_date
         another_date=$(jq -r '.date' <"$json_file")
 
