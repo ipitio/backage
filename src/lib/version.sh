@@ -9,8 +9,8 @@ save_version() {
     local tags
     local versions_json
     id=$(_jq "$1" '.id')
-    [[ "$id" =~ ^[0-9]+$ ]] || return
     name=$(_jq "$1" '.name')
+    [[ "$id" =~ ^[0-9]+$ && "$name" != "latest" ]] || return
     tags=$(_jq "$1" '.. | try .tags | join(",")')
     [ -n "$tags" ] || tags=$(_jq "$1" '.. | try .tags')
     versions_json=$(get_BKG BKG_VERSIONS_JSON_"${owner}_${package}")
