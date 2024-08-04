@@ -94,9 +94,9 @@ update_package() {
     [[ "$raw_downloads" =~ ^[0-9]+$ ]] || raw_downloads=-1
     table_version_name="${BKG_INDEX_TBL_VER}_${owner_type}_${package_type}_${owner}_${repo}_${package}"
 
-    #if [ -n "$(sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name='$table_version_name';")" ]; then
-    #    run_parallel save_version "$(sqlite3 -json "$BKG_INDEX_DB" "select id, name, MAX(date), tags from '$table_version_name' group by id;" | jq -r '.[] | @base64')" || return $?
-    #fi
+    if [ -n "$(sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name='$table_version_name';")" ]; then
+        run_parallel save_version "$(sqlite3 -json "$BKG_INDEX_DB" "select id, name, MAX(date), tags from '$table_version_name' group by id;" | jq -r '.[] | @base64')" || return $?
+    fi
 
     for page in $(seq 1 100); do
         local pages_left=0
@@ -105,9 +105,13 @@ update_package() {
         pages_left=$?
         ((pages_left != 3)) || return 3
         versions_json=$(get_BKG BKG_VERSIONS_JSON_"${owner}_${package}")
-        jq -e . <<<"$versions_json" &>/dev/null || versions_json="[{\"id\":\"latest\",\"name\":\"latest\",\"tags\":\"\"}]"
+        jq -e . <<<"$versions_json" &>/dev/null || versions_json="[{\"id\":\"-1\",\"name\":\"latest\",\"tags\":\"\"}]"
         del_BKG BKG_VERSIONS_JSON_"${owner}_${package}"
-        run_parallel update_version "$(jq -r '.[] | @base64' <<<"$versions_json")" || return $?
+
+        if [[ "$(jq -r '.[] | .id' <<<"$versions_json" | sort -u)" != "$(sqlite3 "$BKG_INDEX_DB" "select distinct id from '$table_version_name' where date >= '$BKG_BATCH_FIRST_STARTED';" | sort -u)" || "$owner" == "arevindh" ]]; then
+            run_parallel update_version "$(jq -r '.[] | @base64' <<<"$versions_json")" || return $?
+        fi
+
         ((pages_left != 2)) || break
     done
 

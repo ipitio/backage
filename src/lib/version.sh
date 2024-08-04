@@ -9,6 +9,7 @@ save_version() {
     local tags
     local versions_json
     id=$(_jq "$1" '.id')
+    [[ "$id" =~ ^[0-9]+$ ]] || return
     name=$(_jq "$1" '.name')
     tags=$(_jq "$1" '.. | try .tags | join(",")')
     [ -n "$tags" ] || tags=$(_jq "$1" '.. | try .tags')
