@@ -142,11 +142,9 @@ update_version() {
 
 refresh_version() {
     check_limit 21500 || return $?
-    echo "1: $1"
     [ -n "$1" ] || return
     IFS='|' read -r vid vname vsize vdownloads vdownloads_month vdownloads_week vdownloads_day vdate vtags <<<"$1"
-    echo "line: $vid|$vname|$vsize|$vdownloads|$vdownloads_month|$vdownloads_week|$vdownloads_day|$vdate|$vtags"
-    [[ "$vid" =~ ^\d+$ ]] || return
+    [[ "$vid" =~ ^[0-9]+$ ]] || return
     echo "{
         \"id\": ${vid:--1},
         \"name\": \"$vname\",
