@@ -24,3 +24,7 @@ jobs:
           remove-tags: true
           keep-count: 1
           keep-old-minor-releases: true
+          semver-loose: true
+
+      - name: Delete old runs
+        uses: Mattraks/delete-workflow-runs@v2
