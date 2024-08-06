@@ -165,6 +165,9 @@ refresh_package() {
     fi
 
     echo "Refreshing $owner/$package..."
+    export version_newest_id
+    version_newest_id=$(sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name' where id regexp '^[0-9]+$' order by id desc limit 1;")
+    rm -f "$json_file".*
     echo "{
         \"owner_type\": \"$owner_type\",
         \"package_type\": \"$package_type\",
@@ -189,16 +192,9 @@ refresh_package() {
         \"raw_downloads_day\": ${downloads_day:--1},
         \"version\":
     [" >"$json_file"
+    run_parallel refresh_version "$(sqlite3 "$BKG_INDEX_DB" "select * from '$table_version_name' where date >= '$max_date' group by id;")" || return $?
 
-    # add the versions to index/"$owner".json
-    if [ "${version_count:--1}" -gt 0 ]; then
-        export version_newest_id
-        version_newest_id=$(sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name' where id regexp '^[0-9]+$' order by id desc limit 1;")
-        rm -f "$json_file".*
-        run_parallel refresh_version "$(sqlite3 "$BKG_INDEX_DB" "select * from '$table_version_name' where date >= '$max_date' group by id;")" || return $?
-    fi
-
-    if [[ -n $(find "$BKG_INDEX_DIR/$owner/$repo" -type f -name "$package.json.*") ]]; then
+    if [[ -n "$(find "$BKG_INDEX_DIR/$owner/$repo" -type f -name "$package.json.*")" ]]; then
         cat "$json_file".* >>"$json_file"
         rm -f "$json_file".*
     else

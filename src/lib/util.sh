@@ -217,7 +217,6 @@ run_parallel() {
                     i=0
                 fi
             done
-
         ) &
 
         wait "$!"
