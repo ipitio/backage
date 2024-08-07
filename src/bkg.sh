@@ -1,9 +1,6 @@
 #!/bin/bash
 # shellcheck disable=SC1091,SC2015
 
-source lib/util.sh
-source lib/version.sh
-source lib/package.sh
 source lib/owner.sh
 
 main() {
@@ -50,27 +47,6 @@ main() {
         primary key (owner_type, package_type, owner_id, repo, package, date)
     ); pragma auto_vacuum = full;"
     sqlite3 "$BKG_INDEX_DB" "$table_pkg"
-
-    # copy table to a temp table to alter primary key
-    local table_pkg_temp="create table if not exists '${BKG_INDEX_TBL_PKG}_temp' (
-        owner_id text,
-        owner_type text not null,
-        package_type text not null,
-        owner text not null,
-        repo text not null,
-        package text not null,
-        downloads integer not null,
-        downloads_month integer not null,
-        downloads_week integer not null,
-        downloads_day integer not null,
-        size integer not null,
-        date text not null,
-        primary key (owner_id, package, date)
-    ); pragma auto_vacuum = full;"
-    sqlite3 "$BKG_INDEX_DB" "$table_pkg_temp"
-    sqlite3 "$BKG_INDEX_DB" "insert or replace into '${BKG_INDEX_TBL_PKG}_temp' select * from '$BKG_INDEX_TBL_PKG';"
-    sqlite3 "$BKG_INDEX_DB" "drop table '$BKG_INDEX_TBL_PKG';"
-    sqlite3 "$BKG_INDEX_DB" "alter table '${BKG_INDEX_TBL_PKG}_temp' rename to '$BKG_INDEX_TBL_PKG';"
 
     if $update; then
         update_owners

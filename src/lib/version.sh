@@ -1,5 +1,7 @@
 #!/bin/bash
-# shellcheck disable=SC2015,SC2154
+# shellcheck disable=SC1091,SC2015,SC2154
+
+source util.sh
 
 save_version() {
     check_limit || return $?
@@ -94,17 +96,17 @@ update_version() {
         tags text,
         primary key (id, date)
     );"
+    echo "Updating $owner/$package/$version_id..."
     sqlite3 "$BKG_INDEX_DB" "$table_version"
-
-    if [[ "$(sqlite3 "$BKG_INDEX_DB" "select exists(select 1 from '$table_version_name' where id='$version_id' and date >= '$BKG_BATCH_FIRST_STARTED');")" == "1" && "$owner" != "arevindh" ]]; then
-        echo "$owner/$package/$version_id was already updated!"
-        return
-    fi
-
     version_html=$(curl "https://github.com/$owner/$repo/pkgs/$package_type/$package/$version_id")
     (($? != 3)) || return 3
     version_raw_downloads=$(echo "$version_html" | grep -Pzo 'Total downloads<[^<]*<[^<]*' | grep -Pzo '\d*$' | tr -d '\0' | tr -d ',')
-    echo "Updating $owner/$package/$version_id..."
+
+    if [[ "$version_raw_downloads" =~ ^[0-9]+$ ]]; then
+        version_raw_downloads_month=$(grep -Pzo 'Last 30 days<[^<]*<[^<]*' <<<"$version_html" | grep -Pzo '\d*$' | tr -d '\0' | tr -d ',')
+        version_raw_downloads_week=$(grep -Pzo 'Last week<[^<]*<[^<]*' <<<"$version_html" | grep -Pzo '\d*$' | tr -d '\0' | tr -d ',')
+        version_raw_downloads_day=$(grep -Pzo 'Today<[^<]*<[^<]*' <<<"$version_html" | grep -Pzo '\d*$' | tr -d '\0' | tr -d ',')
+    fi
 
     if [ "$package_type" = "container" ]; then
         # get the size by adding up the layers
@@ -120,20 +122,6 @@ update_version() {
         fi
     else
         : # TODO: support other package types
-    fi
-
-    if [[ "$version_raw_downloads" =~ ^[0-9]+$ ]]; then
-        version_raw_downloads_month=$(grep -Pzo 'Last 30 days<[^<]*<[^<]*' <<<"$version_html" | grep -Pzo '\d*$' | tr -d '\0')
-        version_raw_downloads_week=$(grep -Pzo 'Last week<[^<]*<[^<]*' <<<"$version_html" | grep -Pzo '\d*$' | tr -d '\0')
-        version_raw_downloads_day=$(grep -Pzo 'Today<[^<]*<[^<]*' <<<"$version_html" | grep -Pzo '\d*$' | tr -d '\0')
-        version_raw_downloads_month=$(tr -d ',' <<<"$version_raw_downloads_month")
-        version_raw_downloads_week=$(tr -d ',' <<<"$version_raw_downloads_week")
-        version_raw_downloads_day=$(tr -d ',' <<<"$version_raw_downloads_day")
-    else
-        version_raw_downloads=-1
-        version_raw_downloads_month=-1
-        version_raw_downloads_week=-1
-        version_raw_downloads_day=-1
     fi
 
     sqlite3 "$BKG_INDEX_DB" "insert or replace into '$table_version_name' (id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags) values ('$version_id', '$version_name', '$version_size', '$version_raw_downloads', '$version_raw_downloads_month', '$version_raw_downloads_week', '$version_raw_downloads_day', '$BKG_TODAY', '$version_tags');"

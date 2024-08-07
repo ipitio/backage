@@ -1,5 +1,7 @@
 #!/bin/bash
-# shellcheck disable=SC2015
+# shellcheck disable=SC1091,SC2015
+
+source package.sh
 
 request_owner() {
     check_limit || return $?
@@ -130,8 +132,8 @@ update_owners() {
     local packages
     local mode
     mode=$(get_BKG BKG_AUTO)
-    sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, package from '$BKG_INDEX_TBL_PKG' where date >= '$BKG_BATCH_FIRST_STARTED' group by owner_id, owner, package;" | sort -u >packages_already_updated
-    sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, package from '$BKG_INDEX_TBL_PKG' group by owner_id, owner, package;" | sort -u >packages_all
+    sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, repo, package from '$BKG_INDEX_TBL_PKG' where date >= '$BKG_BATCH_FIRST_STARTED' group by owner_id, owner, repo, package;" | sort -u >packages_already_updated
+    sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, repo, package from '$BKG_INDEX_TBL_PKG' group by owner_id, owner, repo, package;" | sort -u >packages_all
     set_BKG BKG_OWNERS_QUEUE ""
 
     # if this is a scheduled update, scrape all owners
@@ -168,7 +170,6 @@ update_owners() {
         env_parallel --lb save_owner <"$BKG_OWNERS"
     fi
 
-    rm -f packages_already_updated packages_all packages_to_update
     BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
     [ -n "$(get_BKG BKG_RATE_LIMIT_START)" ] || set_BKG BKG_RATE_LIMIT_START "$(date -u +%s)"
     [ -n "$(get_BKG BKG_CALLS_TO_API)" ] || set_BKG BKG_CALLS_TO_API "0"
@@ -223,5 +224,6 @@ update_owners() {
     [ ! -f "$BKG_ROOT"/README.md ] || rm -f "$BKG_ROOT"/README.md
     \cp templates/.README.md "$BKG_ROOT"/README.md
     perl -0777 -pe 's/<GITHUB_OWNER>/'"$GITHUB_OWNER"'/g; s/<GITHUB_REPO>/'"$GITHUB_REPO"'/g; s/<GITHUB_BRANCH>/'"$GITHUB_BRANCH"'/g' "$BKG_ROOT"/README.md >README.tmp && [ -f README.tmp ] && mv README.tmp "$BKG_ROOT"/README.md || :
+    rm -f packages_already_updated packages_all packages_to_update
     echo "Updated templates"
 }

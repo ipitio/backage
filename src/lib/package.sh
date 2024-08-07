@@ -1,5 +1,7 @@
 #!/bin/bash
-# shellcheck disable=SC2015
+# shellcheck disable=SC1091,SC2015
+
+source version.sh
 
 save_package() {
     check_limit || return $?
@@ -15,6 +17,7 @@ save_package() {
     package_type=${package_type%/}
     repo=${repo%/}
     [ -n "$repo" ] || return
+    ! grep -q "$owner_id|$owner|$repo|$package_new" packages_already_updated || return
     set_BKG_set BKG_PACKAGES_"$owner" "$package_type/$repo/$package_new"
     echo "Queued $owner/$package_new"
 }
@@ -99,7 +102,13 @@ update_package() {
         set_BKG BKG_VERSIONS_JSON_"${owner}_${package}" "[]"
 
         if ((page == 1)) && [ -n "$(sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name='$table_version_name';")" ]; then
-            run_parallel save_version "$(sqlite3 -json "$BKG_INDEX_DB" "select id, name, max(date), tags from '$table_version_name' where id regexp '^[0-9]+$' group by id;" | jq -r '.[] | @base64')" || return $?
+            local all_versions
+            local versions_already_updated
+            local versions_to_update
+            all_versions=$(sqlite3 "$BKG_INDEX_DB" "select distinct id from '$table_version_name';" | sort -u)
+            versions_already_updated=$(sqlite3 "$BKG_INDEX_DB" "select distinct id from '$table_version_name' where date >= '$BKG_BATCH_FIRST_STARTED';" | sort -u)
+            versions_to_update=$(comm -13 <(echo "$versions_already_updated") <(echo "$all_versions"))
+            run_parallel save_version "$(sqlite3 -json "$BKG_INDEX_DB" "select id, name, tags from '$table_version_name' where id in ($versions_to_update) group by id;" | jq -r '.[] | @base64')" || return $?
         fi
 
         page_version "$page"
