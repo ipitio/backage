@@ -1,9 +1,6 @@
 #!/bin/bash
 # shellcheck disable=SC1091,SC2015
 
-source lib/util.sh
-source lib/version.sh
-source lib/package.sh
 source lib/owner.sh
 
 main() {
@@ -34,7 +31,7 @@ main() {
     BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
     [ ! -f "$BKG_INDEX_SQL.zst" ] || unzstd -v -c "$BKG_INDEX_SQL.zst" | sqlite3 "$BKG_INDEX_DB"
     [ -f "$BKG_INDEX_DB" ] || sqlite3 "$BKG_INDEX_DB" ""
-    local table_pkg="create table if not exists '$BKG_INDEX_TBL_PKG' (
+    sqlite3 "$BKG_INDEX_DB" "create table if not exists '$BKG_INDEX_TBL_PKG' (
         owner_id text,
         owner_type text not null,
         package_type text not null,
@@ -49,7 +46,6 @@ main() {
         date text not null,
         primary key (owner_id, package, date)
     ); pragma auto_vacuum = full;"
-    sqlite3 "$BKG_INDEX_DB" "$table_pkg"
 
     if $update; then
         update_owners

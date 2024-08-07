@@ -1,5 +1,7 @@
 #!/bin/bash
-# shellcheck disable=SC2015
+# shellcheck disable=SC1091,SC2015
+
+source lib/package.sh
 
 request_owner() {
     check_limit || return $?

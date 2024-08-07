@@ -1,5 +1,7 @@
 #!/bin/bash
-# shellcheck disable=SC2015,SC2154
+# shellcheck disable=SC1091,SC2015,SC2154
+
+source lib/util.sh
 
 save_version() {
     check_limit || return $?
@@ -9,15 +11,13 @@ save_version() {
     local tags
     local versions_json
     id=$(_jq "$1" '.id')
+    [ -f "${table_version_name}"_already_updated ] && grep -q "^$id$" "${table_version_name}"_already_updated && return || :
     name=$(_jq "$1" '.name')
     [[ "$id" =~ ^[0-9]+$ && "$name" != "latest" ]] || return
     tags=$(_jq "$1" '.. | try .tags | join(",")')
     [ -n "$tags" ] || tags=$(_jq "$1" '.. | try .tags')
     versions_json=$(get_BKG BKG_VERSIONS_JSON_"${owner}_${package}")
-
-    if [ -z "$versions_json" ] || ! jq -e . <<<"$versions_json" &>/dev/null; then
-        versions_json="[]"
-    fi
+    [ -n "$versions_json" ] && jq -e . <<<"$versions_json" &>/dev/null || versions_json="[]"
 
     if jq -e ".[] | select(.id == \"$id\")" <<<"$versions_json" &>/dev/null; then
         # replace name and tags if the version is already in the versions_json
@@ -75,27 +75,12 @@ update_version() {
     local version_tags
     local version_size
     local version_id
-    local table_version_name
     local manifest
     local sep
     version_id=$(_jq "$1" '.id')
     version_name=$(_jq "$1" '.name')
     version_tags=$(_jq "$1" '.tags')
-    table_version_name="${BKG_INDEX_TBL_VER}_${owner_type}_${package_type}_${owner}_${repo}_${package}"
-    table_version="create table if not exists '$table_version_name' (
-        id text not null,
-        name text not null,
-        size integer not null,
-        downloads integer not null,
-        downloads_month integer not null,
-        downloads_week integer not null,
-        downloads_day integer not null,
-        date text not null,
-        tags text,
-        primary key (id, date)
-    );"
     echo "Updating $owner/$package/$version_id..."
-    sqlite3 "$BKG_INDEX_DB" "$table_version"
     version_html=$(curl "https://github.com/$owner/$repo/pkgs/$package_type/$package/$version_id")
     (($? != 3)) || return 3
     version_raw_downloads=$(echo "$version_html" | grep -Pzo 'Total downloads<[^<]*<[^<]*' | grep -Pzo '\d*$' | tr -d '\0' | tr -d ',')

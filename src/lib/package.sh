@@ -1,5 +1,7 @@
 #!/bin/bash
-# shellcheck disable=SC2015
+# shellcheck disable=SC1091,SC2015
+
+source lib/version.sh
 
 save_package() {
     check_limit || return $?
@@ -47,6 +49,14 @@ page_package() {
 update_package() {
     check_limit || return $?
     [ -n "$1" ] || return
+    local html
+    local query
+    local raw_downloads=-1
+    local raw_downloads_month=-1
+    local raw_downloads_week=-1
+    local raw_downloads_day=-1
+    local size=-1
+    local versions_json=""
     package_type=$(cut -d'/' -f1 <<<"$1")
     repo=$(cut -d'/' -f2 <<<"$1")
     package=$(cut -d'/' -f3 <<<"$1")
@@ -58,20 +68,6 @@ update_package() {
         sqlite3 "$BKG_INDEX_DB" "drop table if exists '${BKG_INDEX_TBL_VER}_${owner_type}_${package_type}_${owner}_${repo}_${package}';"
         return
     fi
-
-    if [[ "$(sqlite3 "$BKG_INDEX_DB" "select exists(select 1 from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and package='$package') and date >= '$BKG_BATCH_FIRST_STARTED';")" == "1" && "$owner" != "arevindh" ]]; then
-        echo "$owner/$package was already updated!"
-        return
-    fi
-
-    local html
-    local query
-    local raw_downloads=-1
-    local raw_downloads_month=-1
-    local raw_downloads_week=-1
-    local raw_downloads_day=-1
-    local size=-1
-    local versions_json=""
 
     # decode percent-encoded characters and make lowercase (eg. for docker manifest)
     if [ "$package_type" = "container" ]; then
@@ -94,32 +90,33 @@ update_package() {
     raw_downloads=$(grep -Pzo 'Total downloads[^"]*"\d*' <<<"$html" | grep -Pzo '\d*$' | tr -d '\0') # https://stackoverflow.com/a/74214537
     [[ "$raw_downloads" =~ ^[0-9]+$ ]] || raw_downloads=-1
     table_version_name="${BKG_INDEX_TBL_VER}_${owner_type}_${package_type}_${owner}_${repo}_${package}"
+    sqlite3 "$BKG_INDEX_DB" "create table if not exists '$table_version_name' (
+        id text not null,
+        name text not null,
+        size integer not null,
+        downloads integer not null,
+        downloads_month integer not null,
+        downloads_week integer not null,
+        downloads_day integer not null,
+        date text not null,
+        tags text,
+        primary key (id, date)
+    );"
+    sqlite3 "$BKG_INDEX_DB" "select distinct id from '$table_version_name';" | sort -u >all_"${table_version_name}"
+    [ "$owner" = "arevindh" ] && echo >"${table_version_name}"_already_updated || sqlite3 "$BKG_INDEX_DB" "select distinct id from '$table_version_name' where date >= '$BKG_BATCH_FIRST_STARTED';" | sort -u >"${table_version_name}"_already_updated
+    comm -13 "${table_version_name}"_already_updated all_"${table_version_name}" >"${table_version_name}"_to_update
 
     for page in $(seq 1 100); do
         local pages_left=0
         set_BKG BKG_VERSIONS_JSON_"${owner}_${package}" "[]"
-
-        if ((page == 1)) && [ -n "$(sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name='$table_version_name';")" ]; then
-            local all_versions
-            local versions_already_updated=""
-            local versions_to_update
-            all_versions=$(sqlite3 "$BKG_INDEX_DB" "select distinct id from '$table_version_name';" | sort -u)
-            [ "$owner" = "arevindh" ] || versions_already_updated=$(sqlite3 "$BKG_INDEX_DB" "select distinct id from '$table_version_name' where date >= '$BKG_BATCH_FIRST_STARTED';" | sort -u)
-            versions_to_update=$(comm -13 <(echo "$versions_already_updated") <(echo "$all_versions"))
-            run_parallel save_version "$(sqlite3 -json "$BKG_INDEX_DB" "select id, name, tags from '$table_version_name' where id in ($versions_to_update) group by id;" | jq -r '.[] | @base64')" || return $?
-        fi
-
+        ((page > 1)) || run_parallel save_version "$(sqlite3 -json "$BKG_INDEX_DB" "select id, name, tags from '$table_version_name' where id in ($(cat "${table_version_name}"_to_update)) group by id;" | jq -r '.[] | @base64')" || return $?
         page_version "$page"
         pages_left=$?
         ((pages_left != 3)) || return 3
         versions_json=$(get_BKG BKG_VERSIONS_JSON_"${owner}_${package}")
         jq -e . <<<"$versions_json" &>/dev/null || versions_json="[{\"id\":\"-1\",\"name\":\"latest\",\"tags\":\"\"}]"
         del_BKG BKG_VERSIONS_JSON_"${owner}_${package}"
-
-        if [[ "$(jq -r '.[] | .id' <<<"$versions_json" | sort -u)" != "$(sqlite3 "$BKG_INDEX_DB" "select distinct id from '$table_version_name' where date >= '$BKG_BATCH_FIRST_STARTED';" | sort -u)" || "$owner" == "arevindh" ]]; then
-            run_parallel update_version "$(jq -r '.[] | @base64' <<<"$versions_json")" || return $?
-        fi
-
+        run_parallel update_version "$(jq -r '.[] | @base64' <<<"$versions_json")" || return $?
         ((pages_left != 2)) || break
     done
 
@@ -136,6 +133,7 @@ update_package() {
     fi
 
     sqlite3 "$BKG_INDEX_DB" "insert or replace into '$BKG_INDEX_TBL_PKG' (owner_id, owner_type, package_type, owner, repo, package, downloads, downloads_month, downloads_week, downloads_day, size, date) values ('$owner_id', '$owner_type', '$package_type', '$owner', '$repo', '$package', '$raw_downloads', '$raw_downloads_month', '$raw_downloads_week', '$raw_downloads_day', '$size', '$BKG_BATCH_FIRST_STARTED');"
+    rm -f "${table_version_name}"_already_updated "${table_version_name}"_to_update all_"${table_version_name}"
     echo "Updated $owner/$package"
 }
 
@@ -150,6 +148,7 @@ refresh_package() {
     max_date=$(sqlite3 "$BKG_INDEX_DB" "select date from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and package='$package' order by date desc limit 1;")
     [ "$date" = "$max_date" ] || return
     table_version_name="${BKG_INDEX_TBL_VER}_${owner_type}_${package_type}_${owner}_${repo}_${package}"
+    [ -n "$(sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name='$table_version_name';")" ] || return
     max_date=$(sqlite3 "$BKG_INDEX_DB" "select date from '$table_version_name' order by date desc limit 1;")
     [[ ! "$max_date" < "$(date -d "$BKG_TODAY - 1 day" +%Y-%m-%d)" ]] || return
     json_file="$BKG_INDEX_DIR/$owner/$repo/$package.json"
