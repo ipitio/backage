@@ -1,6 +1,9 @@
 #!/bin/bash
 # shellcheck disable=SC1091,SC2015
 
+source lib/util.sh
+source lib/version.sh
+source lib/package.sh
 source lib/owner.sh
 
 main() {
@@ -44,7 +47,7 @@ main() {
         downloads_day integer not null,
         size integer not null,
         date text not null,
-        primary key (owner_type, package_type, owner_id, repo, package, date)
+        primary key (owner_id, package, date)
     ); pragma auto_vacuum = full;"
     sqlite3 "$BKG_INDEX_DB" "$table_pkg"
 
