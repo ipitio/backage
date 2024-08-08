@@ -58,9 +58,19 @@ get_BKG() {
 
 set_BKG() {
     local value
+    local tmp_file
     value=$(echo "$2" | perl -pe 'chomp if eof')
+    tmp_file=$(mktemp)
     while ! ln "$BKG_ENV" "$BKG_ENV.lock" 2>/dev/null; do :; done
-    grep -q "^$1=" "$BKG_ENV" && sed -i "s/^$1=.*/$1=${value//\//\\/}/" "$BKG_ENV" || echo "$1=$value" >>"$BKG_ENV"
+
+    if ! grep -q "^$1=" "$BKG_ENV"; then
+        echo "$1=$value" >>"$BKG_ENV"
+    else
+        grep -v "^$1=" "$BKG_ENV" >"$tmp_file"
+        echo "$1=$value" >>"$tmp_file"
+        mv "$tmp_file" "$BKG_ENV"
+    fi
+
     sed -i '/^\s*$/d' "$BKG_ENV"
     echo >>"$BKG_ENV"
     rm -f "$BKG_ENV.lock"
