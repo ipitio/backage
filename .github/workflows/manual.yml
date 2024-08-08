@@ -46,8 +46,8 @@ jobs:
         if: ${{ steps.update.outputs.updated == '0' }}
         uses: EndBug/add-and-commit@v9
         with:
-          add: "-- *.txt *.env README.md"
-          message: "update database"
+          add: "-- *.txt *.env *.json README.md"
+          message: "hydration"
           pull: "--rebase --autostash -s ours"
 
       - name: Get date

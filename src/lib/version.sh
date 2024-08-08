@@ -73,10 +73,11 @@ update_version() {
     local version_html
     local version_name
     local version_tags
-    local version_size
     local version_id
     local manifest
     local sep
+    local today
+    today=$(date -u +%Y-%m-%d)
     version_id=$(_jq "$1" '.id')
     version_name=$(_jq "$1" '.name')
     version_tags=$(_jq "$1" '.tags')
@@ -104,34 +105,26 @@ update_version() {
             [[ "$version_size" =~ ^[0-9]+$ ]] || version_size=-1
         fi
     else
-        : # TODO: support other package types
+        : # TODO: get size for other package types
     fi
 
-    sqlite3 "$BKG_INDEX_DB" "insert or replace into '$table_version_name' (id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags) values ('$version_id', '$version_name', '$version_size', '$version_raw_downloads', '$version_raw_downloads_month', '$version_raw_downloads_week', '$version_raw_downloads_day', '$BKG_TODAY', '$version_tags');"
-    echo "Updated $owner/$package/$version_id"
-}
-
-refresh_version() {
-    check_limit 21500 || return $?
-    [ -n "$1" ] || return
-    IFS='|' read -r vid vname vsize vdownloads vdownloads_month vdownloads_week vdownloads_day vdate vtags <<<"$1"
-    [[ "$vid" =~ ^[0-9]+$ ]] || return
     echo "{
-        \"id\": ${vid:--1},
-        \"name\": \"$vname\",
-        \"date\": \"$vdate\",
-        \"newest\": $([ "${vid:--1}" = "${version_newest_id:--1}" ] && echo "true" || echo "false"),
-        \"size\": \"$(numfmt_size <<<"${vsize:--1}")\",
-        \"downloads\": \"$(numfmt <<<"${vdownloads:--1}")\",
-        \"downloads_month\": \"$(numfmt <<<"${vdownloads_month:--1}")\",
-        \"downloads_week\": \"$(numfmt <<<"${vdownloads_week:--1}")\",
-        \"downloads_day\": \"$(numfmt <<<"${vdownloads_day:--1}")\",
-        \"raw_size\": ${vsize:--1},
-        \"raw_downloads\": ${vdownloads:--1},
-        \"raw_downloads_month\": ${vdownloads_month:--1},
-        \"raw_downloads_week\": ${vdownloads_week:--1},
-        \"raw_downloads_day\": ${vdownloads_day:--1},
-        \"tags\": [\"${vtags//,/\",\"}\"]
-    }," >>"$json_file.$vid"
-    echo "Refreshed $owner/$package/$vid"
+        \"id\": $version_id,
+        \"name\": \"$version_name\",
+        \"date\": \"$today\",
+        \"newest\": $([ "$version_id" = "$version_newest_id" ] && echo "true" || echo "false"),
+        \"size\": \"$(numfmt_size <<<"$version_size")\",
+        \"downloads\": \"$(numfmt <<<"$version_raw_downloads")\",
+        \"downloads_month\": \"$(numfmt <<<"$version_raw_downloads_month")\",
+        \"downloads_week\": \"$(numfmt <<<"$version_raw_downloads_week")\",
+        \"downloads_day\": \"$(numfmt <<<"$version_raw_downloads_day")\",
+        \"raw_size\": $version_size,
+        \"raw_downloads\": $version_raw_downloads,
+        \"raw_downloads_month\": $version_raw_downloads_month,
+        \"raw_downloads_week\": $version_raw_downloads_week,
+        \"raw_downloads_day\": $version_raw_downloads_day,
+        \"tags\": [\"${version_tags//,/\",\"}\"]
+    }," | jq -c . >"$BKG_INDEX_DIR/$owner/$repo/$package.d/$version_id.json"
+    sqlite3 "$BKG_INDEX_DB" "insert or replace into '$table_version_name' (id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags) values ('$version_id', '$version_name', '$version_size', '$version_raw_downloads', '$version_raw_downloads_month', '$version_raw_downloads_week', '$version_raw_downloads_day', '$today', '$version_tags');"
+    echo "Updated $owner/$package/$version_id"
 }
