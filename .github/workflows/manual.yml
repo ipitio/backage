@@ -3,6 +3,10 @@ name: manual
 on:
   workflow_dispatch:
 
+  pull_request:
+    types:
+      - closed
+
 concurrency:
   group: ${{ github.ref }}
   cancel-in-progress: true
@@ -15,6 +19,7 @@ defaults:
 
 jobs:
   update:
+    if: github.event.pull_request.merged == true || github.event_name != 'pull_request'
     runs-on: ubuntu-latest
 
     permissions:
