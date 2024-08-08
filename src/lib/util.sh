@@ -52,38 +52,17 @@ PRAGMA cache_size = -500000;
 }
 
 get_BKG() {
-    local res=""
-
-    while ! ln "$BKG_ENV" "$BKG_ENV.lock" 2>/dev/null; do
-        sleep 0.1
-    done
-
-    ! grep -q "^$1=" "$BKG_ENV" || res=$(grep "^$1=" "$BKG_ENV" | cut -d'=' -f2)
-    rm -f "$BKG_ENV.lock"
-    echo "$res"
+    while [ -f "$BKG_ENV.lock" ]; do :; done
+    grep "^$1=" "$BKG_ENV" | cut -d'=' -f2
 }
 
 set_BKG() {
     local value
-    local tmp_file
     value=$(echo "$2" | perl -pe 'chomp if eof')
-    tmp_file=$(mktemp)
-
-    while ! ln "$BKG_ENV" "$BKG_ENV.lock" 2>/dev/null; do
-        sleep 0.1
-    done
-
-    if ! grep -q "^$1=" "$BKG_ENV"; then
-        echo "$1=$value" >>"$BKG_ENV"
-    else
-        grep -v "^$1=" "$BKG_ENV" >"$tmp_file"
-        echo "$1=$value" >>"$tmp_file"
-        mv "$tmp_file" "$BKG_ENV"
-    fi
-
+    while ! ln "$BKG_ENV" "$BKG_ENV.lock" 2>/dev/null; do :; done
+    grep -q "^$1=" "$BKG_ENV" && sed -i "s/^$1=.*/$1=$value/" "$BKG_ENV" || echo "$1=$value" >>"$BKG_ENV"
     sed -i '/^\s*$/d' "$BKG_ENV"
     echo >>"$BKG_ENV"
-
     rm -f "$BKG_ENV.lock"
 }
 
@@ -101,22 +80,9 @@ set_BKG_set() {
     return $code
 }
 
-del_BKG_set() {
-    local list
-    list=$(get_BKG_set "$1" | grep -v "$2")
-    set_BKG "$1" "$(echo "$list" | perl -pe 's/\\n/\n/g' | perl -pe 's/\n/\\n/g' | perl -pe 's/^\\n//' | perl -pe 's/\\n$//' | perl -pe 's/\\n\\n/\\n/')"
-}
-
 del_BKG() {
-    local tmp_file
-    tmp_file=$(mktemp)
-
-    while ! ln "$BKG_ENV" "$BKG_ENV.lock" 2>/dev/null; do
-        sleep 0.1
-    done
-
-    grep -v "^$1=" "$BKG_ENV" >"$tmp_file"
-    mv "$tmp_file" "$BKG_ENV"
+    while ! ln "$BKG_ENV" "$BKG_ENV.lock" 2>/dev/null; do :; done
+    sed -i "/^$1=/d" "$BKG_ENV"
     rm -f "$BKG_ENV.lock"
 }
 
