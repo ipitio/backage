@@ -23,8 +23,6 @@ main() {
         esac
     done
 
-    sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, repo, package from '$BKG_INDEX_TBL_PKG' where date >= '$BKG_BATCH_FIRST_STARTED' group by owner_id, owner, repo, package;" | sort -u >packages_already_updated
-    sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, repo, package from '$BKG_INDEX_TBL_PKG' group by owner_id, owner, repo, package;" | sort -u >packages_all
     set_BKG BKG_OWNERS_QUEUE ""
     set_BKG BKG_TIMEOUT "0"
     set_BKG BKG_SCRIPT_START "$(date -u +%s)"
@@ -49,6 +47,8 @@ main() {
         date text not null,
         primary key (owner_id, package, date)
     ); pragma auto_vacuum = full;"
+    sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, repo, package from '$BKG_INDEX_TBL_PKG' where date >= '$BKG_BATCH_FIRST_STARTED' group by owner_id, owner, repo, package;" | sort -u >packages_already_updated
+    sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, repo, package from '$BKG_INDEX_TBL_PKG' group by owner_id, owner, repo, package;" | sort -u >packages_all
 
     # if this is a scheduled update, scrape all owners
     if [ "$mode" -eq 0 ]; then
