@@ -56,12 +56,12 @@ main() {
         echo "all: $(wc -l <packages_all)"
         echo "done: $(wc -l <packages_already_updated)"
         echo "left: $(wc -l <packages_to_update)"
-        awk -F'|' '{print $1"/"$2}' <packages_to_update | sort -u | env_parallel --lb save_owner
+        awk -F'|' '{print $1"/"$2}' <packages_to_update | sort -uR | env_parallel --lb save_owner
 
         if [ -z "$(get_BKG_set BKG_OWNERS_QUEUE)" ]; then
             set_BKG BKG_BATCH_FIRST_STARTED "$today"
             [ -s "$BKG_OWNERS" ] || seq 1 10 | env_parallel --lb --halt soon,fail=1 page_owner
-            awk -F'|' '{print $1"/"$2}' <packages_all | sort -u | env_parallel --lb save_owner
+            awk -F'|' '{print $1"/"$2}' <packages_all | sort -uR | env_parallel --lb save_owner
         else
             [ -n "$(get_BKG BKG_BATCH_FIRST_STARTED)" ] || set_BKG BKG_BATCH_FIRST_STARTED "$today"
         fi
@@ -81,7 +81,7 @@ main() {
             awk -F'|' '{print $1"/"$2}' <packages_all
             awk -F'|' '{print $2}' <packages_all
         )" | sort -u | parallel "sed -i '\,^{}$,d' $BKG_OWNERS"
-        env_parallel --lb save_owner <"$BKG_OWNERS"
+        sort -uR <"$BKG_OWNERS" | env_parallel --lb save_owner
     fi
 
     BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
