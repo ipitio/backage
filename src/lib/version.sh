@@ -114,7 +114,7 @@ update_version() {
         \"id\": $version_id,
         \"name\": \"$version_name\",
         \"date\": \"$today\",
-        \"newest\": $([ "$version_id" = "$version_newest_id" ] && echo "true" || echo "false"),
+        \"newest\": false,
         \"size\": \"$(numfmt_size <<<"$version_size")\",
         \"downloads\": \"$(numfmt <<<"$version_raw_downloads")\",
         \"downloads_month\": \"$(numfmt <<<"$version_raw_downloads_month")\",
@@ -126,7 +126,7 @@ update_version() {
         \"raw_downloads_week\": $version_raw_downloads_week,
         \"raw_downloads_day\": $version_raw_downloads_day,
         \"tags\": [\"${version_tags//,/\",\"}\"]
-    }," >"$BKG_INDEX_DIR/$owner/$repo/$package.d/$version_id.json"
+    }" | jq -c . >"$BKG_INDEX_DIR/$owner/$repo/$package.d/$version_id.json"
     sqlite3 "$BKG_INDEX_DB" "insert or replace into '$table_version_name' (id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags) values ('$version_id', '$version_name', '$version_size', '$version_raw_downloads', '$version_raw_downloads_month', '$version_raw_downloads_week', '$version_raw_downloads_day', '$today', '$version_tags');"
     echo "Updated $owner/$package/$version_id"
 }

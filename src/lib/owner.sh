@@ -8,15 +8,11 @@ request_owner() {
     [ -n "$1" ] || return
     local owner
     local id
+    local return_code=0
     owner=$(_jq "$1" '.login')
     id=$(_jq "$1" '.id')
-
-    while ! ln "$BKG_OWNERS" "$BKG_OWNERS.lock" 2>/dev/null; do
-        sleep 0.1
-    done
-
+    while ! ln "$BKG_OWNERS" "$BKG_OWNERS.lock" 2>/dev/null; do :; done
     grep -q "^.*\/*$owner$" "$BKG_OWNERS" || echo "$id/$owner" >>"$BKG_OWNERS"
-    local return_code=0
 
     if [ "$(stat -c %s "$BKG_OWNERS")" -ge 100000000 ]; then
         sed -i '$d' "$BKG_OWNERS"
@@ -95,8 +91,11 @@ page_owner() {
 update_owner() {
     check_limit || return $?
     [ -n "$1" ] || return
+    export lower_owner
     owner=$(cut -d'/' -f2 <<<"$1")
     owner_id=$(cut -d'/' -f1 <<<"$1")
+    # decode percent-encoded characters and make lowercase (eg. for docker manifest)
+    lower_owner=$(perl -pe 's/%([0-9A-Fa-f]{2})/chr(hex($1))/eg' <<<"${owner//%/%25}" | tr '[:upper:]' '[:lower:]')
     echo "Updating $owner..."
     [ -n "$(curl "https://github.com/orgs/$owner/people" | grep -zoP 'href="/orgs/'"$owner"'/people"' | tr -d '\0')" ] && export owner_type="orgs" || export owner_type="users"
     [ -d "$BKG_INDEX_DIR/$owner" ] || mkdir "$BKG_INDEX_DIR/$owner"
