@@ -149,10 +149,10 @@ update_package() {
         \"raw_downloads_week\": $raw_downloads_week,
         \"raw_downloads_day\": $raw_downloads_day,
         \"version\": []
-    }" | jq -c . >"$json_file"
+    }" | tr -d '\n' | jq -c . >"$json_file"
 
     if [[ -z "$(find "$BKG_INDEX_DIR/$owner/$repo/$package.d" -type f -name "*.json" 2>/dev/null)" ]]; then
-        jq -c ".version += [{
+        echo "{
             \"id\": -1,
             \"name\": \"latest\",
             \"date\": \"$(date -u +%Y-%m-%d)\",
@@ -168,13 +168,12 @@ update_package() {
             \"raw_downloads_week\": $raw_downloads_week,
             \"raw_downloads_day\": $raw_downloads_day,
             \"tags\": [\"\"]
-        }]" "$json_file" >"$json_file".tmp.json
-        mv "$json_file".tmp.json "$json_file"
-    else
-        jq -c ".version += [$(jq -c '.[]' "$BKG_INDEX_DIR/$owner/$repo/$package.d/"*.json | jq -s .)]" "$json_file" >"$json_file".tmp.json
-        jq -c 'sort_by(.version | tonumber) | reverse | map(.newest = false) | map(.newest |= (.version == .version[-1]))' "$json_file".tmp.json >"$json_file"
-        rm -f "$BKG_INDEX_DIR/$owner/$repo/$package.d/"*.json
+        }" | tr -d '\n' | jq -c . >"$BKG_INDEX_DIR/$owner/$repo/$package.d/-1.json"
     fi
+
+    jq -c ".version += [$(jq -c '.[]' "$BKG_INDEX_DIR/$owner/$repo/$package.d/"*.json | jq -s .)]" "$json_file" >"$json_file".tmp.json
+    jq -c 'sort_by(.version | tonumber) | reverse | map(.newest = false) | map(.newest |= (.version == .version[-1]))' "$json_file".tmp.json >"$json_file"
+    rm -f "$BKG_INDEX_DIR/$owner/$repo/$package.d/"*.json
 
     # if the json is over 50MB, remove oldest versions from the packages with the most versions
     while [ "$(stat -c %s "$json_file")" -ge 50000000 ]; do
