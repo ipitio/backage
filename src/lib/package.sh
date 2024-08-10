@@ -172,7 +172,7 @@ update_package() {
         mv "$json_file".tmp.json "$json_file"
     else
         jq -c ".version += [$(jq -c '.[]' "$BKG_INDEX_DIR/$owner/$repo/$package.d/"*.json | jq -s .)]" "$json_file" >"$json_file".tmp.json
-        jq -c ".version |= sort_by(.id | tonumber) | map(.newest = false) | map(.newest = true | select(.id == $(jq -r '.version | map(.id) | max' "$json_file".tmp.json)))" "$json_file".tmp.json >"$json_file"
+        jq -c 'sort_by(.version | tonumber) | reverse | map(.newest = false) | map(.newest |= (.version == .version[-1]))' "$json_file".tmp.json >"$json_file"
         rm -f "$BKG_INDEX_DIR/$owner/$repo/$package.d/"*.json
     fi
 
