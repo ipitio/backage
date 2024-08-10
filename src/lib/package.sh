@@ -168,8 +168,16 @@ update_package() {
         \"raw_downloads_week\": $raw_downloads_week,
         \"raw_downloads_day\": $raw_downloads_day,
         \"version\": $(jq -c . "$BKG_INDEX_DIR/$owner/$repo/$package.d/"*.json | jq -s .)
-    }" | tr -d '\n' | jq -c --arg id "$version_newest_id" '.version |= map(if .id == ($id | tonumber) then .newest = true else . end)' > "$json_file"
+    }" | tr -d '\n' | jq -c --arg id "$version_newest_id" '.version |= map(if .id == ($id | tonumber) then .newest = true else . end)' >"$json_file"
     sqlite3 "$BKG_INDEX_DB" "insert or replace into '$BKG_INDEX_TBL_PKG' (owner_id, owner_type, package_type, owner, repo, package, downloads, downloads_month, downloads_week, downloads_day, size, date) values ('$owner_id', '$owner_type', '$package_type', '$owner', '$repo', '$package', '$raw_downloads', '$raw_downloads_month', '$raw_downloads_week', '$raw_downloads_day', '$size', '$BKG_BATCH_FIRST_STARTED');"
+
+    # if the json is over 50MB, remove oldest versions from the packages with the most versions
+    while [ "$(stat -c %s "$json_file")" -ge 50000000 ]; do
+        jq -e 'map(.version | length > 0) | any' "$json_file" || break
+        jq -c 'sort_by(.versions | tonumber) | reverse | map(select(.versions > 0)) | map(.version |= sort_by(.id | tonumber) | del(.version[0]))' "$json_file" >"$json_file".tmp.json
+        mv "$json_file".tmp.json "$json_file"
+    done
+
     rm -f "${table_version_name}"_already_updated "${table_version_name}"_to_update all_"${table_version_name}"
     rm -f "$BKG_INDEX_DIR/$owner/$repo/$package.d/"*.json
     echo "Updated $owner/$package"

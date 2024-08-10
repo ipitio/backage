@@ -189,12 +189,9 @@ run_parallel() {
                 ! grep -q "2" <<<"$code" || break
                 ((i++))
                 ("$1" "$j" || echo "$?" >>"$exit_code") &
-
-                if ((i >= $(nproc))) || [[ "$j" == $(tail -n1 <<<"$2") ]]; then
-                    wait
-                    i=0
-                fi
             done
+
+            wait
         ) &
 
         wait "$!"
