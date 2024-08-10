@@ -92,7 +92,7 @@ set_BKG_set() {
 
 del_BKG() {
     while ! ln "$BKG_ENV" "$BKG_ENV.lock" 2>/dev/null; do :; done
-    echo "$@" | parallel "sed -i '/^{}=/d' $BKG_ENV"
+    parallel "sed -i '/^{}=/d' $BKG_ENV" ::: "$@"
     sed -i '/^\s*$/d' "$BKG_ENV"
     echo >>"$BKG_ENV"
     rm -f "$BKG_ENV.lock"
@@ -181,14 +181,11 @@ run_parallel() {
 
     if [ "$(wc -l <<<"$2")" -gt 1 ]; then
         ( # parallel --lb --halt soon,fail=1
-            local i=0
-
-            for j in $2; do
+            for i in $2; do
                 code=$(cat "$exit_code")
                 ! grep -q "3" <<<"$code" || exit
                 ! grep -q "2" <<<"$code" || break
-                ((i++))
-                ("$1" "$j" || echo "$?" >>"$exit_code") &
+                ("$1" "$i" || echo "$?" >>"$exit_code") &
             done
 
             wait
