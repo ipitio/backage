@@ -59,6 +59,7 @@ update_package() {
     local versions_json=""
     local version_count=-1
     local version_with_tag_count=-1
+    local version_newest_id=-1
     export lower_owner
     export lower_package
     package_type=$(cut -d'/' -f1 <<<"$1")
@@ -113,6 +114,7 @@ update_package() {
         jq -e . <<<"$versions_json" &>/dev/null || versions_json="[{\"id\":\"-1\",\"name\":\"latest\",\"tags\":\"\"}]"
         del_BKG BKG_VERSIONS_JSON_"${owner}_${package}"
         run_parallel update_version "$(jq -r '.[] | @base64' <<<"$versions_json")" || return $?
+        ((page != 1)) || version_newest_id=$(jq -r '.[] | select(.id) | .id' <<<"$versions_json" | sort -n | tail -n1)
         ((pages_left != 2)) || break
     done
 
@@ -165,19 +167,10 @@ update_package() {
         \"raw_downloads_month\": $raw_downloads_month,
         \"raw_downloads_week\": $raw_downloads_week,
         \"raw_downloads_day\": $raw_downloads_day,
-        \"version\": []
-    }" | tr -d '\n' | jq -c . >"$json_file"
-    jq -c ".version += [$(jq -c '.[]' "$BKG_INDEX_DIR/$owner/$repo/$package.d/"*.json | jq -s .)]" "$json_file" >"$json_file".tmp.json
-    jq -c 'sort_by(.version | tonumber) | reverse | map(.newest |= false) | map(.version |= sort_by(.id | tonumber)) | map(.version[-1].newest |= true) | .[0]' "$json_file".tmp.json >"$json_file"
+        \"version\": [$(jq -c . "$BKG_INDEX_DIR/$owner/$repo/$package.d/"*.json | jq -s .)]
+    }" | tr -d '\n' | jq -c . >"$json_file".tmp.json
+    jq -r '.version[] | select(.id == '"$version_newest_id"') | .newest = true' "$json_file".tmp.json >"$json_file"
     rm -f "$BKG_INDEX_DIR/$owner/$repo/$package.d/"*.json
-
-    # if the json is over 50MB, remove oldest versions from the packages with the most versions
-    while [ "$(stat -c %s "$json_file")" -ge 50000000 ]; do
-        jq -e 'map(.version | length > 0) | any' "$json_file" || break
-        jq -c 'sort_by(.versions | tonumber) | reverse | map(select(.versions > 0)) | map(.version |= sort_by(.id | tonumber) | del(.version[0]))' "$json_file" >"$json_file".tmp.json
-        mv "$json_file".tmp.json "$json_file"
-    done
-
     sqlite3 "$BKG_INDEX_DB" "insert or replace into '$BKG_INDEX_TBL_PKG' (owner_id, owner_type, package_type, owner, repo, package, downloads, downloads_month, downloads_week, downloads_day, size, date) values ('$owner_id', '$owner_type', '$package_type', '$owner', '$repo', '$package', '$raw_downloads', '$raw_downloads_month', '$raw_downloads_week', '$raw_downloads_day', '$size', '$BKG_BATCH_FIRST_STARTED');"
     rm -f "${table_version_name}"_already_updated "${table_version_name}"_to_update all_"${table_version_name}"
     echo "Updated $owner/$package"
