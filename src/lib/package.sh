@@ -141,7 +141,7 @@ update_package() {
         \"downloads_month\": \"$(numfmt <<<"$raw_downloads_month")\",
         \"downloads_week\": \"$(numfmt <<<"$raw_downloads_week")\",
         \"downloads_day\": \"$(numfmt <<<"$raw_downloads_day")\",
-        \"raw_size\": $size
+        \"raw_size\": $size,
         \"raw_versions\": $version_count,
         \"raw_tagged\": $version_with_tag_count,
         \"raw_downloads\": $raw_downloads,
@@ -153,21 +153,21 @@ update_package() {
 
     if [[ -z "$(find "$BKG_INDEX_DIR/$owner/$repo/$package.d" -type f -name "*.json" 2>/dev/null)" ]]; then
         jq -c ".version += [{
-            \"id\":-1,
-            \"name\":\"latest\",
-            \"date\":\"$(date -u +%Y-%m-%d)\",
-            \"newest\":true,
-            \"size\":\"$(numfmt_size <<<"$size")\",
-            \"downloads\":\"$(numfmt <<<"$raw_downloads")\",
-            \"downloads_month\":\"$(numfmt <<<"$raw_downloads_month")\",
-            \"downloads_week\":\"$(numfmt <<<"$raw_downloads_week")\",
-            \"downloads_day\":\"$(numfmt <<<"$raw_downloads_day")\",
-            \"raw_size\":$size,
-            \"raw_downloads\":$raw_downloads,
-            \"raw_downloads_month\":$raw_downloads_month,
-            \"raw_downloads_week\":$raw_downloads_week,
-            \"raw_downloads_day\":$raw_downloads_day,
-            \"tags\":[\"\"]
+            \"id\": -1,
+            \"name\": \"latest\",
+            \"date\": \"$(date -u +%Y-%m-%d)\",
+            \"newest\": true,
+            \"size\": \"$(numfmt_size <<<"$size")\",
+            \"downloads\": \"$(numfmt <<<"$raw_downloads")\",
+            \"downloads_month\": \"$(numfmt <<<"$raw_downloads_month")\",
+            \"downloads_week\": \"$(numfmt <<<"$raw_downloads_week")\",
+            \"downloads_day\": \"$(numfmt <<<"$raw_downloads_day")\",
+            \"raw_size\": $size,
+            \"raw_downloads\": $raw_downloads,
+            \"raw_downloads_month\": $raw_downloads_month,
+            \"raw_downloads_week\": $raw_downloads_week,
+            \"raw_downloads_day\": $raw_downloads_day,
+            \"tags\": [\"\"]
         }]" "$json_file" >"$json_file".tmp.json
         mv "$json_file".tmp.json "$json_file"
     else
