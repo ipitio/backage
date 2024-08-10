@@ -168,7 +168,7 @@ update_package() {
         \"version\": []
     }" | tr -d '\n' | jq -c . >"$json_file"
     jq -c ".version += [$(jq -c '.[]' "$BKG_INDEX_DIR/$owner/$repo/$package.d/"*.json | jq -s .)]" "$json_file" >"$json_file".tmp.json
-    jq -c 'sort_by(.version | tonumber) | reverse | map(.newest = false) | map(.newest |= (.version == .version[-1]))' "$json_file".tmp.json >"$json_file"
+    jq -c 'sort_by(.version | tonumber) | reverse | map(.newest |= false) | map(.version |= sort_by(.id | tonumber)) | map(.version[-1].newest |= true) | .[0]' "$json_file".tmp.json >"$json_file"
     rm -f "$BKG_INDEX_DIR/$owner/$repo/$package.d/"*.json
 
     # if the json is over 50MB, remove oldest versions from the packages with the most versions
