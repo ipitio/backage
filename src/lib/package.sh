@@ -168,7 +168,7 @@ update_package() {
         \"raw_downloads_week\": $raw_downloads_week,
         \"raw_downloads_day\": $raw_downloads_day,
         \"version\": $(jq -c . "$BKG_INDEX_DIR/$owner/$repo/$package.d/"*.json | jq -s .)
-    }" | tr -d '\n' >"$json_file".tmp.json
+    }" | tr -d '\n' | jq -c . >"$json_file".tmp.json
     jq -c --arg id "$version_newest_id" '.version |= map(if .id == ($id | tonumber) then .newest = true else . end)' "$json_file".tmp.json >"$json_file"
     sqlite3 "$BKG_INDEX_DB" "insert or replace into '$BKG_INDEX_TBL_PKG' (owner_id, owner_type, package_type, owner, repo, package, downloads, downloads_month, downloads_week, downloads_day, size, date) values ('$owner_id', '$owner_type', '$package_type', '$owner', '$repo', '$package', '$raw_downloads', '$raw_downloads_month', '$raw_downloads_week', '$raw_downloads_day', '$size', '$BKG_BATCH_FIRST_STARTED');"
 
