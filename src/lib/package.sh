@@ -170,8 +170,8 @@ update_package() {
             \"raw_downloads_day\": $raw_downloads_day,
             \"tags\": [\"\"]
         }]")
-    }" | tr -d '\n' | jq -c . >"$json_file".tmp.json
-    jq -c --arg newest "$version_newest_id" --arg latest "$latest_version" '.version |= map(if .id == ($newest | tonumber) then .newest = true else . end | if .id == ($latest | tonumber) then .latest = true else . end)' "$json_file".tmp.json >"$json_file"
+    }" | tr -d '\n' | jq -c . >"$json_file".tmp
+    jq -c --arg newest "$version_newest_id" --arg latest "$latest_version" '.version |= map(if .id == ($newest | tonumber) then .newest = true else . end | if .id == ($latest | tonumber) then .latest = true else . end)' "$json_file".tmp >"$json_file"
     sqlite3 "$BKG_INDEX_DB" "insert or replace into '$BKG_INDEX_TBL_PKG' (owner_id, owner_type, package_type, owner, repo, package, downloads, downloads_month, downloads_week, downloads_day, size, date) values ('$owner_id', '$owner_type', '$package_type', '$owner', '$repo', '$package', '$raw_downloads', '$raw_downloads_month', '$raw_downloads_week', '$raw_downloads_day', '$size', '$BKG_BATCH_FIRST_STARTED');"
 
     # if the json is over 50MB, remove oldest versions from the packages with the most versions

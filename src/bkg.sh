@@ -141,5 +141,6 @@ main() {
     perl -0777 -pe 's/<GITHUB_OWNER>/'"$GITHUB_OWNER"'/g; s/<GITHUB_REPO>/'"$GITHUB_REPO"'/g; s/<GITHUB_BRANCH>/'"$GITHUB_BRANCH"'/g' "$BKG_ROOT"/README.md >README.tmp && [ -f README.tmp ] && mv README.tmp "$BKG_ROOT"/README.md || :
     del_BKG BKG_VERSIONS_.* BKG_PACKAGES_.* BKG_OWNERS_.* BKG_TIMEOUT BKG_SCRIPT_START BKG_AUTO
     rm -f packages_already_updated packages_all packages_to_update
+    find . -name \*.tmp.json -type f -delete
     echo "Done!"
 }

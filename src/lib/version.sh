@@ -115,6 +115,7 @@ update_version() {
         \"name\": \"$version_name\",
         \"date\": \"$today\",
         \"newest\": false,
+        \"latest\": false,
         \"size\": \"$(numfmt_size <<<"$version_size")\",
         \"downloads\": \"$(numfmt <<<"$version_raw_downloads")\",
         \"downloads_month\": \"$(numfmt <<<"$version_raw_downloads_month")\",
