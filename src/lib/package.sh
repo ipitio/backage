@@ -60,6 +60,7 @@ update_package() {
     local version_count=-1
     local version_with_tag_count=-1
     local version_newest_id=-1
+    local versions=""
     export lower_owner
     export lower_package
     package_type=$(cut -d'/' -f1 <<<"$1")
@@ -145,6 +146,8 @@ update_package() {
         \"raw_downloads_day\": $raw_downloads_day,
         \"tags\": [\"\"]
     }" | tr -d '\n' | jq -c . >"$BKG_INDEX_DIR/$owner/$repo/$package.d/-1.json"
+    versions=$(jq -c . "$BKG_INDEX_DIR/$owner/$repo/$package.d/"*.json | jq -s .)
+    [[ -n "$versions" ]] || versions="[]"
     echo "{
         \"owner_type\": \"$owner_type\",
         \"package_type\": \"$package_type\",
@@ -167,7 +170,7 @@ update_package() {
         \"raw_downloads_month\": $raw_downloads_month,
         \"raw_downloads_week\": $raw_downloads_week,
         \"raw_downloads_day\": $raw_downloads_day,
-        \"version\": $(jq -c . "$BKG_INDEX_DIR/$owner/$repo/$package.d/"*.json | jq -s .)
+        \"version\": $versions
     }" | tr -d '\n' | jq -c . >"$json_file".tmp.json
     jq -c --arg id "$version_newest_id" '.version |= map(if .id == ($id | tonumber) then .newest = true else . end)' "$json_file".tmp.json >"$json_file"
     sqlite3 "$BKG_INDEX_DB" "insert or replace into '$BKG_INDEX_TBL_PKG' (owner_id, owner_type, package_type, owner, repo, package, downloads, downloads_month, downloads_week, downloads_day, size, date) values ('$owner_id', '$owner_type', '$package_type', '$owner', '$repo', '$package', '$raw_downloads', '$raw_downloads_month', '$raw_downloads_week', '$raw_downloads_day', '$size', '$BKG_BATCH_FIRST_STARTED');"
