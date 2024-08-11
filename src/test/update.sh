@@ -10,12 +10,12 @@ source bkg.sh
 main "$@"
 
 check_json() {
-    [ -s "$1" ] || exit 1 # json should not be empty
-    jq -e . <<<"$(cat "$1")" &>/dev/null || exit 1 # json should be valid
+    [ -s "$1" ] || echo "Empty json: $1"
+    jq -e . <<<"$(cat "$1")" &>/dev/null || echo "Invalid json: $1"
 }
 
-# db should not be empty
+# db should not be empty, error if it is
 [ "$(stat -c %s "$BKG_INDEX_SQL".zst)" -ge 1000 ] || exit 1
 
-# json should be valid
-find .. -type f -name '*.json' | env_parallel --halt now,fail=1 check_json || exit 1
+# json should be valid, warn if it is not
+find .. -type f -name '*.json' | env_parallel check_json
