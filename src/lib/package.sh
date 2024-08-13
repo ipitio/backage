@@ -18,8 +18,7 @@ save_package() {
     repo=${repo%/}
     [ -n "$repo" ] || return
     [ -f packages_already_updated ] && grep -q "$owner_id|$owner|$repo|$package_new" packages_already_updated && [ "$owner" != "arevindh" ] && return || :
-    set_BKG_set BKG_PACKAGES_"$owner" "$package_type/$repo/$package_new"
-    echo "Queued $owner/$package_new"
+    ! set_BKG_set BKG_PACKAGES_"$owner" "$package_type/$repo/$package_new" || echo "Queued $owner/$package_new"
 }
 
 page_package() {
@@ -100,14 +99,12 @@ update_package() {
         tags text,
         primary key (id, date)
     );"
-    sqlite3 "$BKG_INDEX_DB" "select distinct id from '$table_version_name';" | sort -u >all_"${table_version_name}"
     [ "$owner" = "arevindh" ] && echo >"${table_version_name}"_already_updated || sqlite3 "$BKG_INDEX_DB" "select distinct id from '$table_version_name' where date >= '$BKG_BATCH_FIRST_STARTED';" | sort -u >"${table_version_name}"_already_updated
-    comm -13 "${table_version_name}"_already_updated all_"${table_version_name}" >"${table_version_name}"_to_update
 
     for page in $(seq 1 100); do
         local pages_left=0
         set_BKG BKG_VERSIONS_JSON_"${owner}_${package}" "[]"
-        ((page != 1)) || run_parallel save_version "$(sqlite3 -json "$BKG_INDEX_DB" "select id, name, tags from '$table_version_name' where id in ($(cat "${table_version_name}"_to_update)) group by id;" | jq -r '.[] | @base64')"
+        ((page != 1)) || run_parallel save_version "$(sqlite3 -json "$BKG_INDEX_DB" "select id, name, tags from '$table_version_name' group by id;" | jq -r '.[] | @base64')"
         page_version "$page"
         pages_left=$?
         ((pages_left != 3)) || return 3

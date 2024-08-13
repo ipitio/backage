@@ -51,8 +51,7 @@ save_owner() {
         set_BKG BKG_MIN_CALLS_TO_API "$min_calls_to_api"
     fi
 
-    set_BKG_set BKG_OWNERS_QUEUE "$owner_id/$owner"
-    echo "Queued $owner"
+    ! set_BKG_set BKG_OWNERS_QUEUE "$owner_id/$owner" || echo "Queued $owner"
 }
 
 page_owner() {
