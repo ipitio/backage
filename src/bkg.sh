@@ -52,13 +52,13 @@ main() {
 
     # if this is a scheduled update, scrape all owners
     if [ "$mode" -eq 0 ]; then
-        comm -13 packages_already_updated packages_all >packages_to_update
+        comm -13 packages_already_updated packages_all | sort -uR >packages_to_update
         echo "all: $(wc -l <packages_all)"
         echo "done: $(wc -l <packages_already_updated)"
         echo "left: $(wc -l <packages_to_update)"
-        awk -F'|' '{print $1"/"$2}' <packages_to_update | sort -uR | env_parallel --lb save_owner
+        awk -F'|' '{print $1"/"$2}' <packages_to_update | env_parallel --lb save_owner
 
-        if [ -z "$(get_BKG_set BKG_OWNERS_QUEUE)" ]; then
+        if [ -z "$(get_BKG_set BKG_OWNERS_QUEUE)" ] || [[ "$(get_BKG BKG_LEFT)" == "$(wc -l <packages_to_update)" ]]; then
             set_BKG BKG_BATCH_FIRST_STARTED "$today"
             [ -s "$BKG_OWNERS" ] || seq 1 10 | env_parallel --lb --halt soon,fail=1 page_owner
             awk -F'|' '{print $1"/"$2}' <packages_all | sort -uR | env_parallel --lb save_owner
@@ -102,6 +102,12 @@ main() {
 
     [ -d "$BKG_INDEX_DIR" ] || mkdir "$BKG_INDEX_DIR"
     get_BKG_set BKG_OWNERS_QUEUE | env_parallel --lb update_owner
+
+    if [ "$mode" -eq 0 ]; then
+        sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, repo, package from '$BKG_INDEX_TBL_PKG' where date >= '$BKG_BATCH_FIRST_STARTED' group by owner_id, owner, repo, package;" | sort -u >packages_already_updated
+        set_BKG BKG_LEFT "$(comm -13 packages_already_updated packages_all | wc -l)"
+    fi
+
     echo "Compressing the database..."
     sqlite3 "$BKG_INDEX_DB" ".dump" | zstd -22 --ultra --long -T0 -o "$BKG_INDEX_SQL".new.zst
 

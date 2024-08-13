@@ -17,7 +17,11 @@ save_package() {
     package_type=${package_type%/}
     repo=${repo%/}
     [ -n "$repo" ] || return
-    [ -f packages_already_updated ] && grep -q "$owner_id|$owner|$repo|$package_new" packages_already_updated && [ "$owner" != "arevindh" ] && return || :
+
+    if [ "$owner" != "arevindh" ] && [ -f packages_already_updated ]; then
+        grep -q "$owner_id|$owner|$repo|$package_new" packages_already_updated && return || :
+    fi
+
     ! set_BKG_set BKG_PACKAGES_"$owner" "$package_type/$repo/$package_new" || echo "Queued $owner/$package_new"
 }
 
