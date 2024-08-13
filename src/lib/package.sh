@@ -107,7 +107,7 @@ update_package() {
     for page in $(seq 1 100); do
         local pages_left=0
         set_BKG BKG_VERSIONS_JSON_"${owner}_${package}" "[]"
-        ((page != 1)) || run_parallel save_version "$(sqlite3 -json "$BKG_INDEX_DB" "select id, name, tags from '$table_version_name' where id in ($(cat "${table_version_name}"_to_update)) group by id;" | jq -r '.[] | @base64')" || return $?
+        ((page != 1)) || run_parallel save_version "$(sqlite3 -json "$BKG_INDEX_DB" "select id, name, tags from '$table_version_name' where id in ($(cat "${table_version_name}"_to_update)) group by id;" | jq -r '.[] | @base64')"
         page_version "$page"
         pages_left=$?
         ((pages_left != 3)) || return 3
