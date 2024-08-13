@@ -52,11 +52,11 @@ main() {
 
     # if this is a scheduled update, scrape all owners
     if [ "$mode" -eq 0 ]; then
-        comm -13 packages_already_updated packages_all | sort -uR >packages_to_update
+        comm -13 packages_already_updated packages_all >packages_to_update
         echo "all: $(wc -l <packages_all)"
         echo "done: $(wc -l <packages_already_updated)"
         echo "left: $(wc -l <packages_to_update)"
-        awk -F'|' '{print $1"/"$2}' <packages_to_update | env_parallel --lb save_owner
+        awk -F'|' '{print $1"/"$2}' <packages_to_update | sort -uR | env_parallel --lb save_owner
 
         if [ -z "$(get_BKG_set BKG_OWNERS_QUEUE)" ] || [[ "$(get_BKG BKG_LEFT)" == "$(wc -l <packages_to_update)" ]]; then
             set_BKG BKG_BATCH_FIRST_STARTED "$today"
