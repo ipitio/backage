@@ -1,7 +1,6 @@
 6761/benjaminperdomo
 6764/Antony256
 6769/efficiency20
-6770/evanp
 6794/Intellicode
 6790/jchatard
 6792/thrawn
@@ -41,7 +40,6 @@
 6847/alebedev
 6765/rferolino
 6826/infinityb
-6833/bspaulding
 6862/npeeples
 6855/3n
 6795/devilmonastery
@@ -69,7 +67,6 @@
 6916/pirj
 6889/nwind
 6931/darkley
-6967/nazar
 6905/mitchwd
 6881/eron
 6885/davidreuss
@@ -92,7 +89,6 @@
 6949/kinda
 6877/quest
 6904/vampirical
-6909/aaparmeggiani
 6900/dancode
 6915/fjl
 6896/robolson
