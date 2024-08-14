@@ -44,6 +44,7 @@ page_package() {
     packages_lines=${packages_lines//href=/\\nhref=}
     packages_lines=${packages_lines//\\n/$'\n'} # replace \n with newline
     run_parallel save_package "$packages_lines"
+    (($? != 3)) || return 3
     echo "Started $owner page $1"
     # if there are fewer than 100 lines, break
     [ "$(wc -l <<<"$packages_lines")" -eq 100 ] || return 2
@@ -116,6 +117,7 @@ update_package() {
         jq -e . <<<"$versions_json" &>/dev/null || versions_json="[{\"id\":\"-1\",\"name\":\"latest\",\"tags\":\"\"}]"
         del_BKG BKG_VERSIONS_JSON_"${owner}_${package}"
         run_parallel update_version "$(jq -r '.[] | @base64' <<<"$versions_json")"
+        (($? != 3)) || return 3
         ((page != 1)) || version_newest_id=$(jq -r '.[].id' <<<"$versions_json" | sort -n | tail -n1)
         ((pages_left != 2)) || break
     done

@@ -60,7 +60,8 @@ page_version() {
     jq -e '.[].name' <<<"$versions_json_more" &>/dev/null || return 2
     local version_lines
     version_lines=$(jq -r '.[] | @base64' <<<"$versions_json_more")
-    run_parallel save_version "$version_lines" || return $?
+    run_parallel save_version "$version_lines"
+    (($? != 3)) || return 3
     echo "Started $owner/$package page $1"
     # if there are fewer than 100 lines, break
     [ "$(wc -l <<<"$version_lines")" -eq 100 ] || return 2
