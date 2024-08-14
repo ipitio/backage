@@ -109,7 +109,7 @@ check_limit() {
     local minute_calls
     local sec_limit_diff
     local min_passed
-    local max_len=${1:-14400}
+    local max_len=${1:-18000}
     total_calls=$(get_BKG BKG_CALLS_TO_API)
     rate_limit_end=$(date -u +%s)
     script_limit_diff=$((rate_limit_end - $(get_BKG BKG_SCRIPT_START)))
