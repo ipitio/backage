@@ -23,7 +23,6 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           remove-tags: true
-          keep-count: 1
           keep-old-minor-releases: true
           semver-loose: true
 
