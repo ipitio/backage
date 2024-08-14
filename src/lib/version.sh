@@ -12,8 +12,8 @@ save_version() {
     local versions_json
     id=$(_jq "$1" '.id')
 
-    if [ "$owner" != "arevindh" ] && [ -f "${table_version_name}"_already_updated ]; then
-        grep -q "$id" "${table_version_name}"_already_updated && return || :
+    if [ -f "${table_version_name}"_already_updated ] && grep -q "$id" "${table_version_name}"_already_updated; then
+        [ "$owner" = "arevindh" ] || return
     fi
 
     name=$(_jq "$1" '.name')

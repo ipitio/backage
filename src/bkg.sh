@@ -47,8 +47,8 @@ main() {
         date text not null,
         primary key (owner_id, package, date)
     ); pragma auto_vacuum = full;"
-    sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, repo, package from '$BKG_INDEX_TBL_PKG' where date >= '$BKG_BATCH_FIRST_STARTED' group by owner_id, owner, repo, package;" | sort -u >packages_already_updated
-    sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, repo, package from '$BKG_INDEX_TBL_PKG' group by owner_id, owner, repo, package;" | sort -u >packages_all
+    sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, repo, package from '$BKG_INDEX_TBL_PKG' where date >= '$BKG_BATCH_FIRST_STARTED';" | sort -u >packages_already_updated
+    sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, repo, package from '$BKG_INDEX_TBL_PKG';" | sort -u >packages_all
 
     # if this is a scheduled update, scrape all owners
     if [ "$mode" -eq 0 ]; then
@@ -102,12 +102,7 @@ main() {
 
     [ -d "$BKG_INDEX_DIR" ] || mkdir "$BKG_INDEX_DIR"
     get_BKG_set BKG_OWNERS_QUEUE | env_parallel --lb update_owner
-
-    if [ "$mode" -eq 0 ]; then
-        sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, repo, package from '$BKG_INDEX_TBL_PKG' where date >= '$BKG_BATCH_FIRST_STARTED' group by owner_id, owner, repo, package;" | sort -u >packages_already_updated
-        set_BKG BKG_LEFT "$(comm -13 packages_already_updated packages_all | wc -l)"
-    fi
-
+    set_BKG BKG_LEFT "$(comm -13 packages_already_updated packages_all | wc -l)"
     echo "Compressing the database..."
     sqlite3 "$BKG_INDEX_DB" ".dump" | zstd -22 --ultra --long -T0 -o "$BKG_INDEX_SQL".new.zst
 

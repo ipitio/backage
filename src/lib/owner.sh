@@ -81,7 +81,7 @@ page_owner() {
     jq -e '.[].login' <<<"$owners_more" &>/dev/null || return 2
     local owners_lines
     owners_lines=$(jq -r '.[] | @base64' <<<"$owners_more")
-    run_parallel request_owner "$owners_lines" || return $?
+    run_parallel request_owner "$owners_lines"
     echo "Checked owners page $1"
     # if there are fewer than 100 lines, break
     [ "$(wc -l <<<"$owners_lines")" -eq 100 ] || return 2
@@ -105,7 +105,7 @@ update_owner() {
         page_package "$page"
         pages_left=$?
         ((pages_left != 3)) || return 3
-        run_parallel update_package "$(get_BKG_set BKG_PACKAGES_"$owner")" || return $?
+        run_parallel update_package "$(get_BKG_set BKG_PACKAGES_"$owner")"
         del_BKG BKG_PACKAGES_"$owner"
         ((pages_left != 2)) || break
     done

@@ -18,8 +18,8 @@ save_package() {
     repo=${repo%/}
     [ -n "$repo" ] || return
 
-    if [ "$owner" != "arevindh" ] && [ -f packages_already_updated ]; then
-        grep -q "$owner_id|$owner|$repo|$package_new" packages_already_updated && return || :
+    if [ -f packages_already_updated ] && grep -q "$owner_id|$owner|$repo|$package_new" packages_already_updated; then
+        [ "$owner" = "arevindh" ] || return
     fi
 
     ! set_BKG_set BKG_PACKAGES_"$owner" "$package_type/$repo/$package_new" || echo "Queued $owner/$package_new"
@@ -43,7 +43,7 @@ page_package() {
 
     packages_lines=${packages_lines//href=/\\nhref=}
     packages_lines=${packages_lines//\\n/$'\n'} # replace \n with newline
-    run_parallel save_package "$packages_lines" || return $?
+    run_parallel save_package "$packages_lines"
     echo "Started $owner page $1"
     # if there are fewer than 100 lines, break
     [ "$(wc -l <<<"$packages_lines")" -eq 100 ] || return 2
@@ -103,7 +103,7 @@ update_package() {
         tags text,
         primary key (id, date)
     );"
-    [ "$owner" = "arevindh" ] && echo >"${table_version_name}"_already_updated || sqlite3 "$BKG_INDEX_DB" "select distinct id from '$table_version_name' where date >= '$BKG_BATCH_FIRST_STARTED';" | sort -u >"${table_version_name}"_already_updated
+    sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name' where date >= '$BKG_BATCH_FIRST_STARTED';" | sort -u >"${table_version_name}"_already_updated
 
     for page in $(seq 1 100); do
         local pages_left=0
@@ -115,7 +115,7 @@ update_package() {
         versions_json=$(get_BKG BKG_VERSIONS_JSON_"${owner}_${package}")
         jq -e . <<<"$versions_json" &>/dev/null || versions_json="[{\"id\":\"-1\",\"name\":\"latest\",\"tags\":\"\"}]"
         del_BKG BKG_VERSIONS_JSON_"${owner}_${package}"
-        run_parallel update_version "$(jq -r '.[] | @base64' <<<"$versions_json")" || return $?
+        run_parallel update_version "$(jq -r '.[] | @base64' <<<"$versions_json")"
         ((page != 1)) || version_newest_id=$(jq -r '.[].id' <<<"$versions_json" | sort -n | tail -n1)
         ((pages_left != 2)) || break
     done
