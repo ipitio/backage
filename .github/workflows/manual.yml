@@ -30,6 +30,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Fetch database
+        continue-on-error: true
         uses: robinraju/release-downloader@v1
         with:
           latest: true
