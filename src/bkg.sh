@@ -67,24 +67,24 @@ main() {
         fi
 
         awk -F'|' '{print $1"/"$2}' <packages_all | sort -uR | env_parallel --lb save_owner
+
+        # add more owners
+        if [ -s "$BKG_OWNERS" ]; then
+            sed -i '/^\s*$/d' "$BKG_OWNERS"
+            echo >>"$BKG_OWNERS"
+            awk 'NF' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
+            sed -i 's/^[[:space:]]*//;s/[[:space:]]*$//' "$BKG_OWNERS"
+            find "$BKG_INDEX_DIR" -mindepth 1 -maxdepth 1 -type d -exec basename {} \; | sort -u | awk '{print "0/"$1}' >>"$BKG_OWNERS"
+            awk '!seen[$0]++' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
+            # remove lines from $BKG_OWNERS that are in $packages_all
+            echo "$(
+                awk -F'|' '{print $1"/"$2}' <packages_all
+                awk -F'|' '{print $2}' <packages_all
+            )" | sort -u | parallel "sed -i '\,^{}$,d' $BKG_OWNERS"
+            sort -uR <"$BKG_OWNERS" | env_parallel --lb save_owner
+        fi
     elif [ "$mode" -eq 1 ]; then
         save_owner arevindh
-    fi
-
-    # add more owners
-    if [ -s "$BKG_OWNERS" ]; then
-        sed -i '/^\s*$/d' "$BKG_OWNERS"
-        echo >>"$BKG_OWNERS"
-        awk 'NF' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
-        sed -i 's/^[[:space:]]*//;s/[[:space:]]*$//' "$BKG_OWNERS"
-        find "$BKG_INDEX_DIR" -mindepth 1 -maxdepth 1 -type d -exec basename {} \; | sort -u | awk '{print "0/"$1}' >>"$BKG_OWNERS"
-        awk '!seen[$0]++' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
-        # remove lines from $BKG_OWNERS that are in $packages_all
-        echo "$(
-            awk -F'|' '{print $1"/"$2}' <packages_all
-            awk -F'|' '{print $2}' <packages_all
-        )" | sort -u | parallel "sed -i '\,^{}$,d' $BKG_OWNERS"
-        sort -uR <"$BKG_OWNERS" | env_parallel --lb save_owner
     fi
 
     BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
