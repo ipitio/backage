@@ -84,11 +84,12 @@ set_BKG_set() {
     local code=0
     local tmp_file
     tmp_file=$(mktemp)
-    get_BKG_set "$1" | awk '!seen[$0]++' | perl -pe 's/\n/\\n/g' >"$tmp_file"
+    get_BKG_set "$1" | sort -u | perl -pe 's/\n/\\n/g' >"$tmp_file"
     echo "list before: $(cat "$tmp_file")"
     grep -q "$2" "$tmp_file" && code=1 || echo -e "$2" >>"$tmp_file"
     set_BKG "$1" "$(perl -pe 's/\\n/\n/g' <"$tmp_file" | perl -pe 's/\n/\\n/g' | perl -pe 's/^\\n//')"
     echo "list after: $(cat "$tmp_file")"
+    rm -f "$tmp_file"
     return $code
 }
 

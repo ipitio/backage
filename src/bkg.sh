@@ -75,7 +75,7 @@ main() {
             awk 'NF' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
             sed -i 's/^[[:space:]]*//;s/[[:space:]]*$//' "$BKG_OWNERS"
             find "$BKG_INDEX_DIR" -mindepth 1 -maxdepth 1 -type d -exec basename {} \; | sort -u | awk '{print "0/"$1}' >>"$BKG_OWNERS"
-            awk '!seen[$0]++' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
+            sort -u <"$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
             # remove lines from $BKG_OWNERS that are in $packages_all
             echo "$(
                 awk -F'|' '{print $1"/"$2}' <packages_all
