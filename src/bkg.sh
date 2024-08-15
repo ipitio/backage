@@ -55,16 +55,18 @@ main() {
         comm -13 packages_already_updated packages_all >packages_to_update
         echo "all: $(wc -l <packages_all)"
         echo "done: $(wc -l <packages_already_updated)"
-        echo "left: $(wc -l <packages_to_update)"
-        awk -F'|' '{print $1"/"$2}' <packages_to_update | sort -uR | env_parallel --lb save_owner
+        local pkg_left
+        pkg_left=$(wc -l <packages_to_update)
+        echo "left: $pkg_left"
 
-        if [ -z "$(get_BKG_set BKG_OWNERS_QUEUE)" ] || [[ "$(get_BKG BKG_LEFT)" == "$(wc -l <packages_to_update)" ]]; then
+        if [[ "$pkg_left" == "0" || "$(get_BKG BKG_LEFT)" == "$pkg_left" ]]; then
             set_BKG BKG_BATCH_FIRST_STARTED "$today"
             [ -s "$BKG_OWNERS" ] || seq 1 10 | env_parallel --lb --halt soon,fail=1 page_owner
-            awk -F'|' '{print $1"/"$2}' <packages_all | sort -uR | env_parallel --lb save_owner
         else
             [ -n "$(get_BKG BKG_BATCH_FIRST_STARTED)" ] || set_BKG BKG_BATCH_FIRST_STARTED "$today"
         fi
+
+        awk -F'|' '{print $1"/"$2}' <packages_all | sort -uR | env_parallel --lb save_owner
     elif [ "$mode" -eq 1 ]; then
         save_owner arevindh
     fi
