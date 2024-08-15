@@ -77,7 +77,6 @@ set_BKG() {
 }
 
 get_BKG_set() {
-    while [ -f "$BKG_ENV.$1.lock" ]; do :; done
     get_BKG "$1" | perl -pe 's/^\\n//' | perl -pe 's/\\n$//' | perl -pe 's/\\n\\n/\\n/' | perl -pe 's/\\n/\n/g'
 }
 
