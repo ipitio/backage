@@ -76,6 +76,7 @@ update_package() {
         return
     fi
 
+    echo "Checked $owner/$package"
     lower_package=$(perl -pe 's/%([0-9A-Fa-f]{2})/chr(hex($1))/eg' <<<"${package//%/%25}" | tr '[:upper:]' '[:lower:]')
     # scrape the package page for the total downloads
     [ -d "$BKG_INDEX_DIR/$owner/$repo" ] || mkdir "$BKG_INDEX_DIR/$owner/$repo"
