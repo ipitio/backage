@@ -106,7 +106,7 @@ update_owner() {
         page_package "$page"
         pages_left=$?
         ((pages_left != 3)) || return 3
-        echo "$owner packages: $(get_BKG BKG_PACKAGES_"$owner")"
+        echo "$owner packages: $(get_BKG_set BKG_PACKAGES_"$owner")"
         run_parallel update_package "$(get_BKG_set BKG_PACKAGES_"$owner")"
         (($? != 3)) || return 3
         del_BKG BKG_PACKAGES_"$owner"
