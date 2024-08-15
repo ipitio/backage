@@ -77,19 +77,19 @@ set_BKG() {
 }
 
 get_BKG_set() {
+    while [ -f "$BKG_ENV.$1.lock" ]; do :; done
     get_BKG "$1" | perl -pe 's/^\\n//' | perl -pe 's/\\n$//' | perl -pe 's/\\n\\n/\\n/' | perl -pe 's/\\n/\n/g'
 }
 
 set_BKG_set() {
+    local list
     local code=0
-    local tmp_file
-    tmp_file=$(mktemp)
-    get_BKG_set "$1" | sort -u | perl -pe 's/\n/\\n/g' >"$tmp_file"
-    echo "list before: $(cat "$tmp_file")"
-    grep -q "$2" "$tmp_file" && code=1 || echo -e "$2" >>"$tmp_file"
-    set_BKG "$1" "$(perl -pe 's/\\n/\n/g' <"$tmp_file" | perl -pe 's/\n/\\n/g' | perl -pe 's/^\\n//')"
-    echo "list after: $(cat "$tmp_file")"
-    rm -f "$tmp_file"
+    while ! ln "$BKG_ENV" "$BKG_ENV.$1.lock" 2>/dev/null; do :; done
+    list=$(get_BKG_set "$1" | awk '!seen[$0]++' | perl -pe 's/\n/\\n/g')
+    # shellcheck disable=SC2076
+    [[ "$list" =~ "$2" ]] && code=1 || list="${list:+$list\n}$2"
+    set_BKG "$1" "$(echo "$list" | perl -pe 's/\\n/\n/g' | perl -pe 's/\n/\\n/g' | perl -pe 's/^\\n//')"
+    rm -f "$BKG_ENV.$1.lock"
     return $code
 }
 
