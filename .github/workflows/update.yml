@@ -2,7 +2,7 @@ name: update
 
 on:
   schedule:
-    - cron: "13 * * * *"
+    - cron: "20 * * * *"
 
 concurrency:
   group: ${{ github.ref }}
