@@ -18,7 +18,7 @@ save_package() {
     repo=${repo%/}
     [ -n "$repo" ] || return
 
-    if [ -f packages_already_updated ] && grep -q "$id" packages_already_updated && [ -d "$BKG_INDEX_DIR/$owner/$repo/$package.d" ]; then
+    if [ -f packages_already_updated ] && grep -q "$id" packages_already_updated && [[ -n "$(find "$BKG_INDEX_DIR/$owner/$repo/$package_new.d" -type f -name "*.json" 2>/dev/null)" ]]; then
         [[ "$owner" == "arevindh" && "$(get_BKG BKG_AUTO)" -eq 1 ]] || return
     fi
 
@@ -138,6 +138,7 @@ update_package() {
     raw_downloads=$(sqlite3 "$BKG_INDEX_DB" "select downloads from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and package='$package' and date = (select date from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and package='$package' order by date desc limit 1);")
     [[ "$summed_raw_downloads" =~ ^[0-9]+$ ]] && ((summed_raw_downloads > raw_downloads)) && raw_downloads=$summed_raw_downloads || :
     size=$(sqlite3 "$BKG_INDEX_DB" "select size from '$table_version_name' where id='$(sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name' order by id desc limit 1;")' order by date desc limit 1;")
+    [[ "$size" =~ ^[0-9]+$ ]] || size=-1
     version_count=$(sqlite3 "$BKG_INDEX_DB" "select count(distinct id) from '$table_version_name' where id regexp '^[0-9]+$';")
     version_with_tag_count=$(sqlite3 "$BKG_INDEX_DB" "select count(distinct id) from '$table_version_name' where id regexp '^[0-9]+$' and tags != '' and tags is not null;")
     ((version_with_tag_count <= 0)) || latest_version=$(sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name' where id regexp '^[0-9]+$' and tags != '' and tags is not null order by id desc limit 1;")

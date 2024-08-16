@@ -34,6 +34,7 @@ save_version() {
 }
 
 check_version() {
+    check_limit && [ -n "$1" ] || return
     grep -q "$1" <<<"$version_ids" || return 3
 }
 
@@ -127,27 +128,39 @@ update_version() {
 refresh_version() {
     [ -n "$1" ] || return
     local version_id
+    local version_name
+    local version_size
+    local version_dl
+    local version_dl_month
+    local version_dl_week
+    local version_dl_day
     local version_tags
     version_id=$(_jq "$1" '.id')
-    [ -n "$version_id" ] || return
+    version_name=$(_jq "$1" '.name')
+    version_size=$(_jq "$1" '.size')
+    version_dl=$(_jq "$1" '.downloads')
+    version_dl_month=$(_jq "$1" '.downloads_month')
+    version_dl_week=$(_jq "$1" '.downloads_week')
+    version_dl_day=$(_jq "$1" '.downloads_day')
+    [[ -n "$version_id" && -n "$version_name" && -n "$version_size" && -n "$version_dl" && -n "$version_dl_month" && -n "$version_dl_week" && -n "$version_dl_day" ]] || return
     version_tags=$(_jq "$1" '.tags')
 
     echo "{
         \"id\": $version_id,
-        \"name\": \"$(_jq "$1" '.name')\",
+        \"name\": \"$version_name\",
         \"date\": \"$(date -u +%Y-%m-%d)\",
         \"newest\": false,
         \"latest\": false,
-        \"size\": \"$(numfmt_size <<<"$(_jq "$1" '.size')")\",
-        \"downloads\": \"$(numfmt <<<"$(_jq "$1" '.downloads')")\",
-        \"downloads_month\": \"$(numfmt <<<"$(_jq "$1" '.downloads_month')")\",
-        \"downloads_week\": \"$(numfmt <<<"$(_jq "$1" '.downloads_week')")\",
-        \"downloads_day\": \"$(numfmt <<<"$(_jq "$1" '.downloads_day')")\",
-        \"raw_size\": $(_jq "$1" '.size'),
-        \"raw_downloads\": $(_jq "$1" '.downloads'),
-        \"raw_downloads_month\": $(_jq "$1" '.downloads_month'),
-        \"raw_downloads_week\": $(_jq "$1" '.downloads_week'),
-        \"raw_downloads_day\": $(_jq "$1" '.downloads_day'),
+        \"size\": \"$(numfmt_size <<<"$version_size")\",
+        \"downloads\": \"$(numfmt <<<"$version_dl")\",
+        \"downloads_month\": \"$(numfmt <<<"$version_dl_month")\",
+        \"downloads_week\": \"$(numfmt <<<"$version_dl_week")\",
+        \"downloads_day\": \"$(numfmt <<<"$version_dl_day")\",
+        \"raw_size\": $version_size,
+        \"raw_downloads\": $version_dl,
+        \"raw_downloads_month\": $version_dl_month,
+        \"raw_downloads_week\": $version_dl_week,
+        \"raw_downloads_day\": $version_dl_day,
         \"tags\": [\"${version_tags//,/\",\"}\"]
     }" | tr -d '\n' | jq -c . >"$BKG_INDEX_DIR/$owner/$repo/$package.d/$version_id.json"
 }
