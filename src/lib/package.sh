@@ -17,6 +17,11 @@ save_package() {
     package_type=${package_type%/}
     repo=${repo%/}
     [ -n "$repo" ] || return
+
+    if [ -f packages_already_updated ] && grep -q "$id" packages_already_updated && [ -d "$BKG_INDEX_DIR/$owner/$repo/$package.d" ]; then
+        [[ "$owner" == "arevindh" && "$(get_BKG BKG_AUTO)" -eq 1 ]] || return
+    fi
+
     ! set_BKG_set BKG_PACKAGES_"$owner" "$package_type/$repo/$package_new" || echo "Queued $owner/$package_new"
 }
 
@@ -24,7 +29,6 @@ page_package() {
     check_limit || return $?
     [ -n "$1" ] || return
     local packages_lines
-    export pkg_html
     echo "Starting $owner page $1..."
     [ "$owner_type" = "users" ] && pkg_html=$(curl "https://github.com/$owner?tab=packages&visibility=public&&per_page=100&page=$1") || pkg_html=$(curl "https://github.com/$owner_type/$owner/packages?visibility=public&per_page=100&page=$1")
     (($? != 3)) || return 3

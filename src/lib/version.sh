@@ -13,7 +13,7 @@ save_version() {
     id=$(_jq "$1" '.id')
 
     if [ -f "${table_version_name}"_already_updated ] && grep -q "$id" "${table_version_name}"_already_updated; then
-        [[ "$owner" == "arevindh" && "$(get_BKG BKG_AUTO)" -eq 1 ]]
+        [[ "$owner" == "arevindh" && "$(get_BKG BKG_AUTO)" -eq 1 ]] || return
     fi
 
     name=$(_jq "$1" '.name')
