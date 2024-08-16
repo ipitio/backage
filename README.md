@@ -97,14 +97,6 @@ $.version[?(@.latest == true)]
     .tags[?(@ != "latest")]
 ```
 
-Or to get the number of downloads in the last month for a version by name from a certain date:
-
-```js
-$.version[?(@.name == "<VERSION>"
-         && @.date == "<YYYY-MM-DD>"
-)].downloads_month
-```
-
 <details>
 
 <summary>Properties</summary>
