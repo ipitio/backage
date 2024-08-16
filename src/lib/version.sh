@@ -115,24 +115,35 @@ update_version() {
         : # TODO: get size for other package types
     fi
 
-    echo "{
-        \"id\": $version_id,
-        \"name\": \"$version_name\",
-        \"date\": \"$today\",
-        \"newest\": false,
-        \"latest\": false,
-        \"size\": \"$(numfmt_size <<<"$version_size")\",
-        \"downloads\": \"$(numfmt <<<"$version_raw_downloads")\",
-        \"downloads_month\": \"$(numfmt <<<"$version_raw_downloads_month")\",
-        \"downloads_week\": \"$(numfmt <<<"$version_raw_downloads_week")\",
-        \"downloads_day\": \"$(numfmt <<<"$version_raw_downloads_day")\",
-        \"raw_size\": $version_size,
-        \"raw_downloads\": $version_raw_downloads,
-        \"raw_downloads_month\": $version_raw_downloads_month,
-        \"raw_downloads_week\": $version_raw_downloads_week,
-        \"raw_downloads_day\": $version_raw_downloads_day,
-        \"tags\": [\"${version_tags//,/\",\"}\"]
-    }" | tr -d '\n' | jq -c . >"$BKG_INDEX_DIR/$owner/$repo/$package.d/$version_id.json"
     sqlite3 "$BKG_INDEX_DB" "insert or replace into '$table_version_name' (id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags) values ('$version_id', '$version_name', '$version_size', '$version_raw_downloads', '$version_raw_downloads_month', '$version_raw_downloads_week', '$version_raw_downloads_day', '$today', '$version_tags');"
     echo "Updated $owner/$package/$version_id"
+}
+
+refresh_version() {
+    check_limit || return $?
+    [ -n "$1" ] || return
+    local version_id
+    local version_tags
+    version_id=$(_jq "$1" '.id')
+    [ -n "$version_id" ] || return
+    version_tags=$(_jq "$1" '.tags')
+
+    echo "{
+        \"id\": $version_id,
+        \"name\": \"$(_jq "$1" '.name')\",
+        \"date\": \"$(date -u +%Y-%m-%d)\",
+        \"newest\": false,
+        \"latest\": false,
+        \"size\": \"$(numfmt_size <<<"$(_jq "$1" '.size')")\",
+        \"downloads\": \"$(numfmt <<<"$(_jq "$1" '.downloads')")\",
+        \"downloads_month\": \"$(numfmt <<<"$(_jq "$1" '.downloads_month')")\",
+        \"downloads_week\": \"$(numfmt <<<"$(_jq "$1" '.downloads_week')")\",
+        \"downloads_day\": \"$(numfmt <<<"$(_jq "$1" '.downloads_day')")\",
+        \"raw_size\": $(_jq "$1" '.size'),
+        \"raw_downloads\": $(_jq "$1" '.downloads'),
+        \"raw_downloads_month\": $(_jq "$1" '.downloads_month'),
+        \"raw_downloads_week\": $(_jq "$1" '.downloads_week'),
+        \"raw_downloads_day\": $(_jq "$1" '.downloads_day'),
+        \"tags\": [\"${version_tags//,/\",\"}\"]
+    }" | tr -d '\n' | jq -c . >"$BKG_INDEX_DIR/$owner/$repo/$package.d/$version_id.json"
 }

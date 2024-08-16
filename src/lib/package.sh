@@ -133,7 +133,9 @@ update_package() {
     size=$(sqlite3 "$BKG_INDEX_DB" "select size from '$table_version_name' where id='$(sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name' order by id desc limit 1;")' order by date desc limit 1;")
     version_count=$(sqlite3 "$BKG_INDEX_DB" "select count(distinct id) from '$table_version_name' where id regexp '^[0-9]+$';")
     version_with_tag_count=$(sqlite3 "$BKG_INDEX_DB" "select count(distinct id) from '$table_version_name' where id regexp '^[0-9]+$' and tags != '' and tags is not null;")
-    ((version_with_tag_count <= 0)) || latest_version=$(sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name' where id regexp '^[0-9]+$' and tags != '' and tags is not null order by date, id desc limit 1;")
+    ((version_with_tag_count <= 0)) || latest_version=$(sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name' where id regexp '^[0-9]+$' and tags != '' and tags is not null order by id desc limit 1;")
+    run_parallel refresh_version "$(sqlite3 -json "$BKG_INDEX_DB" "select * from '$table_version_name' where date >= '$BKG_BATCH_FIRST_STARTED' group by id;" | jq -r '.[] | @base64')"
+
     echo "{
         \"owner_type\": \"$owner_type\",
         \"package_type\": \"$package_type\",
@@ -186,6 +188,5 @@ update_package() {
     done
 
     rm -f "${table_version_name}"_already_updated "${table_version_name}"_to_update all_"${table_version_name}"
-    rm -f "$BKG_INDEX_DIR/$owner/$repo/$package.d/"*.json
     echo "Updated $owner/$package"
 }
