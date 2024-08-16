@@ -1,6 +1,3 @@
 6873/fujin
-0/djtal
-0/grundprinzip
-0/hoverbird
-0/mbialon
-0/ocean
+0/cdb
+0/djspiewak
