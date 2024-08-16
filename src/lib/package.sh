@@ -17,11 +17,6 @@ save_package() {
     package_type=${package_type%/}
     repo=${repo%/}
     [ -n "$repo" ] || return
-
-    if [ -f packages_already_updated ] && grep -q "$owner_id|$owner|$repo|$package_new" packages_already_updated; then
-        [[ "$owner" == "arevindh" && "$(get_BKG BKG_AUTO)" -eq 1 ]] || return
-    fi
-
     ! set_BKG_set BKG_PACKAGES_"$owner" "$package_type/$repo/$package_new" || echo "Queued $owner/$package_new"
 }
 
@@ -67,6 +62,7 @@ update_package() {
     local latest_version=-1
     export lower_owner
     export lower_package
+    export version_ids
     package_type=$(cut -d'/' -f1 <<<"$1")
     repo=$(cut -d'/' -f2 <<<"$1")
     package=$(cut -d'/' -f3 <<<"$1")
@@ -106,6 +102,7 @@ update_package() {
         primary key (id, date)
     );"
     sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name' where date >= '$BKG_BATCH_FIRST_STARTED';" | sort -u >"${table_version_name}"_already_updated
+    version_ids=$(sqlite3 "$BKG_INDEX_DB" "select distinct id from '$table_version_name';")
 
     for page in $(seq 1 100); do
         local pages_left=0

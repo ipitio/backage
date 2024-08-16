@@ -33,12 +33,17 @@ save_version() {
     set_BKG BKG_VERSIONS_JSON_"${owner}_${package}" "$versions_json"
 }
 
+check_version() {
+    grep -q "$1" <<<"$version_ids" || return 3
+}
+
 page_version() {
     check_limit || return $?
     [ -n "$1" ] || return
     local versions_json_more="[]"
     local calls_to_api
     local min_calls_to_api
+    local version_lines
 
     if [ -n "$GITHUB_TOKEN" ]; then
         echo "Starting $owner/$package page $1..."
@@ -58,7 +63,7 @@ page_version() {
 
     # if versions doesn't have .name, break
     jq -e '.[].name' <<<"$versions_json_more" &>/dev/null || return 2
-    local version_lines
+    run_parallel check_version "$(jq -r '.[] | .id' <<<"$versions_json_more")" || return 2
     version_lines=$(jq -r '.[] | @base64' <<<"$versions_json_more")
     run_parallel save_version "$version_lines"
     (($? != 3)) || return 3
@@ -120,7 +125,6 @@ update_version() {
 }
 
 refresh_version() {
-    check_limit || return $?
     [ -n "$1" ] || return
     local version_id
     local version_tags
