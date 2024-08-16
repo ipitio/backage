@@ -13,7 +13,7 @@ save_package() {
     package_new=${package_new%/}
     [ -n "$package_new" ] || return
     package_type=$(cut -d'/' -f5 <<<"$1")
-    repo=$(grep -zoP '(?<=href="/'"$owner_type"'/'"$owner"'/packages/'"$package_type"'/package/'"$package_new"'")(.|\n)*?href="/'"$owner"'/[^"]+"' <<<"$html" | tr -d '\0' | grep -oP 'href="/'"$owner"'/[^"]+' | cut -d'/' -f3)
+    repo=$(grep -zoP '(?<=href="/'"$owner_type"'/'"$owner"'/packages/'"$package_type"'/package/'"$package_new"'")(.|\n)*?href="/'"$owner"'/[^"]+"' <<<"$pkg_html" | tr -d '\0' | grep -oP 'href="/'"$owner"'/[^"]+' | cut -d'/' -f3)
     package_type=${package_type%/}
     repo=${repo%/}
     [ -n "$repo" ] || return
@@ -24,11 +24,11 @@ page_package() {
     check_limit || return $?
     [ -n "$1" ] || return
     local packages_lines
-    local html
+    export pkg_html
     echo "Starting $owner page $1..."
-    [ "$owner_type" = "users" ] && html=$(curl "https://github.com/$owner?tab=packages&visibility=public&&per_page=100&page=$1") || html=$(curl "https://github.com/$owner_type/$owner/packages?visibility=public&per_page=100&page=$1")
+    [ "$owner_type" = "users" ] && pkg_html=$(curl "https://github.com/$owner?tab=packages&visibility=public&&per_page=100&page=$1") || pkg_html=$(curl "https://github.com/$owner_type/$owner/packages?visibility=public&per_page=100&page=$1")
     (($? != 3)) || return 3
-    packages_lines=$(grep -zoP 'href="/'"$owner_type"'/'"$owner"'/packages/[^/]+/package/[^"]+"' <<<"$html" | tr -d '\0')
+    packages_lines=$(grep -zoP 'href="/'"$owner_type"'/'"$owner"'/packages/[^/]+/package/[^"]+"' <<<"$pkg_html" | tr -d '\0')
 
     if [ -z "$packages_lines" ]; then
         sed -i '/^'"$owner"'$/d' "$BKG_OWNERS"
@@ -77,7 +77,6 @@ update_package() {
         return
     fi
 
-    echo "Checked $owner/$package"
     lower_package=$(perl -pe 's/%([0-9A-Fa-f]{2})/chr(hex($1))/eg' <<<"${package//%/%25}" | tr '[:upper:]' '[:lower:]')
     # scrape the package page for the total downloads
     [ -d "$BKG_INDEX_DIR/$owner/$repo" ] || mkdir "$BKG_INDEX_DIR/$owner/$repo"
@@ -85,43 +84,49 @@ update_package() {
     html=$(curl "https://github.com/$owner/$repo/pkgs/$package_type/$package")
     (($? != 3)) || return 3
     [ -n "$(grep -Pzo 'Total downloads' <<<"$html" | tr -d '\0')" ] || return
-    echo "Updating $owner/$package..."
-    raw_downloads=$(grep -Pzo 'Total downloads[^"]*"\d*' <<<"$html" | grep -Pzo '\d*$' | tr -d '\0') # https://stackoverflow.com/a/74214537
-    [[ "$raw_downloads" =~ ^[0-9]+$ ]] || raw_downloads=-1
-    table_version_name="${BKG_INDEX_TBL_VER}_${owner_type}_${package_type}_${owner}_${repo}_${package}"
-    sqlite3 "$BKG_INDEX_DB" "create table if not exists '$table_version_name' (
-        id text not null,
-        name text not null,
-        size integer not null,
-        downloads integer not null,
-        downloads_month integer not null,
-        downloads_week integer not null,
-        downloads_day integer not null,
-        date text not null,
-        tags text,
-        primary key (id, date)
-    );"
-    sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name' where date >= '$BKG_BATCH_FIRST_STARTED';" | sort -u >"${table_version_name}"_already_updated
-    version_ids=$(sqlite3 "$BKG_INDEX_DB" "select distinct id from '$table_version_name';")
 
-    for page in $(seq 1 100); do
-        local pages_left=0
-        set_BKG BKG_VERSIONS_JSON_"${owner}_${package}" "[]"
-        ((page != 1)) || run_parallel save_version "$(sqlite3 -json "$BKG_INDEX_DB" "select id, name, tags from '$table_version_name' group by id;" | jq -r '.[] | @base64')"
-        page_version "$page"
-        pages_left=$?
-        ((pages_left != 3)) || return 3
-        versions_json=$(get_BKG BKG_VERSIONS_JSON_"${owner}_${package}")
-        jq -e . <<<"$versions_json" &>/dev/null || versions_json="[{\"id\":\"-1\",\"name\":\"latest\",\"tags\":\"\"}]"
-        del_BKG BKG_VERSIONS_JSON_"${owner}_${package}"
-        run_parallel update_version "$(jq -r '.[] | @base64' <<<"$versions_json")"
-        (($? != 3)) || return 3
-        ((page != 1)) || version_newest_id=$(jq -r '.[].id' <<<"$versions_json" | sort -n | tail -n1)
-        ((pages_left != 2)) || break
-    done
+    if [ "$(get_BKG BKG_AUTO)" = "0" ] || [ "$owner" = "arevindh" ]; then
+        echo "Updating $owner/$package..."
+        raw_downloads=$(grep -Pzo 'Total downloads[^"]*"\d*' <<<"$html" | grep -Pzo '\d*$' | tr -d '\0') # https://stackoverflow.com/a/74214537
+        [[ "$raw_downloads" =~ ^[0-9]+$ ]] || raw_downloads=-1
+        table_version_name="${BKG_INDEX_TBL_VER}_${owner_type}_${package_type}_${owner}_${repo}_${package}"
+        sqlite3 "$BKG_INDEX_DB" "create table if not exists '$table_version_name' (
+            id text not null,
+            name text not null,
+            size integer not null,
+            downloads integer not null,
+            downloads_month integer not null,
+            downloads_week integer not null,
+            downloads_day integer not null,
+            date text not null,
+            tags text,
+            primary key (id, date)
+        );"
+        sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name' where date >= '$BKG_BATCH_FIRST_STARTED';" | sort -u >"${table_version_name}"_already_updated
+        version_ids=$(sqlite3 "$BKG_INDEX_DB" "select distinct id from '$table_version_name';")
+
+        for page in $(seq 1 100); do
+            local pages_left=0
+            set_BKG BKG_VERSIONS_JSON_"${owner}_${package}" "[]"
+            ((page != 1)) || run_parallel save_version "$(sqlite3 -json "$BKG_INDEX_DB" "select id, name, tags, max(date) from '$table_version_name' group by id;" | jq -r '.[] | @base64')"
+            page_version "$page"
+            pages_left=$?
+            ((pages_left != 3)) || return 3
+            versions_json=$(get_BKG BKG_VERSIONS_JSON_"${owner}_${package}")
+            jq -e . <<<"$versions_json" &>/dev/null || versions_json="[{\"id\":\"-1\",\"name\":\"latest\",\"tags\":\"\"}]"
+            del_BKG BKG_VERSIONS_JSON_"${owner}_${package}"
+            run_parallel update_version "$(jq -r '.[] | @base64' <<<"$versions_json")"
+            (($? != 3)) || return 3
+            ((page != 1)) || version_newest_id=$(jq -r '.[].id' <<<"$versions_json" | sort -n | tail -n1)
+            ((pages_left != 2)) || break
+        done
+
+        sqlite3 "$BKG_INDEX_DB" "insert or replace into '$BKG_INDEX_TBL_PKG' (owner_id, owner_type, package_type, owner, repo, package, downloads, downloads_month, downloads_week, downloads_day, size, date) values ('$owner_id', '$owner_type', '$package_type', '$owner', '$repo', '$package', '$raw_downloads', '$raw_downloads_month', '$raw_downloads_week', '$raw_downloads_day', '$size', '$BKG_BATCH_FIRST_STARTED');"
+        echo "Updated $owner/$package"
+    fi
 
     # calculate the overall downloads and size
-    raw_all=$(sqlite3 "$BKG_INDEX_DB" "select sum(downloads), sum(downloads_month), sum(downloads_week), sum(downloads_day) from '$table_version_name' where date='$(sqlite3 "$BKG_INDEX_DB" "select date from '$table_version_name' order by date desc limit 1;")';")
+    raw_all=$(sqlite3 "$BKG_INDEX_DB" "select sum(downloads), sum(downloads_month), sum(downloads_week), sum(downloads_day) from '$table_version_name' where date = (select date from '$table_version_name' order by date desc limit 1);")
     summed_raw_downloads=$(cut -d'|' -f1 <<<"$raw_all")
     raw_downloads_month=$(cut -d'|' -f2 <<<"$raw_all")
     raw_downloads_week=$(cut -d'|' -f3 <<<"$raw_all")
@@ -131,8 +136,7 @@ update_package() {
     version_count=$(sqlite3 "$BKG_INDEX_DB" "select count(distinct id) from '$table_version_name' where id regexp '^[0-9]+$';")
     version_with_tag_count=$(sqlite3 "$BKG_INDEX_DB" "select count(distinct id) from '$table_version_name' where id regexp '^[0-9]+$' and tags != '' and tags is not null;")
     ((version_with_tag_count <= 0)) || latest_version=$(sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name' where id regexp '^[0-9]+$' and tags != '' and tags is not null order by id desc limit 1;")
-    run_parallel refresh_version "$(sqlite3 -json "$BKG_INDEX_DB" "select * from '$table_version_name' where date >= '$BKG_BATCH_FIRST_STARTED' group by id;" | jq -r '.[] | @base64')"
-
+    run_parallel refresh_version "$(sqlite3 -json "$BKG_INDEX_DB" "select * from '$table_version_name';" | jq -r 'group_by(.id)[] | max_by(.date) | @base64')"
     echo "{
         \"owner_type\": \"$owner_type\",
         \"package_type\": \"$package_type\",
@@ -175,7 +179,6 @@ update_package() {
         }]")
     }" | tr -d '\n' | jq -c . >"$json_file".tmp
     jq -c --arg newest "$version_newest_id" --arg latest "$latest_version" '.version |= map(if .id == ($newest | tonumber) then .newest = true else . end | if .id == ($latest | tonumber) then .latest = true else . end)' "$json_file".tmp >"$json_file"
-    sqlite3 "$BKG_INDEX_DB" "insert or replace into '$BKG_INDEX_TBL_PKG' (owner_id, owner_type, package_type, owner, repo, package, downloads, downloads_month, downloads_week, downloads_day, size, date) values ('$owner_id', '$owner_type', '$package_type', '$owner', '$repo', '$package', '$raw_downloads', '$raw_downloads_month', '$raw_downloads_week', '$raw_downloads_day', '$size', '$BKG_BATCH_FIRST_STARTED');"
 
     # if the json is over 50MB, remove oldest versions from the packages with the most versions
     while [ "$(stat -c %s "$json_file")" -ge 50000000 ]; do
@@ -185,5 +188,5 @@ update_package() {
     done
 
     rm -f "${table_version_name}"_already_updated "${table_version_name}"_to_update all_"${table_version_name}"
-    echo "Updated $owner/$package"
+    echo "Refreshed $owner/$package"
 }

@@ -49,6 +49,7 @@ main() {
     ); pragma auto_vacuum = full;"
     sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, repo, package from '$BKG_INDEX_TBL_PKG' where date >= '$BKG_BATCH_FIRST_STARTED';" | sort -u >packages_already_updated
     sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, repo, package from '$BKG_INDEX_TBL_PKG';" | sort -u >packages_all
+    awk -F'|' '{print $1"/"$2}' <packages_all | sort -uR | env_parallel --lb save_owner
 
     # if this is a scheduled update, scrape all owners
     if [ "$mode" -eq 0 ]; then
@@ -66,8 +67,6 @@ main() {
             [ -n "$(get_BKG BKG_BATCH_FIRST_STARTED)" ] || set_BKG BKG_BATCH_FIRST_STARTED "$today"
         fi
 
-        awk -F'|' '{print $1"/"$2}' <packages_all | sort -uR | env_parallel --lb save_owner
-
         # add more owners
         if [ -s "$BKG_OWNERS" ]; then
             sed -i '/^\s*$/d' "$BKG_OWNERS"
@@ -83,8 +82,6 @@ main() {
             )" | sort -u | parallel "sed -i '\,^{}$,d' $BKG_OWNERS"
             sort -uR <"$BKG_OWNERS" | env_parallel --lb save_owner
         fi
-    elif [ "$mode" -eq 1 ]; then
-        save_owner arevindh
     fi
 
     BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
