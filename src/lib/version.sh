@@ -162,5 +162,5 @@ refresh_version() {
         \"raw_downloads_week\": $version_dl_week,
         \"raw_downloads_day\": $version_dl_day,
         \"tags\": [\"${version_tags//,/\",\"}\"]
-    }" | tr -d '\n' | jq -c . >"$BKG_INDEX_DIR/$owner/$repo/$package.d/$version_id.json"
+    }" | tr -d '\n' | jq -c . >"$BKG_INDEX_DIR/$owner/$repo/$package.d/$version_id.json" || echo "Failed to refresh $owner/$repo/$package/$version_id"
 }

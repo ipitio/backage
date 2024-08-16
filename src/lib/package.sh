@@ -184,8 +184,9 @@ update_package() {
             \"raw_downloads_day\": $raw_downloads_day,
             \"tags\": [\"\"]
         }]")
-    }" | tr -d '\n' | jq -c . >"$json_file".tmp
-    jq -c --arg newest "$version_newest_id" --arg latest "$latest_version" '.version |= map(if .id == ($newest | tonumber) then .newest = true else . end | if .id == ($latest | tonumber) then .latest = true else . end)' "$json_file".tmp >"$json_file"
+    }" | tr -d '\n' | jq -c . >"$json_file".tmp || echo "Failed to update $owner/$package"
+    [ ! -f "$json_file".tmp ] || jq -c --arg newest "$version_newest_id" --arg latest "$latest_version" '.version |= map(if .id == ($newest | tonumber) then .newest = true else . end | if .id == ($latest | tonumber) then .latest = true else . end)' "$json_file".tmp >"$json_file"
+    [ ! -f "$json_file".tmp ] || mv "$json_file".tmp "$json_file"
 
     # if the json is over 50MB, remove oldest versions from the packages with the most versions
     while [ "$(stat -c %s "$json_file")" -ge 50000000 ]; do
