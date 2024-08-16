@@ -88,26 +88,27 @@ update_package() {
     html=$(curl "https://github.com/$owner/$repo/pkgs/$package_type/$package")
     (($? != 3)) || return 3
     [ -n "$(grep -Pzo 'Total downloads' <<<"$html" | tr -d '\0')" ] || return
-    echo "Updating $owner/$package..."
-    raw_downloads=$(grep -Pzo 'Total downloads[^"]*"\d*' <<<"$html" | grep -Pzo '\d*$' | tr -d '\0') # https://stackoverflow.com/a/74214537
-    [[ "$raw_downloads" =~ ^[0-9]+$ ]] || raw_downloads=-1
-    table_version_name="${BKG_INDEX_TBL_VER}_${owner_type}_${package_type}_${owner}_${repo}_${package}"
-    sqlite3 "$BKG_INDEX_DB" "create table if not exists '$table_version_name' (
-        id text not null,
-        name text not null,
-        size integer not null,
-        downloads integer not null,
-        downloads_month integer not null,
-        downloads_week integer not null,
-        downloads_day integer not null,
-        date text not null,
-        tags text,
-        primary key (id, date)
-    );"
-    sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name' where date >= '$BKG_BATCH_FIRST_STARTED';" | sort -u >"${table_version_name}"_already_updated
-    version_ids=$(sqlite3 "$BKG_INDEX_DB" "select distinct id from '$table_version_name';")
 
     if [ "$(get_BKG BKG_AUTO)" = "0" ] || [ "$owner" = "arevindh" ]; then
+        echo "Updating $owner/$package..."
+        raw_downloads=$(grep -Pzo 'Total downloads[^"]*"\d*' <<<"$html" | grep -Pzo '\d*$' | tr -d '\0') # https://stackoverflow.com/a/74214537
+        [[ "$raw_downloads" =~ ^[0-9]+$ ]] || raw_downloads=-1
+        table_version_name="${BKG_INDEX_TBL_VER}_${owner_type}_${package_type}_${owner}_${repo}_${package}"
+        sqlite3 "$BKG_INDEX_DB" "create table if not exists '$table_version_name' (
+            id text not null,
+            name text not null,
+            size integer not null,
+            downloads integer not null,
+            downloads_month integer not null,
+            downloads_week integer not null,
+            downloads_day integer not null,
+            date text not null,
+            tags text,
+            primary key (id, date)
+        );"
+        sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name' where date >= '$BKG_BATCH_FIRST_STARTED';" | sort -u >"${table_version_name}"_already_updated
+        version_ids=$(sqlite3 "$BKG_INDEX_DB" "select distinct id from '$table_version_name';")
+
         for page in $(seq 1 100); do
             local pages_left=0
             set_BKG BKG_VERSIONS_JSON_"${owner}_${package}" "[]"
@@ -134,6 +135,7 @@ update_package() {
     raw_downloads_month=$(cut -d'|' -f2 <<<"$raw_all")
     raw_downloads_week=$(cut -d'|' -f3 <<<"$raw_all")
     raw_downloads_day=$(cut -d'|' -f4 <<<"$raw_all")
+    raw_downloads=$(sqlite3 "$BKG_INDEX_DB" "select downloads from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and package='$package' and date = (select date from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and package='$package' order by date desc limit 1);")
     [[ "$summed_raw_downloads" =~ ^[0-9]+$ ]] && ((summed_raw_downloads > raw_downloads)) && raw_downloads=$summed_raw_downloads || :
     size=$(sqlite3 "$BKG_INDEX_DB" "select size from '$table_version_name' where id='$(sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name' order by id desc limit 1;")' order by date desc limit 1;")
     version_count=$(sqlite3 "$BKG_INDEX_DB" "select count(distinct id) from '$table_version_name' where id regexp '^[0-9]+$';")
