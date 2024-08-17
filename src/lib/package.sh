@@ -110,7 +110,6 @@ update_package() {
         jq -e . <<<"$versions_json" &>/dev/null || versions_json="[{\"id\":\"-1\",\"name\":\"latest\",\"tags\":\"\"}]"
         rm -f "$BKG_INDEX_DIR/$owner/$repo/$package".*.json
         versions_json=$(echo "$versions_json" | jq -c --argjson ids "$(jq -R . "${table_version_name}"_already_updated | jq -s .)" '.[] | select(.id as $id | $ids | index($id))')
-        [[ -n "$versions_json" && "$versions_json" != "[]" ]] || break
         run_parallel update_version "$(jq -r '.[] | @base64' <<<"$versions_json")"
         (($? != 3)) || return 3
         ((page != 1)) || version_newest_id=$(jq -r '.[].id' <<<"$versions_json" | sort -n | tail -n1)
