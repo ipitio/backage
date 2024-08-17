@@ -20,6 +20,7 @@ save_version() {
     [[ "$id" =~ ^[0-9]+$ && "$name" != "latest" ]] || return
     tags=$(_jq "$1" '.. | try .tags | join(",")')
     [ -n "$tags" ] || tags=$(_jq "$1" '.. | try .tags')
+    while ! ln "${table_version_name}"_already_updated "${table_version_name}"_already_updated.lock &>/dev/null; do :; done
     versions_json=$(get_BKG BKG_VERSIONS_JSON_"${owner}_${package}")
     [ -n "$versions_json" ] && jq -e . <<<"$versions_json" &>/dev/null || versions_json="[]"
 
@@ -31,7 +32,7 @@ save_version() {
     fi
 
     set_BKG BKG_VERSIONS_JSON_"${owner}_${package}" "$versions_json"
-    echo "Queued $owner/$package/$id"
+    rm -f "${table_version_name}"_already_updated.lock
 }
 
 page_version() {
