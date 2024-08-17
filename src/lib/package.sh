@@ -61,7 +61,6 @@ update_package() {
     local latest_version=-1
     export lower_owner
     export lower_package
-    export version_ids
     package_type=$(cut -d'/' -f1 <<<"$1")
     repo=$(cut -d'/' -f2 <<<"$1")
     package=$(cut -d'/' -f3 <<<"$1")
@@ -99,13 +98,13 @@ update_package() {
         tags text,
         primary key (id, date)
     );"
+    sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name';" | sort -u >"${table_version_name}"_all
     sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name' where date >= '$BKG_BATCH_FIRST_STARTED';" | sort -u >"${table_version_name}"_already_updated
-    version_ids=$(sqlite3 "$BKG_INDEX_DB" "select distinct id from '$table_version_name';")
 
     for page in $(seq 1 100); do
         local pages_left=0
         set_BKG BKG_VERSIONS_JSON_"${owner}_${package}" "[]"
-        ((page != 1)) || run_parallel save_version "$(sqlite3 -json "$BKG_INDEX_DB" "select id, name, tags, max(date) from '$table_version_name' group by id;" | jq -r '.[] | @base64')"
+        ((page != 1)) || run_parallel save_version "$(sqlite3 -json "$BKG_INDEX_DB" "select id, name, tags from '$table_version_name' where id not in (select id from '$table_version_name' where date >= '$BKG_BATCH_FIRST_STARTED') order by date;" | jq -r '.[] | @base64')"
         page_version "$page"
         pages_left=$?
         ((pages_left != 3)) || return 3

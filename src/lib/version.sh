@@ -11,11 +11,7 @@ save_version() {
     local tags
     local versions_json
     id=$(_jq "$1" '.id')
-
-    if [ -f "${table_version_name}"_already_updated ] && grep -q "$id" "${table_version_name}"_already_updated; then
-        [[ "$owner" == "arevindh" && "$(get_BKG BKG_AUTO)" -eq 1 ]] || return
-    fi
-
+    [ -f "${table_version_name}"_already_updated ] && grep -q "$id" "${table_version_name}"_already_updated && [[ "$(get_BKG BKG_AUTO)" -eq 1 ]] || return
     name=$(_jq "$1" '.name')
     [[ "$id" =~ ^[0-9]+$ && "$name" != "latest" ]] || return
     tags=$(_jq "$1" '.. | try .tags | join(",")')
@@ -31,11 +27,6 @@ save_version() {
     fi
 
     set_BKG BKG_VERSIONS_JSON_"${owner}_${package}" "$versions_json"
-}
-
-check_version() {
-    check_limit && [ -n "$1" ] || return
-    grep -q "$1" <<<"$version_ids" || return 3
 }
 
 page_version() {
@@ -64,7 +55,6 @@ page_version() {
 
     # if versions doesn't have .name, break
     jq -e '.[].name' <<<"$versions_json_more" &>/dev/null || return 2
-    run_parallel check_version "$(jq -r '.[] | .id' <<<"$versions_json_more")" || return 2
     version_lines=$(jq -r '.[] | @base64' <<<"$versions_json_more")
     run_parallel save_version "$version_lines"
     (($? != 3)) || return 3
