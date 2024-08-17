@@ -110,6 +110,7 @@ update_package() {
         versions_json=$(get_BKG BKG_VERSIONS_JSON_"${owner}_${package}")
         jq -e . <<<"$versions_json" &>/dev/null || versions_json="[{\"id\":\"-1\",\"name\":\"latest\",\"tags\":\"\"}]"
         del_BKG BKG_VERSIONS_JSON_"${owner}_${package}"
+        echo "JSON $owner/$package: $versions_json"
         run_parallel update_version "$(jq -r '.[] | @base64' <<<"$versions_json")"
         (($? != 3)) || return 3
         ((page != 1)) || version_newest_id=$(jq -r '.[].id' <<<"$versions_json" | sort -n | tail -n1)
