@@ -106,10 +106,10 @@ update_package() {
         page_version "$page"
         pages_left=$?
         ((pages_left != 3)) || return 3
-        versions_json=$(jq -s '.' "$BKG_INDEX_DIR/$owner/$repo/$package".*.json)
+        versions_json=$(jq -c -s '.' "$BKG_INDEX_DIR/$owner/$repo/$package".*.json)
         jq -e . <<<"$versions_json" &>/dev/null || versions_json="[{\"id\":\"-1\",\"name\":\"latest\",\"tags\":\"\"}]"
         rm -f "$BKG_INDEX_DIR/$owner/$repo/$package".*.json
-        versions_json=$(jq -n --argjson a "$(jq -R 'split("\n") | map(tonumber) | .[:-1]' <"${table_version_name}"_already_updated)" --argjson b "$versions_json" '$b | map(select(.id | tonumber | IN($a[] | tonumber) | not))')
+        versions_json=$(echo "$versions_json" | jq -c --argjson ids "$(jq -R . "${table_version_name}"_already_updated | jq -s .)" '.[] | select(.id as $id | $ids | index($id))')
         [[ -n "$versions_json" && "$versions_json" != "[]" ]] || break
         run_parallel update_version "$(jq -r '.[] | @base64' <<<"$versions_json")"
         (($? != 3)) || return 3
