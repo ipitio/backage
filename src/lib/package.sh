@@ -17,11 +17,6 @@ save_package() {
     package_type=${package_type%/}
     repo=${repo%/}
     [ -n "$repo" ] || return
-
-    if [ -f packages_already_updated ] && grep -q "$id" packages_already_updated && [[ -n "$(find "$BKG_INDEX_DIR/$owner/$repo/$package_new.d" -type f -name "*.json" 2>/dev/null)" ]]; then
-        [[ "$owner" == "arevindh" && "$(get_BKG BKG_AUTO)" -eq 1 ]] || return
-    fi
-
     ! set_BKG_set BKG_PACKAGES_"$owner" "$package_type/$repo/$package_new" || echo "Queued $owner/$package_new"
 }
 
@@ -88,47 +83,43 @@ update_package() {
     html=$(curl "https://github.com/$owner/$repo/pkgs/$package_type/$package")
     (($? != 3)) || return 3
     [ -n "$(grep -Pzo 'Total downloads' <<<"$html" | tr -d '\0')" ] || return
+    echo "Updating $owner/$package..."
+    raw_downloads=$(grep -Pzo 'Total downloads[^"]*"\d*' <<<"$html" | grep -Pzo '\d*$' | tr -d '\0') # https://stackoverflow.com/a/74214537
+    [[ "$raw_downloads" =~ ^[0-9]+$ ]] || raw_downloads=-1
+    table_version_name="${BKG_INDEX_TBL_VER}_${owner_type}_${package_type}_${owner}_${repo}_${package}"
+    sqlite3 "$BKG_INDEX_DB" "create table if not exists '$table_version_name' (
+        id text not null,
+        name text not null,
+        size integer not null,
+        downloads integer not null,
+        downloads_month integer not null,
+        downloads_week integer not null,
+        downloads_day integer not null,
+        date text not null,
+        tags text,
+        primary key (id, date)
+    );"
+    sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name' where date >= '$BKG_BATCH_FIRST_STARTED';" | sort -u >"${table_version_name}"_already_updated
+    version_ids=$(sqlite3 "$BKG_INDEX_DB" "select distinct id from '$table_version_name';")
 
-    if [ "$(get_BKG BKG_AUTO)" = "0" ] || [ "$owner" = "arevindh" ]; then
-        echo "Updating $owner/$package..."
-        raw_downloads=$(grep -Pzo 'Total downloads[^"]*"\d*' <<<"$html" | grep -Pzo '\d*$' | tr -d '\0') # https://stackoverflow.com/a/74214537
-        [[ "$raw_downloads" =~ ^[0-9]+$ ]] || raw_downloads=-1
-        table_version_name="${BKG_INDEX_TBL_VER}_${owner_type}_${package_type}_${owner}_${repo}_${package}"
-        sqlite3 "$BKG_INDEX_DB" "create table if not exists '$table_version_name' (
-            id text not null,
-            name text not null,
-            size integer not null,
-            downloads integer not null,
-            downloads_month integer not null,
-            downloads_week integer not null,
-            downloads_day integer not null,
-            date text not null,
-            tags text,
-            primary key (id, date)
-        );"
-        sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name' where date >= '$BKG_BATCH_FIRST_STARTED';" | sort -u >"${table_version_name}"_already_updated
-        version_ids=$(sqlite3 "$BKG_INDEX_DB" "select distinct id from '$table_version_name';")
+    for page in $(seq 1 100); do
+        local pages_left=0
+        set_BKG BKG_VERSIONS_JSON_"${owner}_${package}" "[]"
+        ((page != 1)) || run_parallel save_version "$(sqlite3 -json "$BKG_INDEX_DB" "select id, name, tags, max(date) from '$table_version_name' group by id;" | jq -r '.[] | @base64')"
+        page_version "$page"
+        pages_left=$?
+        ((pages_left != 3)) || return 3
+        versions_json=$(get_BKG BKG_VERSIONS_JSON_"${owner}_${package}")
+        jq -e . <<<"$versions_json" &>/dev/null || versions_json="[{\"id\":\"-1\",\"name\":\"latest\",\"tags\":\"\"}]"
+        del_BKG BKG_VERSIONS_JSON_"${owner}_${package}"
+        run_parallel update_version "$(jq -r '.[] | @base64' <<<"$versions_json")"
+        (($? != 3)) || return 3
+        ((page != 1)) || version_newest_id=$(jq -r '.[].id' <<<"$versions_json" | sort -n | tail -n1)
+        ((pages_left != 2)) || break
+    done
 
-        for page in $(seq 1 100); do
-            local pages_left=0
-            set_BKG BKG_VERSIONS_JSON_"${owner}_${package}" "[]"
-            ((page != 1)) || run_parallel save_version "$(sqlite3 -json "$BKG_INDEX_DB" "select id, name, tags, max(date) from '$table_version_name' group by id;" | jq -r '.[] | @base64')"
-            page_version "$page"
-            pages_left=$?
-            ((pages_left != 3)) || return 3
-            versions_json=$(get_BKG BKG_VERSIONS_JSON_"${owner}_${package}")
-            jq -e . <<<"$versions_json" &>/dev/null || versions_json="[{\"id\":\"-1\",\"name\":\"latest\",\"tags\":\"\"}]"
-            del_BKG BKG_VERSIONS_JSON_"${owner}_${package}"
-            run_parallel update_version "$(jq -r '.[] | @base64' <<<"$versions_json")"
-            (($? != 3)) || return 3
-            ((page != 1)) || version_newest_id=$(jq -r '.[].id' <<<"$versions_json" | sort -n | tail -n1)
-            ((pages_left != 2)) || break
-        done
-
-        sqlite3 "$BKG_INDEX_DB" "insert or replace into '$BKG_INDEX_TBL_PKG' (owner_id, owner_type, package_type, owner, repo, package, downloads, downloads_month, downloads_week, downloads_day, size, date) values ('$owner_id', '$owner_type', '$package_type', '$owner', '$repo', '$package', '$raw_downloads', '$raw_downloads_month', '$raw_downloads_week', '$raw_downloads_day', '$size', '$BKG_BATCH_FIRST_STARTED');"
-        echo "Updated $owner/$package"
-    fi
-
+    sqlite3 "$BKG_INDEX_DB" "insert or replace into '$BKG_INDEX_TBL_PKG' (owner_id, owner_type, package_type, owner, repo, package, downloads, downloads_month, downloads_week, downloads_day, size, date) values ('$owner_id', '$owner_type', '$package_type', '$owner', '$repo', '$package', '$raw_downloads', '$raw_downloads_month', '$raw_downloads_week', '$raw_downloads_day', '$size', '$BKG_BATCH_FIRST_STARTED');"
+    echo "Updated $owner/$package"
     # calculate the overall downloads and size
     rm -f "${table_version_name}"_already_updated "${table_version_name}"_to_update all_"${table_version_name}"
     raw_all=$(sqlite3 "$BKG_INDEX_DB" "select sum(downloads), sum(downloads_month), sum(downloads_week), sum(downloads_day) from '$table_version_name' where date in (select date from '$table_version_name' order by date desc limit 1);")
