@@ -31,6 +31,7 @@ save_version() {
     fi
 
     set_BKG BKG_VERSIONS_JSON_"${owner}_${package}" "$versions_json"
+    echo "Queued $owner/$package/$id"
 }
 
 page_version() {
