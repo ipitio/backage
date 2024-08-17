@@ -11,7 +11,11 @@ save_version() {
     local tags
     local versions_json
     id=$(_jq "$1" '.id')
-    [ -f "${table_version_name}"_already_updated ] && grep -q "$id" "${table_version_name}"_already_updated && [[ "$(get_BKG BKG_AUTO)" -eq 1 ]] || return
+
+    if [ -f "${table_version_name}"_already_updated ] && grep -q "$id" "${table_version_name}"_already_updated; then
+        [[ "$(get_BKG BKG_AUTO)" -eq 1 ]] || return
+    fi
+
     name=$(_jq "$1" '.name')
     [[ "$id" =~ ^[0-9]+$ && "$name" != "latest" ]] || return
     tags=$(_jq "$1" '.. | try .tags | join(",")')

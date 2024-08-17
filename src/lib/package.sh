@@ -59,8 +59,6 @@ update_package() {
     local version_with_tag_count=-1
     local version_newest_id=-1
     local latest_version=-1
-    export lower_owner
-    export lower_package
     package_type=$(cut -d'/' -f1 <<<"$1")
     repo=$(cut -d'/' -f2 <<<"$1")
     package=$(cut -d'/' -f3 <<<"$1")
@@ -75,6 +73,7 @@ update_package() {
         return
     fi
 
+    # shellcheck disable=SC2034
     lower_package=$(perl -pe 's/%([0-9A-Fa-f]{2})/chr(hex($1))/eg' <<<"${package//%/%25}" | tr '[:upper:]' '[:lower:]')
     # scrape the package page for the total downloads
     [ -d "$BKG_INDEX_DIR/$owner/$repo" ] || mkdir "$BKG_INDEX_DIR/$owner/$repo"

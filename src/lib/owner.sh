@@ -91,10 +91,10 @@ page_owner() {
 update_owner() {
     check_limit || return $?
     [ -n "$1" ] || return
-    export lower_owner
     owner=$(cut -d'/' -f2 <<<"$1")
     owner_id=$(cut -d'/' -f1 <<<"$1")
     # decode percent-encoded characters and make lowercase (eg. for docker manifest)
+    # shellcheck disable=SC2034
     lower_owner=$(perl -pe 's/%([0-9A-Fa-f]{2})/chr(hex($1))/eg' <<<"${owner//%/%25}" | tr '[:upper:]' '[:lower:]')
     echo "Updating $owner..."
     [ -n "$(curl "https://github.com/orgs/$owner/people" | grep -zoP 'href="/orgs/'"$owner"'/people"' | tr -d '\0')" ] && export owner_type="orgs" || export owner_type="users"
