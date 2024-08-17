@@ -52,6 +52,10 @@ jobs:
           message: "hydration"
           pull: "--rebase --autostash -s ours"
 
+      - name: Reset runs
+        if: ${{ steps.commit.outputs.committed == 'true' }}
+        run: gh run list --json databaseId -q '.[].databaseId' | xargs -d '\n' -n1 gh run cancel
+
       - name: Get date
         id: date
         run: echo "date=$(grep -oP 'BKG_BATCH_FIRST_STARTED=\K.*' src/env.env | sed 's/-/./g')" >> "$GITHUB_OUTPUT"

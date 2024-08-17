@@ -109,7 +109,7 @@ update_package() {
         versions_json=$(jq -c -s '.' "$BKG_INDEX_DIR/$owner/$repo/$package".*.json)
         jq -e . <<<"$versions_json" &>/dev/null || versions_json="[{\"id\":\"-1\",\"name\":\"latest\",\"tags\":\"\"}]"
         rm -f "$BKG_INDEX_DIR/$owner/$repo/$package".*.json
-        [ "$(get_BKG BKG_AUTO)" = "1" ] || versions_json=$(echo "$versions_json" | jq -c --argjson ids "$(jq -R . "${table_version_name}"_already_updated | jq -s .)" '.[] | select(.id as $id | $ids | index($id))')
+        [ "$(get_BKG BKG_AUTO)" = "1" ] || versions_json=$(echo "$versions_json" | jq -c --argjson ids "$(jq -R . "${table_version_name}"_already_updated | jq -s .)" 'map(select(.id | IN($ids)))')
         run_parallel update_version "$(jq -r '.[] | @base64' <<<"$versions_json")"
         (($? != 3)) || return 3
         ((page != 1)) || version_newest_id=$(jq -r '.[].id' <<<"$versions_json" | sort -n | tail -n1)
@@ -177,8 +177,8 @@ update_package() {
             \"raw_downloads_day\": $raw_downloads_day,
             \"tags\": [\"\"]
         }]")
-    }" | tr -d '\n' | jq -c . >"$json_file".tmp || echo "Failed to update $owner/$package with $size bytes and $raw_downloads downloads and $version_count versions and $version_with_tag_count tagged versions and $raw_downloads_month downloads this month and $raw_downloads_week downloads this week and $raw_downloads_day downloads today and $latest_version latest version and $version_newest_id newest version"
-    [ ! -f "$json_file".tmp ] || jq -c --arg newest "$version_newest_id" --arg latest "$latest_version" '.version |= map(if .id == ($newest | tonumber) then .newest = true else . end | if .id == ($latest | tonumber) then .latest = true else . end)' "$json_file".tmp >"$json_file"
+    }" | tr -d '\n' | jq -c . >"$json_file" || echo "Failed to update $owner/$package with $size bytes and $raw_downloads downloads and $version_count versions and $version_with_tag_count tagged versions and $raw_downloads_month downloads this month and $raw_downloads_week downloads this week and $raw_downloads_day downloads today and $latest_version latest version and $version_newest_id newest version"
+    [ ! -f "$json_file" ] || jq -c --arg newest "$version_newest_id" --arg latest "$latest_version" '.version |= map(if .id == ($newest | tonumber) then .newest = true else . end | if .id == ($latest | tonumber) then .latest = true else . end)' "$json_file" >"$json_file".tmp
     [ ! -f "$json_file".tmp ] || mv "$json_file".tmp "$json_file"
 
     # if the json is over 50MB, remove oldest versions from the packages with the most versions

@@ -3,10 +3,6 @@ name: manual
 on:
   workflow_dispatch:
 
-  pull_request:
-    types:
-      - closed
-
 concurrency:
   group: ${{ github.ref }}
   cancel-in-progress: true
@@ -19,7 +15,6 @@ defaults:
 
 jobs:
   update:
-    if: github.event.pull_request.merged == true || github.event_name != 'pull_request'
     runs-on: ubuntu-latest
 
     permissions:
@@ -55,6 +50,10 @@ jobs:
           add: "-- *.txt *.env *.json README.md"
           message: "hydration"
           pull: "--rebase --autostash -s ours"
+
+      - name: Reset runs
+        if: ${{ steps.commit.outputs.committed == 'true' }}
+        run: gh run list --json databaseId -q '.[].databaseId' | xargs -d '\n' -n1 gh run cancel
 
       - name: Get date
         id: date
