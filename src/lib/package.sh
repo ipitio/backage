@@ -102,7 +102,6 @@ update_package() {
 
     for page in $(seq 1 100); do
         local pages_left=0
-        set_BKG BKG_VERSIONS_JSON_"${owner}_${package}" "[]"
         ((page != 1)) || run_parallel save_version "$(sqlite3 -json "$BKG_INDEX_DB" "select id, name, tags from '$table_version_name' where id not in (select id from '$table_version_name' where date >= '$BKG_BATCH_FIRST_STARTED') order by date;" | jq -r '.[] | @base64')"
         page_version "$page"
         pages_left=$?
@@ -110,6 +109,8 @@ update_package() {
         versions_json=$(jq -s '.' "$BKG_INDEX_DIR/$owner/$repo/$package".*.json)
         jq -e . <<<"$versions_json" &>/dev/null || versions_json="[{\"id\":\"-1\",\"name\":\"latest\",\"tags\":\"\"}]"
         rm -f "$BKG_INDEX_DIR/$owner/$repo/$package".*.json
+        versions_json=$(jq -n --argjson versions_json "$versions_json" --argjson already_updated "$(jq -r 'split("\n") | map(tonumber) | unique' <"${table_version_name}"_already_updated)" '($versions_json | map(select(.id | tonumber | IN($already_updated | .[] | tonumber))))')
+        [[ -n "$versions_json" && "$versions_json" != "[]" ]] || break
         run_parallel update_version "$(jq -r '.[] | @base64' <<<"$versions_json")"
         (($? != 3)) || return 3
         ((page != 1)) || version_newest_id=$(jq -r '.[].id' <<<"$versions_json" | sort -n | tail -n1)
@@ -125,7 +126,7 @@ update_package() {
     raw_downloads_month=$(cut -d'|' -f2 <<<"$raw_all")
     raw_downloads_week=$(cut -d'|' -f3 <<<"$raw_all")
     raw_downloads_day=$(cut -d'|' -f4 <<<"$raw_all")
-    [[ -n "$summed_raw_downloads"  && -n "$raw_downloads_month" && -n "$raw_downloads_week" && -n "$raw_downloads_day" ]] || return
+    [[ -n "$summed_raw_downloads" && -n "$raw_downloads_month" && -n "$raw_downloads_week" && -n "$raw_downloads_day" ]] || return
     raw_downloads=$(sqlite3 "$BKG_INDEX_DB" "select downloads from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and package='$package' and date in (select date from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and package='$package' order by date desc limit 1);")
     size=$(sqlite3 "$BKG_INDEX_DB" "select size from '$table_version_name' where id in (select id from '$table_version_name' order by id desc limit 1) order by date desc limit 1;")
     version_count=$(sqlite3 "$BKG_INDEX_DB" "select count(distinct id) from '$table_version_name' where id regexp '^[0-9]+$';")

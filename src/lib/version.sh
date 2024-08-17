@@ -10,13 +10,7 @@ save_version() {
     local name
     local tags
     id=$(_jq "$1" '.id')
-
-    if [ -f "${table_version_name}"_already_updated ] && grep -q "$id" "${table_version_name}"_already_updated; then
-        return
-    fi
-
     name=$(_jq "$1" '.name')
-    [[ "$id" =~ ^[0-9]+$ && "$name" != "latest" ]] || return
     tags=$(_jq "$1" '.. | try .tags | join(",")')
     [ -n "$tags" ] || tags=$(_jq "$1" '.. | try .tags')
     echo "{
