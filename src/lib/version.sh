@@ -9,30 +9,21 @@ save_version() {
     local id
     local name
     local tags
-    local versions_json
     id=$(_jq "$1" '.id')
 
     if [ -f "${table_version_name}"_already_updated ] && grep -q "$id" "${table_version_name}"_already_updated; then
-        [[ "$(get_BKG BKG_AUTO)" -eq 1 ]] || return
+        return
     fi
 
     name=$(_jq "$1" '.name')
     [[ "$id" =~ ^[0-9]+$ && "$name" != "latest" ]] || return
     tags=$(_jq "$1" '.. | try .tags | join(",")')
     [ -n "$tags" ] || tags=$(_jq "$1" '.. | try .tags')
-    while ! ln "${table_version_name}"_already_updated "${table_version_name}"_already_updated.lock &>/dev/null; do :; done
-    versions_json=$(get_BKG BKG_VERSIONS_JSON_"${owner}_${package}")
-    [ -n "$versions_json" ] && jq -e . <<<"$versions_json" &>/dev/null || versions_json="[]"
-
-    if jq -e ".[] | select(.id == \"$id\")" <<<"$versions_json" &>/dev/null; then
-        # replace name and tags if the version is already in the versions_json
-        versions_json=$(jq -c "map(if .id == \"$id\" then . + {\"name\":\"$name\",\"tags\":\"$tags\"} else . end)" <<<"$versions_json")
-    else
-        versions_json=$(jq -c ". + [{\"id\":\"$id\",\"name\":\"$name\",\"tags\":\"$tags\"}]" <<<"$versions_json")
-    fi
-
-    set_BKG BKG_VERSIONS_JSON_"${owner}_${package}" "$versions_json"
-    rm -f "${table_version_name}"_already_updated.lock
+    echo "{
+        \"id\": $id,
+        \"name\": \"$name\",
+        \"tags\": \"$tags\"
+    }" | tr -d '\n' | jq -c . >"$BKG_INDEX_DIR/$owner/$repo/$package.$id.json" || echo "Failed to save $owner/$repo/$package/$id"
 }
 
 page_version() {
