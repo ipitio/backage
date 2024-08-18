@@ -28,3 +28,6 @@ jobs:
 
       - name: Delete old runs
         uses: Mattraks/delete-workflow-runs@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ${{ github.repository }}

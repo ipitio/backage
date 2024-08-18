@@ -54,6 +54,8 @@ jobs:
       - name: Reset runs
         if: ${{ steps.commit.outputs.committed == 'true' }}
         run: gh run list --json databaseId -q '.[].databaseId' | xargs -d '\n' -n1 gh run cancel
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Get date
         id: date
