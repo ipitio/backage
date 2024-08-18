@@ -5,24 +5,61 @@ source lib/util.sh
 
 save_version() {
     [ -n "$1" ] || return
-    local id
-    local name
-    local tags
+    local version_id
+    local version_name
+    local version_tags
     id=$(_jq "$1" '.id')
     name=$(_jq "$1" '.name')
-    tags=$(_jq "$1" '.. | try .tags | join(",")')
-    [ -n "$tags" ] || tags=$(_jq "$1" '.. | try .tags')
+    [[ "$version_id" =~ ^[0-9]+$ ]] || version_id="-1"
+    [[ "$version_name" =~ ^[0-9]+$ ]] || version_name="latest"
 
     if [ -f "${table_version_name}"_already_updated ]; then
         check_limit || return $?
-        ! grep -q "$id" "${table_version_name}"_already_updated || return
-    fi
+        ! grep -q "$version_id" "${table_version_name}"_already_updated || return
+        version_tags=$(_jq "$1" '.. | try .tags | join(",")')
+        [ -n "$version_tags" ] || version_tags=$(_jq "$1" '.. | try .tags')
+        echo "{
+            \"id\": $version_id,
+            \"name\": \"$version_name\",
+            \"tags\": \"$version_tags\"
+        }" | tr -d '\n' | jq -c . >"$BKG_INDEX_DIR/$owner/$repo/$package.$version_id.json" || echo "Failed to save $owner/$repo/$package/$version_id"
+    else
+        local version_size
+        local version_dl
+        local version_dl_month
+        local version_dl_week
+        local version_dl_day
+        version_size=$(_jq "$1" '.size')
+        version_dl=$(_jq "$1" '.downloads')
+        version_dl_month=$(_jq "$1" '.downloads_month')
+        version_dl_week=$(_jq "$1" '.downloads_week')
+        version_dl_day=$(_jq "$1" '.downloads_day')
+        version_tags=$(_jq "$1" '.tags')
+        [[ "$version_size" =~ ^[0-9]+$ ]] || version_size="-1"
+        [[ "$version_dl" =~ ^[0-9]+$ ]] || version_dl="-1"
+        [[ "$version_dl_month" =~ ^[0-9]+$ ]] || version_dl_month="-1"
+        [[ "$version_dl_week" =~ ^[0-9]+$ ]] || version_dl_week="-1"
+        [[ "$version_dl_day" =~ ^[0-9]+$ ]] || version_dl_day="-1"
 
-    echo "{
-        \"id\": $id,
-        \"name\": \"$name\",
-        \"tags\": \"$tags\"
-    }" | tr -d '\n' | jq -c . >"$BKG_INDEX_DIR/$owner/$repo/$package.$id.json" || echo "Failed to save $owner/$repo/$package/$id"
+        echo "{
+            \"id\": $version_id,
+            \"name\": \"$version_name\",
+            \"date\": \"$(date -u +%Y-%m-%d)\",
+            \"newest\": false,
+            \"latest\": false,
+            \"size\": \"$(numfmt_size <<<"$version_size")\",
+            \"downloads\": \"$(numfmt <<<"$version_dl")\",
+            \"downloads_month\": \"$(numfmt <<<"$version_dl_month")\",
+            \"downloads_week\": \"$(numfmt <<<"$version_dl_week")\",
+            \"downloads_day\": \"$(numfmt <<<"$version_dl_day")\",
+            \"raw_size\": $version_size,
+            \"raw_downloads\": $version_dl,
+            \"raw_downloads_month\": $version_dl_month,
+            \"raw_downloads_week\": $version_dl_week,
+            \"raw_downloads_day\": $version_dl_day,
+            \"tags\": [\"${version_tags//,/\",\"}\"]
+        }" | tr -d '\n' | jq -c . >"$BKG_INDEX_DIR/$owner/$repo/$package.d/$version_id.json" || echo "Failed to refresh $owner/$repo/$package/$version_id"
+    fi
 }
 
 page_version() {
@@ -109,44 +146,4 @@ update_version() {
 
     sqlite3 "$BKG_INDEX_DB" "insert or replace into '$table_version_name' (id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags) values ('$version_id', '$version_name', '$version_size', '$version_raw_downloads', '$version_raw_downloads_month', '$version_raw_downloads_week', '$version_raw_downloads_day', '$today', '$version_tags');"
     echo "Updated $owner/$package/$version_id"
-}
-
-refresh_version() {
-    [ -n "$1" ] || return
-    local version_id
-    local version_name
-    local version_size
-    local version_dl
-    local version_dl_month
-    local version_dl_week
-    local version_dl_day
-    local version_tags
-    version_id=$(_jq "$1" '.id')
-    version_name=$(_jq "$1" '.name')
-    version_size=$(_jq "$1" '.size')
-    version_dl=$(_jq "$1" '.downloads')
-    version_dl_month=$(_jq "$1" '.downloads_month')
-    version_dl_week=$(_jq "$1" '.downloads_week')
-    version_dl_day=$(_jq "$1" '.downloads_day')
-    [[ -n "$version_id" && -n "$version_name" && -n "$version_size" && -n "$version_dl" && -n "$version_dl_month" && -n "$version_dl_week" && -n "$version_dl_day" ]] || return
-    version_tags=$(_jq "$1" '.tags')
-
-    echo "{
-        \"id\": $version_id,
-        \"name\": \"$version_name\",
-        \"date\": \"$(date -u +%Y-%m-%d)\",
-        \"newest\": false,
-        \"latest\": false,
-        \"size\": \"$(numfmt_size <<<"$version_size")\",
-        \"downloads\": \"$(numfmt <<<"$version_dl")\",
-        \"downloads_month\": \"$(numfmt <<<"$version_dl_month")\",
-        \"downloads_week\": \"$(numfmt <<<"$version_dl_week")\",
-        \"downloads_day\": \"$(numfmt <<<"$version_dl_day")\",
-        \"raw_size\": $version_size,
-        \"raw_downloads\": $version_dl,
-        \"raw_downloads_month\": $version_dl_month,
-        \"raw_downloads_week\": $version_dl_week,
-        \"raw_downloads_day\": $version_dl_day,
-        \"tags\": [\"${version_tags//,/\",\"}\"]
-    }" | tr -d '\n' | jq -c . >"$BKG_INDEX_DIR/$owner/$repo/$package.d/$version_id.json" || echo "Failed to refresh $owner/$repo/$package/$version_id"
 }

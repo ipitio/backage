@@ -83,7 +83,6 @@ update_package() {
     [ -n "$(grep -Pzo 'Total downloads' <<<"$html" | tr -d '\0')" ] || return
     echo "Updating $owner/$package..."
     raw_downloads=$(grep -Pzo 'Total downloads[^"]*"\d*' <<<"$html" | grep -Pzo '\d*$' | tr -d '\0') # https://stackoverflow.com/a/74214537
-    [[ "$raw_downloads" =~ ^[0-9]+$ ]] || raw_downloads=-1
     table_version_name="${BKG_INDEX_TBL_VER}_${owner_type}_${package_type}_${owner}_${repo}_${package}"
     sqlite3 "$BKG_INDEX_DB" "create table if not exists '$table_version_name' (
         id text not null,
@@ -106,35 +105,42 @@ update_package() {
         page_version "$page"
         pages_left=$?
         ((pages_left != 3)) || return 3
-        versions_json=$(jq -c -s '.' "$BKG_INDEX_DIR/$owner/$repo/$package".*.json)
-        jq -e . <<<"$versions_json" &>/dev/null || versions_json="[{\"id\":\"-1\",\"name\":\"latest\",\"tags\":\"\"}]"
-        rm -f "$BKG_INDEX_DIR/$owner/$repo/$package".*.json
-        run_parallel update_version "$(jq -r '.[] | @base64' <<<"$versions_json")"
-        (($? != 3)) || return 3
-        ((page != 1)) || version_newest_id=$(jq -r '.[].id' <<<"$versions_json" | sort -n | tail -n1)
+
+        if [ -n "$(find "$BKG_INDEX_DIR/$owner/$repo/$package.d" -type f -name "*.json" 2>/dev/null)" ] || ! sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name';" &>/dev/null; then
+            versions_json=$(jq -c -s '.' "$BKG_INDEX_DIR/$owner/$repo/$package".*.json)
+            jq -e . <<<"$versions_json" &>/dev/null || versions_json="[{\"id\":\"-1\",\"name\":\"latest\",\"tags\":\"\"}]"
+            rm -f "$BKG_INDEX_DIR/$owner/$repo/$package".*.json
+            jq -e 'length > 1' <<<"$versions_json" &>/dev/null && versions_json=$(jq -c 'map(select(.id >= 0))' <<<"$versions_json")
+            run_parallel update_version "$(jq -r '.[] | @base64' <<<"$versions_json")"
+            (($? != 3)) || return 3
+        fi
+
         ((pages_left != 2)) || break
     done
 
     # calculate the overall downloads and size
+    size=$(sqlite3 "$BKG_INDEX_DB" "select size from '$table_version_name' where id in (select id from '$table_version_name' order by id desc limit 1) order by date desc limit 1;")
     raw_all=$(sqlite3 "$BKG_INDEX_DB" "select sum(downloads), sum(downloads_month), sum(downloads_week), sum(downloads_day) from '$table_version_name' where date in (select date from '$table_version_name' order by date desc limit 1);")
     summed_raw_downloads=$(cut -d'|' -f1 <<<"$raw_all")
     raw_downloads_month=$(cut -d'|' -f2 <<<"$raw_all")
     raw_downloads_week=$(cut -d'|' -f3 <<<"$raw_all")
     raw_downloads_day=$(cut -d'|' -f4 <<<"$raw_all")
-    [[ -n "$summed_raw_downloads" && -n "$raw_downloads_month" && -n "$raw_downloads_week" && -n "$raw_downloads_day" ]] || return
-    raw_downloads=$(sqlite3 "$BKG_INDEX_DB" "select downloads from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and package='$package' and date in (select date from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and package='$package' order by date desc limit 1);")
-    size=$(sqlite3 "$BKG_INDEX_DB" "select size from '$table_version_name' where id in (select id from '$table_version_name' order by id desc limit 1) order by date desc limit 1;")
+    [[ "$size" =~ ^[0-9]+$ ]] || size=-1
+    [[ "$summed_raw_downloads" =~ ^[0-9]+$ ]] || summed_raw_downloads=-1
+    [[ "$raw_downloads_month" =~ ^[0-9]+$ ]] || raw_downloads_month=-1
+    [[ "$raw_downloads_week" =~ ^[0-9]+$ ]] || raw_downloads_week=-1
+    [[ "$raw_downloads_day" =~ ^[0-9]+$ ]] || raw_downloads_day=-1
+    [[ "$raw_downloads" =~ ^[0-9]+$ ]] || raw_downloads=$(sqlite3 "$BKG_INDEX_DB" "select downloads from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and package='$package' and date in (select date from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and package='$package' order by date desc limit 1);")
+    [[ "$raw_downloads" =~ ^[0-9]+$ ]] || raw_downloads=-1
+    [[ "$summed_raw_downloads" =~ ^[0-9]+$ ]] && ((summed_raw_downloads > raw_downloads)) && raw_downloads=$summed_raw_downloads || :
     sqlite3 "$BKG_INDEX_DB" "insert or replace into '$BKG_INDEX_TBL_PKG' (owner_id, owner_type, package_type, owner, repo, package, downloads, downloads_month, downloads_week, downloads_day, size, date) values ('$owner_id', '$owner_type', '$package_type', '$owner', '$repo', '$package', '$raw_downloads', '$raw_downloads_month', '$raw_downloads_week', '$raw_downloads_day', '$size', '$BKG_BATCH_FIRST_STARTED');"
     echo "Updated $owner/$package, refreshing..."
-    run_parallel refresh_version "$(sqlite3 -json "$BKG_INDEX_DB" "select * from '$table_version_name';" | jq -r 'group_by(.id)[] | max_by(.date) | @base64')"
     rm -f "${table_version_name}"_already_updated "${table_version_name}"_to_update all_"${table_version_name}"
+    run_parallel save_version "$(sqlite3 -json "$BKG_INDEX_DB" "select * from '$table_version_name';" | jq -r 'group_by(.id)[] | max_by(.date) | @base64')"
     version_count=$(sqlite3 "$BKG_INDEX_DB" "select count(distinct id) from '$table_version_name' where id regexp '^[0-9]+$';")
     version_with_tag_count=$(sqlite3 "$BKG_INDEX_DB" "select count(distinct id) from '$table_version_name' where id regexp '^[0-9]+$' and tags != '' and tags is not null;")
     version_newest_id=$(find "$BKG_INDEX_DIR/$owner/$repo/$package.d" -type f -name "*.json" 2>/dev/null | grep -oP '\d+' | sort -n | tail -n1)
     latest_version=$(sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name' where id regexp '^[0-9]+$' and tags != '' and tags is not null and id in ($(find "$BKG_INDEX_DIR/$owner/$repo/$package.d" -type f -name "*.json" 2>/dev/null | grep -oP '\d+' | sort -n | tr '\n' ',' | sed 's/,$//')) order by id desc limit 1;")
-    [[ "$raw_downloads" =~ ^[0-9]+$ ]] || raw_downloads=-1
-    [[ "$summed_raw_downloads" =~ ^[0-9]+$ ]] && ((summed_raw_downloads > raw_downloads)) && raw_downloads=$summed_raw_downloads || :
-    [[ "$size" =~ ^[0-9]+$ ]] || size=-1
     [[ "$version_count" =~ ^[0-9]+$ ]] || version_count=0
     [[ "$version_with_tag_count" =~ ^[0-9]+$ ]] || version_with_tag_count=0
     [[ "$version_newest_id" =~ ^[0-9]+$ ]] || version_newest_id=-1

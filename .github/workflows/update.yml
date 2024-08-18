@@ -65,9 +65,3 @@ jobs:
           tag: "${{ steps.date.outputs.date }}"
           commit: "master"
           allowUpdates: true
-
-      - name: Reset runs
-        if: ${{ steps.commit.outputs.committed == 'true' }}
-        run: gh run list --json databaseId -q '.[].databaseId' | xargs -d '\n' -n1 gh run cancel
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
