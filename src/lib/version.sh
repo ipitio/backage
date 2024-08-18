@@ -4,7 +4,6 @@
 source lib/util.sh
 
 save_version() {
-    check_limit || return $?
     [ -n "$1" ] || return
     local id
     local name
@@ -13,6 +12,12 @@ save_version() {
     name=$(_jq "$1" '.name')
     tags=$(_jq "$1" '.. | try .tags | join(",")')
     [ -n "$tags" ] || tags=$(_jq "$1" '.. | try .tags')
+
+    if [ -f "${table_version_name}"_already_updated ]; then
+        check_limit || return $?
+        ! grep -q "$id" "${table_version_name}"_already_updated || return
+    fi
+
     echo "{
         \"id\": $id,
         \"name\": \"$name\",

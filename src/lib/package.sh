@@ -102,14 +102,13 @@ update_package() {
 
     for page in $(seq 1 100); do
         local pages_left=0
-        ((page != 1)) || run_parallel save_version "$(sqlite3 -json "$BKG_INDEX_DB" "select id, name, tags from '$table_version_name' where id not in (select id from '$table_version_name' where date >= '$BKG_BATCH_FIRST_STARTED') order by date;" | jq -r '.[] | @base64')"
+        ((page != 1)) || run_parallel save_version "$(sqlite3 -json "$BKG_INDEX_DB" "select id, name, tags from '$table_version_name' where id not in (select distinct id from '$table_version_name' where date >= '$BKG_BATCH_FIRST_STARTED') order by date;" | jq -r '.[] | @base64')"
         page_version "$page"
         pages_left=$?
         ((pages_left != 3)) || return 3
         versions_json=$(jq -c -s '.' "$BKG_INDEX_DIR/$owner/$repo/$package".*.json)
         jq -e . <<<"$versions_json" &>/dev/null || versions_json="[{\"id\":\"-1\",\"name\":\"latest\",\"tags\":\"\"}]"
         rm -f "$BKG_INDEX_DIR/$owner/$repo/$package".*.json
-        [ "$(get_BKG BKG_AUTO)" = "1" ] || versions_json=$(echo "$versions_json" | jq -c --argjson ids "$(jq -R . "${table_version_name}"_already_updated | jq -s .)" 'map(select(.id | IN($ids)))')
         run_parallel update_version "$(jq -r '.[] | @base64' <<<"$versions_json")"
         (($? != 3)) || return 3
         ((page != 1)) || version_newest_id=$(jq -r '.[].id' <<<"$versions_json" | sort -n | tail -n1)
@@ -120,6 +119,7 @@ update_package() {
     echo "Updated $owner/$package"
     # calculate the overall downloads and size
     rm -f "${table_version_name}"_already_updated "${table_version_name}"_to_update all_"${table_version_name}"
+    run_parallel save_version "$(sqlite3 -json "$BKG_INDEX_DB" "select id, name, tags from '$table_version_name' where id in (select distinct id from '$table_version_name' where date >= '$BKG_BATCH_FIRST_STARTED') order by date;" | jq -r '.[] | @base64')"
     raw_all=$(sqlite3 "$BKG_INDEX_DB" "select sum(downloads), sum(downloads_month), sum(downloads_week), sum(downloads_day) from '$table_version_name' where date in (select date from '$table_version_name' order by date desc limit 1);")
     summed_raw_downloads=$(cut -d'|' -f1 <<<"$raw_all")
     raw_downloads_month=$(cut -d'|' -f2 <<<"$raw_all")
@@ -177,15 +177,17 @@ update_package() {
             \"raw_downloads_day\": $raw_downloads_day,
             \"tags\": [\"\"]
         }]")
-    }" | tr -d '\n' | jq -c . >"$json_file" || echo "Failed to update $owner/$package with $size bytes and $raw_downloads downloads and $version_count versions and $version_with_tag_count tagged versions and $raw_downloads_month downloads this month and $raw_downloads_week downloads this week and $raw_downloads_day downloads today and $latest_version latest version and $version_newest_id newest version"
-    [ ! -f "$json_file" ] || jq -c --arg newest "$version_newest_id" --arg latest "$latest_version" '.version |= map(if .id == ($newest | tonumber) then .newest = true else . end | if .id == ($latest | tonumber) then .latest = true else . end)' "$json_file" >"$json_file".tmp
-    [ ! -f "$json_file".tmp ] || mv "$json_file".tmp "$json_file"
+    }" | tr -d '\n' | jq -c . >"$json_file".abs || echo "Failed to update $owner/$package with $size bytes and $raw_downloads downloads and $version_count versions and $version_with_tag_count tagged versions and $raw_downloads_month downloads this month and $raw_downloads_week downloads this week and $raw_downloads_day downloads today and $latest_version latest version and $version_newest_id newest version"
+    [[ ! -f "$json_file".abs || ! -s "$json_file".abs ]] || jq -c --arg newest "$version_newest_id" --arg latest "$latest_version" '.version |= map(if .id == ($newest | tonumber) then .newest = true else . end | if .id == ($latest | tonumber) then .latest = true else . end)' "$json_file".abs >"$json_file".rel
+    [[ ! -f "$json_file".rel || ! -s "$json_file".rel ]] || mv "$json_file".rel "$json_file".abs
+    [[ ! -f "$json_file".abs || ! -s "$json_file".abs ]] || mv "$json_file".abs "$json_file"
+    rm -f "$BKG_INDEX_DIR/$owner/$repo/$package".*.json
 
     # if the json is over 50MB, remove oldest versions from the packages with the most versions
-    while [ "$(stat -c %s "$json_file")" -ge 50000000 ]; do
+    while [ -f "$json_file" ] && [ "$(stat -c %s "$json_file")" -ge 50000000 ]; do
         jq -e 'map(.version | length > 0) | any' "$json_file" || break
-        jq -c 'sort_by(.versions | tonumber) | reverse | map(select(.versions > 0)) | map(.version |= sort_by(.id | tonumber) | del(.version[0]))' "$json_file" >"$json_file".tmp.json
-        mv "$json_file".tmp.json "$json_file"
+        jq -c 'sort_by(.versions | tonumber) | reverse | map(select(.versions > 0)) | map(.version |= sort_by(.id | tonumber) | del(.version[0]))' "$json_file" >"$json_file".tmp
+        mv "$json_file".tmp "$json_file"
     done
 
     echo "Refreshed $owner/$package"
