@@ -129,6 +129,7 @@ update_package() {
     size=$(sqlite3 "$BKG_INDEX_DB" "select size from '$table_version_name' where id in (select id from '$table_version_name' order by id desc limit 1) order by date desc limit 1;")
     version_count=$(sqlite3 "$BKG_INDEX_DB" "select count(distinct id) from '$table_version_name' where id regexp '^[0-9]+$';")
     version_with_tag_count=$(sqlite3 "$BKG_INDEX_DB" "select count(distinct id) from '$table_version_name' where id regexp '^[0-9]+$' and tags != '' and tags is not null;")
+    run_parallel refresh_version "$(sqlite3 -json "$BKG_INDEX_DB" "select * from '$table_version_name';" | jq -r 'group_by(.id)[] | max_by(.date) | @base64')"
     version_newest_id=$(find "$BKG_INDEX_DIR/$owner/$repo/$package.d" -type f -name "*.json" 2>/dev/null | grep -oP '\d+' | sort -n | tail -n1)
     latest_version=$(sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name' where id regexp '^[0-9]+$' and tags != '' and tags is not null and id in ($(find "$BKG_INDEX_DIR/$owner/$repo/$package.d" -type f -name "*.json" 2>/dev/null | grep -oP '\d+' | sort -n | tr '\n' ',' | sed 's/,$//')) order by id desc limit 1;")
     [[ "$raw_downloads" =~ ^[0-9]+$ ]] || raw_downloads=-1
@@ -138,7 +139,6 @@ update_package() {
     [[ "$version_with_tag_count" =~ ^[0-9]+$ ]] || version_with_tag_count=0
     [[ "$version_newest_id" =~ ^[0-9]+$ ]] || version_newest_id=-1
     [[ "$latest_version" =~ ^[0-9]+$ ]] || latest_version=-1
-    run_parallel refresh_version "$(sqlite3 -json "$BKG_INDEX_DB" "select * from '$table_version_name';" | jq -r 'group_by(.id)[] | max_by(.date) | @base64')"
     echo "{
         \"owner_type\": \"$owner_type\",
         \"package_type\": \"$package_type\",
