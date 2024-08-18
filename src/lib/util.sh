@@ -115,7 +115,6 @@ check_limit() {
     total_calls=$(get_BKG BKG_CALLS_TO_API)
     rate_limit_end=$(date -u +%s)
     script_limit_diff=$((rate_limit_end - $(get_BKG BKG_SCRIPT_START)))
-    #[[ $(get_BKG BKG_AUTO) -eq 0 || $max_len -lt 3600 ]] || max_len=3600
 
     if ((script_limit_diff >= max_len)); then
         if (($(get_BKG BKG_TIMEOUT) == 0)); then
