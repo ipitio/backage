@@ -79,7 +79,7 @@ main() {
             sort -uR <"$BKG_OWNERS" | env_parallel --lb save_owner
         fi
 
-        awk -F'|' '{print $1"/"$2}' <packages_all | sort -uR | env_parallel --lb save_owner
+        awk -F'|' '{print $1"/"$2}' <packages_to_update | sort -uR | env_parallel --lb save_owner
     elif [ "$mode" -eq 1 ]; then
         save_owner arevindh
     fi
