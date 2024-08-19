@@ -11,7 +11,6 @@ save_version() {
     version_id=$(_jq "$1" '.id')
     version_name=$(_jq "$1" '.name')
     [[ "$version_id" =~ ^[0-9]+$ ]] || version_id="-1"
-    [[ "$version_name" =~ ^[0-9]+$ ]] || version_name="latest"
 
     if [ -f "${table_version_name}"_already_updated ]; then
         check_limit || return $?
