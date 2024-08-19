@@ -10,6 +10,7 @@ main() {
     local repos
     local packages
     local today
+    local pkg_left
 
     while getopts "m:" flag; do
         case ${flag} in
@@ -48,24 +49,20 @@ main() {
     ); pragma auto_vacuum = full;"
     sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, repo, package from '$BKG_INDEX_TBL_PKG' where date >= '$BKG_BATCH_FIRST_STARTED';" | sort -u >packages_already_updated
     sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, repo, package from '$BKG_INDEX_TBL_PKG';" | sort -u >packages_all
+    comm -13 packages_already_updated packages_all >packages_to_update
+    pkg_left=$(wc -l <packages_to_update)
+    echo "all: $(wc -l <packages_all)"
+    echo "done: $(wc -l <packages_already_updated)"
+    echo "left: $pkg_left"
+    [ -n "$(get_BKG BKG_BATCH_FIRST_STARTED)" ] || set_BKG BKG_BATCH_FIRST_STARTED "$today"
 
     # if this is a scheduled update, scrape all owners
     if [ "$mode" -eq 0 ]; then
-        comm -13 packages_already_updated packages_all >packages_to_update
-        echo "all: $(wc -l <packages_all)"
-        echo "done: $(wc -l <packages_already_updated)"
-        local pkg_left
-        pkg_left=$(wc -l <packages_to_update)
-        echo "left: $pkg_left"
-
         if [[ "$pkg_left" == "0" || "$(get_BKG BKG_LEFT)" == "$pkg_left" ]]; then
             set_BKG BKG_BATCH_FIRST_STARTED "$today"
             [ -s "$BKG_OWNERS" ] || seq 1 10 | env_parallel --lb --halt soon,fail=1 page_owner
-        else
-            [ -n "$(get_BKG BKG_BATCH_FIRST_STARTED)" ] || set_BKG BKG_BATCH_FIRST_STARTED "$today"
+            \cp packages_all packages_to_update
         fi
-
-        awk -F'|' '{print $1"/"$2}' <packages_to_update | sort -uR | env_parallel --lb save_owner
 
         # add more owners
         if [ -s "$BKG_OWNERS" ]; then
@@ -82,10 +79,10 @@ main() {
             )" | sort -u | parallel "sed -i '\,^{}$,d' $BKG_OWNERS"
             sort -uR <"$BKG_OWNERS" | env_parallel --lb save_owner
         fi
+
+        awk -F'|' '{print $1"/"$2}' <packages_to_update | sort -uR | env_parallel --lb save_owner
     elif [ "$mode" -eq 1 ]; then
         save_owner arevindh
-        save_owner timeplus-io
-        save_owner LizardByte
     fi
 
     BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
@@ -106,7 +103,7 @@ main() {
 
     [ -d "$BKG_INDEX_DIR" ] || mkdir "$BKG_INDEX_DIR"
     get_BKG_set BKG_OWNERS_QUEUE | env_parallel --lb update_owner
-    set_BKG BKG_LEFT "$(comm -13 packages_already_updated packages_all | wc -l)"
+    set_BKG BKG_LEFT "$(wc -l <packages_to_update)"
     echo "Compressing the database..."
     sqlite3 "$BKG_INDEX_DB" ".dump" | zstd -22 --ultra --long -T0 -o "$BKG_INDEX_SQL".new.zst
 
