@@ -10,6 +10,7 @@ main() {
     local repos
     local packages
     local today
+    local pkg_left
 
     while getopts "m:" flag; do
         case ${flag} in
@@ -49,10 +50,9 @@ main() {
     sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, repo, package from '$BKG_INDEX_TBL_PKG' where date >= '$BKG_BATCH_FIRST_STARTED';" | sort -u >packages_already_updated
     sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, repo, package from '$BKG_INDEX_TBL_PKG';" | sort -u >packages_all
     comm -13 packages_already_updated packages_all >packages_to_update
+    pkg_left=$(wc -l <packages_to_update)
     echo "all: $(wc -l <packages_all)"
     echo "done: $(wc -l <packages_already_updated)"
-    local pkg_left
-    pkg_left=$(wc -l <packages_to_update)
     echo "left: $pkg_left"
     [ -n "$(get_BKG BKG_BATCH_FIRST_STARTED)" ] || set_BKG BKG_BATCH_FIRST_STARTED "$today"
 
