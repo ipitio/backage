@@ -57,12 +57,11 @@ main() {
         local pkg_left
         pkg_left=$(wc -l <packages_to_update)
         echo "left: $pkg_left"
+        [ -n "$(get_BKG BKG_BATCH_FIRST_STARTED)" ] || set_BKG BKG_BATCH_FIRST_STARTED "$today"
 
         if [[ "$pkg_left" == "0" || "$(get_BKG BKG_LEFT)" == "$pkg_left" ]]; then
             set_BKG BKG_BATCH_FIRST_STARTED "$today"
             [ -s "$BKG_OWNERS" ] || seq 1 10 | env_parallel --lb --halt soon,fail=1 page_owner
-        else
-            [ -n "$(get_BKG BKG_BATCH_FIRST_STARTED)" ] || set_BKG BKG_BATCH_FIRST_STARTED "$today"
         fi
 
         awk -F'|' '{print $1"/"$2}' <packages_all | sort -uR | env_parallel --lb save_owner
