@@ -58,13 +58,12 @@ main() {
         pkg_left=$(wc -l <packages_to_update)
         echo "left: $pkg_left"
         [ -n "$(get_BKG BKG_BATCH_FIRST_STARTED)" ] || set_BKG BKG_BATCH_FIRST_STARTED "$today"
+        awk -F'|' '{print $1"/"$2}' <packages_all | sort -uR | env_parallel --lb save_owner
 
         if [[ "$pkg_left" == "0" || "$(get_BKG BKG_LEFT)" == "$pkg_left" ]]; then
             set_BKG BKG_BATCH_FIRST_STARTED "$today"
             [ -s "$BKG_OWNERS" ] || seq 1 10 | env_parallel --lb --halt soon,fail=1 page_owner
         fi
-
-        awk -F'|' '{print $1"/"$2}' <packages_all | sort -uR | env_parallel --lb save_owner
 
         # add more owners
         if [ -s "$BKG_OWNERS" ]; then
@@ -83,8 +82,6 @@ main() {
         fi
     elif [ "$mode" -eq 1 ]; then
         save_owner arevindh
-        save_owner timeplus-io
-        save_owner LizardByte
     fi
 
     BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
