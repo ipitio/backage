@@ -107,14 +107,10 @@ update_package() {
         versions_json=$(jq -c -s '.' "$BKG_INDEX_DIR/$owner/$repo/$package".*.json 2>/dev/null)
         rm -f "$BKG_INDEX_DIR/$owner/$repo/$package".*.json
         ((pages_left != 3)) || return 3
-
-        if [ -n "$(find "$BKG_INDEX_DIR/$owner/$repo" -type f -name "$package.*.json" 2>/dev/null)" ] || ! sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name';" &>/dev/null; then
-            jq -e . <<<"$versions_json" &>/dev/null || versions_json="[{\"id\":\"-1\",\"name\":\"latest\",\"tags\":\"\"}]"
-            jq -e 'length > 1' <<<"$versions_json" &>/dev/null && versions_json=$(jq -c 'map(select(.id >= 0))' <<<"$versions_json")
-            run_parallel update_version "$(jq -r '.[] | @base64' <<<"$versions_json")"
-            (($? != 3)) || return 3
-        fi
-
+        jq -e . <<<"$versions_json" &>/dev/null || versions_json="[{\"id\":\"-1\",\"name\":\"latest\",\"tags\":\"\"}]"
+        jq -e 'length > 1' <<<"$versions_json" &>/dev/null && versions_json=$(jq -c 'map(select(.id >= 0))' <<<"$versions_json")
+        run_parallel update_version "$(jq -r '.[] | @base64' <<<"$versions_json")"
+        (($? != 3)) || return 3
         ((pages_left != 2)) || break
     done
 
