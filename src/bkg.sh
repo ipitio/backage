@@ -65,7 +65,7 @@ main() {
             [ -n "$(get_BKG BKG_BATCH_FIRST_STARTED)" ] || set_BKG BKG_BATCH_FIRST_STARTED "$today"
         fi
 
-        awk -F'|' '{print $1"/"$2}' <packages_to_update | sort -uR | env_parallel --lb save_owner
+        awk -F'|' '{print $1"/"$2}' <packages_all | sort -uR | env_parallel --lb save_owner
 
         # add more owners
         if [ -s "$BKG_OWNERS" ]; then
