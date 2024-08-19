@@ -61,11 +61,6 @@ save_version() {
     fi
 }
 
-check_version() {
-    check_limit && [ -n "$1" ] || return
-    grep -q "$1" "${table_version_name}"_all || return 3
-}
-
 page_version() {
     check_limit || return $?
     [ -n "$1" ] || return
@@ -90,7 +85,6 @@ page_version() {
     fi
 
     jq -e '.[].id' <<<"$versions_json_more" &>/dev/null || return 2
-    run_parallel check_version "$(jq -r '.[] | .id' <<<"$versions_json_more")" || return 2
     version_lines=$(jq -r '.[] | @base64' <<<"$versions_json_more")
     run_parallel save_version "$version_lines"
     (($? != 3)) || return 3
