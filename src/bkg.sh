@@ -61,7 +61,6 @@ main() {
         if [[ "$pkg_left" == "0" || "$(get_BKG BKG_LEFT)" == "$pkg_left" ]]; then
             set_BKG BKG_BATCH_FIRST_STARTED "$today"
             [ -s "$BKG_OWNERS" ] || seq 1 10 | env_parallel --lb --halt soon,fail=1 page_owner
-            \cp packages_all packages_to_update
         fi
 
         # add more owners
@@ -80,7 +79,7 @@ main() {
             sort -uR <"$BKG_OWNERS" | env_parallel --lb save_owner
         fi
 
-        awk -F'|' '{print $1"/"$2}' <packages_to_update | sort -uR | env_parallel --lb save_owner
+        awk -F'|' '{print $1"/"$2}' <packages_all | sort -uR | env_parallel --lb save_owner
     elif [ "$mode" -eq 1 ]; then
         save_owner arevindh
     fi
