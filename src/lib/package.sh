@@ -73,9 +73,6 @@ update_package() {
         return
     fi
 
-    html=$(curl "https://github.com/$owner/$repo/pkgs/$package_type/$package")
-    (($? != 3)) || return 3
-    [ -n "$(grep -Pzo 'Total downloads' <<<"$html" | tr -d '\0')" ] || return
     # shellcheck disable=SC2034
     lower_package=$(perl -pe 's/%([0-9A-Fa-f]{2})/chr(hex($1))/eg' <<<"${package//%/%25}" | tr '[:upper:]' '[:lower:]')
     [ -d "$BKG_INDEX_DIR/$owner/$repo" ] || mkdir "$BKG_INDEX_DIR/$owner/$repo"
@@ -95,6 +92,9 @@ update_package() {
     );"
 
     if grep -q "^$owner_id|$owner|$repo|$package$" packages_to_update; then
+        html=$(curl "https://github.com/$owner/$repo/pkgs/$package_type/$package")
+        (($? != 3)) || return 3
+        [ -n "$(grep -Pzo 'Total downloads' <<<"$html" | tr -d '\0')" ] || return
         echo "Updating $owner/$package..."
         raw_downloads=$(grep -Pzo 'Total downloads[^"]*"\d*' <<<"$html" | grep -Pzo '\d*$' | tr -d '\0') # https://stackoverflow.com/a/74214537
         sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name' where date >= '$BKG_BATCH_FIRST_STARTED';" | sort -u >"${table_version_name}"_already_updated
@@ -130,7 +130,7 @@ update_package() {
     [[ "$raw_downloads_week" =~ ^[0-9]+$ ]] || raw_downloads_week=-1
     [[ "$raw_downloads_day" =~ ^[0-9]+$ ]] || raw_downloads_day=-1
     [[ "$raw_downloads" =~ ^[0-9]+$ ]] || raw_downloads=$(sqlite3 "$BKG_INDEX_DB" "select downloads from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and package='$package' and date in (select date from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and package='$package' order by date desc limit 1);")
-    [[ "$raw_downloads" =~ ^[0-9]+$ ]] || raw_downloads=-1
+    [[ "$raw_downloads" =~ ^[0-9]+$ || "$raw_downloads" == "-1" ]] || return
     [[ "$summed_raw_downloads" =~ ^[0-9]+$ ]] && ((summed_raw_downloads > raw_downloads)) && raw_downloads=$summed_raw_downloads || :
 
     if grep -q "^$owner_id|$owner|$repo|$package$" packages_to_update; then
