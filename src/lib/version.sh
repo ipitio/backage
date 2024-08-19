@@ -8,8 +8,8 @@ save_version() {
     local version_id
     local version_name
     local version_tags
-    id=$(_jq "$1" '.id')
-    name=$(_jq "$1" '.name')
+    version_id=$(_jq "$1" '.id')
+    version_name=$(_jq "$1" '.name')
     [[ "$version_id" =~ ^[0-9]+$ ]] || version_id="-1"
     [[ "$version_name" =~ ^[0-9]+$ ]] || version_name="latest"
 
@@ -62,6 +62,11 @@ save_version() {
     fi
 }
 
+check_version() {
+    check_limit && [ -n "$1" ] || return
+    grep -q "$1" "${table_version_name}"_all || return 3
+}
+
 page_version() {
     check_limit || return $?
     [ -n "$1" ] || return
@@ -83,11 +88,10 @@ page_version() {
         ((min_calls_to_api++))
         set_BKG BKG_CALLS_TO_API "$calls_to_api"
         set_BKG BKG_MIN_CALLS_TO_API "$min_calls_to_api"
-        jq -e . <<<"$versions_json_more" &>/dev/null || versions_json_more="[]"
     fi
 
-    # if versions doesn't have .name, break
-    jq -e '.[].name' <<<"$versions_json_more" &>/dev/null || return 2
+    jq -e '.[].id' <<<"$versions_json_more" &>/dev/null || return 2
+    run_parallel check_version "$(jq -r '.[] | .id' <<<"$versions_json_more")" || return 2
     version_lines=$(jq -r '.[] | @base64' <<<"$versions_json_more")
     run_parallel save_version "$version_lines"
     (($? != 3)) || return 3

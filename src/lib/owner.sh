@@ -74,7 +74,6 @@ page_owner() {
         ((min_calls_to_api++))
         set_BKG BKG_CALLS_TO_API "$calls_to_api"
         set_BKG BKG_MIN_CALLS_TO_API "$min_calls_to_api"
-        jq -e . <<<"$owners_more" &>/dev/null || owners_more="[]"
     fi
 
     # if owners doesn't have .login, break
@@ -99,17 +98,17 @@ update_owner() {
     echo "Updating $owner..."
     [ -n "$(curl "https://github.com/orgs/$owner/people" | grep -zoP 'href="/orgs/'"$owner"'/people"' | tr -d '\0')" ] && export owner_type="orgs" || export owner_type="users"
     [ -d "$BKG_INDEX_DIR/$owner" ] || mkdir "$BKG_INDEX_DIR/$owner"
+    set_BKG BKG_PACKAGES_"$owner" ""
+    run_parallel save_package "$(sqlite3 "$BKG_INDEX_DB" "select package_type, package from '$BKG_INDEX_TBL_PKG' where owner_id = '$owner_id';" | awk -F'|' '{print "////"$1"//"$2}' | sort -uR)"
 
     for page in $(seq 1 100); do
         local pages_left=0
-        set_BKG BKG_PACKAGES_"$owner" ""
-        ((page != 1)) || run_parallel save_package "$(sqlite3 "$BKG_INDEX_DB" "select package_type, package from '$BKG_INDEX_TBL_PKG' where owner_id = '$owner_id';" | awk -F'|' '{print "////"$1"//"$2}' | sort -uR)"
         page_package "$page"
         pages_left=$?
         ((pages_left != 3)) || return 3
         run_parallel update_package "$(get_BKG_set BKG_PACKAGES_"$owner")"
         (($? != 3)) || return 3
-        del_BKG BKG_PACKAGES_"$owner"
+        set_BKG BKG_PACKAGES_"$owner" ""
         ((pages_left != 2)) || break
     done
 
