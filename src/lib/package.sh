@@ -100,7 +100,7 @@ update_package() {
         sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name' where date >= '$BKG_BATCH_FIRST_STARTED';" | sort -u >"${table_version_name}"_already_updated
         run_parallel save_version "$(sqlite3 -json "$BKG_INDEX_DB" "select id, name, tags from '$table_version_name' where id not in (select distinct id from '$table_version_name' where date >= '$BKG_BATCH_FIRST_STARTED') order by date;" | jq -r '.[] | @base64')"
 
-        for page in $(seq 1 100); do
+        for page in $(seq 1 10); do
             local pages_left=0
             page_version "$page"
             pages_left=$?
