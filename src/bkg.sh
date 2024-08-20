@@ -79,7 +79,7 @@ main() {
         awk -F'|' '{print $1"/"$2}' <packages_all | sort -uR | env_parallel --lb save_owner
         set_BKG BKG_LEFT "$(get_BKG_set BKG_OWNERS_QUEUE | wc -l)"
     elif [ "$mode" -eq 1 ]; then
-        save_owner arevindh
+        save_owner LizardByte
     fi
 
     BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
