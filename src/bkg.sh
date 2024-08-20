@@ -58,28 +58,26 @@ main() {
 
     # if this is a scheduled update, scrape all owners
     if [ "$mode" -eq 0 ]; then
-        if [[ "$pkg_left" == "0" || "$(get_BKG BKG_LEFT)" == "$pkg_left" ]]; then
+        sed -i '/^\s*$/d' "$BKG_OWNERS"
+        echo >>"$BKG_OWNERS"
+        awk 'NF' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
+        sed -i 's/^[[:space:]]*//;s/[[:space:]]*$//' "$BKG_OWNERS"
+        find "$BKG_INDEX_DIR" -mindepth 1 -maxdepth 1 -type d -exec basename {} \; | sort -u | awk '{print "0/"$1}' >>"$BKG_OWNERS"
+        awk '!seen[$0]++' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
+        # remove lines from $BKG_OWNERS that are in $packages_all
+        echo "$(
+            awk -F'|' '{print $1"/"$2}' <packages_all
+            awk -F'|' '{print $2}' <packages_all
+        )" | sort -u | parallel "sed -i '\,^{}$,d' $BKG_OWNERS"
+
+        if [[ "$pkg_left" == "0" || "$(get_BKG BKG_LEFT)" == "$((pkg_left + $(wc -l <"$BKG_OWNERS")))" ]]; then
             set_BKG BKG_BATCH_FIRST_STARTED "$today"
             [ -s "$BKG_OWNERS" ] || seq 1 10 | env_parallel --lb --halt soon,fail=1 page_owner
         fi
 
-        # add more owners
-        if [ -s "$BKG_OWNERS" ]; then
-            sed -i '/^\s*$/d' "$BKG_OWNERS"
-            echo >>"$BKG_OWNERS"
-            awk 'NF' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
-            sed -i 's/^[[:space:]]*//;s/[[:space:]]*$//' "$BKG_OWNERS"
-            find "$BKG_INDEX_DIR" -mindepth 1 -maxdepth 1 -type d -exec basename {} \; | sort -u | awk '{print "0/"$1}' >>"$BKG_OWNERS"
-            awk '!seen[$0]++' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
-            # remove lines from $BKG_OWNERS that are in $packages_all
-            echo "$(
-                awk -F'|' '{print $1"/"$2}' <packages_all
-                awk -F'|' '{print $2}' <packages_all
-            )" | sort -u | parallel "sed -i '\,^{}$,d' $BKG_OWNERS"
-            sort -uR <"$BKG_OWNERS" | env_parallel --lb save_owner
-        fi
-
+        sort -uR <"$BKG_OWNERS" | env_parallel --lb save_owner
         awk -F'|' '{print $1"/"$2}' <packages_all | sort -uR | env_parallel --lb save_owner
+        set_BKG BKG_LEFT "$(get_BKG_set BKG_OWNERS_QUEUE | wc -l)"
     elif [ "$mode" -eq 1 ]; then
         save_owner arevindh
     fi
@@ -102,7 +100,6 @@ main() {
 
     [ -d "$BKG_INDEX_DIR" ] || mkdir "$BKG_INDEX_DIR"
     get_BKG_set BKG_OWNERS_QUEUE | env_parallel --lb update_owner
-    set_BKG BKG_LEFT "$(wc -l <packages_to_update)"
     echo "Compressing the database..."
     sqlite3 "$BKG_INDEX_DB" ".dump" | zstd -22 --ultra --long -T0 -o "$BKG_INDEX_SQL".new.zst
 
@@ -142,6 +139,5 @@ main() {
     perl -0777 -pe 's/<GITHUB_OWNER>/'"$GITHUB_OWNER"'/g; s/<GITHUB_REPO>/'"$GITHUB_REPO"'/g; s/<GITHUB_BRANCH>/'"$GITHUB_BRANCH"'/g' "$BKG_ROOT"/README.md >README.tmp && [ -f README.tmp ] && mv README.tmp "$BKG_ROOT"/README.md || :
     del_BKG BKG_VERSIONS_.* BKG_PACKAGES_.* BKG_OWNERS_.* BKG_TIMEOUT BKG_SCRIPT_START
     rm -f packages_already_updated packages_all packages_to_update
-    find .. -name \*.tmp.json -type f -delete
     echo "Done!"
 }
