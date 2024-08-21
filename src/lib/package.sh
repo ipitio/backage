@@ -100,7 +100,7 @@ update_package() {
         sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name' where date >= '$BKG_BATCH_FIRST_STARTED';" | sort -u >"${table_version_name}"_already_updated
         run_parallel save_version "$(sqlite3 -json "$BKG_INDEX_DB" "select id, name, tags from '$table_version_name' where id not in (select distinct id from '$table_version_name' where date >= '$BKG_BATCH_FIRST_STARTED') order by date;" | jq -r '.[] | @base64')"
 
-        for page in $(seq 1 10); do
+        for page in $(seq 1 5); do
             local pages_left=0
             page_version "$page"
             pages_left=$?
@@ -147,7 +147,7 @@ update_package() {
     [[ "$version_with_tag_count" =~ ^[0-9]+$ ]] || version_with_tag_count=0
     [[ "$version_newest_id" =~ ^[0-9]+$ ]] || version_newest_id=-1
     [[ "$latest_version" =~ ^[0-9]+$ ]] || latest_version=-1
-    [[ "$version_count" -gt 0 && "$raw_downloads" -lt 0 && "$raw_downloads_month" -lt 0 && "$raw_downloads_week" -lt 0 && "$raw_downloads_day" -lt 0 ]] && return
+    [[ "$version_count" -gt 0 && "$raw_downloads_month" -lt 0 && "$raw_downloads_week" -lt 0 && "$raw_downloads_day" -lt 0 ]] && return
     echo "{
         \"owner_type\": \"$owner_type\",
         \"package_type\": \"$package_type\",
