@@ -38,7 +38,7 @@ save_owner() {
         owner=$(cut -d'/' -f2 <<<"$owner")
     fi
 
-    if [ -z "$owner_id" ]; then
+    if [[ ! "$owner_id" =~ ^[1-9] ]]; then
         owner_id=$(curl -H "Accept: application/vnd.github+json" \
             -H "Authorization: Bearer $GITHUB_TOKEN" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
