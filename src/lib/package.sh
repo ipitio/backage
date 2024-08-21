@@ -147,6 +147,7 @@ update_package() {
     [[ "$version_with_tag_count" =~ ^[0-9]+$ ]] || version_with_tag_count=0
     [[ "$version_newest_id" =~ ^[0-9]+$ ]] || version_newest_id=-1
     [[ "$latest_version" =~ ^[0-9]+$ ]] || latest_version=-1
+    [[ "$version_count" -gt 0 && "$raw_downloads" -lt 0 && "$raw_downloads_month" -lt 0 && "$raw_downloads_week" -lt 0 && "$raw_downloads_day" -lt 0 ]] && return
     echo "{
         \"owner_type\": \"$owner_type\",
         \"package_type\": \"$package_type\",
