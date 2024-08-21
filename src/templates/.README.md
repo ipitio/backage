@@ -65,8 +65,8 @@ $.size
 |       `package`       |    string    | The package name                                   |
 |        `date`         |    string    | The most recent date the package was refreshed     |
 |        `size`         |    string    | Formatted size of the latest version               |
-|      `versions`       |    string    | Formatted count of versions scraped                |
-|       `tagged`        |    string    | Formatted count of tagged versions                 |
+|      `versions`       |    string    | Formatted count of versions tracked                |
+|       `tagged`        |    string    | Formatted count of tagged versions tracked         |
 |      `downloads`      |    string    | Formatted count of all downloads                   |
 |   `downloads_month`   |    string    | Formatted count of all downloads in the last month |
 |   `downloads_week`    |    string    | Formatted count of all downloads in the last week  |
@@ -153,7 +153,7 @@ The general stats for all packages.
 
 #### Versions
 
-The stats for all versions of each package.
+The stats for all tracked versions of each package.
 
 <details>
 
