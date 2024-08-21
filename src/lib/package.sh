@@ -65,7 +65,7 @@ update_package() {
     package=${package%/}
     json_file="$BKG_INDEX_DIR/$owner/$repo/$package.json"
 
-    if grep -q "$owner/$repo/$package" "$BKG_OPTOUT"; then
+    if grep -q "^$owner/$repo$" "$BKG_OPTOUT" || grep -q "^$owner/$repo/$package$" "$BKG_OPTOUT"; then
         echo "$owner/$package was opted out!"
         rm -rf "$BKG_INDEX_DIR/$owner/$repo/$package".*
         sqlite3 "$BKG_INDEX_DB" "delete from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and package='$package';"
@@ -199,5 +199,6 @@ update_package() {
         mv "$json_file".tmp "$json_file"
     done
 
+    rm -rf "$BKG_INDEX_DIR/$owner/$repo/$package.d"
     echo "Refreshed $owner/$package"
 }

@@ -91,6 +91,15 @@ update_owner() {
     check_limit || return $?
     [ -n "$1" ] || return
     owner=$(cut -d'/' -f2 <<<"$1")
+
+    if grep -q "^$owner$" "$BKG_OPTOUT"; then
+        echo "$owner was opted out!"
+        rm -rf "${BKG_INDEX_DIR:?}/$owner"
+        sqlite3 "$BKG_INDEX_DB" "delete from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id';"
+        sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name like '${BKG_INDEX_TBL_VER}_${owner_type}_${package_type}_${owner}_%';" | parallel sqlite3 "$BKG_INDEX_DB" "drop table if exists '{}';"
+        return
+    fi
+
     owner_id=$(cut -d'/' -f1 <<<"$1")
     # decode percent-encoded characters and make lowercase (eg. for docker manifest)
     # shellcheck disable=SC2034
