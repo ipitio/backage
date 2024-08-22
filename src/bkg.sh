@@ -11,6 +11,7 @@ main() {
     local packages
     local today
     local pkg_left
+    local pkg_all
 
     while getopts "m:" flag; do
         case ${flag} in
@@ -51,7 +52,8 @@ main() {
     sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, repo, package from '$BKG_INDEX_TBL_PKG';" | sort -u >packages_all
     comm -13 packages_already_updated packages_all >packages_to_update
     pkg_left=$(wc -l <packages_to_update)
-    echo "all: $(wc -l <packages_all)"
+    pkg_all=$(wc -l <packages_all)
+    echo "all: $pkg_all"
     echo "done: $(wc -l <packages_already_updated)"
     echo "left: $pkg_left"
     [ -n "$(get_BKG BKG_BATCH_FIRST_STARTED)" ] || set_BKG BKG_BATCH_FIRST_STARTED "$today"
@@ -70,16 +72,16 @@ main() {
             awk -F'|' '{print $2}' <packages_all
         )" | sort -u | parallel "sed -i '\,^{}$,d' $BKG_OWNERS"
 
-        if [[ "$pkg_left" == "0" || "$(get_BKG BKG_LEFT)" == "$((pkg_left + $(grep -c . "$BKG_OWNERS")))" ]]; then
+        if [[ "$pkg_left" == "0" || "$(get_BKG BKG_LEFT)" == "$pkg_left$pkg_all" ]]; then
             set_BKG BKG_BATCH_FIRST_STARTED "$today"
             [ "$(wc -l <"$BKG_OWNERS")" -gt 10 ] || seq 1 10 | env_parallel --lb --halt soon,fail=1 page_owner
         fi
 
         sort -uR <"$BKG_OWNERS" | env_parallel --lb save_owner
         awk -F'|' '{print $1"/"$2}' <packages_to_update | sort -uR | env_parallel --lb save_owner
-        set_BKG BKG_LEFT "$(get_BKG_set BKG_OWNERS_QUEUE | wc -l)"
+        set_BKG BKG_LEFT "$pkg_left$pkg_all"
     elif [ "$mode" -eq 1 ]; then
-        save_owner fujin
+        save_owner arevindh
     fi
 
     BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
