@@ -72,7 +72,7 @@ main() {
 
         if [[ "$pkg_left" == "0" || "$(get_BKG BKG_LEFT)" == "$((pkg_left + $(wc -l <"$BKG_OWNERS")))" ]]; then
             set_BKG BKG_BATCH_FIRST_STARTED "$today"
-            [ -s "$BKG_OWNERS" ] || seq 1 10 | env_parallel --lb --halt soon,fail=1 page_owner
+            [ "$(wc -l <"$BKG_OWNERS")" -gt 10 ] || seq 1 10 | env_parallel --lb --halt soon,fail=1 page_owner
         fi
 
         sort -uR <"$BKG_OWNERS" | env_parallel --lb save_owner
