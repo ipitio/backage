@@ -64,12 +64,19 @@ update_package() {
     package=$(cut -d'/' -f3 <<<"$1")
     package=${package%/}
     json_file="$BKG_INDEX_DIR/$owner/$repo/$package.json"
+    local old_table_version_name="${BKG_INDEX_TBL_VER}_${owner_type}_${package_type}_${owner}_${repo}_${package}"
+    table_version_name="${BKG_INDEX_TBL_VER}_${owner}_${repo}_${package}"
+
+    # rename table
+    if sqlite3 "$BKG_INDEX_DB" ".tables" | grep -q "^$old_table_version_name$"; then
+        sqlite3 "$BKG_INDEX_DB" "alter table '$old_table_version_name' rename to '$table_version_name';"
+    fi
 
     if grep -q "^$owner$" "$BKG_OPTOUT" || grep -q "^$owner/$repo$" "$BKG_OPTOUT" || grep -q "^$owner/$repo/$package$" "$BKG_OPTOUT"; then
         echo "$owner/$package was opted out!"
         rm -rf "$BKG_INDEX_DIR/$owner/$repo/$package".*
         sqlite3 "$BKG_INDEX_DB" "delete from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and package='$package';"
-        sqlite3 "$BKG_INDEX_DB" "drop table if exists '${BKG_INDEX_TBL_VER}_${owner_type}_${package_type}_${owner}_${repo}_${package}';"
+        sqlite3 "$BKG_INDEX_DB" "drop table if exists '$table_version_name';"
         return
     fi
 
@@ -77,7 +84,6 @@ update_package() {
     lower_package=$(perl -pe 's/%([0-9A-Fa-f]{2})/chr(hex($1))/eg' <<<"${package//%/%25}" | tr '[:upper:]' '[:lower:]')
     [ -d "$BKG_INDEX_DIR/$owner/$repo" ] || mkdir "$BKG_INDEX_DIR/$owner/$repo"
     [ -d "$BKG_INDEX_DIR/$owner/$repo/$package.d" ] || mkdir "$BKG_INDEX_DIR/$owner/$repo/$package.d"
-    table_version_name="${BKG_INDEX_TBL_VER}_${owner_type}_${package_type}_${owner}_${repo}_${package}"
     sqlite3 "$BKG_INDEX_DB" "create table if not exists '$table_version_name' (
         id text not null,
         name text not null,

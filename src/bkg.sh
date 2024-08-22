@@ -70,13 +70,13 @@ main() {
             awk -F'|' '{print $2}' <packages_all
         )" | sort -u | parallel "sed -i '\,^{}$,d' $BKG_OWNERS"
 
-        if [[ "$pkg_left" == "0" || "$(get_BKG BKG_LEFT)" == "$((pkg_left + $(wc -l <"$BKG_OWNERS")))" ]]; then
+        if [[ "$pkg_left" == "0" || "$(get_BKG BKG_LEFT)" == "$((pkg_left + $(grep -c . "$BKG_OWNERS")))" ]]; then
             set_BKG BKG_BATCH_FIRST_STARTED "$today"
             [ "$(wc -l <"$BKG_OWNERS")" -gt 10 ] || seq 1 10 | env_parallel --lb --halt soon,fail=1 page_owner
         fi
 
         sort -uR <"$BKG_OWNERS" | env_parallel --lb save_owner
-        awk -F'|' '{print $1"/"$2}' <packages_all | sort -uR | env_parallel --lb save_owner
+        awk -F'|' '{print $1"/"$2}' <packages_to_update | sort -uR | env_parallel --lb save_owner
         set_BKG BKG_LEFT "$(get_BKG_set BKG_OWNERS_QUEUE | wc -l)"
     elif [ "$mode" -eq 1 ]; then
         save_owner fujin
