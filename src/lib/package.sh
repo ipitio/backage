@@ -92,7 +92,7 @@ update_package() {
         tags text,
         primary key (id, date)
     );"
-    ! sqlite3 "$BKG_INDEX_DB" ".tables" | grep -q "^$old_table_version_name$" || sqlite3 "$BKG_INDEX_DB" "insert or replace into '$table_version_name' select * from '$old_table_version_name';"
+    [ -z "$(sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name='$old_table_version_name';")" ] || sqlite3 "$BKG_INDEX_DB" "insert or replace into '$table_version_name' select * from '$old_table_version_name';"
     sqlite3 "$BKG_INDEX_DB" "drop table if exists '$old_table_version_name';"
     if ! grep -q "^$owner_id|$owner|$repo|$package$" packages_already_updated; then
         html=$(curl "https://github.com/$owner/$repo/pkgs/$package_type/$package")
