@@ -6,24 +6,28 @@
 
 ## SOTA Sprinkler System
 
-No API? No Problem!
+Part and Parcel
 
 </div>
 
 ---
 
-The GitHub Packages API doesn't provide much metadata; this project aims to both fill that gap and provide a timeseries for further analysis. If you're here to make a badge, use something like [shields.io/json](https://shields.io/badges/dynamic-json-badge) with the endpoint. Here's what badges could look like for some of the available parameters:
+The GitHub Packages API doesn't expose much metadata that other registries provide; this is the remedy. Four owner services are hosted and ran on GitHub: manual entry, automatic discovery, batch queuing, and batch processing. They query the GitHub API, scraping GitHub when needed, to produce two package products: a JSON endpoint served from GitHub and a SQLite database stored under GitHub Releases.
+
+If you're here to make a badge, use something like [shields.io/json](https://shields.io/badges/dynamic-json-badge) with the endpoint parameters below. Here's what badges could look like for some of the available parameters:
 
 [![package](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fipitio%2Fbackage%2Fmaster%2Findex%2Farevindh%2Fpihole-speedtest%2Fpihole-speedtest.json&query=%24.package&logo=github&label=package&style=for-the-badge&color=black)](https://github.com/arevindh/pihole-speedtest/pkgs/container/pihole-speedtest) [![type](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fipitio%2Fbackage%2Fmaster%2Findex%2Farevindh%2Fpihole-speedtest%2Fpihole-speedtest.json&query=%24.package_type&logo=github&label=type&style=for-the-badge&color=black)](https://github.com/arevindh/pihole-speedtest/pkgs/container/pihole-speedtest) [![watered](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fipitio%2Fbackage%2Fmaster%2Findex%2Farevindh%2Fpihole-speedtest%2Fpihole-speedtest.json&query=%24.version%5B%3F(%40.newest%20%3D%3D%20true)%5D.date&logo=github&label=watered&style=for-the-badge&color=black)](https://github.com/arevindh/pihole-speedtest/pkgs/container/pihole-speedtest)
 
 [![downloads/all](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fipitio%2Fbackage%2Fmaster%2Findex%2Farevindh%2Fpihole-speedtest%2Fpihole-speedtest.json&query=%24.downloads&logo=github&label=downloads)](https://github.com/arevindh/pihole-speedtest/pkgs/container/pihole-speedtest) [![downloads/month](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fipitio%2Fbackage%2Fmaster%2Findex%2Farevindh%2Fpihole-speedtest%2Fpihole-speedtest.json&query=%24.downloads_month&logo=github&label=month)](https://github.com/arevindh/pihole-speedtest/pkgs/container/pihole-speedtest) [![downloads/week](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fipitio%2Fbackage%2Fmaster%2Findex%2Farevindh%2Fpihole-speedtest%2Fpihole-speedtest.json&query=%24.downloads_week&logo=github&label=week)](https://github.com/arevindh/pihole-speedtest/pkgs/container/pihole-speedtest) [![downloads/day](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fipitio%2Fbackage%2Fmaster%2Findex%2Farevindh%2Fpihole-speedtest%2Fpihole-speedtest.json&query=%24.downloads_day&logo=github&label=day)](https://github.com/arevindh/pihole-speedtest/pkgs/container/pihole-speedtest) [![size](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fipitio%2Fbackage%2Fmaster%2Findex%2Farevindh%2Fpihole-speedtest%2Fpihole-speedtest.json&query=%24.size&logo=github&label=size&color=indigo)](https://github.com/arevindh/pihole-speedtest/pkgs/container/pihole-speedtest) [![releases](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fipitio%2Fbackage%2Fmaster%2Findex%2Farevindh%2Fpihole-speedtest%2Fpihole-speedtest.json&query=%24.tagged&logo=github&label=releases&color=darkgreen)](https://github.com/arevindh/pihole-speedtest/pkgs/container/pihole-speedtest) [![latest](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fipitio%2Fbackage%2Fmaster%2Findex%2Farevindh%2Fpihole-speedtest%2Fpihole-speedtest.json&query=%24.version%5B%3F(%40.latest%3D%3Dtrue)%5D.tags%5B%3F(%40!%3D%22latest%22)%5D&logo=github&label=latest&color=darkgreen)](https://github.com/arevindh/pihole-speedtest/pkgs/container/pihole-speedtest) [![versions](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fipitio%2Fbackage%2Fmaster%2Findex%2Farevindh%2Fpihole-speedtest%2Fpihole-speedtest.json&query=%24.versions&logo=github&label=versions&color=darkgreen)](https://github.com/arevindh/pihole-speedtest/pkgs/container/pihole-speedtest) [![newest](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fipitio%2Fbackage%2Fmaster%2Findex%2Farevindh%2Fpihole-speedtest%2Fpihole-speedtest.json&query=%24.version%5B%3F(%40.newest%3D%3Dtrue)%5D.id&logo=github&label=newest&color=darkgreen)](https://github.com/arevindh/pihole-speedtest/pkgs/container/pihole-speedtest)
 
+To add any owners post-haste, you can:
+
+* open an issue, and/or
+* add the case-sensitive name of each user or organization on a new line in `owners.txt` on your own fork [here](https://github.com/ipitio/backage/edit/master/owners.txt) and make a pull request. Please add just the name -- ids, repos, and packages will be retrieved automatically.
+
 ### Endpoint
 
-If the database is a lawn we're sprinkling then the endpoint is what's been watered over the last 2π rad. To add any users or orgs post-haste, you can either:
-
-* open an issue, or
-* add the case-sensitive name of each one on a new line in `owners.txt` on your own fork [here](https://github.com/ipitio/backage/edit/master/owners.txt) and make a pull request. Please add just the name -- ids, repos, and packages will be retrieved automatically.
+The latest data in the continually updated database.
 
 #### URL
 
@@ -124,11 +128,11 @@ $.version[?(@.latest == true)]
 
 ### Database
 
-Imagine an ever-growing lawn increasingly covered less than π/2 rad at a time. It can be found under the [latest release](https://github.com/ipitio/backage/releases/latest).
+Up to the most recent 2GB (compressed) of data. It, along with any older data, can be found under the [latest release](https://github.com/ipitio/backage/releases/latest).
 
 #### Packages
 
-The general stats for all packages.
+The general data for all packages.
 
 <details>
 
@@ -153,7 +157,7 @@ The general stats for all packages.
 
 #### Versions
 
-The stats for all tracked versions of each package.
+The data for all tracked versions of each package.
 
 <details>
 
