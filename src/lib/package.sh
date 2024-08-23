@@ -64,8 +64,7 @@ update_package() {
     package=$(cut -d'/' -f3 <<<"$1")
     package=${package%/}
     json_file="$BKG_INDEX_DIR/$owner/$repo/$package.json"
-    local old_table_version_name="${BKG_INDEX_TBL_VER}_${owner_type}_${package_type}_${owner}_${repo}_${package}"
-    table_version_name="${BKG_INDEX_TBL_VER}_${owner}_${repo}_${package}"
+    table_version_name="${BKG_INDEX_TBL_VER}_${owner_type}_${package_type}_${owner}_${repo}_${package}"
 
     if grep -q "^$owner$" "$BKG_OPTOUT" || grep -q "^$owner/$repo$" "$BKG_OPTOUT" || grep -q "^$owner/$repo/$package$" "$BKG_OPTOUT"; then
         echo "$owner/$package was opted out!"
@@ -92,8 +91,6 @@ update_package() {
         tags text,
         primary key (id, date)
     );"
-    [ -z "$(sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name='$old_table_version_name';")" ] || sqlite3 "$BKG_INDEX_DB" "insert or replace into '$table_version_name' select * from '$old_table_version_name';"
-    [ -n "$(sqlite3 "$BKG_INDEX_DB" "select * from '$table_version_name' except select * from '$old_table_version_name';")" ] || sqlite3 "$BKG_INDEX_DB" "drop table if exists '$old_table_version_name';"
     if ! grep -q "^$owner_id|$owner|$repo|$package$" packages_already_updated; then
         html=$(curl "https://github.com/$owner/$repo/pkgs/$package_type/$package")
         (($? != 3)) || return 3
