@@ -71,7 +71,6 @@ update_package() {
         rm -rf "$BKG_INDEX_DIR/$owner/$repo/$package".*
         sqlite3 "$BKG_INDEX_DB" "delete from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and package='$package';"
         sqlite3 "$BKG_INDEX_DB" "drop table if exists '$table_version_name';"
-        sqlite3 "$BKG_INDEX_DB" "drop table if exists '$old_table_version_name';"
         return
     fi
 
@@ -91,6 +90,7 @@ update_package() {
         tags text,
         primary key (id, date)
     );"
+
     if ! grep -q "^$owner_id|$owner|$repo|$package$" packages_already_updated; then
         html=$(curl "https://github.com/$owner/$repo/pkgs/$package_type/$package")
         (($? != 3)) || return 3
