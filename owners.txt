@@ -3,6 +3,3 @@
 0/fabriziomachado
 0/masci
 0/yang
-LizardByte
-docker-mailserver
-dockur
