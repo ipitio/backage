@@ -128,7 +128,7 @@ update_version() {
     if [ "$package_type" = "container" ]; then
         manifest=$(tr -d '\n' <<<"$version_html" | grep -Pzo '<code.*?>.*?<pre.*?>\K[^<]*(?=<\/pre>)' | tr -d '\0' | sed 's/&quot;/"/g')
 
-        if [ -z "$manifest" ]; then
+        if [ -z "$manifest" ] || ! jq -e '.' <<<"$manifest" &>/dev/null; then
             [[ "$version_name" =~ ^sha256:.+$ ]] && sep="@" || sep=":"
             manifest=$(docker manifest inspect -v "ghcr.io/$lower_owner/$lower_package$sep$version_name" 2>&1)
         fi
