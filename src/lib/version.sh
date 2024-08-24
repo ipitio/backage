@@ -126,7 +126,7 @@ update_version() {
     fi
 
     if [ "$package_type" = "container" ]; then
-        # https://unix.stackexchange.com/q/550463
+        # https://unix.stackexchange.com/q/550463, https://stackoverflow.com/q/45186440
         manifest=$(awk -v RS='</pre>' '/<code.*?>/{gsub(/.*<code.*?>/, ""); print}' <<<"$version_html" | tr -d '\n' | sed 's/&quot;/"/g')
 
         if [ -z "$manifest" ] || ! jq -e '.' <<<"$manifest" &>/dev/null; then
