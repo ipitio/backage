@@ -126,10 +126,14 @@ update_version() {
     fi
 
     if [ "$package_type" = "container" ]; then
-        # get the size by adding up the layers
-        [[ "$version_name" =~ ^sha256:.+$ ]] && sep="@" || sep=":"
-        manifest=$(docker manifest inspect -v "ghcr.io/$lower_owner/$lower_package$sep$version_name" 2>&1)
+        manifest=$(tr -d '\n' <<<"$version_html" | grep -Pzo '<code.*?>.*?<pre.*?>\K[^<]*(?=<\/pre>)' | tr -d '\0' | sed 's/&quot;/"/g')
 
+        if [ -z "$manifest" ]; then
+            [[ "$version_name" =~ ^sha256:.+$ ]] && sep="@" || sep=":"
+            manifest=$(docker manifest inspect -v "ghcr.io/$lower_owner/$lower_package$sep$version_name" 2>&1)
+        fi
+
+        # get the size by adding up the layers
         if [[ -n "$(jq '.. | try .layers[]' 2>/dev/null <<<"$manifest")" ]]; then
             version_size=$(jq '.. | try .size | select(. > 0)' <<<"$manifest" | awk '{s+=$1} END {print s}')
             [[ "$version_size" =~ ^[0-9]+$ ]] || version_size=-1
