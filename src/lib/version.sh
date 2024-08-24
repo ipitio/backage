@@ -126,7 +126,8 @@ update_version() {
     fi
 
     if [ "$package_type" = "container" ]; then
-        manifest=$(tr -d '\n' <<<"$version_html" | grep -Pzo '<code.*?>.*?<pre.*?>\K[^<]*(?=<\/pre>)' | tr -d '\0' | sed 's/&quot;/"/g')
+        # https://unix.stackexchange.com/q/550463
+        manifest=$(awk -v RS='</pre>' '/<code.*?>/{gsub(/.*<code.*?>/, ""); print}' <<<"$version_html" | tr -d '\n' | sed 's/&quot;/"/g')
 
         if [ -z "$manifest" ] || ! jq -e '.' <<<"$manifest" &>/dev/null; then
             [[ "$version_name" =~ ^sha256:.+$ ]] && sep="@" || sep=":"
