@@ -28,13 +28,7 @@ page_package() {
     [ "$owner_type" = "users" ] && pkg_html=$(curl "https://github.com/$owner?tab=packages&visibility=public&&per_page=100&page=$1") || pkg_html=$(curl "https://github.com/$owner_type/$owner/packages?visibility=public&per_page=100&page=$1")
     (($? != 3)) || return 3
     packages_lines=$(grep -zoP 'href="/'"$owner_type"'/'"$owner"'/packages/[^/]+/package/[^"]+"' <<<"$pkg_html" | tr -d '\0')
-
-    if [ -z "$packages_lines" ]; then
-        sed -i '/^'"$owner"'$/d' "$BKG_OWNERS"
-        sed -i '/^'"$owner_id"'\/'"$owner"'$/d' "$BKG_OWNERS"
-        return 2
-    fi
-
+    [ -n "$packages_lines" ] || return 2
     packages_lines=${packages_lines//href=/\\nhref=}
     packages_lines=${packages_lines//\\n/$'\n'} # replace \n with newline
     run_parallel save_package "$packages_lines"
