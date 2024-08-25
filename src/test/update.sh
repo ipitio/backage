@@ -31,4 +31,4 @@ check_json() {
 find .. -type f -name '*.json' | env_parallel check_json
 
 popd || exit 1
-git subtree push --prefix index origin index
+git push origin "$(git subtree split --prefix index master)":index --force
