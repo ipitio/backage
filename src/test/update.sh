@@ -35,6 +35,8 @@ git worktree add index-branch index
 \cp -r index/* index-branch/
 pushd index-branch || exit 1
 git add .
+git config --global user.name "${GITHUB_ACTOR}"
+git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
 git commit -m "hydration"
 git push
 popd || exit 1
