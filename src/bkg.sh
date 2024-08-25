@@ -142,6 +142,11 @@ main() {
     [ ! -f "$BKG_ROOT"/README.md ] || rm -f "$BKG_ROOT"/README.md
     \cp templates/.README.md "$BKG_ROOT"/README.md
     perl -0777 -pe 's/<GITHUB_OWNER>/'"$GITHUB_OWNER"'/g; s/<GITHUB_REPO>/'"$GITHUB_REPO"'/g; s/<GITHUB_BRANCH>/'"$GITHUB_BRANCH"'/g' "$BKG_ROOT"/README.md >README.tmp && [ -f README.tmp ] && mv README.tmp "$BKG_ROOT"/README.md || :
+    \cp "$BKG_ROOT"/README.md "$BKG_ROOT"/index/README.md
+    [ -d "$BKG_ROOT"/index/src ] || mkdir -p "$BKG_ROOT"/index/src
+    [ -d "$BKG_ROOT"/index/src/img ] || mkdir -p "$BKG_ROOT"/index/src/img
+    \cp "$BKG_ROOT"/src/img/logo-b.png "$BKG_ROOT"/index/src/img/logo-b.png
+    \cp "$BKG_ROOT"/src/index.html "$BKG_ROOT"/index/index.html
     del_BKG BKG_VERSIONS_.* BKG_PACKAGES_.* BKG_OWNERS_.* BKG_TIMEOUT BKG_SCRIPT_START
     rm -f packages_already_updated packages_all packages_to_update
     echo "Done!"
