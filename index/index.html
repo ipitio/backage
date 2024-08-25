@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>backage</title>
+    <style>
+        body {
+            font-family: Inter, sans-serif;
+            margin: 5% auto;
+            line-height: 1.6;
+            background-color: #222;
+            color: #ddd;
+            max-width: 800px;
+        }
+
+        h1 {
+            font-size: 2.5em;
+        }
+
+        h2 {
+            font-size: 2em;
+        }
+
+        h3 {
+            font-size: 1.5em;
+        }
+
+        h4 {
+            font-size: 1.2em;
+        }
+
+        h5 p {
+            font-size: 1em;
+        }
+
+        a {
+            color: #0ff;
+        }
+
+        #content {
+            margin-top: 20px;
+        }
+
+        #loading {
+            text-align: center;
+            color: #888;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="loading">Loading README...</div>
+    <div id="content" style="display: none;"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script>
+        // Ensure the DOM is fully loaded before running the script
+        document.addEventListener("DOMContentLoaded", function () {
+            // Fetch the README.md file
+            fetch('README.md')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! Status: ${response.status}`);
+                    }
+                    return response.text();
+                })
+                .then(text => {
+                    // Use marked to parse the Markdown into HTML
+                    const contentDiv = document.getElementById('content');
+                    contentDiv.innerHTML = marked.parse(text);
+
+                    // Hide the loading message and show the content
+                    document.getElementById('loading').style.display = 'none';
+                    contentDiv.style.display = 'block';
+                })
+                .catch(error => {
+                    console.error('Error fetching README:', error);
+                    document.getElementById('loading').textContent = 'Failed to load README.md';
+                });
+        });
+    </script>
+</body>
+
+</html>
