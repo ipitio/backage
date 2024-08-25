@@ -3,9 +3,3 @@
 fujin
 7284/apldx
 7449/luxus
-7524/shiva
-7530/sorend
-7477/nbudin
-7596/maehld
-7574/analogrelay
-7568/nickludlam
