@@ -31,4 +31,13 @@ check_json() {
 find .. -type f -name '*.json' | env_parallel check_json
 
 popd || exit 1
-git push origin "$(git subtree split --prefix index master)":index --force
+
+if git ls-remote --exit-code origin index &>/dev/null; then
+    pushd index || exit 1
+    git add .
+    git commit -m "hydration"
+    git push origin HEAD:index --force
+    popd || exit 1
+else
+    git subtree push --prefix index origin index
+fi
