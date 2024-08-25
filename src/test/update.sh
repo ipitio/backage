@@ -5,7 +5,17 @@
 #
 # shellcheck disable=SC1090,SC1091
 
-cd "${0%/*}"/.. || exit 1
+if git ls-remote --exit-code origin index &>/dev/null; then
+    if [ -d index ]; then
+        pushd index || exit 1
+        git pull
+        popd || exit 1
+    else
+        git clone --depth 1 --branch index "$(git remote get-url origin)" index
+    fi
+fi
+
+pushd "${0%/*}/.." || exit 1
 source bkg.sh
 main "$@"
 
@@ -19,3 +29,7 @@ check_json() {
 
 # json should be valid, warn if it is not
 find .. -type f -name '*.json' | env_parallel check_json
+
+popd || exit 1
+! git ls-remote --exit-code origin index &>/dev/null ||  git push origin :index
+git subtree push --prefix index origin index

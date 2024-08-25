@@ -43,12 +43,12 @@ jobs:
           GITHUB_REPO: ${{ github.event.repository.name }}
           GITHUB_BRANCH: ${{ github.head_ref || github.ref_name }}
 
-      - name: Commit changes
+      - name: Save state
         id: commit
         if: ${{ steps.update.outputs.updated == '0' }}
         uses: EndBug/add-and-commit@v9
         with:
-          add: "-- *.txt *.env *.json README.md"
+          add: "-- *.txt *.env README.md"
           message: "hydration"
           pull: "--rebase --autostash -s ours"
 
