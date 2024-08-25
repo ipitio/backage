@@ -8,7 +8,7 @@
 if git ls-remote --exit-code origin index &>/dev/null; then
     if [ -d index ]; then
         pushd index || exit 1
-        git pull
+        #git pull
         popd || exit 1
     else
         git clone --depth 1 --branch index "$(git remote get-url origin)" index
