@@ -6,13 +6,12 @@
 # shellcheck disable=SC1090,SC1091
 
 if git ls-remote --exit-code origin index &>/dev/null; then
-    if [ -d index ]; then
-        pushd index || exit 1
-        git pull
-        popd || exit 1
-    else
-        git clone --depth 1 --branch index "$(git remote get-url origin)" index
-    fi
+    git worktree add index-branch index
+    \cp -r index-branch/* index/
+    pushd index || exit 1
+    git pull
+    popd || exit 1
+    git worktree remove index-branch
 fi
 
 pushd "${0%/*}/.." || exit 1
@@ -31,4 +30,12 @@ check_json() {
 find .. -type f -name '*.json' | env_parallel check_json
 
 popd || exit 1
-git push origin "$(git subtree split --prefix index master)":index --force
+
+git worktree add index-branch index
+\cp -r index/* index-branch/
+pushd index-branch || exit 1
+git add .
+git commit -m "hydration"
+git push
+popd || exit 1
+git worktree remove index-branch
