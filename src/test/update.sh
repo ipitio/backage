@@ -31,5 +31,5 @@ check_json() {
 find .. -type f -name '*.json' | env_parallel check_json
 
 popd || exit 1
-! git ls-remote --exit-code origin index &>/dev/null ||  git push origin :index
+! git ls-remote --exit-code origin index &>/dev/null || git push origin :index
 git subtree push --prefix index origin index

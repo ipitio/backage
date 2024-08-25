@@ -145,8 +145,8 @@ main() {
     \cp "$BKG_ROOT"/README.md "$BKG_ROOT"/index/README.md
     [ -d "$BKG_ROOT"/index/src ] || mkdir -p "$BKG_ROOT"/index/src
     [ -d "$BKG_ROOT"/index/src/img ] || mkdir -p "$BKG_ROOT"/index/src/img
-    \cp "$BKG_ROOT"/src/img/logo-b.png "$BKG_ROOT"/index/src/img/logo-b.png
-    \cp "$BKG_ROOT"/src/index.html "$BKG_ROOT"/index/index.html
+    \cp img/logo-b.png "$BKG_ROOT"/index/src/img/logo-b.png
+    \cp index.html "$BKG_ROOT"/index/index.html
     del_BKG BKG_VERSIONS_.* BKG_PACKAGES_.* BKG_OWNERS_.* BKG_TIMEOUT BKG_SCRIPT_START
     rm -f packages_already_updated packages_all packages_to_update
     echo "Done!"
