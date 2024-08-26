@@ -12,7 +12,9 @@ It's all part and parcel.
 
 ---
 
-The GitHub Packages API doesn't expose much metadata that other registries provide; this is the remedy. Four owner services are hosted and ran on GitHub: manual entry, automatic discovery, batch queuing, and batch processing. They query the GitHub API, scraping GitHub when needed, to produce a JSON endpoint served from GitHub and a SQLite database stored under GitHub Releases.
+The GitHub Packages API doesn't expose much metadata that other registries provide; this is the remedy. Four owner services are hosted and ran on GitHub: manual entry, automatic discovery, batch queuing, and batch processing. They query the GitHub API, scraping GitHub when needed, to produce a JSON endpoint served from GitHub and a SQLite database stored on GitHub.
+
+You can view currently available owners [in the index](https://github.com/ipitio/backage/tree/index). To add any post-haste, you can open an issue and/or add the case-sensitive name of each user or organization on a new line in `owners.txt` on your own fork [here](https://github.com/ipitio/backage/edit/master/owners.txt) and make a pull request. Please add just the name(s) -- ids, repos, and packages will be obtained automatically!
 
 If you're here to make a badge, use something like [shields.io/json](https://shields.io/badges/dynamic-json-badge) with the endpoint parameters below. Here's what badges could look like for a few of the available parameters:
 
@@ -23,11 +25,6 @@ If you're here to make a badge, use something like [shields.io/json](https://shi
 [![downloads](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fipitio.github.io%2Fbackage%2Farevindh%2Fpihole-speedtest%2Fpihole-speedtest.json&query=%24.downloads&logo=github&label=downloads)](https://github.com/arevindh/pihole-speedtest/pkgs/container/pihole-speedtest) [![size](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fipitio.github.io%2Fbackage%2Farevindh%2Fpihole-speedtest%2Fpihole-speedtest.json&query=%24.size&logo=github&label=size&color=indigo)](https://github.com/arevindh/pihole-speedtest/pkgs/container/pihole-speedtest) [![latest](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fipitio.github.io%2Fbackage%2Farevindh%2Fpihole-speedtest%2Fpihole-speedtest.json&query=%24.version%5B%3F(%40.latest%3D%3Dtrue)%5D.tags%5B%3F(%40!%3D%22latest%22)%5D&logo=github&label=latest&color=darkgreen)](https://github.com/arevindh/pihole-speedtest/pkgs/container/pihole-speedtest)
 
 </div>
-
-To add any owners post-haste, you can:
-
-* open an issue, and/or
-* add the case-sensitive name of each user or organization on a new line in `owners.txt` on your own fork [here](https://github.com/ipitio/backage/edit/master/owners.txt) and make a pull request. Please add just the name -- ids, repos, and packages will be retrieved automatically.
 
 ### Endpoint
 
