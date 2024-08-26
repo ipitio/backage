@@ -10,7 +10,7 @@ save_version() {
     local version_tags
     version_id=$(_jq "$1" '.id')
     version_name=$(_jq "$1" '.name')
-    [[ "$version_id" =~ ^[0-9]+$ ]] || version_id="-1"
+    [[ "$version_id" =~ ^[0-9]+$ ]] || version_id=-1
 
     if [ -f "${table_version_name}"_already_updated ]; then
         check_limit || return $?
@@ -34,11 +34,11 @@ save_version() {
         version_dl_week=$(_jq "$1" '.downloads_week')
         version_dl_day=$(_jq "$1" '.downloads_day')
         version_tags=$(_jq "$1" '.tags')
-        [[ "$version_size" =~ ^[0-9]+$ ]] || version_size="-1"
-        [[ "$version_dl" =~ ^[0-9]+$ ]] || version_dl="-1"
-        [[ "$version_dl_month" =~ ^[0-9]+$ ]] || version_dl_month="-1"
-        [[ "$version_dl_week" =~ ^[0-9]+$ ]] || version_dl_week="-1"
-        [[ "$version_dl_day" =~ ^[0-9]+$ ]] || version_dl_day="-1"
+        [[ "$version_size" =~ ^[0-9]+$ ]] || version_size=-1
+        [[ "$version_dl" =~ ^[0-9]+$ ]] || version_dl=-1
+        [[ "$version_dl_month" =~ ^[0-9]+$ ]] || version_dl_month=-1
+        [[ "$version_dl_week" =~ ^[0-9]+$ ]] || version_dl_week=-1
+        [[ "$version_dl_day" =~ ^[0-9]+$ ]] || version_dl_day=-1
 
         echo "{
             \"id\": $version_id,

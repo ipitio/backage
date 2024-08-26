@@ -147,7 +147,7 @@ update_package() {
     echo "{
         \"owner_type\": \"$owner_type\",
         \"package_type\": \"$package_type\",
-        \"owner_id\": \"$owner_id\",
+        \"owner_id\": $owner_id,
         \"owner\": \"$owner\",
         \"repo\": \"$repo\",
         \"package\": \"$package\",
