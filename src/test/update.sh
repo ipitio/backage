@@ -6,7 +6,7 @@
 # shellcheck disable=SC1090,SC1091
 
 if git ls-remote --exit-code origin index &>/dev/null; then
-    git worktree add index-branch index
+    git worktree add index-branch origin/index
     pushd index-branch || exit 1
     git pull
     popd || exit 1
