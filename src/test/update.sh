@@ -7,11 +7,12 @@
 
 if git ls-remote --exit-code origin index &>/dev/null; then
     git worktree add index-branch index
-    \cp -r index-branch/* index/
-    pushd index || exit 1
+    pushd index-branch || exit 1
     git pull
     popd || exit 1
+    \cp -r index-branch/* index/
     git worktree remove index-branch
+    rm -rf index-branch
 fi
 
 pushd "${0%/*}/.." || exit 1
@@ -41,3 +42,4 @@ git commit -m "hydration"
 git push
 popd || exit 1
 git worktree remove index-branch
+rm -rf index-branch
