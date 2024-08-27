@@ -149,7 +149,8 @@ main() {
     [ -d "$BKG_ROOT"/index/src/img ] || mkdir -p "$BKG_ROOT"/index/src/img
     \cp img/logo-b.png "$BKG_ROOT"/index/src/img/logo-b.png
     \cp img/logo.ico "$BKG_ROOT"/index/favicon.ico
-    \cp index.html "$BKG_ROOT"/index/index.html
+    \cp templates/.index.html "$BKG_ROOT"/index/index.html
+    sed -i 's/GITHUB_REPO/'"$GITHUB_REPO"'/g' "$BKG_ROOT"/index/index.html
     rm -f packages_already_updated packages_all packages_to_update
     echo "Done!"
 }
