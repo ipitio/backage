@@ -94,7 +94,7 @@ set_BKG_set() {
 
 del_BKG() {
     while ! ln "$BKG_ENV" "$BKG_ENV.lock" 2>/dev/null; do :; done
-    parallel "sed -i '/^{}=/d' $BKG_ENV" ::: "$@"
+    echo "$@" | xargs -n1 | parallel "sed -i '/^{}=/d' $BKG_ENV"
     sed -i '/^\s*$/d' "$BKG_ENV"
     echo >>"$BKG_ENV"
     rm -f "$BKG_ENV.lock"
