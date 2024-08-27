@@ -77,8 +77,8 @@ $.size
 |   `downloads_week`    |    string    | Formatted count of all downloads in the last week  |
 |    `downloads_day`    |    string    | Formatted count of all downloads in the last day   |
 |      `raw_size`       |    number    | Size of the latest version, in bytes               |
-|    `raw_versions`     |    number    | Count of versions                                  |
-|     `raw_tagged`      |    number    | Count of tagged versions                           |
+|    `raw_versions`     |    number    | Count of versions tracked                          |
+|     `raw_tagged`      |    number    | Count of tagged versions tracked                   |
 |    `raw_downloads`    |    number    | Count of all downloads                             |
 | `raw_downloads_month` |    number    | Count of all downloads in the last month           |
 | `raw_downloads_week`  |    number    | Count of all downloads in the last week            |
