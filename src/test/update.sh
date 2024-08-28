@@ -10,9 +10,9 @@ if git ls-remote --exit-code origin index &>/dev/null; then
     git worktree add index-branch index
     pushd index-branch || exit 1
     git pull
+    find . -type d -exec sh -c 'mkdir -vp index/"$1"' _ {} \;
+    find . -type f -exec sh -c 'mkdir -p index/"$(dirname "$1")" && mv -nv "$1" index/"$1"' _ {} \;
     popd || exit 1
-    find . -type d -exec sh -c 'mkdir -vp index-branch/"$1"' _ {} \;
-    find . -type f -exec sh -c 'mkdir -p index-branch/"$(dirname "$1")" && mv -nv "$1" index-branch/"$1"' _ {} \;
     git worktree remove -f index-branch
 fi
 
