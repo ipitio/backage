@@ -37,6 +37,6 @@ git pull
 find ../index -type f -size +0c -exec cp --parents {} . \;
 git add .
 git commit -m "hydration"
-git push --force
+git push
 popd || exit 1
 git worktree remove index-branch
