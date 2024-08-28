@@ -20,7 +20,11 @@ source bkg.sh
 main "$@"
 
 check_json() {
-    [ -s "$1" ] || echo "Empty json: $1"
+    if [ ! -s "$1" ]; then
+        echo "Empty json: $1"
+        rm -f "$1"
+    fi
+
     jq -e . <<<"$(cat "$1")" &>/dev/null || echo "Invalid json: $1"
 }
 
