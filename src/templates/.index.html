@@ -6,6 +6,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GITHUB_REPO</title>
     <link rel="icon" type="image/x-icon" href="favicon.ico">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/prolog.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/jboss-cli.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
         body {
             font-family: Inter, sans-serif;
@@ -45,16 +50,13 @@
         }
 
         pre {
-            background-color: #333;
-            color: #ddd;
-            padding: 10px;
-            border-radius: 5px;
             overflow-x: auto;
         }
 
         code {
+            border-radius: 5px;
             font-family: monospace;
-            color: #ddd;
+            color: rgb(255, 144, 144)
         }
 
         table {
@@ -113,12 +115,11 @@
     <div id="loading">Loading README...</div>
     <div id="content" style="display: none;"></div>
 
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script>
         // Ensure the DOM is fully loaded before running the script
         document.addEventListener("DOMContentLoaded", function () {
             // Fetch the README.md file
-            fetch('README.md')
+            fetch('.README.md')
                 .then(response => {
                     if (!response.ok) {
                         throw new Error(`HTTP error! Status: ${response.status}`);
@@ -133,6 +134,9 @@
                     // Hide the loading message and show the content
                     document.getElementById('loading').style.display = 'none';
                     contentDiv.style.display = 'block';
+
+                    // Highlight code blocks
+                    hljs.highlightAll();
                 })
                 .catch(error => {
                     console.error('Error fetching README:', error);
