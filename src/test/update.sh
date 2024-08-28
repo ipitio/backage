@@ -11,7 +11,8 @@ if git ls-remote --exit-code origin index &>/dev/null; then
     pushd index-branch || exit 1
     git pull
     popd || exit 1
-    find . -type d -exec mkdir -vp ../index/{} \; -or mv -nv {} ../index/{} \;
+    find . -type d -exec sh -c 'mkdir -vp index-branch/"$1"' _ {} \;
+    find . -type f -exec sh -c 'mkdir -p index-branch/"$(dirname "$1")" && mv -nv "$1" index-branch/"$1"' _ {} \;
     git worktree remove -f index-branch
 fi
 
@@ -23,9 +24,9 @@ check_json() {
     if [ ! -s "$1" ]; then
         echo "Empty json: $1"
         rm -f "$1"
+    else
+        jq -e . <<<"$(cat "$1")" &>/dev/null || echo "Invalid json: $1"
     fi
-
-    jq -e . <<<"$(cat "$1")" &>/dev/null || echo "Invalid json: $1"
 }
 
 # db should not be empty, error if it is
@@ -40,7 +41,8 @@ git worktree add index-branch index
 pushd index-branch || exit 1
 git pull
 pushd ../index || exit 1
-find . -type d -exec mkdir -vp ../index-branch/{} \; -or mv -nv {} ../index-branch/{} \;
+find . -type d -exec sh -c 'mkdir -vp ../index-branch/"$1"' _ {} \;
+find . -type f -exec sh -c 'mkdir -p ../index-branch/"$(dirname "$1")" && mv -nv "$1" ../index-branch/"$1"' _ {} \;
 popd || exit 1
 git add .
 git commit -m "hydration"
