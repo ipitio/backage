@@ -6,13 +6,16 @@
 # shellcheck disable=SC1090,SC1091
 
 if git ls-remote --exit-code origin index &>/dev/null; then
+    if [ -d index ]; then
+        [ ! -d index.bak ] || rm -rf index.bak
+        mv index index.bak
+    fi
+
     git fetch origin index
-    git worktree add index-branch index
-    pushd index-branch || exit 1
-    git pull
-    find . -type d -exec sh -c 'mkdir -vp ../index/"$1"' _ {} \;
-    find . -type f -exec sh -c 'mkdir -p ../index/"$(dirname "$1")" && mv -nv "$1" ../index/"$1"' _ {} \;
-    git worktree remove -f index-branch
+    git worktree add index index
+    pushd index || exit 1
+    git reset --hard origin/index
+    popd || exit 1
 fi
 
 pushd "${0%/*}/.." || exit 1
@@ -34,17 +37,12 @@ check_json() {
 find .. -type f -name '*.json' | env_parallel check_json
 popd || exit 1
 
-git config --global user.name "${GITHUB_ACTOR}"
-git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
-git worktree add index-branch index
-pushd index-branch || exit 1
-git pull
-pushd ../index || exit 1
-find . -type d -exec sh -c 'mkdir -vp ../index-branch/"$1"' _ {} \;
-find . -type f -exec sh -c 'mkdir -p ../index-branch/"$(dirname "$1")" && mv -nv "$1" ../index-branch/"$1"' _ {} \;
-popd || exit 1
-git add .
-git commit -m "hydration"
-git push -f
-popd || exit 1
-git worktree remove -f index-branch
+if git worktree list | grep -q index; then
+    pushd index || exit 1
+    git config --global user.name "${GITHUB_ACTOR}"
+    git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
+    git add .
+    git commit -m "hydration"
+    git push
+    popd || exit 1
+fi
