@@ -71,10 +71,7 @@ page_version() {
 
     if [ -n "$GITHUB_TOKEN" ]; then
         echo "Starting $owner/$package page $1..."
-        versions_json_more=$(curl -H "Accept: application/vnd.github+json" \
-            -H "Authorization: Bearer $GITHUB_TOKEN" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            "https://api.github.com/$owner_type/$owner/packages/$package_type/$package/versions?per_page=100&page=$1")
+        versions_json_more=$(curl_gh "https://api.github.com/$owner_type/$owner/packages/$package_type/$package/versions?per_page=100&page=$1")
         (($? != 3)) || return 3
         calls_to_api=$(get_BKG BKG_CALLS_TO_API)
         min_calls_to_api=$(get_BKG BKG_MIN_CALLS_TO_API)

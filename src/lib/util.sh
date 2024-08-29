@@ -207,10 +207,32 @@ _jq() {
 }
 
 dldb() {
+    local code=0
+    echo "Downloading the latest database..."
     # `cd src && source bkg.sh && dldb` to dl the latest db
     [ ! -f "$BKG_INDEX_DB" ] || mv "$BKG_INDEX_DB" "$BKG_INDEX_DB".bak
-    command curl -sSLNZ "https://github.com/ipitio/backage/releases/download/$(command curl -sSLNZ "https://github.com/ipitio/backage/releases/latest" | grep -oP 'href="/ipitio/backage/releases/tag/[^"]+' | cut -d'/' -f6)/index.sql.zst" | unzstd -v -c | sqlite3 "$BKG_INDEX_DB"
-    [ ! -f "$BKG_INDEX_DB" ] || rm -f "$BKG_INDEX_DB".bak
+    command curl -sSLNZ "https://github.com/ipitio/backage/releases/download/$(curl "https://github.com/ipitio/backage/releases/latest" | grep -oP 'href="/ipitio/backage/releases/tag/[^"]+' | cut -d'/' -f6)/index.sql.zst" | unzstd -v -c | sqlite3 "$BKG_INDEX_DB"
+
+    if [ -f "$BKG_INDEX_DB" ]; then
+        [ ! -f "$BKG_INDEX_DB".bak ] || rm -f "$BKG_INDEX_DB".bak
+    else
+        [ ! -f "$BKG_INDEX_DB".bak ] || mv "$BKG_INDEX_DB".bak "$BKG_INDEX_DB"
+        echo "Failed to download the latest database"
+        curl "https://github.com/ipitio/backage/releases/latest" | grep -q "index.sql.zst" || code=1
+    fi
+
     [ -f "$BKG_ROOT/.gitignore" ] || echo "index.db*" >>$BKG_ROOT/.gitignore
     grep -q "index.db" "$BKG_ROOT/.gitignore" || echo "index.db*" >>$BKG_ROOT/.gitignore
+    return $code
+}
+
+curl_gh() {
+    curl -H "Accept: application/vnd.github+json" -H "Authorization: Bearer $GITHUB_TOKEN" -H "X-GitHub-Api-Version: 2022-11-28" "$@"
+}
+
+get_db() {
+    while ! dldb; do
+        echo "Deleting the latest release..."
+        curl_gh -X DELETE "https://api.github.com/repos/ipitio/backage/releases/$(curl_gh "https://api.github.com/repos/ipitio/backage/releases/latest" | jq -r '.id')"
+    done
 }

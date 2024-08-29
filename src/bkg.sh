@@ -31,8 +31,14 @@ main() {
     [ -n "$(get_BKG BKG_LAST_SCANNED_ID)" ] || set_BKG BKG_LAST_SCANNED_ID "0"
     today=$(date -u +%Y-%m-%d)
     BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
-    [ ! -f "$BKG_INDEX_SQL.zst" ] || unzstd -v -c "$BKG_INDEX_SQL.zst" | sqlite3 "$BKG_INDEX_DB"
     [ -f "$BKG_INDEX_DB" ] || sqlite3 "$BKG_INDEX_DB" ""
+
+    if [ -f "$BKG_INDEX_SQL.zst" ]; then
+        [ -f "$BKG_INDEX_DB".bak ] || mv "$BKG_INDEX_DB" "$BKG_INDEX_DB".bak
+        unzstd -v -c "$BKG_INDEX_SQL.zst" | sqlite3 "$BKG_INDEX_DB"
+        [ -f "$BKG_INDEX_DB" ] && rm -f "$BKG_INDEX_DB".bak || mv "$BKG_INDEX_DB".bak "$BKG_INDEX_DB"
+    fi
+
     sqlite3 "$BKG_INDEX_DB" "create table if not exists '$BKG_INDEX_TBL_PKG' (
         owner_id text,
         owner_type text not null,
@@ -80,7 +86,6 @@ main() {
             [ "$(wc -l <"$BKG_OWNERS")" -gt 10 ] || seq 1 10 | env_parallel --lb --halt soon,fail=1 page_owner
         fi
 
-        sed -i '/^src$/d' "$BKG_OWNERS"
         sort -uR <"$BKG_OWNERS" | env_parallel --lb save_owner
         awk -F'|' '{print $1"/"$2}' <packages_to_update | sort -uR | env_parallel --lb save_owner
         set_BKG BKG_LEFT "$pkg_left$pkg_all"

@@ -39,10 +39,7 @@ save_owner() {
     fi
 
     if [[ ! "$owner_id" =~ ^[1-9] ]]; then
-        owner_id=$(curl -H "Accept: application/vnd.github+json" \
-            -H "Authorization: Bearer $GITHUB_TOKEN" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            "https://api.github.com/users/$owner" | jq -r '.id')
+        owner_id=$(curl_gh "https://api.github.com/users/$owner" | jq -r '.id')
         calls_to_api=$(get_BKG BKG_CALLS_TO_API)
         min_calls_to_api=$(get_BKG BKG_MIN_CALLS_TO_API)
         ((calls_to_api++))
@@ -65,10 +62,7 @@ page_owner() {
 
     if [ -n "$GITHUB_TOKEN" ]; then
         echo "Checking owners page $1..."
-        owners_more=$(curl -H "Accept: application/vnd.github+json" \
-            -H "Authorization: Bearer $GITHUB_TOKEN" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            "https://api.github.com/users?per_page=100&page=$1&since=$(get_BKG BKG_LAST_SCANNED_ID)")
+        owners_more=$(curl_gh "https://api.github.com/users?per_page=100&page=$1&since=$(get_BKG BKG_LAST_SCANNED_ID)")
         (($? != 3)) || return 3
         calls_to_api=$(get_BKG BKG_CALLS_TO_API)
         min_calls_to_api=$(get_BKG BKG_MIN_CALLS_TO_API)
