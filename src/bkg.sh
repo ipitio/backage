@@ -145,9 +145,10 @@ main() {
     perl -0777 -pe 's/<GITHUB_OWNER>/'"$GITHUB_OWNER"'/g; s/<GITHUB_REPO>/'"$GITHUB_REPO"'/g; s/<GITHUB_BRANCH>/'"$GITHUB_BRANCH"'/g' "$BKG_ROOT"/README.md >README.tmp && [ -f README.tmp ] && mv README.tmp "$BKG_ROOT"/README.md || :
     sed -i '/^BKG_VERSIONS_.*=/d; /^BKG_PACKAGES_.*=/d; /^BKG_OWNERS_.*=/d; /^BKG_TIMEOUT=/d; /^BKG_SCRIPT_START=/d' "$BKG_ENV"
     \cp "$BKG_ROOT"/README.md "$BKG_ROOT"/index/README.md
-    [ -d "$BKG_ROOT"/index/src ] || mkdir -p "$BKG_ROOT"/index/src
-    [ -d "$BKG_ROOT"/index/src/img ] || mkdir -p "$BKG_ROOT"/index/src/img
-    \cp img/logo-b.png "$BKG_ROOT"/index/src/img/logo-b.png
+    # shellcheck disable=SC2016
+    sed -i 's/```prolog/```js/g; s/```jboss-cli/```js/g' "$BKG_ROOT"/README.md
+    sed -i 's/src\/img\/logo-b.png/img\/logo-b.png/g' "$BKG_ROOT"/index/README.md
+    \cp img/logo-b.png "$BKG_ROOT"/index/logo-b.png
     \cp img/logo.ico "$BKG_ROOT"/index/favicon.ico
     \cp templates/.index.html "$BKG_ROOT"/index/index.html
     sed -i 's/GITHUB_REPO/'"$GITHUB_REPO"'/g' "$BKG_ROOT"/index/index.html
