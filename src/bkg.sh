@@ -70,6 +70,7 @@ main() {
         echo >>"$BKG_OWNERS"
         awk 'NF' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
         sed -i 's/^[[:space:]]*//;s/[[:space:]]*$//' "$BKG_OWNERS"
+        [ ! -d "$BKG_INDEX_DIR"/src ] || rm -rf "$BKG_INDEX_DIR"/src
         find "$BKG_INDEX_DIR" -mindepth 1 -maxdepth 1 -type d -exec basename {} \; | sort -u | awk '{print $1}' >>"$BKG_OWNERS"
         awk '!seen[$0]++' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
         # remove lines from $BKG_OWNERS that are in $packages_all
@@ -151,8 +152,8 @@ main() {
     sed -i '/^BKG_VERSIONS_.*=/d; /^BKG_PACKAGES_.*=/d; /^BKG_OWNERS_.*=/d; /^BKG_TIMEOUT=/d; /^BKG_SCRIPT_START=/d' "$BKG_ENV"
     \cp "$BKG_ROOT"/README.md "$BKG_ROOT"/index/README.md
     # shellcheck disable=SC2016
-    sed -i 's/```prolog/```js/g; s/```jboss-cli/```js/g' "$BKG_ROOT"/README.md
-    sed -i 's/src\/img\/logo-b.png/img\/logo-b.png/g' "$BKG_ROOT"/index/README.md
+    sed -i 's/```prolog/```py/g; s/```jboss-cli/```js/g' "$BKG_ROOT"/README.md
+    sed -i 's/src\/img\/logo-b.png/logo-b.png/g' "$BKG_ROOT"/index/README.md
     \cp img/logo-b.png "$BKG_ROOT"/index/logo-b.png
     \cp img/logo.ico "$BKG_ROOT"/index/favicon.ico
     \cp templates/.index.html "$BKG_ROOT"/index/index.html
