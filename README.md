@@ -12,7 +12,7 @@
 
 </div>
 
-The GitHub Packages API doesn't expose much of the metadata that other registries provide; this is the remedy. Four owner services are hosted and ran on GitHub: manual entry, automatic discovery, randomized queuing, and batch processing. They query the GitHub API, scraping GitHub when needed, to produce a JSON endpoint served from GitHub and a SQLite database stored on GitHub.
+The GitHub Packages API doesn't expose much of the metadata that other registries provide; this completely automated closed-loop system [is the remedy](https://github.com/badges/shields/issues/5594#issuecomment-2157626147). Four owner services are hosted and ran on GitHub: manual entry, automatic discovery, randomized queuing, and batch processing. They query the GitHub API, scraping GitHub when needed, to produce a JSON endpoint served from GitHub and a SQLite database stored on GitHub.
 
 You can view currently available owners [in the index](https://github.com/ipitio/backage/tree/index). To add any post-haste, you can open an issue and/or add the case-sensitive name of each user or organization on a new line in `owners.txt` on your own fork [here](https://github.com/ipitio/backage/edit/master/owners.txt) and make a pull request. Please add just the name(s) -- ids, repos, and packages will be obtained automatically!
 
