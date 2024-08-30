@@ -4,15 +4,15 @@
 
 # [backage](https://github.com/ipitio/backage)
 
-## SOTA Sprinkler System
-
-It's all part and parcel.
-
-</div>
+**It's all part and parcel**
 
 ---
 
-The GitHub Packages API doesn't expose much metadata that other registries provide; this is the remedy. Four owner services are hosted and ran on GitHub: manual entry, automatic discovery, batch queuing, and batch processing. They query the GitHub API, scraping GitHub when needed, to produce a JSON endpoint served from GitHub and a SQLite database stored on GitHub.
+[![pages-build-deployment](https://github.com/ipitio/backage/actions/workflows/pages/pages-build-deployment/badge.svg)](https://github.com/ipitio/backage/actions/workflows/pages/pages-build-deployment)
+
+</div>
+
+The GitHub Packages API doesn't expose much of the metadata that other registries provide; this is the remedy. Four owner services are hosted and ran on GitHub: manual entry, automatic discovery, randomized queuing, and batch processing. They query the GitHub API, scraping GitHub when needed, to produce a JSON endpoint served from GitHub and a SQLite database stored on GitHub.
 
 You can view currently available owners [in the index](https://github.com/ipitio/backage/tree/index). To add any post-haste, you can open an issue and/or add the case-sensitive name of each user or organization on a new line in `owners.txt` on your own fork [here](https://github.com/ipitio/backage/edit/master/owners.txt) and make a pull request. Please add just the name(s) -- ids, repos, and packages will be obtained automatically!
 
@@ -22,11 +22,11 @@ If you're here to make a badge, use something like [shields.io/json](https://shi
 
 [![package](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fipitio.github.io%2Fbackage%2Farevindh%2Fpihole-speedtest%2Fpihole-speedtest.json&query=%24.package&logo=github&label=package&style=for-the-badge&color=black)](https://github.com/arevindh/pihole-speedtest/pkgs/container/pihole-speedtest)
 
-[![downloads](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fipitio.github.io%2Fbackage%2Farevindh%2Fpihole-speedtest%2Fpihole-speedtest.json&query=%24.downloads&logo=github&label=downloads)](https://github.com/arevindh/pihole-speedtest/pkgs/container/pihole-speedtest) [![size](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fipitio.github.io%2Fbackage%2Farevindh%2Fpihole-speedtest%2Fpihole-speedtest.json&query=%24.size&logo=github&label=size&color=indigo)](https://github.com/arevindh/pihole-speedtest/pkgs/container/pihole-speedtest) [![latest](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fipitio.github.io%2Fbackage%2Farevindh%2Fpihole-speedtest%2Fpihole-speedtest.json&query=%24.version%5B%3F(%40.latest%3D%3Dtrue)%5D.tags%5B%3F(%40!%3D%22latest%22)%5D&logo=github&label=latest&color=darkgreen)](https://github.com/arevindh/pihole-speedtest/pkgs/container/pihole-speedtest)
+[![downloads](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fipitio.github.io%2Fbackage%2Farevindh%2Fpihole-speedtest%2Fpihole-speedtest.json&query=%24.downloads&logo=github&label=pulls)](https://github.com/arevindh/pihole-speedtest/pkgs/container/pihole-speedtest) [![size](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fipitio.github.io%2Fbackage%2Farevindh%2Fpihole-speedtest%2Fpihole-speedtest.json&query=%24.size&logo=github&label=size&color=indigo)](https://github.com/arevindh/pihole-speedtest/pkgs/container/pihole-speedtest) [![latest](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fipitio.github.io%2Fbackage%2Farevindh%2Fpihole-speedtest%2Fpihole-speedtest.json&query=%24.version%5B%3F(%40.latest%3D%3Dtrue)%5D.tags%5B%3F(%40!%3D%22latest%22)%5D&logo=github&label=latest&color=darkgreen)](https://github.com/arevindh/pihole-speedtest/pkgs/container/pihole-speedtest)
 
 </div>
 
-### Database
+## Database
 
 All of the data is available under the [latest release](https://github.com/ipitio/backage/releases/latest). There are two classes of tables:
 
@@ -69,7 +69,7 @@ All of the data is available under the [latest release](https://github.com/ipiti
 
 </details>
 
-### Endpoint
+## Endpoint
 
 The latest additions to the continually updated database, with two classes of objects:
 
@@ -129,15 +129,15 @@ The latest additions to the continually updated database, with two classes of ob
 
 </details>
 
-#### URL
+### URL
 
 Replace `OWNER/REPO/PACKAGE` with their respective values:
 
-```js
+```py
 https://ipitio.github.io/backage/OWNER/REPO/PACKAGE.json
 ```
 
-#### JSONPath
+### JSONPath
 
 You can query a package for its properties, like size or version:
 
