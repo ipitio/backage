@@ -14,11 +14,13 @@
     <style>
         body {
             font-family: Inter, sans-serif;
-            margin: 5% auto;
+            margin: auto;
             line-height: 1.6;
-            background-color: #222;
-            color: #ddd;
+            background: linear-gradient(135deg, rgb(59, 54, 60) 0%, rgb(69, 64, 60) 100%);
+            color: #f4fff4;
             max-width: 750px;
+            padding: 1em;a
+            overflow: hidden auto;
         }
 
         h1 {
@@ -119,7 +121,7 @@
         // Ensure the DOM is fully loaded before running the script
         document.addEventListener("DOMContentLoaded", function () {
             // Fetch the README.md file
-            fetch('README.md')
+            fetch('.README.md')
                 .then(response => {
                     if (!response.ok) {
                         throw new Error(`HTTP error! Status: ${response.status}`);
