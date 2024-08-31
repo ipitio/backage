@@ -11,7 +11,8 @@ main() {
     local packages
     local today
     local pkg_left
-    local pkg_all
+    local db_size_curr
+    local db_size_prev
 
     while getopts "m:" flag; do
         case ${flag} in
@@ -58,11 +59,12 @@ main() {
     sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, repo, package from '$BKG_INDEX_TBL_PKG';" | sort -u >packages_all
     comm -13 packages_already_updated packages_all >packages_to_update
     pkg_left=$(wc -l <packages_to_update)
-    pkg_all=$(wc -l <packages_all)
-    echo "all: $pkg_all"
+    echo "all: $(wc -l <packages_all)"
     echo "done: $(wc -l <packages_already_updated)"
     echo "left: $pkg_left"
     [ -n "$(get_BKG BKG_BATCH_FIRST_STARTED)" ] || set_BKG BKG_BATCH_FIRST_STARTED "$today"
+    db_size_curr=$(stat -c %s "$BKG_INDEX_DB")
+    db_size_prev=$(get_BKG BKG_DIFF)
 
     # if this is a scheduled update, scrape all owners
     if [ "$mode" -eq 0 ]; then
@@ -79,9 +81,8 @@ main() {
             awk -F'|' '{print $2}' <packages_all
         )" | sort -u | parallel "sed -i '\,^{}$,d' $BKG_OWNERS"
 
-        if [[ "$pkg_left" == "0" || "$(get_BKG BKG_LEFT)" == "$pkg_left$pkg_all" ]]; then
+        if [[ "$pkg_left" == "0" || "${db_size_curr::-1}" == "${db_size_prev::-1}" ]]; then
             set_BKG BKG_BATCH_FIRST_STARTED "$today"
-            pkg_left=$pkg_all
             rm -f packages_to_update
             \cp packages_all packages_to_update
             [ "$(wc -l <"$BKG_OWNERS")" -gt 10 ] || seq 1 10 | env_parallel --lb --halt soon,fail=1 page_owner
@@ -89,7 +90,7 @@ main() {
 
         sort -uR <"$BKG_OWNERS" | env_parallel --lb save_owner
         awk -F'|' '{print $1"/"$2}' <packages_to_update | sort -uR | env_parallel --lb save_owner
-        set_BKG BKG_LEFT "$pkg_left$pkg_all"
+        set_BKG BKG_DIFF "$db_size_curr"
     elif [ "$mode" -eq 1 ]; then
         save_owner arevindh
     fi
