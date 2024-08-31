@@ -65,6 +65,8 @@ main() {
     [ -n "$(get_BKG BKG_BATCH_FIRST_STARTED)" ] || set_BKG BKG_BATCH_FIRST_STARTED "$today"
     db_size_curr=$(stat -c %s "$BKG_INDEX_DB")
     db_size_prev=$(get_BKG BKG_DIFF)
+    [ -n "$db_size_curr" ] || db_size_curr=0
+    [ -n "$db_size_prev" ] || db_size_prev=0
 
     # if this is a scheduled update, scrape all owners
     if [ "$mode" -eq 0 ]; then
