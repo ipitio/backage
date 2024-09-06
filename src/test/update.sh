@@ -18,8 +18,8 @@ if git ls-remote --exit-code origin index &>/dev/null; then
     popd || exit 1
 fi
 
+[ ! -f index/.env ] || \cp index/.env "${0%/*}/.."/env.env
 pushd "${0%/*}/.." || exit 1
-[ ! -f index/.env ] || \cp index/.env env.env
 source bkg.sh
 main "$@"
 
@@ -36,8 +36,8 @@ check_json() {
 [ "$(stat -c %s "$BKG_INDEX_SQL".zst)" -ge 1000 ] || exit 1
 # json should be valid, warn if it is not
 find .. -type f -name '*.json' | env_parallel check_json
-\cp env.env index/.env
 popd || exit 1
+\cp "${0%/*}/.."/env.env index/.env
 
 if git worktree list | grep -q index; then
     pushd index || exit 1

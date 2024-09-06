@@ -49,6 +49,7 @@
 
         img {
             max-height: 15vh;
+            max-width: 100%;
         }
 
         pre {
@@ -110,12 +111,22 @@
             text-align: center;
             color: #888;
         }
+
+        footer {
+            text-align: center;
+            margin-top: 20px;
+            color: #888;
+        }
     </style>
 </head>
 
 <body>
     <div id="loading">Loading README...</div>
     <div id="content" style="display: none;"></div>
+
+    <footer>
+        &copy; <script>document.write(new Date().getFullYear())</script> ipitio
+    </footer>
 
     <script>
         // Ensure the DOM is fully loaded before running the script

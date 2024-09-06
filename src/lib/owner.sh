@@ -48,8 +48,6 @@ save_owner() {
         set_BKG BKG_MIN_CALLS_TO_API "$min_calls_to_api"
     fi
 
-    # temp, clean pkgs
-    [[ "$owner_id" != "0" ]] || sqlite3 "$BKG_INDEX_DB" "delete from '$BKG_INDEX_TBL_PKG' where owner_id = '0' and owner != '$owner';"
     ! set_BKG_set BKG_OWNERS_QUEUE "$owner_id/$owner" || echo "Queued $owner"
 }
 
