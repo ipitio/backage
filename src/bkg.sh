@@ -155,7 +155,7 @@ main() {
     sed -i '/^BKG_VERSIONS_.*=/d; /^BKG_PACKAGES_.*=/d; /^BKG_OWNERS_.*=/d; /^BKG_TIMEOUT=/d; /^BKG_SCRIPT_START=/d' "$BKG_ENV"
     \cp "$BKG_ROOT"/README.md "$BKG_INDEX_DIR"/README.md
     # shellcheck disable=SC2016
-    sed -i 's/src\/img\/logo-b.png/logo-b.png/g; s/```py/```prolog/g; s/```js/```jboss-cli/g' "$BKG_INDEX_DIR"/README.md
+    sed -i 's/src\/img\/logo-b.png/logo-b.png/g; s/```py/```prolog/g; s/```js/```jboss-cli/g; s/\[PACKAGES\]/'"$packages"'/g; s/\[DATE\]/'"$today"'/g' "$BKG_INDEX_DIR"/README.md
     \cp img/logo-b.png "$BKG_INDEX_DIR"/logo-b.png
     \cp img/logo.ico "$BKG_INDEX_DIR"/favicon.ico
     \cp templates/.index.html "$BKG_INDEX_DIR"/index.html
