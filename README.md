@@ -4,7 +4,7 @@
 
 # [backage](https://github.com/ipitio/backage)
 
-**It's all part and parcel**
+**Serving [PACKAGES] packages as of [DATE]**
 
 ---
 
