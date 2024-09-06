@@ -151,11 +151,11 @@ main() {
     ! $rotated || echo " The database grew over 2GB and was rotated, but you can find all previous data under [Releases](https://github.com/$GITHUB_OWNER/$GITHUB_REPO/releases)." >>"$BKG_ROOT"/CHANGELOG.md
     [ ! -f "$BKG_ROOT"/README.md ] || rm -f "$BKG_ROOT"/README.md
     \cp templates/.README.md "$BKG_ROOT"/README.md
-    perl -0777 -pe 's/<GITHUB_OWNER>/'"$GITHUB_OWNER"'/g; s/<GITHUB_REPO>/'"$GITHUB_REPO"'/g; s/<GITHUB_BRANCH>/'"$GITHUB_BRANCH"'/g' "$BKG_ROOT"/README.md >README.tmp && [ -f README.tmp ] && mv README.tmp "$BKG_ROOT"/README.md || :
+    sed -i 's/<GITHUB_OWNER>/'"$GITHUB_OWNER"'/g; s/<GITHUB_REPO>/'"$GITHUB_REPO"'/g; s/<GITHUB_BRANCH>/'"$GITHUB_BRANCH"'/g; s/\[PACKAGES\]/'"$packages"'/g; s/\[DATE\]/'"$today"'/g' "$BKG_ROOT"/README.md
     sed -i '/^BKG_VERSIONS_.*=/d; /^BKG_PACKAGES_.*=/d; /^BKG_OWNERS_.*=/d; /^BKG_TIMEOUT=/d; /^BKG_SCRIPT_START=/d' "$BKG_ENV"
     \cp "$BKG_ROOT"/README.md "$BKG_INDEX_DIR"/README.md
     # shellcheck disable=SC2016
-    sed -i 's/src\/img\/logo-b.png/logo-b.png/g; s/```py/```prolog/g; s/```js/```jboss-cli/g; s/\[PACKAGES\]/'"$packages"'/g; s/\[DATE\]/'"$today"'/g' "$BKG_INDEX_DIR"/README.md
+    sed -i 's/src\/img\/logo-b.png/logo-b.png/g; s/```py/```prolog/g; s/```js/```jboss-cli/g' "$BKG_INDEX_DIR"/README.md
     \cp img/logo-b.png "$BKG_INDEX_DIR"/logo-b.png
     \cp img/logo.ico "$BKG_INDEX_DIR"/favicon.ico
     \cp templates/.index.html "$BKG_INDEX_DIR"/index.html
