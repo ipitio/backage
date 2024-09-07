@@ -4,7 +4,7 @@
 
 # [backage](https://github.com/ipitio/backage)
 
-**Serving [PACKAGES] packages as of [DATE]**
+**Serving 1151 packages as of 2024-09-06**
 
 ---
 
