@@ -51,7 +51,6 @@ jobs:
         with:
           add: "-- *.txt README.md"
           message: "hydration"
-          pull: "--rebase --autostash -s ours"
 
       - name: Get date
         id: date

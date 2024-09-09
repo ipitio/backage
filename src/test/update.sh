@@ -48,3 +48,7 @@ if git worktree list | grep -q index; then
     git push
     popd || exit 1
 fi
+
+git pull --rebase --autostash
+git merge --abort 2>/dev/null
+git pull --rebase --autostash -s ours &>/dev/null
