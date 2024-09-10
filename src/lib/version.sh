@@ -134,15 +134,14 @@ update_version() {
         # get the size by adding up the layers
         if [[ -n "$(jq '.. | try .layers[]' 2>/dev/null <<<"$manifest")" ]]; then
             version_size=$(jq '.. | try .size | select(. > 0)' <<<"$manifest" | awk '{s+=$1} END {print s}')
-            [[ "$version_size" =~ ^[0-9]+$ ]] || version_size=-1
         elif [[ -n "$(jq '.. | try .manifests[]' 2>/dev/null <<<"$manifest")" ]]; then
             version_size=$(jq '.. | try .size | select(. > 0)' <<<"$manifest" | awk '{s+=$1} END {print s/NR}')
-            [[ "$version_size" =~ ^[0-9]+$ ]] || version_size=-1
         fi
     else
         : # TODO: get size for other package types
     fi
 
+    [[ "$version_size" =~ ^[0-9]+$ ]] || version_size=-1
     sqlite3 "$BKG_INDEX_DB" "insert or replace into '$table_version_name' (id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags) values ('$version_id', '$version_name', '$version_size', '$version_raw_downloads', '$version_raw_downloads_month', '$version_raw_downloads_week', '$version_raw_downloads_day', '$today', '$version_tags');"
     echo "Updated $owner/$package/$version_id"
 }
