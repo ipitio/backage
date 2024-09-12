@@ -230,9 +230,41 @@ curl_gh() {
     curl -H "Accept: application/vnd.github+json" -H "Authorization: Bearer $GITHUB_TOKEN" -H "X-GitHub-Api-Version: 2022-11-28" "$@"
 }
 
+query_api() {
+    local res
+    local calls_to_api
+    local min_calls_to_api
+
+    res=$(curl_gh "https://api.github.com/$1")
+    (($? != 3)) || return 3
+    calls_to_api=$(get_BKG BKG_CALLS_TO_API)
+    min_calls_to_api=$(get_BKG BKG_MIN_CALLS_TO_API)
+    ((calls_to_api++))
+    ((min_calls_to_api++))
+    set_BKG BKG_CALLS_TO_API "$calls_to_api"
+    set_BKG BKG_MIN_CALLS_TO_API "$min_calls_to_api"
+    echo "$res"
+}
+
 get_db() {
     while ! dldb; do
+        check_limit || return $?
         echo "Deleting the latest release..."
-        curl_gh -X DELETE "https://api.github.com/repos/ipitio/backage/releases/$(curl_gh "https://api.github.com/repos/ipitio/backage/releases/latest" | jq -r '.id')"
+        curl_gh -X DELETE "https://api.github.com/repos/ipitio/backage/releases/$(query_api "repos/ipitio/backage/releases/latest" | jq -r '.id')"
     done
 }
+
+[ -n "$(get_BKG BKG_RATE_LIMIT_START)" ] || set_BKG BKG_RATE_LIMIT_START "$(date -u +%s)"
+[ -n "$(get_BKG BKG_CALLS_TO_API)" ] || set_BKG BKG_CALLS_TO_API "0"
+
+# reset the rate limit if an hour has passed since the last run started
+if (($(get_BKG BKG_RATE_LIMIT_START) + 3600 <= $(date -u +%s))); then
+    set_BKG BKG_RATE_LIMIT_START "$(date -u +%s)"
+    set_BKG BKG_CALLS_TO_API "0"
+fi
+
+# reset the secondary rate limit if a minute has passed since the last run started
+if (($(get_BKG BKG_MIN_RATE_LIMIT_START) + 60 <= $(date -u +%s))); then
+    set_BKG BKG_MIN_RATE_LIMIT_START "$(date -u +%s)"
+    set_BKG BKG_MIN_CALLS_TO_API "0"
+fi

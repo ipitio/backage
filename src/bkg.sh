@@ -98,21 +98,6 @@ main() {
     fi
 
     BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
-    [ -n "$(get_BKG BKG_RATE_LIMIT_START)" ] || set_BKG BKG_RATE_LIMIT_START "$(date -u +%s)"
-    [ -n "$(get_BKG BKG_CALLS_TO_API)" ] || set_BKG BKG_CALLS_TO_API "0"
-
-    # reset the rate limit if an hour has passed since the last run started
-    if (($(get_BKG BKG_RATE_LIMIT_START) + 3600 <= $(date -u +%s))); then
-        set_BKG BKG_RATE_LIMIT_START "$(date -u +%s)"
-        set_BKG BKG_CALLS_TO_API "0"
-    fi
-
-    # reset the secondary rate limit if a minute has passed since the last run started
-    if (($(get_BKG BKG_MIN_RATE_LIMIT_START) + 60 <= $(date -u +%s))); then
-        set_BKG BKG_MIN_RATE_LIMIT_START "$(date -u +%s)"
-        set_BKG BKG_MIN_CALLS_TO_API "0"
-    fi
-
     [ -d "$BKG_INDEX_DIR" ] || mkdir "$BKG_INDEX_DIR"
     get_BKG_set BKG_OWNERS_QUEUE | env_parallel --lb update_owner
     echo "Compressing the database..."
@@ -162,6 +147,14 @@ main() {
     \cp templates/.index.html "$BKG_INDEX_DIR"/index.html
     sed -i 's/GITHUB_REPO/'"$GITHUB_REPO"'/g' "$BKG_INDEX_DIR"/index.html
     rm -f packages_already_updated packages_all packages_to_update
-    echo "{\"owners\":$owners,\"repos\":$repos,\"packages\":$packages}" | jq -c . >"$BKG_INDEX_DIR"/.json
+    echo "{
+        \"owners\":$(numfmt <<<"$owners"),
+        \"repos\":$(numfmt <<<"$repos"),
+        \"packages\":$(numfmt <<<"$packages"),
+        \"raw_owners\":$owners,
+        \"raw_repos\":$repos,
+        \"raw_packages\":$packages,
+        \"date\":\"$today\"
+    }" | tr -d '\n' | jq -c . >"$BKG_INDEX_DIR"/.json
     echo "Done!"
 }

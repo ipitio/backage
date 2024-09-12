@@ -30,8 +30,6 @@ save_owner() {
     owner=$(echo "$1" | tr -d '[:space:]')
     [ -n "$owner" ] || return
     owner_id=""
-    local calls_to_api
-    local min_calls_to_api
 
     if [[ "$owner" =~ .*\/.* ]]; then
         owner_id=$(cut -d'/' -f1 <<<"$owner")
@@ -39,13 +37,9 @@ save_owner() {
     fi
 
     if [[ ! "$owner_id" =~ ^[1-9] ]]; then
-        owner_id=$(curl_gh "https://api.github.com/users/$owner" | jq -r '.id')
-        calls_to_api=$(get_BKG BKG_CALLS_TO_API)
-        min_calls_to_api=$(get_BKG BKG_MIN_CALLS_TO_API)
-        ((calls_to_api++))
-        ((min_calls_to_api++))
-        set_BKG BKG_CALLS_TO_API "$calls_to_api"
-        set_BKG BKG_MIN_CALLS_TO_API "$min_calls_to_api"
+        owner_id=$(query_api "users/$owner")
+        (($? != 3)) || return 3
+        owner_id=$(jq -r '.id' <<<"$owner_id")
     fi
 
     ! set_BKG_set BKG_OWNERS_QUEUE "$owner_id/$owner" || echo "Queued $owner"
@@ -55,19 +49,11 @@ page_owner() {
     check_limit || return $?
     [ -n "$1" ] || return
     local owners_more="[]"
-    local calls_to_api
-    local min_calls_to_api
 
     if [ -n "$GITHUB_TOKEN" ]; then
         echo "Checking owners page $1..."
-        owners_more=$(curl_gh "https://api.github.com/users?per_page=100&page=$1&since=$(get_BKG BKG_LAST_SCANNED_ID)")
+        owners_more=$(query_api "users?per_page=100&page=$1&since=$(get_BKG BKG_LAST_SCANNED_ID)")
         (($? != 3)) || return 3
-        calls_to_api=$(get_BKG BKG_CALLS_TO_API)
-        min_calls_to_api=$(get_BKG BKG_MIN_CALLS_TO_API)
-        ((calls_to_api++))
-        ((min_calls_to_api++))
-        set_BKG BKG_CALLS_TO_API "$calls_to_api"
-        set_BKG BKG_MIN_CALLS_TO_API "$min_calls_to_api"
     fi
 
     # if owners doesn't have .login, break

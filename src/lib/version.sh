@@ -65,20 +65,12 @@ page_version() {
     check_limit || return $?
     [ -n "$1" ] || return
     local versions_json_more="[]"
-    local calls_to_api
-    local min_calls_to_api
     local version_lines
 
     if [ -n "$GITHUB_TOKEN" ]; then
         echo "Starting $owner/$package page $1..."
-        versions_json_more=$(curl_gh "https://api.github.com/$owner_type/$owner/packages/$package_type/$package/versions?per_page=100&page=$1")
+        versions_json_more=$(query_api "$owner_type/$owner/packages/$package_type/$package/versions?per_page=100&page=$1")
         (($? != 3)) || return 3
-        calls_to_api=$(get_BKG BKG_CALLS_TO_API)
-        min_calls_to_api=$(get_BKG BKG_MIN_CALLS_TO_API)
-        ((calls_to_api++))
-        ((min_calls_to_api++))
-        set_BKG BKG_CALLS_TO_API "$calls_to_api"
-        set_BKG BKG_MIN_CALLS_TO_API "$min_calls_to_api"
     fi
 
     jq -e '.[].id' <<<"$versions_json_more" &>/dev/null || return 2
