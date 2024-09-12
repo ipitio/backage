@@ -4,12 +4,11 @@
 
 # [backage](https://github.com/ipitio/backage)
 
-**Serving 1175 packages as of 2024-09-10**
+**It's all part and parcel**
 
 ---
 
-[![pages-build-deployment](https://github.com/ipitio/backage/actions/workflows/pages/pages-build-deployment/badge.svg)](https://github.com/ipitio/backage/actions/workflows/pages/pages-build-deployment) ![Dynamic JSON Badge](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fipitio%2Fbackage%2Findex%2FJJ%2Fdocker-raku%2Fraku.json&query=%24.size&labelColor=%23333&color=%2314C035)
-
+[![pages-build-deployment](https://github.com/ipitio/backage/actions/workflows/pages/pages-build-deployment/badge.svg)](https://github.com/ipitio/backage/actions/workflows/pages/pages-build-deployment) [![packages](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fipitio.github.io%2Fbackage%2F.json&query=%24.packages&logo=github&style=plastic&label=packages&labelColor=%23333&color=%2314C035)](https://github.com/ipitio/backage/tree/index) [![date](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fipitio.github.io%2Fbackage%2F.json&query=%24.date&logo=github&style=plastic&label=refreshed&labelColor=%23333&color=%2314C035)](https://github.com/ipitio/backage/releases/latest)
 
 </div>
 
