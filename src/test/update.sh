@@ -18,7 +18,6 @@ if git ls-remote --exit-code origin index &>/dev/null; then
     popd || exit 1
 fi
 
-[ ! -f index/.env ] || \cp index/.env "${0%/*}/.."/env.env
 pushd "${0%/*}/.." || exit 1
 source bkg.sh
 main "$@"

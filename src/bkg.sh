@@ -1,6 +1,7 @@
 #!/bin/bash
 # shellcheck disable=SC1091,SC2015
 
+[ ! -f ../index/.env ] || \cp ../index/.env env.env
 source lib/owner.sh
 
 main() {
