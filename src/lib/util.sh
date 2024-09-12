@@ -254,7 +254,7 @@ get_db() {
     done
 }
 
-pushd src || exit 1
+pushd .. || exit 1
 [ -n "$(get_BKG BKG_RATE_LIMIT_START)" ] || set_BKG BKG_RATE_LIMIT_START "$(date -u +%s)"
 [ -n "$(get_BKG BKG_CALLS_TO_API)" ] || set_BKG BKG_CALLS_TO_API "0"
 
