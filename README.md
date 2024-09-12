@@ -4,11 +4,12 @@
 
 # [backage](https://github.com/ipitio/backage)
 
-**Serving 1250 packages as of 2024-09-12**
+**Serving 1175 packages as of 2024-09-10**
 
 ---
 
-[![pages-build-deployment](https://github.com/ipitio/backage/actions/workflows/pages/pages-build-deployment/badge.svg)](https://github.com/ipitio/backage/actions/workflows/pages/pages-build-deployment)
+[![pages-build-deployment](https://github.com/ipitio/backage/actions/workflows/pages/pages-build-deployment/badge.svg)](https://github.com/ipitio/backage/actions/workflows/pages/pages-build-deployment) ![Dynamic JSON Badge](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fipitio%2Fbackage%2Findex%2FJJ%2Fdocker-raku%2Fraku.json&query=%24.size&labelColor=%23333&color=%2314C035)
+
 
 </div>
 

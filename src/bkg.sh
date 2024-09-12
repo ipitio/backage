@@ -144,11 +144,12 @@ main() {
     echo "Hydrating templates and cleaning up..."
     [ ! -f "$BKG_ROOT"/CHANGELOG.md ] || rm -f "$BKG_ROOT"/CHANGELOG.md
     \cp templates/.CHANGELOG.md "$BKG_ROOT"/CHANGELOG.md
-    owners=$(sqlite3 "$BKG_INDEX_DB" "select count(distinct owner_id) from '$BKG_INDEX_TBL_PKG';")
-    repos=$(sqlite3 "$BKG_INDEX_DB" "select count(distinct repo) from '$BKG_INDEX_TBL_PKG';")
-    packages=$(sqlite3 "$BKG_INDEX_DB" "select count(distinct package) from '$BKG_INDEX_TBL_PKG';")
-    perl -0777 -pe 's/\[OWNERS\]/'"$owners"'/g; s/\[REPOS\]/'"$repos"'/g; s/\[PACKAGES\]/'"$packages"'/g' "$BKG_ROOT"/CHANGELOG.md >CHANGELOG.tmp && [ -f CHANGELOG.tmp ] && mv CHANGELOG.tmp "$BKG_ROOT"/CHANGELOG.md || :
-    ! $rotated || echo " The database grew over 2GB and was rotated, but you can find all previous data under [Releases](https://github.com/$GITHUB_OWNER/$GITHUB_REPO/releases)." >>"$BKG_ROOT"/CHANGELOG.md
+    sqlite3 "$BKG_INDEX_DB" "select owner_id, repo, package from '$BKG_INDEX_TBL_PKG';" | sort -u >packages_all
+    owners=$(awk -F'|' '{print $1}' <packages_all | sort -u | wc -l)
+    repos=$(awk -F'|' '{print $1"|"$2}' <packages_all | sort -u | wc -l)
+    packages=$(wc -l <packages_all)
+    sed -i 's/\[OWNERS\]/'"$owners"'/g; s/\[REPOS\]/'"$repos"'/g; s/\[PACKAGES\]/'"$packages"'/g' "$BKG_ROOT"/CHANGELOG.md
+    ! $rotated || echo " The database grew over 2GB and was rotated, but you can find all previous data under the [latest release](https://github.com/$GITHUB_OWNER/$GITHUB_REPO/releases/latest)." >>"$BKG_ROOT"/CHANGELOG.md
     [ ! -f "$BKG_ROOT"/README.md ] || rm -f "$BKG_ROOT"/README.md
     \cp templates/.README.md "$BKG_ROOT"/README.md
     sed -i 's/<GITHUB_OWNER>/'"$GITHUB_OWNER"'/g; s/<GITHUB_REPO>/'"$GITHUB_REPO"'/g; s/<GITHUB_BRANCH>/'"$GITHUB_BRANCH"'/g; s/\[PACKAGES\]/'"$packages"'/g; s/\[DATE\]/'"$today"'/g' "$BKG_ROOT"/README.md
@@ -161,5 +162,6 @@ main() {
     \cp templates/.index.html "$BKG_INDEX_DIR"/index.html
     sed -i 's/GITHUB_REPO/'"$GITHUB_REPO"'/g' "$BKG_INDEX_DIR"/index.html
     rm -f packages_already_updated packages_all packages_to_update
+    echo "{\"owners\":$owners,\"repos\":$repos,\"packages\":$packages}" | jq -c . >"$BKG_INDEX_DIR"/.json
     echo "Done!"
 }
