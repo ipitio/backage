@@ -5,6 +5,7 @@
 #
 # shellcheck disable=SC1090,SC1091
 
+pushd "${0%/*}/.." || exit 1
 source bkg.sh
 main "$@"
 

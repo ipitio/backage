@@ -1,21 +1,6 @@
 #!/bin/bash
 # shellcheck disable=SC1091,SC2015
 
-if git ls-remote --exit-code origin index &>/dev/null; then
-    if [ -d index ]; then
-        [ ! -d index.bak ] || rm -rf index.bak
-        mv index index.bak
-    fi
-
-    git fetch origin index
-    git worktree add index index
-    pushd index || exit 1
-    git reset --hard origin/index
-    popd || exit 1
-fi
-
-[ ! -f index/.env ] || \cp index/.env env.env
-pushd "${0%/*}/.." || exit 1
 source lib/owner.sh
 
 main() {
