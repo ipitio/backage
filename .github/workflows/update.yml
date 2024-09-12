@@ -40,7 +40,7 @@ jobs:
             popd || exit 1
           fi
 
-          [ ! -f index/.env ] || \cp index/.env env.env
+          [ ! -f index/.env ] || \cp index/.env src/env.env
 
       - name: Fetch latest data
         run: cd src ; source bkg.sh && get_db ; cd ..
