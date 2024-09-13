@@ -148,9 +148,9 @@ main() {
     sed -i 's/GITHUB_REPO/'"$GITHUB_REPO"'/g' "$BKG_INDEX_DIR"/index.html
     rm -f packages_already_updated packages_all packages_to_update
     echo "{
-        \"owners\":$(numfmt <<<"$owners"),
-        \"repos\":$(numfmt <<<"$repos"),
-        \"packages\":$(numfmt <<<"$packages"),
+        \"owners\":\"$(numfmt <<<"$owners")\",
+        \"repos\":\"$(numfmt <<<"$repos")\",
+        \"packages\":\"$(numfmt <<<"$packages")\",
         \"raw_owners\":$owners,
         \"raw_repos\":$repos,
         \"raw_packages\":$packages,
