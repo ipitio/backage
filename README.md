@@ -8,7 +8,7 @@
 
 ---
 
-[![pages-build-deployment](https://github.com/ipitio/backage/actions/workflows/pages/pages-build-deployment/badge.svg)](https://github.com/ipitio/backage/actions/workflows/pages/pages-build-deployment) [![packages](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fipitio.github.io%2Fbackage%2F.json&query=%24.packages&logo=github&style=plastic&label=packages&labelColor=%23333&color=%2314C035)](https://github.com/ipitio/backage/tree/index) [![date](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fipitio.github.io%2Fbackage%2F.json&query=%24.date&logo=github&style=plastic&label=refreshed&labelColor=%23333&color=%2314C035)](https://github.com/ipitio/backage/releases/latest)
+[![pages-build-deployment](https://github.com/ipitio/backage/actions/workflows/pages/pages-build-deployment/badge.svg)](https://github.com/ipitio/backage/actions/workflows/pages/pages-build-deployment) [![packages](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fgithub.com%2Fipitio%2Fbackage%2Fraw%2Findex%2F.json&query=%24.packages&logo=github&logoColor=959da5&label=packages&labelColor=333a41&color=2ebc4f)](https://github.com/ipitio/backage/tree/index) [![date](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fgithub.com%2Fipitio%2Fbackage%2Fraw%2Findex%2F.json&query=%24.date&logo=github&logoColor=959da5&label=refreshed&labelColor=333a41&color=2ebc4f)](https://github.com/ipitio/backage/releases/latest)
 
 </div>
 
