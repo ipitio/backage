@@ -116,19 +116,8 @@ update_version() {
 
     if [ "$package_type" = "container" ]; then
         # https://unix.stackexchange.com/q/550463, https://stackoverflow.com/q/45186440
-        manifest=$(awk -v RS='</pre>' '/<code.*?>/{gsub(/.*<code.*?>/, ""); print}' <<<"$version_html" | tr -d '\n' | sed 's/&quot;/"/g')
-
-        if [ -z "$manifest" ] || ! jq -e '.' <<<"$manifest" &>/dev/null; then
-            [[ "$version_name" =~ ^sha256:.+$ ]] && sep="@" || sep=":"
-            manifest=$(docker manifest inspect -v "ghcr.io/$lower_owner/$lower_package$sep$version_name" 2>&1)
-        fi
-
-        # get the size by adding up the layers
-        if [[ -n "$(jq '.. | try .layers[]' 2>/dev/null <<<"$manifest")" ]]; then
-            version_size=$(jq '.. | try .size | select(. > 0)' <<<"$manifest" | awk '{s+=$1} END {print s}')
-        elif [[ -n "$(jq '.. | try .manifests[]' 2>/dev/null <<<"$manifest")" ]]; then
-            version_size=$(jq '.. | try .size | select(. > 0)' <<<"$manifest" | awk '{s+=$1} END {print s/NR}')
-        fi
+        version_size=$(docker_manifest_size "$(awk -v RS='</pre>' '/<code.*?>/{gsub(/.*<code.*?>/, ""); print}' <<<"$version_html" | tr -d '\n' | sed 's/&quot;/"/g')")
+        [[ "$version_size" =~ ^[0-9]+$ ]] || version_size=$(docker_manifest_size "$(docker manifest inspect -v "ghcr.io/$lower_owner/$lower_package$([[ "$version_name" =~ ^sha256:.+$ ]] && echo "@" || echo ":")$version_name" 2>&1)")
     else
         : # TODO: get size for other package types
     fi

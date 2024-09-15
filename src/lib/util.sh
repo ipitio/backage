@@ -254,6 +254,16 @@ get_db() {
     done
 }
 
+docker_manifest_size() {
+    if [[ -n "$(jq '.. | try .layers[]' 2>/dev/null <<<"$1")" ]]; then
+        jq '.. | try .size | select(. > 0)' <<<"$1" | awk '{s+=$1} END {print s}'
+    elif [[ -n "$(jq '.. | try .manifests[]' 2>/dev/null <<<"$1")" ]]; then
+        jq '.. | try .size | select(. > 0)' <<<"$1" | awk '{s+=$1} END {print s/NR}'
+    else
+        echo -1
+    fi
+}
+
 [ -n "$(get_BKG BKG_RATE_LIMIT_START)" ] || set_BKG BKG_RATE_LIMIT_START "$(date -u +%s)"
 [ -n "$(get_BKG BKG_CALLS_TO_API)" ] || set_BKG BKG_CALLS_TO_API "0"
 
