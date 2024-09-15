@@ -94,8 +94,6 @@ update_version() {
     local version_name
     local version_tags
     local version_id
-    local manifest
-    local sep
     local today
     today=$(date -u +%Y-%m-%d)
     version_id=$(_jq "$1" '.id')
