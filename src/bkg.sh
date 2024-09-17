@@ -78,6 +78,14 @@ main() {
         sed -i 's/^[[:space:]]*//;s/[[:space:]]*$//' "$BKG_OWNERS"
         [ ! -d "$BKG_INDEX_DIR"/src ] || rm -rf "$BKG_INDEX_DIR"/src
         find "$BKG_INDEX_DIR" -mindepth 1 -maxdepth 1 -type d -exec basename {} \; | sort -u | awk '{print $1}' >>"$BKG_OWNERS"
+
+        while true; do
+            stargazers=$(curl "https://github.com/$GITHUB_OWNER/$GITHUB_REPO/stargazers?page=$page" | grep -oP 'href="/[^/"]+".*?><' | tr -d '\0' | grep -oP '/.*?"' | cut -c2- | rev | cut -c2- | rev | sort -u)
+            [ -n "$stargazers" ] || break
+            echo "$stargazers" >>"$BKG_OWNERS"
+            ((page++))
+        done
+
         awk '!seen[$0]++' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
         # remove lines from $BKG_OWNERS that are in $packages_all
         echo "$(
@@ -91,13 +99,6 @@ main() {
             \cp packages_all packages_to_update
             [ "$(wc -l <"$BKG_OWNERS")" -gt 10 ] || seq 1 10 | env_parallel --lb --halt soon,fail=1 page_owner
         fi
-
-        while true; do
-            stargazers=$(curl "https://github.com/$GITHUB_OWNER/$GITHUB_REPO/stargazers?page=$page" | grep -oP 'href="/[^/"]+".*?><' | tr -d '\0' | grep -oP '/.*?"' | cut -c2- | rev | cut -c2- | rev | sort -u)
-            [ -n "$stargazers" ] || break
-            echo "$stargazers" | env_parallel --lb save_owner
-            ((page++))
-        done
 
         sort -uR <"$BKG_OWNERS" | env_parallel --lb save_owner
         awk -F'|' '{print $1"/"$2}' <packages_to_update | sort -uR | env_parallel --lb save_owner
