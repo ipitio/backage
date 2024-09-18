@@ -9,15 +9,17 @@ request_owner() {
     local owner
     local id
     local return_code=0
+    local paging=${2:-1}
     owner=$(_jq "$1" '.login')
     id=$(_jq "$1" '.id')
+    ! grep -q "$owner" packages_all || return 1
     while ! ln "$BKG_OWNERS" "$BKG_OWNERS.lock" 2>/dev/null; do :; done
     grep -q "^.*\/*$owner$" "$BKG_OWNERS" || echo "$id/$owner" >>"$BKG_OWNERS"
 
     if [ "$(stat -c %s "$BKG_OWNERS")" -ge 100000000 ]; then
         sed -i '$d' "$BKG_OWNERS"
         return_code=2
-    else
+    elif ((paging == 1)); then
         set_BKG BKG_LAST_SCANNED_ID "$id"
     fi
 
@@ -76,29 +78,25 @@ update_owner() {
     # shellcheck disable=SC2034
     lower_owner=$(perl -pe 's/%([0-9A-Fa-f]{2})/chr(hex($1))/eg' <<<"${owner//%/%25}" | tr '[:upper:]' '[:lower:]')
     echo "Updating $owner..."
-    [ -n "$(curl "https://github.com/orgs/$owner/people" | grep -zoP 'href="/orgs/'"$owner"'/people"' | tr -d '\0')" ] && export owner_type="orgs" || export owner_type="users"
+    local ppl_html
+    ppl_html=$(curl "https://github.com/orgs/$owner/people")
+    [ -n "$(grep -zoP 'href="/orgs/'"$owner"'/people"' <<<"$ppl_html" | tr -d '\0')" ] && export owner_type="orgs" || export owner_type="users"
 
     if [ "$owner_type" = "users" ]; then
         for page in $(seq 1 100); do
-            local user_orgs
             local user_orgs_lines
-            user_orgs=$(query_api "$owner_type/$owner/orgs?per_page=100&page=$page")
-            (($? != 3)) || return 3
-            user_orgs_lines=$(jq -r '.[].login' <<<"$user_orgs" 2>/dev/null)
-            run_parallel request_owner "$user_orgs_lines"
+            user_orgs_lines=$(jq -r '.[] | @base64' <<<"$(query_api "$owner_type/$owner/orgs?per_page=100&page=$page")" 2>/dev/null)
+            run_parallel request_owner "$user_orgs_lines" 0
             (($? != 3)) || return 3
             [ "$(wc -l <<<"$user_orgs_lines")" -eq 100 ] || break
         done
     else
         for page in $(seq 1 100); do
             local org_members
-            local org_members_lines
-            org_members=$(query_api "$owner_type/$owner/public_members?per_page=100&page=$page")
+            org_members=$(curl_users "https://github.com/orgs/$owner/people?page=$page")
+            [ "$(wc -l <<<"$org_members")" -gt 0 ] || break
+            run_parallel save_owner "$org_members"
             (($? != 3)) || return 3
-            org_members_lines=$(jq -r '.[].login' <<<"$org_members" 2>/dev/null)
-            run_parallel request_owner "$org_members_lines"
-            (($? != 3)) || return 3
-            [ "$(wc -l <<<"$org_members_lines")" -eq 100 ] || break
         done
     fi
 

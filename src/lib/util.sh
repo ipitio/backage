@@ -264,6 +264,10 @@ docker_manifest_size() {
     fi
 }
 
+curl_users() {
+    curl "$1" | grep -oP 'href="/[^/"]+".*?><' | tr -d '\0' | grep -oP '/.*?"' | cut -c2- | rev | cut -c2- | rev | sort -u
+}
+
 [ -n "$(get_BKG BKG_RATE_LIMIT_START)" ] || set_BKG BKG_RATE_LIMIT_START "$(date -u +%s)"
 [ -n "$(get_BKG BKG_CALLS_TO_API)" ] || set_BKG BKG_CALLS_TO_API "0"
 

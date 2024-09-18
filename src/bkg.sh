@@ -80,7 +80,7 @@ main() {
         find "$BKG_INDEX_DIR" -mindepth 1 -maxdepth 1 -type d -exec basename {} \; | sort -u | awk '{print $1}' >>"$BKG_OWNERS"
 
         while true; do
-            stargazers=$(curl "https://github.com/$GITHUB_OWNER/$GITHUB_REPO/stargazers?page=$page" | grep -oP 'href="/[^/"]+".*?><' | tr -d '\0' | grep -oP '/.*?"' | cut -c2- | rev | cut -c2- | rev | sort -u)
+            stargazers=$(curl_users "https://github.com/$GITHUB_OWNER/$GITHUB_REPO/stargazers?page=$page")
             [ -n "$stargazers" ] || break
             echo "$stargazers" >>"$BKG_OWNERS"
             ((page++))
