@@ -91,9 +91,9 @@ update_owner() {
             [ "$(wc -l <<<"$user_orgs_lines")" -eq 100 ] || break
         done
     else
-        while 1; do
+        while :; do
             local org_members
-            org_members=$(curl_users "https://github.com/orgs/$owner/people?page=$((users_page++))")
+            org_members=$(curl_users "https://github.com/orgs/$owner/people?page=$((++users_page))")
             [ "$(wc -l <<<"$org_members")" -gt 0 ] || break
             run_parallel save_owner "$org_members"
             (($? != 3)) || return 3
