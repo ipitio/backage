@@ -12,11 +12,9 @@
 
 </div>
 
-The GitHub Packages API doesn't expose much of the publicly-available metadata that other registries provide; this completely automated closed-loop system [is the solution](https://github.com/badges/shields/issues/5594#issuecomment-2157626147). **Just star this project to have GitHub serve a JSON endpoint for your packages and those of any organizations you're a part of!** A service ran by GitHub will pick up your name in the next few hours and scrape GitHub for the numbers, storing them in a SQLite database hosted on GitHub. If you'd like the service to ignore some or all of your packages, even after giving a star, simply add `owner[/repo[/package]]` on a new line in `optout.txt` on your own fork [here](https://github.com/ipitio/backage/edit/master/optout.txt) and make a pull request.
+The GitHub Packages API doesn't expose much of the publicly-available metadata that other registries provide; this completely automated closed-loop system [is the solution](https://github.com/badges/shields/issues/5594#issuecomment-2157626147). **Just star this project to have GitHub serve a JSON endpoint for your public packages and those of any organizations you're publicly a part of!** A service ran by GitHub will pick up your name in the next few hours and scrape GitHub for your packages. If you'd then like the service to ignore some or all of them, add `owner[/repo[/package]]` to `optout.txt` [here](https://github.com/ipitio/backage/edit/master/optout.txt) and make a pull request.
 
-To enable the endpoint for any other users or organizations not yet [in the index](https://github.com/ipitio/backage/tree/index), add the case-sensitive name of each owner on a new line in `owners.txt` on your own fork [here](https://github.com/ipitio/backage/edit/master/owners.txt) and make a pull request. Please add just the name(s) -- ids, repos, and packages will be obtained automatically!
-
-Use something like [shields.io/json](https://shields.io/badges/dynamic-json-badge) with the endpoint below to make badges. Here's what they could look like for a few of the available properties:
+To enable the endpoint for any other users or organizations not yet [in the index](https://github.com/ipitio/backage/tree/index), add the case-sensitive name of each one on a new line in `owners.txt` on your own fork [here](https://github.com/ipitio/backage/edit/master/owners.txt) and make a pull request. Please add just the name(s) -- ids, repos, and packages will be obtained automatically! Once enabled, something like [shields.io/json](https://shields.io/badges/dynamic-json-badge) can be used with the values below to make badges. Here's what they could look like for a few of the available properties:
 
 <div align="center">
 
