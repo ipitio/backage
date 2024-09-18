@@ -265,7 +265,11 @@ docker_manifest_size() {
 }
 
 curl_users() {
-    curl "$1" | grep -oP 'href="/[^/"]+".*?><' | tr -d '\0' | grep -oP '/.*?"' | cut -c2- | rev | cut -c2- | rev | sort -u
+    curl "https://github.com/orgs/$1" | grep -oP 'href="/[^/"]+".*?><' | tr -d '\0' | grep -oP '/.*?"' | cut -c2- | rev | cut -c2- | rev | sort -u
+}
+
+curl_orgs() {
+    curl "https://github.com/$1" | grep -oP '/orgs/[^/]+' | cut -d'/' -f3 | sort -u
 }
 
 [ -n "$(get_BKG BKG_RATE_LIMIT_START)" ] || set_BKG BKG_RATE_LIMIT_START "$(date -u +%s)"

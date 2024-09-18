@@ -83,17 +83,15 @@ update_owner() {
     [ -n "$(grep -zoP 'href="/orgs/'"$owner"'/people"' <<<"$ppl_html" | tr -d '\0')" ] && export owner_type="orgs" || export owner_type="users"
 
     if [ "$owner_type" = "users" ]; then
-        for page in $(seq 1 100); do
-            local user_orgs_lines
-            user_orgs_lines=$(jq -r '.[] | @base64' <<<"$(query_api "$owner_type/$owner/orgs?per_page=100&page=$page")" 2>/dev/null)
-            run_parallel request_owner "$user_orgs_lines" 0
-            (($? != 3)) || return 3
-            [ "$(wc -l <<<"$user_orgs_lines")" -eq 100 ] || break
-        done
+        local user_orgs
+        user_orgs=$(curl_orgs "$owner")
+        run_parallel save_owner "$user_orgs"
+        (($? != 3)) || return 3
     else
+        local users_page=0
         while :; do
             local org_members
-            org_members=$(curl_users "https://github.com/orgs/$owner/people?page=$((++users_page))")
+            org_members=$(curl_users "$owner/people?page=$((++users_page))")
             [ "$(wc -l <<<"$org_members")" -gt 0 ] || break
             run_parallel save_owner "$org_members"
             (($? != 3)) || return 3
