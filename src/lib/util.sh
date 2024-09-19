@@ -269,7 +269,7 @@ curl_users() {
 }
 
 curl_orgs() {
-    curl "https://github.com/$1" | grep -oP '/orgs/[^/]+' | cut -d'/' -f3 | sort -u
+    curl "https://github.com/$1" | grep -oP '/orgs/[^/]+' | tr -d '\0' | cut -d'/' -f3 | sort -u
 }
 
 [ -n "$(get_BKG BKG_RATE_LIMIT_START)" ] || set_BKG BKG_RATE_LIMIT_START "$(date -u +%s)"

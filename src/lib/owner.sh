@@ -39,7 +39,8 @@ save_owner() {
     fi
 
     if [[ ! "$owner_id" =~ ^[1-9] ]]; then
-        owner_id=$(query_api "users/$owner")
+        owner_id=$(curl "https://github.com/$owner" | grep -zoP 'meta.*?u\/\d+' | tr -d '\0' | grep -oP 'u\/\d+' | sort -u | head -n1 | grep -oP '\d+')
+        [[ "$owner_id" =~ ^[1-9] ]] || owner_id=$(query_api "users/$owner")
         (($? != 3)) || return 3
         owner_id=$(jq -r '.id' <<<"$owner_id")
     fi
