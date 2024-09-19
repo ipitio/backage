@@ -84,7 +84,7 @@ update_owner() {
     [ -n "$(grep -zoP 'href="/orgs/'"$owner"'/people"' <<<"$ppl_html" | tr -d '\0')" ] && export owner_type="orgs" || export owner_type="users"
 
     if [ "$owner_type" = "users" ]; then
-        run_parallel save_owner "$(comm -13 <(curl_orgs "$owner") <(awk -F'|' '{print $2}' <packages_all))"
+        run_parallel save_owner "$(comm -13 <(curl_orgs "$owner") <(awk -F'|' '{print $2}' <packages_all | sort -u))"
         (($? != 3)) || return 3
     else
         local users_page=0
@@ -92,7 +92,7 @@ update_owner() {
             local org_members
             org_members=$(curl_users "$owner/people?page=$((++users_page))")
             [ "$(wc -l <<<"$org_members")" -gt 0 ] || break
-            run_parallel save_owner "$(comm -13 <(echo "$org_members") <(awk -F'|' '{print $2}' <packages_all))"
+            run_parallel save_owner "$(comm -13 <(echo "$org_members") <(awk -F'|' '{print $2}' <packages_all | sort -u))"
             (($? != 3)) || return 3
         done
     fi
