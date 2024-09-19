@@ -40,9 +40,12 @@ save_owner() {
 
     if [[ ! "$owner_id" =~ ^[1-9] ]]; then
         owner_id=$(curl "https://github.com/$owner" | grep -zoP 'meta.*?u\/\d+' | tr -d '\0' | grep -oP 'u\/\d+' | sort -u | head -n1 | grep -oP '\d+')
-        [[ "$owner_id" =~ ^[1-9] ]] || owner_id=$(query_api "users/$owner")
-        (($? != 3)) || return 3
-        owner_id=$(jq -r '.id' <<<"$owner_id")
+
+        if [[ ! "$owner_id" =~ ^[1-9] ]]; then
+            owner_id=$(query_api "users/$owner")
+            (($? != 3)) || return 3
+            owner_id=$(jq -r '.id' <<<"$owner_id") || return 1
+        fi
     fi
 
     ! set_BKG_set BKG_OWNERS_QUEUE "$owner_id/$owner" || echo "Queued $owner"
