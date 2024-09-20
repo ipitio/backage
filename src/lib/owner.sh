@@ -93,6 +93,7 @@ update_owner() {
         local users_page=1
         while :; do
             local org_members
+            echo "checking org members for $owner ($users_page)..."
             org_members=$(curl_users "$owner/people?page=$users_page")
             echo "org members for $owner ($users_page): $org_members"
             run_parallel save_owner "$(comm -13 <(echo "$org_members") <(awk -F'|' '{print $2}' <packages_all | sort -u))"
