@@ -100,6 +100,15 @@ del_BKG() {
     rm -f "$BKG_ENV.lock"
 }
 
+save_and_exit() {
+    if (($(get_BKG BKG_TIMEOUT) == 0)); then
+        set_BKG BKG_TIMEOUT "1"
+        echo "Stopping $$..."
+    fi
+
+    return 3
+}
+
 # shellcheck disable=SC2120
 check_limit() {
     local total_calls
@@ -115,23 +124,15 @@ check_limit() {
     total_calls=$(get_BKG BKG_CALLS_TO_API)
     rate_limit_end=$(date -u +%s)
     script_limit_diff=$((rate_limit_end - $(get_BKG BKG_SCRIPT_START)))
-
-    if ((script_limit_diff >= max_len)); then
-        if (($(get_BKG BKG_TIMEOUT) == 0)); then
-            set_BKG BKG_TIMEOUT "1"
-            echo "Stopping $$..."
-        fi
-
-        return 3
-    fi
-
-    # wait if 1000 or more calls have been made in the last hour
-    rate_limit_diff=$((rate_limit_end - $(get_BKG BKG_RATE_LIMIT_START)))
     hours_passed=$((rate_limit_diff / 3600))
+    ((script_limit_diff < max_len)) || save_and_exit
+    (($? != 3)) || return 3
 
     if ((total_calls >= 1000 * (hours_passed + 1))); then
         echo "$total_calls calls to the GitHub API in $((rate_limit_diff / 60)) minutes"
         remaining_time=$((3600 * (hours_passed + 1) - rate_limit_diff))
+        ((remaining_time < max_len - script_limit_diff)) || save_and_exit
+        (($? != 3)) || return 3
         echo "Sleeping for $remaining_time seconds..."
         sleep $remaining_time
         echo "Resuming!"
@@ -148,6 +149,8 @@ check_limit() {
     if ((minute_calls >= 900 * (min_passed + 1))); then
         echo "$minute_calls calls to the GitHub API in $sec_limit_diff seconds"
         remaining_time=$((60 * (min_passed + 1) - sec_limit_diff))
+        ((remaining_time < max_len - script_limit_diff)) || save_and_exit
+        (($? != 3)) || return 3
         echo "Sleeping for $remaining_time seconds..."
         sleep $remaining_time
         echo "Resuming!"
@@ -286,4 +289,3 @@ if (($(get_BKG BKG_MIN_RATE_LIMIT_START) + 60 <= $(date -u +%s))); then
     set_BKG BKG_MIN_RATE_LIMIT_START "$(date -u +%s)"
     set_BKG BKG_MIN_CALLS_TO_API "0"
 fi
-

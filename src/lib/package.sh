@@ -6,6 +6,7 @@ source lib/version.sh
 save_package() {
     check_limit || return $?
     [ -n "$1" ] || return
+    [ -n "$owner" ] || return
     local package_new
     local package_type
     local repo
@@ -23,6 +24,7 @@ save_package() {
 page_package() {
     check_limit || return $?
     [ -n "$1" ] || return
+    [ -n "$owner" ] || return
     local packages_lines
     echo "Starting $owner page $1..."
     [ "$owner_type" = "users" ] && pkg_html=$(curl "https://github.com/$owner?tab=packages&visibility=public&&per_page=100&page=$1") || pkg_html=$(curl "https://github.com/$owner_type/$owner/packages?visibility=public&per_page=100&page=$1")
@@ -41,6 +43,7 @@ page_package() {
 update_package() {
     check_limit || return $?
     [ -n "$1" ] || return
+    [ -n "$owner" ] || return
     local html
     local raw_all
     local raw_downloads=-1

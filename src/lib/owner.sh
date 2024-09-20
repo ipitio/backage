@@ -3,15 +3,46 @@
 
 source lib/package.sh
 
+get_owner_id() {
+    local owner
+    local owner_id=""
+    owner=$(echo "$1" | tr -d '[:space:]')
+    [ -n "$owner" ] || return
+
+    if [[ "$owner" =~ .*\/.* ]]; then
+        owner_id=$(cut -d'/' -f1 <<<"$owner")
+        owner=$(cut -d'/' -f2 <<<"$owner")
+    fi
+
+    if [[ ! "$owner_id" =~ ^[1-9] ]]; then
+        owner_id=$(curl "https://github.com/$owner" | grep -zoP 'meta.*?u\/\d+' | tr -d '\0' | grep -oP 'u\/\d+' | sort -u | head -n1 | grep -oP '\d+')
+
+        if [[ ! "$owner_id" =~ ^[1-9] ]]; then
+            owner_id=$(query_api "users/$owner")
+            (($? != 3)) || return 3
+            owner_id=$(jq -r '.id' <<<"$owner_id") || return 1
+        fi
+    fi
+
+    echo "$owner_id/$owner"
+}
+
 request_owner() {
     check_limit || return $?
     [ -n "$1" ] || return
-    local owner
-    local id
+    local owner=""
+    local id=""
     local return_code=0
     local paging=${2:-1}
-    owner=$(_jq "$1" '.login')
-    id=$(_jq "$1" '.id')
+    owner=$(_jq "$1" '.login' 2>/dev/null)
+    [ -z "$owner" ] || id=$(_jq "$1" '.id' 2>/dev/null)
+
+    if [ -z "$id" ]; then
+        owner=$(get_owner_id "$1")
+        id=$(cut -d'/' -f1 <<<"$owner")
+        owner=$(cut -d'/' -f2 <<<"$owner")
+    fi
+
     ! grep -q "$owner" packages_all || return 1
     while ! ln "$BKG_OWNERS" "$BKG_OWNERS.lock" 2>/dev/null; do :; done
     grep -q "^.*\/*$owner$" "$BKG_OWNERS" || echo "$id/$owner" >>"$BKG_OWNERS"
@@ -29,25 +60,7 @@ request_owner() {
 
 save_owner() {
     check_limit || return $?
-    owner=$(echo "$1" | tr -d '[:space:]')
-    [ -n "$owner" ] || return
-    owner_id=""
-
-    if [[ "$owner" =~ .*\/.* ]]; then
-        owner_id=$(cut -d'/' -f1 <<<"$owner")
-        owner=$(cut -d'/' -f2 <<<"$owner")
-    fi
-
-    if [[ ! "$owner_id" =~ ^[1-9] ]]; then
-        owner_id=$(curl "https://github.com/$owner" | grep -zoP 'meta.*?u\/\d+' | tr -d '\0' | grep -oP 'u\/\d+' | sort -u | head -n1 | grep -oP '\d+')
-        if [[ ! "$owner_id" =~ ^[1-9] ]]; then
-            owner_id=$(query_api "users/$owner")
-            (($? != 3)) || return 3
-            owner_id=$(jq -r '.id' <<<"$owner_id") || return 1
-        fi
-    fi
-
-    ! set_BKG_set BKG_OWNERS_QUEUE "$owner_id/$owner" || echo "Queued $owner"
+    ! set_BKG_set BKG_OWNERS_QUEUE "$(get_owner_id "$owner")" || echo "Queued $owner"
 }
 
 page_owner() {
@@ -75,25 +88,26 @@ page_owner() {
 update_owner() {
     check_limit || return $?
     [ -n "$1" ] || return
+    local ppl_html
+    local users_page=1
     owner=$(cut -d'/' -f2 <<<"$1")
     owner_id=$(cut -d'/' -f1 <<<"$1")
+    echo "Updating $owner..."
+
     # decode percent-encoded characters and make lowercase (eg. for docker manifest)
     # shellcheck disable=SC2034
     lower_owner=$(perl -pe 's/%([0-9A-Fa-f]{2})/chr(hex($1))/eg' <<<"${owner//%/%25}" | tr '[:upper:]' '[:lower:]')
-    echo "Updating $owner..."
-    local ppl_html
     ppl_html=$(curl "https://github.com/orgs/$owner/people")
     [ -n "$(grep -zoP 'href="/orgs/'"$owner"'/people"' <<<"$ppl_html" | tr -d '\0')" ] && export owner_type="orgs" || export owner_type="users"
 
     if [ "$owner_type" = "users" ]; then
-        run_parallel save_owner "$(comm -23 <(curl_orgs "$owner") <(awk -F'|' '{print $2}' <packages_all | sort -u))"
+        run_parallel request_owner "$(comm -23 <(curl_orgs "$owner") <(awk -F'|' '{print $2}' <packages_all | sort -u))"
         (($? != 3)) || return 3
     else
-        local users_page=1
         while :; do
             local org_members
             org_members=$(curl_users "$owner/people?page=$users_page")
-            run_parallel save_owner "$(comm -23 <(echo "$org_members") <(awk -F'|' '{print $2}' <packages_all | sort -u))"
+            run_parallel request_owner "$(comm -23 <(echo "$org_members") <(awk -F'|' '{print $2}' <packages_all | sort -u))"
             (($? != 3)) || return 3
             [ "$(wc -l <<<"$org_members")" -ge 15 ] || break
             ((users_page++))

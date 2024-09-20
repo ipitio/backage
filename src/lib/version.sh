@@ -5,6 +5,7 @@ source lib/util.sh
 
 save_version() {
     [ -n "$1" ] || return
+    [ -n "$package" ] || return
     local version_id
     local version_name
     local version_tags
@@ -64,6 +65,7 @@ save_version() {
 page_version() {
     check_limit || return $?
     [ -n "$1" ] || return
+    [ -n "$package" ] || return
     local versions_json_more="[]"
     local version_lines
 
@@ -85,6 +87,7 @@ page_version() {
 update_version() {
     check_limit || return $?
     [ -n "$1" ] || return
+    [ -n "$package" ] || return
     local version_size=-1
     local version_raw_downloads=-1
     local version_raw_downloads_month=-1
