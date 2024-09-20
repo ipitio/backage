@@ -60,7 +60,8 @@ request_owner() {
 
 save_owner() {
     check_limit || return $?
-    ! set_BKG_set BKG_OWNERS_QUEUE "$(get_owner_id "$owner")" || echo "Queued $owner"
+    [ -n "$1" ] || return
+    ! set_BKG_set BKG_OWNERS_QUEUE "$(get_owner_id "$1")" || echo "Queued $1"
 }
 
 page_owner() {
