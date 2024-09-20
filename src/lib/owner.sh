@@ -94,9 +94,9 @@ update_owner() {
         while :; do
             local org_members
             org_members=$(curl_users "$owner/people?page=$((++users_page))")
-            [ "$(wc -l <<<"$org_members")" -gt 0 ] || break
             run_parallel save_owner "$(comm -13 <(echo "$org_members") <(awk -F'|' '{print $2}' <packages_all | sort -u))"
             (($? != 3)) || return 3
+            [ "$(wc -l <<<"$org_members")" -ge 15 ] || break
         done
     fi
 
