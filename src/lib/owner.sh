@@ -39,9 +39,7 @@ save_owner() {
     fi
 
     if [[ ! "$owner_id" =~ ^[1-9] ]]; then
-        echo "curling for id of $owner..."
         owner_id=$(curl "https://github.com/$owner" | grep -zoP 'meta.*?u\/\d+' | tr -d '\0' | grep -oP 'u\/\d+' | sort -u | head -n1 | grep -oP '\d+')
-        echo "id of $owner: $owner_id"
         if [[ ! "$owner_id" =~ ^[1-9] ]]; then
             owner_id=$(query_api "users/$owner")
             (($? != 3)) || return 3
@@ -88,16 +86,14 @@ update_owner() {
     [ -n "$(grep -zoP 'href="/orgs/'"$owner"'/people"' <<<"$ppl_html" | tr -d '\0')" ] && export owner_type="orgs" || export owner_type="users"
 
     if [ "$owner_type" = "users" ]; then
-        run_parallel save_owner "$(comm -13 <(curl_orgs "$owner") <(awk -F'|' '{print $2}' <packages_all | sort -u))"
+        run_parallel save_owner "$(comm -23 <(curl_orgs "$owner") <(awk -F'|' '{print $2}' <packages_all | sort -u))"
         (($? != 3)) || return 3
     else
         local users_page=1
         while :; do
             local org_members
-            echo "checking org members for $owner ($users_page)..."
             org_members=$(curl_users "$owner/people?page=$users_page")
-            echo "org members for $owner ($users_page): $org_members"
-            run_parallel save_owner "$(comm -13 <(echo "$org_members") <(awk -F'|' '{print $2}' <packages_all | sort -u))"
+            run_parallel save_owner "$(comm -23 <(echo "$org_members") <(awk -F'|' '{print $2}' <packages_all | sort -u))"
             (($? != 3)) || return 3
             [ "$(wc -l <<<"$org_members")" -ge 15 ] || break
             ((users_page++))
