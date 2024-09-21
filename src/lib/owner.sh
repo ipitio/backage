@@ -3,37 +3,6 @@
 
 source lib/package.sh
 
-owner_get_id() {
-    local owner
-    local owner_id=""
-    owner=$(echo "$1" | tr -d '[:space:]')
-    [ -n "$owner" ] || return
-
-    if [[ "$owner" =~ .*\/.* ]]; then
-        owner_id=$(cut -d'/' -f1 <<<"$owner")
-        owner=$(cut -d'/' -f2 <<<"$owner")
-    fi
-
-    if [[ ! "$owner_id" =~ ^[1-9] ]]; then
-        owner_id=$(curl "https://github.com/$owner" | grep -zoP 'meta.*?u\/\d+' | tr -d '\0' | grep -oP 'u\/\d+' | sort -u | head -n1 | grep -oP '\d+')
-
-        if [[ ! "$owner_id" =~ ^[1-9] ]]; then
-            owner_id=$(query_api "users/$owner")
-            (($? != 3)) || return 3
-            owner_id=$(jq -r '.id' <<<"$owner_id") || return 1
-        fi
-    fi
-
-    echo "$owner_id/$owner"
-}
-
-owner_has_packages() {
-    local owner_type
-    [ -n "$(curl "https://github.com/orgs/$1/people" | grep -zoP 'href="/orgs/'"$1"'/people"' | tr -d '\0')" ] && owner_type="orgs" || owner_type="users"
-    packages_lines=$(grep -zoP 'href="/'"$owner_type"'/'"$1"'/packages/[^/]+/package/[^"]+"' <([ "$owner_type" = "users" ] && curl "https://github.com/$1?tab=packages&visibility=public&&per_page=1&page=1" || curl "https://github.com/$owner_type/$1/packages?visibility=public&per_page=1&page=1") | tr -d '\0')
-    [ -n "$packages_lines" ] || return 1
-}
-
 request_owner() {
     check_limit || return $?
     [ -n "$1" ] || return
