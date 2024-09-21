@@ -102,7 +102,7 @@ main() {
             [ "$(wc -l <"$BKG_OWNERS")" -gt 10 ] || seq 1 10 | env_parallel --lb --halt soon,fail=1 page_owner
         fi
 
-        sort -uR <"$BKG_OWNERS" | env_parallel --lb save_owner
+        sort -uR <"$BKG_OWNERS" | head -n100 | env_parallel --lb save_owner
         awk -F'|' '{print $1"/"$2}' <packages_to_update | sort -uR | env_parallel --lb save_owner
         set_BKG BKG_DIFF "$db_size_curr"
     elif [ "$mode" -eq 1 ]; then
