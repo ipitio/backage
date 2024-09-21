@@ -75,30 +75,30 @@ The latest additions to the continually updated database, with two classes of ob
 
 <summary>Package</summary>
 
-|       Property        |     Type     | Description                                        |
-| :-------------------: | :----------: | -------------------------------------------------- |
-|      `owner_id`       |    number    | The ID of the owner                                |
-|     `owner_type`      |    string    | The type of owner (e.g. `users`)                   |
-|    `package_type`     |    string    | The type of package (e.g. `container`)             |
-|        `owner`        |    string    | The owner of the package                           |
-|        `repo`         |    string    | The repository of the package                      |
-|       `package`       |    string    | The package name                                   |
-|        `date`         |    string    | The most recent date the package was refreshed     |
-|        `size`         |    string    | Formatted size of the latest version               |
-|      `versions`       |    string    | Formatted count of versions tracked                |
-|       `tagged`        |    string    | Formatted count of tagged versions tracked         |
-|      `downloads`      |    string    | Formatted count of all downloads                   |
-|   `downloads_month`   |    string    | Formatted count of all downloads in the last month |
-|   `downloads_week`    |    string    | Formatted count of all downloads in the last week  |
-|    `downloads_day`    |    string    | Formatted count of all downloads in the last day   |
-|      `raw_size`       |    number    | Size of the latest version, in bytes               |
-|    `raw_versions`     |    number    | Count of versions tracked                          |
-|     `raw_tagged`      |    number    | Count of tagged versions tracked                   |
-|    `raw_downloads`    |    number    | Count of all downloads                             |
-| `raw_downloads_month` |    number    | Count of all downloads in the last month           |
-| `raw_downloads_week`  |    number    | Count of all downloads in the last week            |
-|  `raw_downloads_day`  |    number    | Count of all downloads in the last day             |
-|       `version`       | object array | The versions of the package (see below)            |
+|       Property        |     Type     | Description                                         |
+| :-------------------: | :----------: | --------------------------------------------------- |
+|      `owner_id`       |    number    | The ID of the owner                                 |
+|     `owner_type`      |    string    | The type of owner (e.g. `users`)                    |
+|    `package_type`     |    string    | The type of package (e.g. `container`)              |
+|        `owner`        |    string    | The owner of the package                            |
+|        `repo`         |    string    | The repository of the package                       |
+|       `package`       |    string    | The package name                                    |
+|        `date`         |    string    | The most recent date the package was refreshed      |
+|        `size`         |    string    | Formatted size of the latest version                |
+|      `versions`       |    string    | Formatted count of all versions ever tracked        |
+|       `tagged`        |    string    | Formatted count of all tagged versions ever tracked |
+|      `downloads`      |    string    | Formatted count of all downloads                    |
+|   `downloads_month`   |    string    | Formatted count of all downloads in the last month  |
+|   `downloads_week`    |    string    | Formatted count of all downloads in the last week   |
+|    `downloads_day`    |    string    | Formatted count of all downloads in the last day    |
+|      `raw_size`       |    number    | Size of the latest version, in bytes                |
+|    `raw_versions`     |    number    | Count of versions tracked                           |
+|     `raw_tagged`      |    number    | Count of tagged versions tracked                    |
+|    `raw_downloads`    |    number    | Count of all downloads                              |
+| `raw_downloads_month` |    number    | Count of all downloads in the last month            |
+| `raw_downloads_week`  |    number    | Count of all downloads in the last week             |
+|  `raw_downloads_day`  |    number    | Count of all downloads in the last day              |
+|       `version`       | object array | The versions of the package (see below)             |
 
 </details>
 

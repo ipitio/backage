@@ -3,7 +3,7 @@
 
 source lib/package.sh
 
-get_owner_id() {
+owner_get_id() {
     local owner
     local owner_id=""
     owner=$(echo "$1" | tr -d '[:space:]')
@@ -27,6 +27,13 @@ get_owner_id() {
     echo "$owner_id/$owner"
 }
 
+owner_has_packages() {
+    local owner_type
+    [ -n "$(curl "https://github.com/orgs/$1/people" | grep -zoP 'href="/orgs/'"$1"'/people"' | tr -d '\0')" ] && owner_type="orgs" || owner_type="users"
+    packages_lines=$(grep -zoP 'href="/'"$owner_type"'/'"$1"'/packages/[^/]+/package/[^"]+"' <([ "$owner_type" = "users" ] && curl "https://github.com/$1?tab=packages&visibility=public&&per_page=1&page=1" || curl "https://github.com/$owner_type/$1/packages?visibility=public&per_page=1&page=1") | tr -d '\0')
+    [ -n "$packages_lines" ] || return 1
+}
+
 request_owner() {
     check_limit || return $?
     [ -n "$1" ] || return
@@ -38,12 +45,12 @@ request_owner() {
     [ -z "$owner" ] || id=$(_jq "$1" '.id' 2>/dev/null)
 
     if [ -z "$id" ]; then
-        owner=$(get_owner_id "$1")
+        owner=$(owner_get_id "$1")
         id=$(cut -d'/' -f1 <<<"$owner")
         owner=$(cut -d'/' -f2 <<<"$owner")
     fi
 
-    ! grep -q "$owner" packages_all || return 1
+    ! grep -q "$owner" packages_all && owner_has_packages "$owner" || return 1
     while ! ln "$BKG_OWNERS" "$BKG_OWNERS.lock" 2>/dev/null; do :; done
     grep -q "^.*\/*$owner$" "$BKG_OWNERS" || echo "$id/$owner" >>"$BKG_OWNERS"
 
@@ -60,8 +67,9 @@ request_owner() {
 
 save_owner() {
     check_limit || return $?
-    [ -n "$1" ] || return
-    ! set_BKG_set BKG_OWNERS_QUEUE "$(get_owner_id "$1")" || echo "Queued $1"
+    local owner_id
+    owner_id=$(owner_get_id "$1")
+    ! set_BKG_set BKG_OWNERS_QUEUE "$owner_id" || echo "Queued $(cut -d'/' -f2 <<<"$owner_id")"
 }
 
 page_owner() {
@@ -99,6 +107,7 @@ update_owner() {
     # shellcheck disable=SC2034
     lower_owner=$(perl -pe 's/%([0-9A-Fa-f]{2})/chr(hex($1))/eg' <<<"${owner//%/%25}" | tr '[:upper:]' '[:lower:]')
     ppl_html=$(curl "https://github.com/orgs/$owner/people")
+    (($? != 3)) || return 3
     [ -n "$(grep -zoP 'href="/orgs/'"$owner"'/people"' <<<"$ppl_html" | tr -d '\0')" ] && export owner_type="orgs" || export owner_type="users"
 
     if [ "$owner_type" = "users" ]; then
@@ -121,18 +130,9 @@ update_owner() {
 
     for page in $(seq 1 100); do
         local pages_left=0
-        local pkgs
         page_package "$page"
         pages_left=$?
-        pkgs=$(get_BKG_set BKG_PACKAGES_"$owner")
-
-        if [ -z "$pkgs" ]; then
-            sed -i "/^.*\/*$owner$/d" "$BKG_OWNERS"
-            return 2
-        fi
-
-        ((pages_left != 3)) || return 3
-        run_parallel update_package "$pkgs"
+        run_parallel update_package "$(get_BKG_set BKG_PACKAGES_"$owner")"
         (($? != 3)) || return 3
         ((pages_left != 2)) || break
         set_BKG BKG_PACKAGES_"$owner" ""
