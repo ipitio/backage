@@ -93,7 +93,7 @@ main() {
             awk -F'|' '{print $2}' <packages_all
         )" | sort -u | parallel "sed -i '\,^{}$,d' $BKG_OWNERS"
         # remove owners from $BKG_OWNERS that have no packages
-        awk -F'/' '{print $NF}' "$BKG_OWNERS" | sort -u | parallel "owner_has_packages {} || sed -i '\,^(.*?/)*{}$,d' $BKG_OWNERS"
+        awk -F'/' '{print $NF}' "$BKG_OWNERS" | sort -u | env_parallel "owner_has_packages {} || sed -i '\,^(.*?/)*{}$,d' $BKG_OWNERS"
 
         if [[ "$pkg_left" == "0" || "${db_size_curr::-1}" == "${db_size_prev::-1}" ]]; then
             set_BKG BKG_BATCH_FIRST_STARTED "$today"
