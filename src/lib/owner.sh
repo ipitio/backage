@@ -99,9 +99,18 @@ update_owner() {
 
     for page in $(seq 1 100); do
         local pages_left=0
+        local pkgs
         page_package "$page"
         pages_left=$?
-        run_parallel update_package "$(get_BKG_set BKG_PACKAGES_"$owner")"
+        pkgs=$(get_BKG_set BKG_PACKAGES_"$owner")
+
+        if [ -z "$pkgs" ]; then
+            sed -i "/^.*\/*$owner$/d" "$BKG_OWNERS"
+            return 2
+        fi
+
+        ((pages_left != 3)) || return 3
+        run_parallel update_package "$pkgs"
         (($? != 3)) || return 3
         ((pages_left != 2)) || break
         set_BKG BKG_PACKAGES_"$owner" ""
