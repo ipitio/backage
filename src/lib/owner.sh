@@ -9,9 +9,9 @@ request_owner() {
     local owner=""
     local id=""
     local return_code=0
-    local paging=${2:-1}
+    local paging=true
     owner=$(_jq "$1" '.login' 2>/dev/null)
-    [ -z "$owner" ] || id=$(_jq "$1" '.id' 2>/dev/null)
+    [ -n "$owner" ] && id=$(_jq "$1" '.id' 2>/dev/null) || paging=false
 
     if [ -z "$id" ]; then
         owner=$(owner_get_id "$1")
@@ -26,7 +26,7 @@ request_owner() {
     if [ "$(stat -c %s "$BKG_OWNERS")" -ge 100000000 ]; then
         sed -i '$d' "$BKG_OWNERS"
         return_code=2
-    elif ((paging == 1)); then
+    elif $paging && [ -n "$id" ]; then
         set_BKG BKG_LAST_SCANNED_ID "$id"
     fi
 
