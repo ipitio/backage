@@ -5772,3 +5772,8 @@ freddydk
 203805/stoe
 4266575/anayadesign
 40918912/NabuCasa
+dockur
+vdsm
+qemus
+kroese
+dobtc
