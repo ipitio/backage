@@ -6,7 +6,6 @@
 105275/jdnier
 805930/lmello
 1512522/veryblair
-844827/szilard
 15350/walkah
 2576787/AmeliaMN
 216319/jeroen
@@ -32,12 +31,10 @@
 534245/toopay
 1226384/sagikazarmark
 1162994/vemv
-414909/kingtim
 101022/marcqualie
 1243537/syl20bnr
 1006557/expez
 5636/purcell
-21414/alcohol
 1651494/tgalopin
 1321596/Anahkiasen
 672421/toin0u
@@ -139,7 +136,6 @@
 9205048/danielnachun
 19800529/branchvincent
 6127163/miccal
-355033/issyl0
 1637818/tokaido
 9824526/khipp
 22247014/yarnpkg
@@ -149,7 +145,6 @@
 30379873/carlocab
 13123663/maxim-belkin
 864213/bayandin
-25842576/ZhongRuoyu
 1484494/SMillerDev
 1874003/mozzadrella
 1882991/whoiswillma
@@ -182,7 +177,6 @@
 317830/small1
 282283/jval
 5011328/hitobito
-241637/ms-studio
 14110605/AllemanoEn
 13852513/SteeveDroz
 14165029/lesombresdutrone
@@ -207,12 +201,10 @@
 683/robmack
 2345080/panchorol
 1705132/thestubborndev
-30607/aborruso
 2052060/eradan
 3877202/lbragaglia
 100491/andypanix
 88188/seralf
-20770/dottorblaster
 1769578/nelsonmau
 72454/marcogiacomassi
 8749/stefanomainardi
@@ -322,7 +314,6 @@ null/fatiherikli
 2955685/mcannizz
 14878252/amanda-tarafa
 9518298/anguillanneuf
-1779792/lynnagara
 12790724/ahidalgob
 133697799/adrw-google
 1976777/JoshFerge
@@ -394,7 +385,6 @@ null/fatiherikli
 11869543/bashir2
 100724053/ReneGreen27
 21292932/ashok133
-1829647/jeromecaffaro
 36383062/benjamin-maynard
 64906376/rodolfoBee
 56081556/Prithvirajkumar
@@ -515,7 +505,6 @@ null/fatiherikli
 196855/davidrabinowitz
 1170755/dannyqiu
 1839101/damemi
-13023073/dharmez
 10792787/danielbankhead
 23088558/dbolduc
 73814573/dipintimanandhar
@@ -543,8 +532,6 @@ null/fatiherikli
 304401/gbrayut
 37807/garye
 32880242/dzlier-gcp
-52041229/eshagoel06
-868150/drebes
 1907648/frankyn
 70151215/franklinWhaite
 141994902/g-swap
@@ -571,7 +558,6 @@ null/fatiherikli
 7594381/igorpeshansky
 93150871/grac3gao
 957212/iht
-89024676/jefferbrecht
 31785389/i-laird
 4876867/janetkuo
 8987090/janitbidhan
@@ -616,7 +602,6 @@ null/fatiherikli
 303236/koverholt
 6614006/manitgupta
 167252720/maemayve
-176340129/liyun-huang
 87674088/kminsu-google
 8471266/luotigerlsx
 28403513/kumar-dhanagopal
@@ -631,7 +616,6 @@ null/fatiherikli
 2864678/MrTrustor
 79073/matthewmichihara
 644493/matthewrobertson
-5303485/michaelwsherman
 21157924/MichalPitr
 17732492/meltsufin
 6358540/NivedhaSenthil
@@ -642,7 +626,6 @@ null/fatiherikli
 16965738/nikitamaia
 900775/matthiasak
 3035518/medb
-1823839/nickdesaulniers
 26816972/ocsig
 63211638/njcoburn
 6939358/olivierba
@@ -777,7 +760,6 @@ null/fatiherikli
 166481/yuryu
 145104/ymotongpoo
 14087829/yolocs
-744168/yunus
 59023747/Buraah
 6527489/RealOrangeOne
 4743971/KalobTaulien
@@ -799,7 +781,6 @@ null/fatiherikli
 85/brixen
 287422/jjanssen
 788096/alex-ju
-48235/ileitch
 54533/IPGlider
 45985/dbanck
 34121980/austingebauer
@@ -814,17 +795,14 @@ null/fatiherikli
 448040/argent-smith
 9772116/elimt
 282361/breathingdust
-810277/briancain
 1440264/mikedingjan
 58337159/bschaatsbergen
-48889/carlosgaldino
 4709/hosiawak
 33654/aareet
 1855064/pimvernooij
 266674/chrisroberts
 43569/chuckremes
 3859/hannahwhy
-46906/ecoffey
 798427/davorb
 19/brynary
 5244/agardiner
@@ -856,7 +834,6 @@ null/fatiherikli
 6227720/davidsbond
 263378/burningTyger
 8647634/Juanadelacuesta
-99784476/ggambetti
 105233703/hashi-derek
 81079/Nemo157
 96261585/hashiblaum
@@ -868,7 +845,6 @@ null/fatiherikli
 90070/jonsmock
 150485/krekoten
 8812489/gulducat
-3507/manveru
 1034429/lkysow
 9891/malu
 68067/jdsiegel
@@ -902,7 +878,6 @@ null/fatiherikli
 637/leavengood
 2481360/jmurret
 18191/jc00ke
-39431/jbripley
 362164/leocassarani
 56838463/liamcervante
 16313206/jm96441n
@@ -929,7 +904,6 @@ null/fatiherikli
 66427/mattreduce
 73124344/mismithhisler
 4903/rboyer
-1889716/nicsnet
 34552/shugo
 7492/sbryant
 27679/semmons99
@@ -987,7 +961,6 @@ null/fatiherikli
 274417/a2rb
 1302475/alfajango
 61242156/GitHub-Stars
-51445744/openfaasltd
 32622032/openfaas-incubator
 102804240/self-actuated
 56652358/inlets
@@ -1031,7 +1004,6 @@ null/fatiherikli
 40640329/manaelproxy
 42648621/inabagumi
 1007353/openhab
-105945214/opencost
 22138672/adklempner
 25250464/liimaorg
 5902889/headwirecom
@@ -1241,7 +1213,6 @@ null/fatiherikli
 2852392/gothammm
 1513137/irishshagua
 140715048/ktsypkina
-45459238/jopadi
 4949000/gregdeane
 574425/iberever
 1443395/Jan-M
@@ -1452,12 +1423,10 @@ null/fatiherikli
 317884/gowalla-archive
 2896855/codetriage
 79301545/AhmetRasB
-800996/AlanBarber
 33789321/AnkitSharma-007
 26163841/Arhell
 22633119/Ant-hem
 17201404/amiru3f
-13352070/achopijocoder
 28941816/anjoy8
 534533/aalmada
 348793/alefranz
@@ -1488,7 +1457,6 @@ null/fatiherikli
 283697/feliperoberto
 12420391/DavidMedeiros
 34947/arthur-debert
-1918601/camcima
 11530788/CaueP
 63702687/lesecretdupoids
 847087/nsnw
@@ -1576,7 +1544,6 @@ null/fatiherikli
 2289/zeke
 72447/kangguru
 4245537/docnewlen
-13575/schorsch
 380555/FrankBie
 8343/koos
 165599/timoschilling
@@ -1615,7 +1582,6 @@ null/fatiherikli
 2081471/ohgata
 22944313/FreeRTC
 80687583/ik-nu
-642322/mediamatic
 15827/xsf
 284270/mochi
 716546/twisted
@@ -1653,12 +1619,10 @@ null/fatiherikli
 3949405/gijsbrecht
 132174/gabeguz
 8445924/kovetskiy
-67066/jstemmer
 775466/lc0
 1731633/ifraixedes
 4692223/morpheyesh
 1700422/dmmcquay
-607868/dlsniper
 444215/dkinzer
 51470769/akshaaatt
 912984/LeoVerto
@@ -1754,7 +1718,6 @@ null/fatiherikli
 42459347/agutiernc
 48164965/agilbert28
 107517643/ahmedsalah0130
-109780481/adom2128
 79271707/adeoyevictor
 93790582/adevlinb
 21162229/abuna1985
@@ -1783,10 +1746,8 @@ null/fatiherikli
 87741796/alc34
 105328877/alaishasayed
 64093327/AishwaryaN2203
-64367796/AkilsuryaS
 38201574/ainneo
 41409431/alan-zambrano
-109185513/alduong1
 73680271/ajmachado42
 135405041/aidenjlee4321
 21186510/alecg123
@@ -1874,7 +1835,6 @@ null/fatiherikli
 140572602/ArshiaZargarani
 102492480/arcan9
 44139731/Atharva1998
-41967756/ArtinNazarian
 6795366/arav93
 112011413/audrey-ma
 121915574/askidmore01
@@ -1942,7 +1902,6 @@ null/fatiherikli
 1325902/bkong
 135071951/benpinhassi
 71858488/bfirestone23
-111911687/bfang22
 26803667/bluechocolate2019
 96928611/bhumakarki
 62186905/blakes24
@@ -2042,7 +2001,6 @@ null/Bombkitty
 92824407/cng008
 122063836/colin-macrae
 126638864/codinghorizons
-116526628/connortessaro
 107889868/clayton1111
 162255980/codyyjxn
 68392910/cj98123
@@ -2115,7 +2073,6 @@ null/Bombkitty
 124115394/DezhiYu52
 117793009/devanquinn14
 8894579/derekmiranda
-107867458/del9ra
 29192477/dineshsk98
 83784264/designer2209
 66003403/designerlinak
@@ -2190,7 +2147,6 @@ null/Bombkitty
 26284655/ElleSuza
 158856754/elsong86
 6325722/endlesslupita
-84427589/eodero
 9939032/entrotech
 10878996/epg323
 105249508/EmilyTat
@@ -2206,7 +2162,6 @@ null/Bombkitty
 148172410/emmaarends
 140572103/emmathrash
 53156916/emmadcoder
-120353163/elliealbertson
 9616071/emeldar
 142280969/ErikaChauLion
 51346525/elseclc
@@ -2257,7 +2212,6 @@ null/Bombkitty
 151857674/fghdfm112
 77603497/fluuup
 42121045/farahrobleh
-69654639/ftblmagician
 43657452/fenglugithub
 23141665/fuzjan81
 51348249/flashcabaja64
@@ -2275,7 +2229,6 @@ null/Bombkitty
 156871812/giselledizon
 103547020/georgettet
 172927323/gautam-cgr
-143573246/gitgaldamez
 9373317/glenflorendo
 119886374/garrettallen0
 43017513/ge-andrew
@@ -2420,7 +2373,6 @@ null/Bombkitty
 56414706/jackson6022
 57149590/jamiesiu
 20663769/janebirman
-87781597/jameschen56
 92768513/jarmitageux
 117488210/jamieowens
 98633176/janzenmolina
@@ -2523,7 +2475,6 @@ null/Bombkitty
 26472525/johnppkyaw
 72668920/johnwroge
 63170710/josiehandeveloper
-140572080/joyceguo99
 97187879/jossus657
 103613430/jojecameron
 67129178/jonnyoe
@@ -2550,7 +2501,6 @@ null/Bombkitty
 60289997/JSTUN9
 4120557/jdtremblay
 121644228/Jung-GunSong
-60997220/junjun107
 74113576/juliechristen
 21071958/simonlary
 67356196/juliaa423
@@ -2560,7 +2510,6 @@ null/Bombkitty
 618592/npresseault
 107448814/julianakyau
 58079426/junganthonyy
-104275658/JpadillaCoding
 137461800/Jperparas
 7375742/smatte
 95457288/joycekyang
@@ -2608,7 +2557,6 @@ null/Bombkitty
 92684521/KalpanaTA
 83264637/KanhaKorgaonkar
 89887993/Justlee98
-116132588/kaiokennnnn
 113402290/justinPemberton
 2753761/kanikashah90
 177593475/kapadiyaa
@@ -2677,7 +2625,6 @@ null/Bombkitty
 17465075/kelseylc
 98370558/kim-tellez
 90731406/kevinmoutoucarpin
-130503078/Khinememe-Kyaw
 38481415/kgold2018
 88693627/kevindphan
 109393217/Kle012
@@ -2711,7 +2658,6 @@ null/Bombkitty
 13281514/LAStorm
 68249329/KwameTaylor
 8907997/kurikurichan
-130413565/lcguan816
 126129416/kyle-foral
 89545553/Lavina4
 112529635/kyle-whitaker
@@ -2722,7 +2668,6 @@ null/Bombkitty
 121916065/Leah0996
 89800686/kyrakwak
 47159210/Lalla22
-41959451/ldaws003
 56012982/lasryariel
 99943861/ldietz08
 143573070/kyle8492
@@ -2761,7 +2706,6 @@ null/Bombkitty
 15348137/liz-zheng
 100797135/LOSjr4
 94076636/Maarimar
-40847248/Lol-Whut
 54558548/m-ronchetto
 131915109/MacTirney
 116141725/longhairshortcode
@@ -2889,7 +2833,6 @@ null/Bombkitty
 48924549/mkrticho
 5642525/mmogri
 81997978/mklmrgn
-122501874/MonicaKarnati
 146150429/MonidaT
 72887397/MukeshZala
 72112832/n2020h
@@ -2904,7 +2847,6 @@ null/Bombkitty
 135287156/mSharifHub
 88945958/movan30
 79176075/mrodz
-105416346/muntiCloud
 105573589/mru-hub
 131429507/monicakrystal
 101308925/msam13
@@ -2939,7 +2881,6 @@ null/Bombkitty
 80127844/nagesh23nayak
 155505934/nadeacol
 121915856/natefern1997
-82012475/neevliberman
 7437035/Neecolaa
 94891028/ndmoc
 163942514/nehathombare21
@@ -2982,7 +2923,6 @@ null/Bombkitty
 28342886/ntrehan
 34043773/nlee806
 2438061/nowfred
-65608103/nxgrizzle
 114883646/OCD0505
 43665274/notSayam
 78514700/nnr-nnr
@@ -3028,7 +2968,6 @@ null/Bombkitty
 930777/enobufs
 38858977/backkem
 126638029/pardhama
-156865310/oncefound
 53623027/patelbansi3009
 19849177/hcm007
 8390204/at-wat
@@ -3253,7 +3192,6 @@ null/Bombkitty
 42140497/sandarshp
 39248174/sarL3y
 150102318/saraisabelcf
-92703788/sanjumv
 79809138/Satenik-Ba
 42344640/sauraodalvi
 15332664/sathwikkes
@@ -3291,7 +3229,6 @@ null/Bombkitty
 142281102/ShiraPaz2023
 40903086/shawnkoong
 47163456/sharvarik25
-101160972/sherririllingux
 50650237/shiningjustice
 144753083/sharbkim
 113402193/sheronvirani21
@@ -3337,7 +3274,6 @@ null/Bombkitty
 95888938/Sparky-code
 121915799/SophAm1
 85319030/StackflowMManes
-107651931/srandolph2
 119828225/sornekian
 42662464/sopranolinist
 139191062/srliem
@@ -3351,7 +3287,6 @@ null/Bombkitty
 36690234/sopheak012
 164286146/sonaliagle
 68392991/sptorvi
-98001560/staceyrebekahscott
 69641238/ssuvarna1234
 28109461/soseji40
 162269045/sriharichellu
@@ -3493,7 +3428,6 @@ null/Bombkitty
 110951634/Vyshiali
 70343417/VJ1285
 4284662/vykster
-13525893/wanyuguan
 100221733/vmaineng
 26015263/victle
 105751313/WayneTsai45
@@ -3532,7 +3466,6 @@ null/Bombkitty
 169718490/xuyeluo
 57014752/willa-mannering
 151261985/williamzhang73
-77037013/y20s
 4054752/wesrowe
 48462105/westontscott
 3667133/wmb1232
@@ -3596,7 +3529,6 @@ null/Bombkitty
 40477007/abbyjshen
 2091652/abhinavmithal
 123186776/abhishesingh-msft
-13360214/abuccts
 5248458/abhisekb
 14010132/aayush3011
 33647063/abbyzahne
@@ -3633,7 +3565,6 @@ null/Bombkitty
 96469651/adityaMishra18
 12550813/adhurwit
 3277235/adriandsa
-67336737/admukhty
 1170996/adepue
 19274229/adarce
 3786750/adrianmo
@@ -4001,7 +3932,6 @@ null/Bombkitty
 38804567/ckairen
 647031/rogeralsing
 38852/chrido
-9226/klingerf
 35080559/chrwhit
 6274210/syleeeee
 99369021/claudioav1978
@@ -4094,7 +4024,6 @@ null/Bombkitty
 11839202/davidbel
 95136/davidfowl
 165709729/daweiwang-microsoft
-243852/dbroeglin
 12040431/daviburg
 45399687/DavidFineboym
 112983087/ddumesnil-microsoft
@@ -4185,7 +4114,6 @@ null/Bombkitty
 1728391/elgold92
 42010864/elizasipos
 3941071/emlynmac
-101957302/elavarasidc
 6381138/emgarten
 109180136/enricohuang
 755009/elicortez
@@ -4216,7 +4144,6 @@ null/Bombkitty
 598990/fafhrd91
 90470932/erjms
 31288311/fadyw
-2507935/fabiocav
 104578248/evans129
 37290797/erscorms
 70240915/EugenioPena
@@ -4407,7 +4334,6 @@ null/Bombkitty
 129326006/huanyushao
 38988242/huypub
 4989220/hutchcodes
-49334158/iambillzhao
 17349002/ianphil
 3266447/iamwillbar
 1750079/hmlam
@@ -4419,7 +4345,6 @@ null/Bombkitty
 24892017/hrishikesh-singh
 139948344/hsurana06
 100385146/hmmorales
-43508/ItalyPaleAle
 1424596/iMicknl
 36889748/IleanaVolpi
 6175158/iryanzhang
@@ -4441,7 +4366,6 @@ null/Bombkitty
 99760799/imadan1996
 59947356/ismatullaevash
 27928708/ImSkully
-9251936/iwazirijr
 121174551/ilyapaliakou-msft
 32180457/JackLiang5
 88582169/IyerBhuvi
@@ -4478,8 +4402,6 @@ null/Bombkitty
 2357647/JanneMattila
 7906263/JasonGerend
 138556648/Jawahar-ms
-109692962/jantache-microsoft
-5913008/Jaxelr
 2257539/jarango
 41650461/jaysterp
 152891406/jbouzarouata1
@@ -4498,7 +4420,6 @@ null/Bombkitty
 122496947/jasondavis-MS
 17173791/jcordtz
 45151895/jchernof17
-48466606/Jerryy959
 8324785/JeffSimmer
 2274495/JeffreyRichter
 8146643/jdweaver
@@ -4523,12 +4444,10 @@ null/Bombkitty
 139106314/jerryshia
 1135906/jglouie
 41321295/JennyPopova
-8907830/jessebenson
 117977647/JJJessieWang
 4423709/JianpingChen
 12829462/JiaxingSong
 16258656/JinyuID
-67344043/jingwenw15
 6993633/jingjlii
 13556087/JimSuplizio
 41570617/JingchuanHuangMSFT
@@ -4544,7 +4463,6 @@ null/Bombkitty
 10090263/jhendrixMSFT
 10081483/jinglouMSFT
 13328178/jiacfan
-4003950/jiasli
 37574696/jianyeliu
 97924128/jiminwen-msft
 22306729/jjcummins
@@ -4585,7 +4503,6 @@ null/Bombkitty
 1427840/JonathanGiles
 62032416/jovancevic123
 109105353/jpeng-ms
-1609107/jonlester
 9044372/JoshuaLai
 53531213/joshharrin
 11056031/jpalvarezl
@@ -4686,7 +4603,6 @@ null/Bombkitty
 31998003/kristapratico
 17938940/lalala123123
 6372220/kwirkykat
-50358529/krishna1s
 4605355/kyleknap
 57923303/kyle-patterson
 49231262/ktchoua
@@ -4809,7 +4725,6 @@ null/Bombkitty
 7905722/marksouza99
 13624667/ManojV-MS
 10857305/MarkWme
-5656860/marleyg
 43887470/mattmccleary
 8055100/mattmiles
 48094574/martinalang
@@ -4981,7 +4896,6 @@ null/Bombkitty
 351550/RubyMoney
 527621/thephpleague
 1559798/expressodev
-78454435/foxglove
 5564188/meltyshev
 46579393/daniel-hiller
 87237189/gebilxs
@@ -5209,7 +5123,6 @@ null/Bombkitty
 590055/dan-menard
 16366896/chanonroy
 5194977/dhop
-9062713/gantonious
 1551119/fbogsany
 491230/eljojo
 410472/ChristoDeluxe
@@ -5220,13 +5133,11 @@ null/Bombkitty
 8213048/kalindudc
 737159/kelhusseiny
 1273044/j-mutter
-15272484/jaruserickson
 22324472/jenniferwills
 6140083/iyaz-shaikh
 6355370/ianschmitz
 712278/joiggama
 76880/jmreid
-1631363/Ginja
 1595448/gregology
 28009669/jacobsteves
 9324228/jspauley
@@ -5234,10 +5145,8 @@ null/Bombkitty
 14102549/joncardasis
 98607887/jameskieley
 5162312/gmcgibbon
-2893818/JasonMWhite
 5274722/henrytao-me
 9855136/joshvocal
-10282220/jhalvorson
 905006/jbalsas
 3503320/Koreanderson
 850981/Maxoplata
@@ -5267,10 +5176,8 @@ null/Bombkitty
 7584532/milakoeva
 40186116/PeteMango
 6011550/natalysheinin
-16085982/RouzbehMajidi
 12190482/pedrodurek
 101291074/peterweishop
-224488/paracycle
 49090/nickpresta
 1170007/r-deleon
 190692/pushmatrix
@@ -5282,7 +5189,6 @@ null/Bombkitty
 474248/robin-drexler
 496903/mikkoh
 30199014/Owen-Cummings
-12304900/richter-alex
 11142576/rickydam
 49806985/MrGVSV
 47848/rafaelfranca
@@ -5349,7 +5255,6 @@ seuros
 sunodo
 790012/xamarin
 29895434/p-society
-90701811/confidential-containers
 14073052/kinvolk
 374550/karupanerura
 177122/Songmu
@@ -5481,7 +5386,6 @@ edaniels
 ericonr
 facebook
 handshake-org
-jefferbrecht
 jongio
 the-maldridge
 2675345/zenodo
@@ -5525,7 +5429,6 @@ the-maldridge
 bramkragten
 jromero
 michaelsrichter
-1856166/DewaldDeJager
 715236/indico
 84015/torchbox
 2841765/Roche
@@ -5580,7 +5483,6 @@ freddydk
 1694386/twodarek
 203805/stoe
 40918912/NabuCasa
-Jaxelr
 ahwm
 cucumber
 fahedouch
@@ -5601,12 +5503,9 @@ zenodo
 37226233/web-platform-tests
 79686/substantial
 CPS-IT
-Mmmgnus
 htrgouvea
 kcp-dev
 kosli-dev
-slint
-stassats
 twz123
 3299148/awslabs
 357098/linkedin
@@ -5638,3 +5537,45 @@ twz123
 99483952/open-feature
 30080011/observablehq
 4266575/anayadesign
+Santobert
+at-wat
+billyvg
+dejan
+dtanner
+eddymul
+electron
+emissary-ingress
+evanp
+fabiocicerchia
+hertzg
+j0rd1smit
+jacobbednarz
+jviotti
+kellerza
+manekinekko
+piksel
+tomusher
+xemu-project
+13183983/jetstack
+128636122/Contoso-Inc
+32762324/Arthur1
+4744735/7474
+42642269/Azuki-bar
+24271196/cateiru
+4977553/cohalz
+6058487/rokoucha
+85651386/rokuosan
+13393900/tosuke
+60650857/walnuts1018
+234268/puppetlabs
+45919759/esphome
+1439844/theforeman
+44464422/pybricks
+71797972/viamrobotics
+84434210/akuity
+49503628/argoproj-labs
+64590512/philips-forks
+58286953/philips-labs
+39734771/philips-software
+26722911/NuGetPlay
+968310/NuGet
