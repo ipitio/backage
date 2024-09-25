@@ -53,6 +53,7 @@ PRAGMA cache_size = -500000;
 }
 
 get_BKG() {
+    [ -f "$BKG_ENV" ] || return
     while [ -f "$BKG_ENV.lock" ]; do :; done
     grep "^$1=" "$BKG_ENV" | cut -d'=' -f2
 }
@@ -62,6 +63,7 @@ set_BKG() {
     local tmp_file
     value=$(echo "$2" | perl -pe 'chomp if eof')
     tmp_file=$(mktemp)
+    [ -f "$BKG_ENV" ] || return
     while ! ln "$BKG_ENV" "$BKG_ENV.lock" 2>/dev/null; do :; done
 
     if ! grep -q "^$1=" "$BKG_ENV"; then
@@ -94,6 +96,7 @@ set_BKG_set() {
 }
 
 del_BKG() {
+    [ -f "$BKG_ENV" ] || return
     while ! ln "$BKG_ENV" "$BKG_ENV.lock" 2>/dev/null; do :; done
     parallel "sed -i '/^{}=/d' $BKG_ENV" ::: "$@"
     sed -i '/^\s*$/d' "$BKG_ENV"
@@ -213,7 +216,7 @@ _jq() {
 dldb() {
     local code=0
     echo "Downloading the latest database..."
-    # `cd src && source bkg.sh && dldb` to dl the latest db
+    # `cd src ; source bkg.sh && dldb` to dl the latest db
     [ ! -f "$BKG_INDEX_DB" ] || mv "$BKG_INDEX_DB" "$BKG_INDEX_DB".bak
     command curl -sSLNZ "https://github.com/ipitio/backage/releases/download/$(curl "https://github.com/ipitio/backage/releases/latest" | grep -oP 'href="/ipitio/backage/releases/tag/[^"]+' | cut -d'/' -f6)/index.sql.zst" | unzstd -v -c | sqlite3 "$BKG_INDEX_DB"
 
@@ -300,7 +303,7 @@ owner_has_packages() {
 }
 
 curl_users() {
-    curl "https://github.com/orgs/$1" | grep -oP 'href="/[^/"]+".*?><' | tr -d '\0' | grep -oP '/.*?"' | cut -c2- | rev | cut -c2- | rev | while read -r user; do echo "$(owner_get_id "$user")/$user"; done | sort -u
+    curl "https://github.com/$1" | grep -oP 'href="/[^/"]+".*?><' | tr -d '\0' | grep -oP '/.*?"' | cut -c2- | rev | cut -c2- | rev | while read -r user; do echo "$(owner_get_id "$user")/$user"; done | sort -u
 }
 
 curl_orgs() {
