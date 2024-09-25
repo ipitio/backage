@@ -19,9 +19,9 @@ request_owner() {
         owner=$(cut -d'/' -f2 <<<"$owner")
     fi
 
-    ! grep -q "$owner" packages_all && owner_has_packages "$owner" || return 1
+    ! grep -q "$owner" packages_all || return 1
     while ! ln "$BKG_OWNERS" "$BKG_OWNERS.lock" 2>/dev/null; do :; done
-    grep -q "^.*\/*$owner$" "$BKG_OWNERS" || echo "$id/$owner" >>"$BKG_OWNERS"
+    grep -q "^(.*\/)*$owner$" "$BKG_OWNERS" || echo "$id/$owner" >>"$BKG_OWNERS"
 
     if [ "$(stat -c %s "$BKG_OWNERS")" -ge 100000000 ]; then
         sed -i '$d' "$BKG_OWNERS"
@@ -45,10 +45,14 @@ page_owner() {
     check_limit || return $?
     [ -n "$1" ] || return
     local owners_more="[]"
+    local users_more="[]"
+    local orgs_more="[]"
 
     if [ -n "$GITHUB_TOKEN" ]; then
         echo "Checking owners page $1..."
-        owners_more=$(query_api "users?per_page=100&page=$1&since=$(get_BKG BKG_LAST_SCANNED_ID)")
+        users_more=$(query_api "users?per_page=100&page=$1&since=$(get_BKG BKG_LAST_SCANNED_ID)")
+        orgs_more=$(query_api "organizations?per_page=100&page=$1&since=$(get_BKG BKG_LAST_SCANNED_ID)")
+        owners_more=$(jq --argjson users "$users_more" --argjson orgs "$orgs_more" -n '$users + $orgs | unique_by(.login))')
         (($? != 3)) || return 3
     fi
 
@@ -59,8 +63,7 @@ page_owner() {
     run_parallel request_owner "$owners_lines"
     (($? != 3)) || return 3
     echo "Checked owners page $1"
-    # if there are fewer than 100 lines, break
-    [ "$(wc -l <<<"$owners_lines")" -eq 100 ] || return 2
+    [ "$(wc -l <<<"$owners_lines")" -gt 0 ] || return 2
 }
 
 update_owner() {
@@ -68,6 +71,7 @@ update_owner() {
     [ -n "$1" ] || return
     local ppl_html
     local users_page=1
+    local membership
     owner=$(cut -d'/' -f2 <<<"$1")
     owner_id=$(cut -d'/' -f1 <<<"$1")
     echo "Updating $owner..."
@@ -79,19 +83,13 @@ update_owner() {
     (($? != 3)) || return 3
     [ -n "$(grep -zoP 'href="/orgs/'"$owner"'/people"' <<<"$ppl_html" | tr -d '\0')" ] && export owner_type="orgs" || export owner_type="users"
 
-    if [ "$owner_type" = "users" ]; then
-        run_parallel request_owner "$(comm -23 <(curl_orgs "$owner") <(awk -F'|' '{print $2}' <packages_all | sort -u))"
+    while :; do
+        membership=$([ "$owner_type" = "users" ] && curl_orgs "$owner" || curl_users "$owner/people?page=$users_page")
+        run_parallel request_owner "$(comm -23 <(echo "$membership") <(awk -F'|' '{print $1"/"$2}' <packages_all | sort -u))"
         (($? != 3)) || return 3
-    else
-        while :; do
-            local org_members
-            org_members=$(curl_users "$owner/people?page=$users_page")
-            run_parallel request_owner "$(comm -23 <(echo "$org_members") <(awk -F'|' '{print $2}' <packages_all | sort -u))"
-            (($? != 3)) || return 3
-            [ "$(wc -l <<<"$org_members")" -ge 15 ] || break
-            ((users_page++))
-        done
-    fi
+        [[ "$owner_type" == "orgs" && "$(wc -l <<<"$membership")" -ge 15 ]] || break
+        ((users_page++))
+    done
 
     [ -d "$BKG_INDEX_DIR/$owner" ] || mkdir "$BKG_INDEX_DIR/$owner"
     set_BKG BKG_PACKAGES_"$owner" ""

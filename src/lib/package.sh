@@ -87,7 +87,6 @@ update_package() {
         tags text,
         primary key (id, date)
     );"
-    sqlite3 "$BKG_INDEX_DB" "drop table if exists '${BKG_INDEX_TBL_VER}_${owner}_${repo}_${package}';"
 
     if ! grep -q "^$owner_id|$owner|$repo|$package$" packages_already_updated; then
         html=$(curl "https://github.com/$owner/$repo/pkgs/$package_type/$package")

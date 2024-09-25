@@ -23,6 +23,7 @@ BKG_OPTOUT=$BKG_ROOT/optout.txt
 BKG_INDEX_DB=$BKG_ROOT/index.db
 BKG_INDEX_SQL=$BKG_ROOT/index.sql
 BKG_INDEX_DIR=$BKG_ROOT/index
+BKG_INDEX_TBL_OWN=owners
 BKG_INDEX_TBL_PKG=packages
 BKG_INDEX_TBL_VER=versions
 
@@ -267,14 +268,6 @@ docker_manifest_size() {
     fi
 }
 
-curl_users() {
-    curl "https://github.com/orgs/$1" | grep -oP 'href="/[^/"]+".*?><' | tr -d '\0' | grep -oP '/.*?"' | cut -c2- | rev | cut -c2- | rev | sort -u
-}
-
-curl_orgs() {
-    curl "https://github.com/$1" | grep -oP '/orgs/[^/]+' | tr -d '\0' | cut -d'/' -f3 | sort -u
-}
-
 owner_get_id() {
     local owner
     local owner_id=""
@@ -304,6 +297,14 @@ owner_has_packages() {
     [ -n "$(curl "https://github.com/orgs/$1/people" | grep -zoP 'href="/orgs/'"$1"'/people"' | tr -d '\0')" ] && owner_type="orgs" || owner_type="users"
     packages_lines=$(grep -zoP 'href="/'"$owner_type"'/'"$1"'/packages/[^/]+/package/[^"]+"' <([ "$owner_type" = "users" ] && curl "https://github.com/$1?tab=packages&visibility=public&&per_page=1&page=1" || curl "https://github.com/$owner_type/$1/packages?visibility=public&per_page=1&page=1") | tr -d '\0')
     [ -n "$packages_lines" ] || return 1
+}
+
+curl_users() {
+    curl "https://github.com/orgs/$1" | grep -oP 'href="/[^/"]+".*?><' | tr -d '\0' | grep -oP '/.*?"' | cut -c2- | rev | cut -c2- | rev | sort -u | awk '{print owner_get_id($0)"/"$0}'
+}
+
+curl_orgs() {
+    curl "https://github.com/$1" | grep -oP '/orgs/[^/]+' | tr -d '\0' | cut -d'/' -f3 | sort -u | awk '{print owner_get_id($0)"/"$0}'
 }
 
 [ -n "$(get_BKG BKG_RATE_LIMIT_START)" ] || set_BKG BKG_RATE_LIMIT_START "$(date -u +%s)"

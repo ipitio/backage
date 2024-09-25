@@ -122,8 +122,8 @@ main() {
             older_db="$(date -u +%Y.%m.%d)".zst
             [ ! -f "$older_db" ] || rm -f "$older_db"
             mv "$BKG_INDEX_SQL".zst "$older_db"
-            sqlite3 "$BKG_INDEX_DB" "delete from '$BKG_INDEX_TBL_PKG' where date < '$BKG_BATCH_FIRST_STARTED';"
-            sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name like '${BKG_INDEX_TBL_VER}_%';" | parallel --lb "sqlite3 '$BKG_INDEX_DB' 'delete from {} where date < \"$BKG_BATCH_FIRST_STARTED\";'"
+            sqlite3 "$BKG_INDEX_DB" "delete from '$BKG_INDEX_TBL_PKG';"
+            sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name like '${BKG_INDEX_TBL_VER}_%';" | parallel --lb "sqlite3 '$BKG_INDEX_DB' 'delete from {};'"
             sqlite3 "$BKG_INDEX_DB" "vacuum;"
             rm -f "$BKG_INDEX_SQL".new.zst
             sqlite3 "$BKG_INDEX_DB" ".dump" | zstd -22 --ultra --long -T0 -o "$BKG_INDEX_SQL".new.zst
