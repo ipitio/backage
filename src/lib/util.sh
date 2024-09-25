@@ -300,11 +300,11 @@ owner_has_packages() {
 }
 
 curl_users() {
-    curl "https://github.com/orgs/$1" | grep -oP 'href="/[^/"]+".*?><' | tr -d '\0' | grep -oP '/.*?"' | cut -c2- | rev | cut -c2- | rev | sort -u | while read -r user; do echo "$(owner_get_id "$user")/$user"; done
+    curl "https://github.com/orgs/$1" | grep -oP 'href="/[^/"]+".*?><' | tr -d '\0' | grep -oP '/.*?"' | cut -c2- | rev | cut -c2- | rev | while read -r user; do echo "$(owner_get_id "$user")/$user"; done | sort -u
 }
 
 curl_orgs() {
-    curl "https://github.com/$1" | grep -oP '/orgs/[^/]+' | tr -d '\0' | cut -d'/' -f3 | sort -u | while read -r org; do echo "$(owner_get_id "$org")/$org"; done
+    curl "https://github.com/$1" | grep -oP '/orgs/[^/]+' | tr -d '\0' | cut -d'/' -f3 |  while read -r org; do echo "$(owner_get_id "$org")/$org"; done | sort -u
 }
 
 [ -n "$(get_BKG BKG_RATE_LIMIT_START)" ] || set_BKG BKG_RATE_LIMIT_START "$(date -u +%s)"

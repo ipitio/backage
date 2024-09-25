@@ -85,7 +85,7 @@ update_owner() {
 
     while :; do
         membership=$([ "$owner_type" = "users" ] && curl_orgs "$owner" || curl_users "$owner/people?page=$users_page")
-        run_parallel request_owner "$(comm -23 <(echo "$membership" | sort -u) <(awk -F'|' '{print $1"/"$2}' <packages_all | sort -u))"
+        run_parallel request_owner "$(comm -23 <(echo "$membership") <(awk -F'|' '{print $1"/"$2}' <packages_all | sort -u))"
         (($? != 3)) || return 3
         [[ "$owner_type" == "orgs" && "$(wc -l <<<"$membership")" -ge 15 ]] || break
         ((users_page++))
