@@ -15,6 +15,7 @@ main() {
     local db_size_prev
     local stargazers
     local page=1
+    stargazers=$(mktemp) || exit 1
 
     while getopts "m:" flag; do
         case ${flag} in
@@ -80,12 +81,14 @@ main() {
         find "$BKG_INDEX_DIR" -mindepth 1 -maxdepth 1 -type d -exec basename {} \; | sort -u | awk '{print $1}' >>"$BKG_OWNERS"
 
         while true; do
-            stargazers=$(curl_users "$GITHUB_OWNER/$GITHUB_REPO/stargazers?page=$page")
-            [ -n "$stargazers" ] || break
-            echo "$(echo "$stargazers" ; cat "$BKG_OWNERS")" >"$BKG_OWNERS"
+            local stargazer
+            stargazer=$(curl_users "$GITHUB_OWNER/$GITHUB_REPO/stargazers?page=$page")
+            [ -n "$stargazer" ] || break
+            echo "$stargazer" >>"$stargazers"
             ((page++))
         done
 
+        echo "$(cat "$stargazers" ; cat "$BKG_OWNERS")" >"$BKG_OWNERS"
         awk '!seen[$0]++' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
         # remove owners from $BKG_OWNERS that are in $packages_all
         echo "$(
@@ -100,9 +103,11 @@ main() {
             [ "$(wc -l <"$BKG_OWNERS")" -gt 10 ] || seq 1 10 | env_parallel --lb --halt soon,fail=1 page_owner
         fi
 
-        sort -uR "$BKG_OWNERS" 2>/dev/null | head -n500 | env_parallel --lb save_owner
+        head -n250 "$BKG_OWNERS" | env_parallel --lb save_owner
+        tail -n250 "$BKG_OWNERS" | env_parallel --lb save_owner
         awk -F'|' '{print $1"/"$2}' <packages_to_update | sort -uR | env_parallel --lb save_owner
         set_BKG BKG_DIFF "$db_size_curr"
+        comm -23 <(awk '{print $1}' <(sort -u "$stargazers")) <(awk '{print $1}' <(sort -u "$BKG_OWNERS")) | parallel "sed -i '\,^{}$,d' $BKG_OWNERS"
     elif [ "$mode" -eq 1 ]; then
         save_owner arevindh
     fi
