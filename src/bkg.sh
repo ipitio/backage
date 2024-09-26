@@ -82,7 +82,7 @@ main() {
         while true; do
             stargazers=$(curl_users "$GITHUB_OWNER/$GITHUB_REPO/stargazers?page=$page")
             [ -n "$stargazers" ] || break
-            sed -i '1s/^/'"$stargazers"'\n/' "$BKG_OWNERS"
+            echo "$(echo "$stargazers" ; cat "$BKG_OWNERS")" >"$BKG_OWNERS"
             ((page++))
         done
 
