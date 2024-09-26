@@ -285,7 +285,7 @@ owner_get_id() {
     if [[ ! "$owner_id" =~ ^[1-9] ]]; then
         owner_id=$(curl "https://github.com/$owner" | grep -zoP 'meta.*?u\/\d+' | tr -d '\0' | grep -oP 'u\/\d+' | sort -u | head -n1 | grep -oP '\d+')
 
-        if [[ ! "$owner_id" =~ ^[1-9] ]]; then
+        if [[ ! "$owner_id" =~ ^[1-9] && -n "$GITHUB_TOKEN" ]]; then
             owner_id=$(query_api "users/$owner")
             (($? != 3)) || return 3
             owner_id=$(jq -r '.id' <<<"$owner_id") || return 1
@@ -303,11 +303,11 @@ owner_has_packages() {
 }
 
 curl_users() {
-    curl "https://github.com/$1" | grep -oP 'href="/[^/"]+".*?><' | tr -d '\0' | grep -oP '/.*?"' | cut -c2- | rev | cut -c2- | rev | while read -r user; do echo "$(owner_get_id "$user")/$user"; done | sort -u
+    curl "https://github.com/$1" | grep -oP 'href="/[^/"]+".*?><' | tr -d '\0' | grep -oP '/.*?"' | cut -c2- | rev | cut -c2- | rev | while read -r user; do owner_get_id "$user"; done | sort -u
 }
 
 curl_orgs() {
-    curl "https://github.com/$1" | grep -oP '/orgs/[^/]+' | tr -d '\0' | cut -d'/' -f3 |  while read -r org; do echo "$(owner_get_id "$org")/$org"; done | sort -u
+    curl "https://github.com/$1" | grep -oP '/orgs/[^/]+' | tr -d '\0' | cut -d'/' -f3 |  while read -r org; do owner_get_id "$org"; done | sort -u
 }
 
 [ -n "$(get_BKG BKG_RATE_LIMIT_START)" ] || set_BKG BKG_RATE_LIMIT_START "$(date -u +%s)"
