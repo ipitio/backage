@@ -276,7 +276,7 @@ docker_manifest_size() {
 owner_get_id() {
     local owner
     local owner_id=""
-    owner=$(echo "${1:-$(</dev/stdin)}" | tr -d '[:space:]')
+    owner=$(echo "$1" | tr -d '[:space:]')
     [ -n "$owner" ] || return
 
     if [[ "$owner" =~ .*\/.* ]]; then
