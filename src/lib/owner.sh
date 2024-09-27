@@ -36,8 +36,9 @@ request_owner() {
 
 save_owner() {
     check_limit || return $?
+    [ -n "$1" ] || return
     local owner_id
-    owner_id=$(owner_get_id "${1:-$(</dev/stdin)}")
+    owner_id=$(owner_get_id "$1")
     ! set_BKG_set BKG_OWNERS_QUEUE "$owner_id" || echo "Queued $(cut -d'/' -f2 <<<"$owner_id")"
 }
 
