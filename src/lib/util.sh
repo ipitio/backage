@@ -305,17 +305,16 @@ owner_has_packages() {
     [ -n "$packages_lines" ] || return 1
 }
 
-# shellcheck disable=SC2120
 get_owners() {
-    sort -u <<<"${1:-$(</dev/stdin)}" | while read -r owner; do owner_get_id "$owner"; done | grep -v '^\/'
+    sort -u <<<"$1" | while read -r owner; do owner_get_id "$owner"; done | grep -v '^\/'
 }
 
 curl_users() {
-    curl "https://github.com/$1" | grep -oP 'href="/.+?".*>' | tr -d '\0' | grep -Ev '( .*|\?(return_to|tab))=' | tr -d '\0' | grep -oP '/.*?"' | cut -c2- | rev | cut -c2- | rev | grep -v "/" | get_owners
+    get_owners "$(curl "https://github.com/$1" | grep -oP 'href="/.+?".*>' | tr -d '\0' | grep -Ev '( .*|\?(return_to|tab))=' | tr -d '\0' | grep -oP '/.*?"' | cut -c2- | rev | cut -c2- | rev | grep -v "/")"
 }
 
 curl_orgs() {
-    curl "https://github.com/$1" | grep -oP '/orgs/[^/]+' | tr -d '\0' | cut -d'/' -f3 | get_owners
+    get_owners "$(curl "https://github.com/$1" | grep -oP '/orgs/[^/]+' | tr -d '\0' | cut -d'/' -f3)"
 }
 
 explore() {
