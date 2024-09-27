@@ -75,7 +75,7 @@ jobs:
 
       - name: Get date
         id: date
-        run: echo "date=$(grep -oP 'BKG_BATCH_FIRST_STARTED=\K.*' src/env.env | sed 's/-/./g')" >> "$GITHUB_OUTPUT"
+        run: echo "date=$(date -u +%Y.%m.%W) >> "$GITHUB_OUTPUT"
 
       - name: Save database
         if: ${{ steps.update.outputs.updated == '0' }}

@@ -63,6 +63,12 @@ update_package() {
     json_file="$BKG_INDEX_DIR/$owner/$repo/$package.json"
     table_version_name="${BKG_INDEX_TBL_VER}_${owner_type}_${package_type}_${owner}_${repo}_${package}"
 
+    if ! grep -q "$owner/$repo" "$owner_id"_explored; then
+        run_parallel request_owner "$(comm -23 <(explore "$owner/$repo" | sort -u) <(awk -F'|' '{print $1"/"$2}' <packages_all | sort -u))"
+        (($? != 3)) || return 3
+        echo "$owner/$repo" >>"$owner_id"_explored
+    fi
+
     if grep -q "^$owner$" "$BKG_OPTOUT" || grep -q "^$owner/$repo$" "$BKG_OPTOUT" || grep -q "^$owner/$repo/$package$" "$BKG_OPTOUT"; then
         echo "$owner/$package was opted out!"
         rm -rf "$BKG_INDEX_DIR/$owner/$repo/$package".*

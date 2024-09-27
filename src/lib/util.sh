@@ -262,10 +262,12 @@ get_db() {
 }
 
 docker_manifest_size() {
-    if [[ -n "$(jq '.. | try .layers[]' 2>/dev/null <<<"$1")" ]]; then
-        jq '.. | try .size | select(. > 0)' <<<"$1" | awk '{s+=$1} END {print s}'
-    elif [[ -n "$(jq '.. | try .manifests[]' 2>/dev/null <<<"$1")" ]]; then
-        jq '.. | try .size | select(. > 0)' <<<"$1" | awk '{s+=$1} END {print s/NR}'
+    local manifest=${1:-$(</dev/stdin)}
+
+    if [[ -n "$(jq '.. | try .layers[]' 2>/dev/null <<<"$manifest")" ]]; then
+        jq '.. | try .size | select(. > 0)' <<<"$manifest" | awk '{s+=$1} END {print s}'
+    elif [[ -n "$(jq '.. | try .manifests[]' 2>/dev/null <<<"$manifest")" ]]; then
+        jq '.. | try .size | select(. > 0)' <<<"$manifest" | awk '{s+=$1} END {print s/NR}'
     else
         echo -1
     fi
@@ -274,7 +276,7 @@ docker_manifest_size() {
 owner_get_id() {
     local owner
     local owner_id=""
-    owner=$(echo "$1" | tr -d '[:space:]')
+    owner=$(echo "${1:-$(</dev/stdin)}" | tr -d '[:space:]')
     [ -n "$owner" ] || return
 
     if [[ "$owner" =~ .*\/.* ]]; then
@@ -296,18 +298,51 @@ owner_get_id() {
 }
 
 owner_has_packages() {
+    local owner=${1:-$(</dev/stdin)}
     local owner_type
-    [ -n "$(curl "https://github.com/orgs/$1/people" | grep -zoP 'href="/orgs/'"$1"'/people"' | tr -d '\0')" ] && owner_type="orgs" || owner_type="users"
-    packages_lines=$(grep -zoP 'href="/'"$owner_type"'/'"$1"'/packages/[^/]+/package/[^"]+"' <([ "$owner_type" = "users" ] && curl "https://github.com/$1?tab=packages&visibility=public&&per_page=1&page=1" || curl "https://github.com/$owner_type/$1/packages?visibility=public&per_page=1&page=1") | tr -d '\0')
+    [ -n "$(curl "https://github.com/orgs/$owner/people" | grep -zoP 'href="/orgs/'"$owner"'/people"' | tr -d '\0')" ] && owner_type="orgs" || owner_type="users"
+    packages_lines=$(grep -zoP 'href="/'"$owner_type"'/'"$owner"'/packages/[^/]+/package/[^"]+"' <([ "$owner_type" = "users" ] && curl "https://github.com/$owner?tab=packages&visibility=public&&per_page=1&page=1" || curl "https://github.com/$owner_type/$owner/packages?visibility=public&per_page=1&page=1") | tr -d '\0')
     [ -n "$packages_lines" ] || return 1
 }
 
+# shellcheck disable=SC2120
+get_owners() {
+    sort -u <<<"${1:-$(</dev/stdin)}" | while read -r owner; do owner_get_id "$owner"; done | grep -v '^\/'
+}
+
 curl_users() {
-    curl "https://github.com/$1" | grep -oP 'href="/[^/"]+".*?><' | tr -d '\0' | grep -oP '/.*?"' | cut -c2- | rev | cut -c2- | rev | while read -r user; do owner_get_id "$user"; done | sort -u
+    curl "https://github.com/${1:-$(</dev/stdin)}" | grep -oP 'href="/.+?".*>' | tr -d '\0' | grep -Ev '( .*|\?(return_to|tab))=' | tr -d '\0' | grep -oP '/.*?"' | cut -c2- | rev | cut -c2- | rev | grep -v "/" | get_owners
 }
 
 curl_orgs() {
-    curl "https://github.com/$1" | grep -oP '/orgs/[^/]+' | tr -d '\0' | cut -d'/' -f3 |  while read -r org; do owner_get_id "$org"; done | sort -u
+    curl "https://github.com/${1:-$(</dev/stdin)}" | grep -oP '/orgs/[^/]+' | tr -d '\0' | cut -d'/' -f3 | get_owners
+}
+
+explore() {
+    local node=${1:-$(</dev/stdin)}
+    [[ "$node" =~ .*\/.* ]] && local graph=("stargazers" "watchers" "forks") || local graph=("followers" "following" "people")
+
+    for edge in "${graph[@]}"; do
+        local page=1
+        while true; do
+            local nodes
+
+            if [[ "$node" =~ .*\/.* ]]; then
+                nodes=$(curl_users "$node/$edge?page=$page") # repo
+            else
+                nodes=$(curl_users "orgs/$node/$edge?page=$page") # org
+
+                if [ -z "$nodes" ]; then
+                    nodes=$(curl_users "$node?tab=$edge&page=$page") # user
+                    curl_orgs "$1"
+                fi
+            fi
+
+            grep -v "$(cut -d'/' -f1 <<<"$node")" <<<"$nodes"
+            [[ "$(wc -l <<<"$nodes")" -ge 15 ]] || break
+            ((page++))
+        done
+    done
 }
 
 [ -n "$(get_BKG BKG_RATE_LIMIT_START)" ] || set_BKG BKG_RATE_LIMIT_START "$(date -u +%s)"

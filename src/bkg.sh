@@ -13,9 +13,8 @@ main() {
     local pkg_left
     local db_size_curr
     local db_size_prev
-    local stargazers
-    local page=1
-    stargazers=$(mktemp) || exit 1
+    local connections
+    connections=$(mktemp) || exit 1
 
     while getopts "m:" flag; do
         case ${flag} in
@@ -79,16 +78,8 @@ main() {
         sed -i 's/^[[:space:]]*//;s/[[:space:]]*$//' "$BKG_OWNERS"
         [ ! -d "$BKG_INDEX_DIR"/src ] || rm -rf "$BKG_INDEX_DIR"/src
         find "$BKG_INDEX_DIR" -mindepth 1 -maxdepth 1 -type d -exec basename {} \; | sort -u | awk '{print $1}' >>"$BKG_OWNERS"
-
-        while true; do
-            local stargazer
-            stargazer=$(curl_users "$GITHUB_OWNER/$GITHUB_REPO/stargazers?page=$page")
-            [ -n "$stargazer" ] || break
-            echo "$stargazer" >>"$stargazers"
-            ((page++))
-        done
-
-        echo "$(cat "$stargazers" ; cat "$BKG_OWNERS")" >"$BKG_OWNERS"
+        sort -u "$(explore "$GITHUB_OWNER" ; explore "$GITHUB_OWNER/$GITHUB_REPO")" >>"$connections"
+        echo "$(cat "$connections" ; cat "$BKG_OWNERS")" >"$BKG_OWNERS"
         awk '!seen[$0]++' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
         # remove owners from $BKG_OWNERS that are in $packages_all
         echo "$(
@@ -107,7 +98,8 @@ main() {
         tail -n250 "$BKG_OWNERS" | env_parallel --lb save_owner
         awk -F'|' '{print $1"/"$2}' <packages_to_update | sort -uR | env_parallel --lb save_owner
         set_BKG BKG_DIFF "$db_size_curr"
-        comm -23 <(awk '{print $1}' <(sort -u "$stargazers")) <(awk '{print $1}' <(sort -u "$BKG_OWNERS")) | parallel "sed -i '\,^{}$,d' $BKG_OWNERS"
+        parallel "sed -i '\,^{}$,d' $BKG_OWNERS" <"$connections"
+        rm -f "$connections"
     elif [ "$mode" -eq 1 ]; then
         save_owner arevindh
     fi
@@ -148,7 +140,7 @@ main() {
     owners=$(awk -F'|' '{print $1}' <packages_all | sort -u | wc -l)
     repos=$(awk -F'|' '{print $1"|"$2}' <packages_all | sort -u | wc -l)
     packages=$(wc -l <packages_all)
-    sed -i 's/\[OWNERS\]/'"$owners"'/g; s/\[REPOS\]/'"$repos"'/g; s/\[PACKAGES\]/'"$packages"'/g' "$BKG_ROOT"/CHANGELOG.md
+    sed -i 's/\[DATE\]/'"$(date -u +%F)"'/g; s/\[OWNERS\]/'"$owners"'/g; s/\[REPOS\]/'"$repos"'/g; s/\[PACKAGES\]/'"$packages"'/g' "$BKG_ROOT"/CHANGELOG.md
     ! $rotated || echo " The database grew over 2GB and was rotated, but you can find all previous data under the [latest release](https://github.com/$GITHUB_OWNER/$GITHUB_REPO/releases/latest)." >>"$BKG_ROOT"/CHANGELOG.md
     [ ! -f "$BKG_ROOT"/README.md ] || rm -f "$BKG_ROOT"/README.md
     \cp templates/.README.md "$BKG_ROOT"/README.md
@@ -162,6 +154,7 @@ main() {
     \cp templates/.index.html "$BKG_INDEX_DIR"/index.html
     sed -i 's/GITHUB_REPO/'"$GITHUB_REPO"'/g' "$BKG_INDEX_DIR"/index.html
     rm -f packages_already_updated packages_all packages_to_update
+    rm -f ./*_explored
     echo "{
         \"owners\":\"$(numfmt <<<"$owners")\",
         \"repos\":\"$(numfmt <<<"$repos")\",
