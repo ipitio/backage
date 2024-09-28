@@ -154,7 +154,7 @@ main() {
     \cp templates/.index.html "$BKG_INDEX_DIR"/index.html
     sed -i 's/GITHUB_REPO/'"$GITHUB_REPO"'/g' "$BKG_INDEX_DIR"/index.html
     rm -f packages_already_updated packages_all packages_to_update
-    rm -f ./*_explored_*
+    rm -f ./*_explored
     echo "{
         \"owners\":\"$(numfmt <<<"$owners")\",
         \"repos\":\"$(numfmt <<<"$repos")\",
