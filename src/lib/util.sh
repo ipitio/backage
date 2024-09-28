@@ -310,11 +310,15 @@ get_owners() {
 }
 
 curl_users() {
-    get_owners "$(curl "https://github.com/$1" | grep -oP 'href="/.+?".*>' | tr -d '\0' | grep -Ev '( .*|\?(return_to|tab))=' | tr -d '\0' | grep -oP '/.*?"' | cut -c2- | rev | cut -c2- | rev | grep -v "/")"
+    local users
+    users="$(curl "https://github.com/$1" | grep -oP 'href="/.+?".*>' | tr -d '\0' | grep -Ev '( .*|\?(return_to|tab))=' | tr -d '\0' | grep -oP '/.*?"' | cut -c2- | rev | cut -c2- | rev | grep -v "/")"
+    [ -n "$1" ] && echo "$users" || get_owners "$users"
 }
 
 curl_orgs() {
-    get_owners "$(curl "https://github.com/$1" | grep -oP '/orgs/[^/]+' | tr -d '\0' | cut -d'/' -f3)"
+    local orgs
+    orgs="$(curl "https://github.com/$1" | grep -oP '/orgs/[^/]+' | tr -d '\0' | cut -d'/' -f3)"
+    [ -n "$1" ] && echo "$orgs" || get_owners "$orgs"
 }
 
 explore() {
@@ -327,13 +331,13 @@ explore() {
             local nodes
 
             if [[ "$node" =~ .*\/.* ]]; then
-                nodes=$(curl_users "$node/$edge?page=$page") # repo
+                nodes=$(curl_users "$node/$edge?page=$page" 1) # repo
             else
-                nodes=$(curl_users "orgs/$node/$edge?page=$page") # org
+                nodes=$(curl_users "orgs/$node/$edge?page=$page" 1) # org
 
                 if [ -z "$nodes" ]; then
-                    nodes=$(curl_users "$node?tab=$edge&page=$page") # user
-                    curl_orgs "$1"
+                    nodes=$(curl_users "$node?tab=$edge&page=$page" 1) # user
+                    curl_orgs "$1" 1
                 fi
             fi
 
