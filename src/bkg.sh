@@ -19,7 +19,7 @@ main() {
     while getopts "m:" flag; do
         case ${flag} in
         m)
-            mode=${OPTARG}
+            mode=$((OPTARG))
             ;;
         ?)
             echo "Invalid option found: -${OPTARG}."
