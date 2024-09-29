@@ -34,14 +34,8 @@ main() {
     [ -n "$(get_BKG BKG_LAST_SCANNED_ID)" ] || set_BKG BKG_LAST_SCANNED_ID "0"
     today=$(date -u +%Y-%m-%d)
     BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
+    [ -f "$BKG_INDEX_SQL.zst" ] && [ ! -f "$BKG_INDEX_DB" ] && unzstd -v -c "$BKG_INDEX_SQL.zst" | sqlite3 "$BKG_INDEX_DB" || :
     [ -f "$BKG_INDEX_DB" ] || sqlite3 "$BKG_INDEX_DB" ""
-
-    if [ -f "$BKG_INDEX_SQL.zst" ]; then
-        [ -f "$BKG_INDEX_DB".bak ] || mv "$BKG_INDEX_DB" "$BKG_INDEX_DB".bak
-        unzstd -v -c "$BKG_INDEX_SQL.zst" | sqlite3 "$BKG_INDEX_DB"
-        [ -f "$BKG_INDEX_DB" ] && rm -f "$BKG_INDEX_DB".bak || mv "$BKG_INDEX_DB".bak "$BKG_INDEX_DB"
-    fi
-
     sqlite3 "$BKG_INDEX_DB" "create table if not exists '$BKG_INDEX_TBL_PKG' (
         owner_id text,
         owner_type text not null,
@@ -125,8 +119,8 @@ main() {
             older_db="$(date -u +%Y.%m.%d)".zst
             [ ! -f "$older_db" ] || rm -f "$older_db"
             mv "$BKG_INDEX_SQL".zst "$older_db"
-            sqlite3 "$BKG_INDEX_DB" "delete from '$BKG_INDEX_TBL_PKG';"
-            sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name like '${BKG_INDEX_TBL_VER}_%';" | parallel --lb "sqlite3 '$BKG_INDEX_DB' 'delete from {};'"
+            sqlite3 "$BKG_INDEX_DB" "delete from '$BKG_INDEX_TBL_PKG' where date < '$BKG_BATCH_FIRST_STARTED';"
+            sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name like '${BKG_INDEX_TBL_VER}_%';" | parallel --lb "sqlite3 '$BKG_INDEX_DB' 'delete from {} where date < \"$BKG_BATCH_FIRST_STARTED\";'"
             sqlite3 "$BKG_INDEX_DB" "vacuum;"
             rm -f "$BKG_INDEX_SQL".new.zst
             sqlite3 "$BKG_INDEX_DB" ".dump" | zstd -22 --ultra --long -T0 -o "$BKG_INDEX_SQL".new.zst

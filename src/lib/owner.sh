@@ -81,8 +81,6 @@ update_owner() {
     ppl_html=$(curl "https://github.com/orgs/$owner/people")
     (($? != 3)) || return 3
     [ -n "$(grep -zoP 'href="/orgs/'"$owner"'/people"' <<<"$ppl_html" | tr -d '\0')" ] && export owner_type="orgs" || export owner_type="users"
-    run_parallel request_owner "$(comm -23 <(explore "$owner" | sort -u) <(awk -F'|' '{print $1"/"$2}' <packages_all | sort -u))"
-    (($? != 3)) || return 3
     [ -d "$BKG_INDEX_DIR/$owner" ] || mkdir "$BKG_INDEX_DIR/$owner"
     set_BKG BKG_PACKAGES_"$owner" ""
     run_parallel save_package "$(sqlite3 "$BKG_INDEX_DB" "select package_type, package from '$BKG_INDEX_TBL_PKG' where owner_id = '$owner_id';" | awk -F'|' '{print "////"$1"//"$2}' | sort -uR)"
@@ -96,7 +94,7 @@ update_owner() {
         pkgs=$(get_BKG_set BKG_PACKAGES_"$owner")
 
         if [ -z "$pkgs" ]; then
-            sed -i "/^.*\/*$owner$/d" "$BKG_OWNERS"
+            sed -i "/^(.*\/)*$owner$/d" "$BKG_OWNERS"
             return 2
         fi
 
@@ -106,6 +104,5 @@ update_owner() {
         set_BKG BKG_PACKAGES_"$owner" ""
     done
 
-    rm -f "$owner_id"_explored
     echo "Updated $owner"
 }
