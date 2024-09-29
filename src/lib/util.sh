@@ -12,7 +12,7 @@ if ! command -v curl &>/dev/null || ! command -v jq &>/dev/null || ! command -v 
     sudo apt-get install curl jq parallel sqlite3 sqlite3-pcre zstd libxml2-utils -y
 fi
 
-if ! command -v yq &>/dev/null || ! grep -q mikefarah <<<"$(yq -V)"; then
+if ! yq -V | grep -q mikefarah; then
     echo "Installing yq..."
     sudo rm -f /usr/bin/yq
     wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O yq
