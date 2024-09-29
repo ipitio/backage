@@ -12,7 +12,7 @@
 
 </div>
 
-The GitHub Packages API doesn't expose much of the publicly-available metadata that other registries provide; this completely automated closed-loop system [is the solution](https://github.com/badges/shields/issues/5594#issuecomment-2157626147). **Just star this project to have GitHub serve JSON and XML endpoints for your public packages and those of any organizations you're publicly a part of!** A service ran by GitHub will pick up your name in the next few hours and scrape GitHub for your packages. If you'd then like the service to ignore some or all of them, add `owner[/repo[/package]]` to `optout.txt` [here](https://github.com/ipitio/backage/edit/master/optout.txt) and make a pull request.
+The GitHub Packages API doesn't expose much of the publicly-available metadata that other registries provide; this completely automated closed-loop system [is the solution](https://github.com/badges/shields/issues/5594#issuecomment-2157626147). **Just star this project to have GitHub serve JSON and XML endpoints for your public packages and those of any organizations you're publicly a part of!** A service ran by GitHub will add them to its circular priority queue within the next few hours; if you'd then like the service to forget and ignore some or all of your packages, add `owner[/repo[/package]]` to `optout.txt` [here](https://github.com/ipitio/backage/edit/master/optout.txt) and make a pull request.
 
 To enable the endpoints for any other users or organizations not yet [in the index](https://github.com/ipitio/backage/tree/index), add the case-sensitive name of each one on a new line in `owners.txt` on your own fork [here](https://github.com/ipitio/backage/edit/master/owners.txt) and make a pull request. Please add just the name(s) -- ids, repos, and packages will be obtained automatically! Once enabled, something like [shields.io/json](https://shields.io/badges/dynamic-json-badge) or [shields.io/xml](https://shields.io/badges/dynamic-xml-badge) can be used with the values below to make badges. Here's what they could look like for a few of the available properties:
 
@@ -20,7 +20,7 @@ To enable the endpoints for any other users or organizations not yet [in the ind
 
 [![package](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fipitio.github.io%2Fbackage%2Farevindh%2Fpihole-speedtest%2Fpihole-speedtest.json&query=%24.package&logo=github&label=package&style=for-the-badge&color=black)](https://github.com/arevindh/pihole-speedtest/pkgs/container/pihole-speedtest)
 
-[![downloads](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fipitio.github.io%2Fbackage%2Farevindh%2Fpihole-speedtest%2Fpihole-speedtest.json&query=%24.downloads&logo=github&label=pulls)](https://github.com/arevindh/pihole-speedtest/pkgs/container/pihole-speedtest) [![size](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fipitio.github.io%2Fbackage%2Farevindh%2Fpihole-speedtest%2Fpihole-speedtest.json&query=%24.size&logo=github&label=size&color=indigo)](https://github.com/arevindh/pihole-speedtest/pkgs/container/pihole-speedtest) [![latest](https://img.shields.io/badge/dynamic/xml?url=https%3A%2F%2Fipitio.github.io%2Fbackage%2Farevindh%2Fpihole-speedtest%2Fpihole-speedtest.xml&query=%2Fbkg%2Fversion%5B.%2Flatest%5B.%3D%22true%22%5D%5D%2Ftags%5B.!%3D%22latest%22%5D&logo=github&label=latest&color=darkgreen)](https://github.com/arevindh/pihole-speedtest/pkgs/container/pihole-speedtest)*
+[![downloads](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fipitio.github.io%2Fbackage%2Farevindh%2Fpihole-speedtest%2Fpihole-speedtest.json&query=%24.downloads&logo=github&label=pulls)](https://github.com/arevindh/pihole-speedtest/pkgs/container/pihole-speedtest) [![size](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fipitio.github.io%2Fbackage%2Farevindh%2Fpihole-speedtest%2Fpihole-speedtest.json&query=%24.size&logo=github&label=size&color=indigo)](https://github.com/arevindh/pihole-speedtest/pkgs/container/pihole-speedtest) [![latest](https://img.shields.io/badge/dynamic/xml?url=https%3A%2F%2Fipitio.github.io%2Fbackage%2Farevindh%2Fpihole-speedtest%2Fpihole-speedtest.xml&query=%2Fbkg%2Fversion%5B.%2Flatest%5B.%3D%22true%22%5D%5D%2Ftags%5B.!%3D%22latest%22%5D&logo=github&label=latest&color=darkgreen)](https://github.com/arevindh/pihole-speedtest/pkgs/container/pihole-speedtest)
 
 </div>
 
@@ -135,7 +135,7 @@ Replace `OWNER/REPO/PACKAGE.FORMAT` with their respective values:
 https://ipitio.github.io/backage/OWNER/REPO/PACKAGE.FORMAT
 ```
 
-The format can be either `json` or `xml`. Use the XML endpoint if you need to evaluate expressions, like filters; see [this issue](https://github.com/ipitio/backage/issues/23).
+The format can be either `json` or `xml`. If you're using Shields.io to evaluate expressions, like filters, you'll need the XML endpoint; see [this issue](https://github.com/ipitio/backage/issues/23).
 
 ### Path
 
