@@ -169,6 +169,6 @@ main() {
         \"raw_packages\":$packages,
         \"date\":\"$today\"
     }" | tr -d '\n' | jq -c . >"$BKG_INDEX_DIR"/.json
-    jtox "$BKG_INDEX_DIR"/.json
+    ytox "$BKG_INDEX_DIR"/.json
     echo "Done!"
 }

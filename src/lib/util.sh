@@ -348,7 +348,7 @@ explore() {
     done
 }
 
-jtox(){
+ytox(){
     echo "<?xml version=\"1.0\" encoding=\"UTF-8\"?><bkg>$(yq -ox -I0 "$1")</bkg>" >"$(cut -d'.' -f1 <<<"$1").xml"
 }
 
