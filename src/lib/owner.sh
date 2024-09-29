@@ -87,18 +87,6 @@ update_owner() {
     set_BKG BKG_PACKAGES_"$owner" ""
     run_parallel save_package "$(sqlite3 "$BKG_INDEX_DB" "select package_type, package from '$BKG_INDEX_TBL_PKG' where owner_id = '$owner_id';" | awk -F'|' '{print "////"$1"//"$2}' | sort -uR)"
 
-    (touch "${owner_id}_explored"
-    while ! ln "${owner_id}_explored" "${owner_id}_explored.lock" 2>/dev/null; do :; done
-
-    if ! grep -q . "${owner_id}_explored"; then
-        echo . >"${owner_id}_explored"
-        rm -f "${owner_id}_explored.lock"
-        run_parallel request_owner "$(comm -23 <(explore "$owner" | sort -u) <(awk -F'|' '{print $1"/"$2}' <packages_all | sort -u))"
-        (($? != 3)) || return 3
-    else
-        rm -f "${owner_id}_explored.lock"
-    fi) &
-
     for page in $(seq 1 100); do
         local pages_left=0
         local pkgs

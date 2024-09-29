@@ -79,6 +79,9 @@ main() {
         [ ! -d "$BKG_INDEX_DIR"/src ] || rm -rf "$BKG_INDEX_DIR"/src
         find "$BKG_INDEX_DIR" -mindepth 1 -maxdepth 1 -type d -exec basename {} \; | sort -u | awk '{print $1}' >>"$BKG_OWNERS"
         sort -u <<<"$(explore "$GITHUB_OWNER" ; explore "$GITHUB_OWNER/$GITHUB_REPO")" >>"$connections"
+        env_parallel --lb explore <"$connections" >"$connections".tmp
+        [ ! -f "$connections".tmp ] || cat "$connections".tmp >>"$connections"
+        rm -f "$connections".tmp
         echo "$(cat "$connections" ; cat "$BKG_OWNERS")" >"$BKG_OWNERS"
         awk '!seen[$0]++' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
         # remove owners from $BKG_OWNERS that are in $packages_all
