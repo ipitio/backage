@@ -78,11 +78,14 @@ main() {
         sed -i 's/^[[:space:]]*//;s/[[:space:]]*$//' "$BKG_OWNERS"
         [ ! -d "$BKG_INDEX_DIR"/src ] || rm -rf "$BKG_INDEX_DIR"/src
         find "$BKG_INDEX_DIR" -mindepth 1 -maxdepth 1 -type d -exec basename {} \; | sort -u | awk '{print $1}' >>"$BKG_OWNERS"
-        sort -u <<<"$(explore "$GITHUB_OWNER" ; explore "$GITHUB_OWNER/$GITHUB_REPO")" >>"$connections"
-        env_parallel --lb explore <"$connections" >"$connections".tmp
-        [ ! -f "$connections".tmp ] || cat "$connections".tmp >>"$connections"
-        rm -f "$connections".tmp
-        echo "$(cat "$connections" ; cat "$BKG_OWNERS")" >"$BKG_OWNERS"
+        sort -u <<<"$(
+            explore "$GITHUB_OWNER"
+            explore "$GITHUB_OWNER/$GITHUB_REPO"
+        )" >>"$connections"
+        echo "$(
+            cat "$connections"
+            cat "$BKG_OWNERS"
+        )" >"$BKG_OWNERS"
         awk '!seen[$0]++' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
         # remove owners from $BKG_OWNERS that are in $packages_all
         echo "$(
@@ -157,7 +160,6 @@ main() {
     \cp templates/.index.html "$BKG_INDEX_DIR"/index.html
     sed -i 's/GITHUB_REPO/'"$GITHUB_REPO"'/g' "$BKG_INDEX_DIR"/index.html
     rm -f packages_already_updated packages_all packages_to_update
-    rm -f ./*_explored
     echo "{
         \"owners\":\"$(numfmt <<<"$owners")\",
         \"repos\":\"$(numfmt <<<"$repos")\",
@@ -167,5 +169,6 @@ main() {
         \"raw_packages\":$packages,
         \"date\":\"$today\"
     }" | tr -d '\n' | jq -c . >"$BKG_INDEX_DIR"/.json
+    jtox "$BKG_INDEX_DIR"/.json
     echo "Done!"
 }

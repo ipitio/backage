@@ -197,6 +197,7 @@ update_package() {
         mv "$json_file".tmp "$json_file"
     done
 
+    jtox "$json_file"
     rm -rf "$BKG_INDEX_DIR/$owner/$repo/$package.d"
     echo "Refreshed $owner/$package"
 }

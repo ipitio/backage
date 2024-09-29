@@ -348,6 +348,10 @@ explore() {
     done
 }
 
+jtox(){
+    echo "<?xml version=\"1.0\" encoding=\"UTF-8\"?><bkg>$(yq -ox -I0 "$1")</bkg>" >"$(cut -d'.' -f1 <<<"$1").xml"
+}
+
 [ -n "$(get_BKG BKG_RATE_LIMIT_START)" ] || set_BKG BKG_RATE_LIMIT_START "$(date -u +%s)"
 [ -n "$(get_BKG BKG_CALLS_TO_API)" ] || set_BKG BKG_CALLS_TO_API "0"
 
