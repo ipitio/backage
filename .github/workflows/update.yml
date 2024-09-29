@@ -73,7 +73,7 @@ jobs:
       - name: Get date
         id: date
         # ).$((($(date -u +%-d)-1)/7)
-        run: echo "date=$(date -u +%Y.%m.%W) >> "$GITHUB_OUTPUT"
+        run: echo "date=$(date -u +%Y.%m.%W)" >> "$GITHUB_OUTPUT"
 
       - name: Save database
         if: ${{ steps.update.outputs.updated == '0' }}
