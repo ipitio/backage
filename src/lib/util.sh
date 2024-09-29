@@ -10,6 +10,9 @@ if ! command -v curl &>/dev/null || ! command -v jq &>/dev/null || ! command -v 
     echo "Installing dependencies..."
     sudo apt-get update
     sudo apt-get install curl jq parallel sqlite3 sqlite3-pcre zstd -y
+    rm -f /usr/bin/yq
+    wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/bin/yq
+    chmod +x /usr/bin/yq
     echo "Dependencies installed"
 fi
 
