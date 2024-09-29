@@ -13,6 +13,7 @@ if ! command -v curl &>/dev/null || ! command -v jq &>/dev/null || ! command -v 
 fi
 
 if ! command -v yq &>/dev/null || ! grep -q mikefarah <<<"$(yq -V)"; then
+    echo "Installing yq..."
     sudo rm -f /usr/bin/yq
     wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O yq
     sudo mv yq /usr/bin/yq
