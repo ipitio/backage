@@ -6,16 +6,17 @@
 #
 # shellcheck disable=SC1090,SC1091,SC2015,SC2034
 
-if ! command -v curl &>/dev/null || ! command -v jq &>/dev/null || ! command -v sqlite3 &>/dev/null || ! command -v zstd &>/dev/null || ! command -v parallel &>/dev/null || [ ! -f /usr/lib/sqlite3/pcre.so ]; then
+if ! command -v curl &>/dev/null || ! command -v jq &>/dev/null || ! command -v sqlite3 &>/dev/null || ! command -v zstd &>/dev/null || ! command -v parallel &>/dev/null || ! command -v xmllint &>/dev/null || [ ! -f /usr/lib/sqlite3/pcre.so ]; then
     echo "Installing dependencies..."
     sudo apt-get update
-    sudo apt-get install curl jq parallel sqlite3 sqlite3-pcre zstd -y
+    sudo apt-get install curl jq parallel sqlite3 sqlite3-pcre zstd libxml2-utils -y
 fi
 
 if ! command -v yq &>/dev/null || ! grep -q mikefarah <<<"$(yq -V)"; then
-    rm -f /usr/bin/yq
-    wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/bin/yq
-    chmod +x /usr/bin/yq
+    sudo rm -f /usr/bin/yq
+    wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O yq
+    sudo mv yq /usr/bin/yq
+    sudo chmod +x /usr/bin/yq
 fi
 
 echo "Dependencies verified!"
