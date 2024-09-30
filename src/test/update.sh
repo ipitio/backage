@@ -41,7 +41,7 @@ if git worktree list | grep -q index; then
     git config --global user.name "${GITHUB_ACTOR}"
     git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
     git add .
-    git commit -m "hydration"
+    git commit -m "$(date -u +%Y-%m-%d)"
     git push
     popd || exit 1
 fi
