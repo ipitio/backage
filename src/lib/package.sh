@@ -95,7 +95,6 @@ update_package() {
         echo "Updating $owner/$package..."
         raw_downloads=$(grep -Pzo 'Total downloads[^"]*"\d*' <<<"$html" | grep -Pzo '\d*$' | tr -d '\0') # https://stackoverflow.com/a/74214537
         sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name' where date >= '$BKG_BATCH_FIRST_STARTED';" | sort -u >"${table_version_name}"_already_updated
-        #run_parallel save_version "$(sqlite3 -json "$BKG_INDEX_DB" "select id, name, tags from '$table_version_name' where id not in (select distinct id from '$table_version_name' where date >= '$BKG_BATCH_FIRST_STARTED') order by date;" | jq -r '.[] | @base64')"
 
         for page in $(seq 0 1); do
             ((page > 0)) || continue

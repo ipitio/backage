@@ -281,6 +281,15 @@ docker_manifest_size() {
     fi
 }
 
+docker_manifest_tags() {
+    local manifest=$1
+    local version_tags
+    version_tags=$(_jq "$manifest" '.. | try .tags')
+    [ -n "$version_tags" ] || version_tags=$(_jq "$1" '.. | try .tags | join(",")')
+    [[ ! "$version_tags" =~ null ]] || version_tags=""
+    echo "$version_tags"
+}
+
 owner_get_id() {
     local owner
     local owner_id=""

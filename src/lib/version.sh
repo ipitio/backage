@@ -16,12 +16,10 @@ save_version() {
     if [ -f "${table_version_name}"_already_updated ]; then
         check_limit || return $?
         ! grep -q "$version_id" "${table_version_name}"_already_updated || return
-        version_tags=$(_jq "$1" '.. | try .tags | join(",")')
-        [ -n "$version_tags" ] || version_tags=$(_jq "$1" '.. | try .tags')
         echo "{
             \"id\": $version_id,
             \"name\": \"$version_name\",
-            \"tags\": \"$version_tags\"
+            \"tags\": \"$(docker_manifest_tags "$1")\"
         }" | tr -d '\n' | jq -c . >"$BKG_INDEX_DIR/$owner/$repo/$package.$version_id.json" || echo "Failed to save $owner/$repo/$package/$version_id"
     else
         local version_size
