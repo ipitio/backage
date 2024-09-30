@@ -367,7 +367,6 @@ explore() {
 
 ytox() {
     echo "<?xml version=\"1.0\" encoding=\"UTF-8\"?><bkg>$(yq -ox -I0 "$1" | sed 's/"/\&quot;/g')<bkg>" | tr -d '\n' >"${1%.*}.xml"
-    echo "Converted $1 to ${1%.*}.xml"a
 }
 
 [ -n "$(get_BKG BKG_RATE_LIMIT_START)" ] || set_BKG BKG_RATE_LIMIT_START "$(date -u +%s)"
