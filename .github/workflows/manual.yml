@@ -65,17 +65,19 @@ jobs:
           GITHUB_REPO: ${{ github.event.repository.name }}
           GITHUB_BRANCH: ${{ github.head_ref || github.ref_name }}
 
+      - name: Get date
+        id: date
+        run: |
+          echo "date=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+          echo "week=$(date -u +%-Y.%-m).$((($(date -u +%-d)-1)/7)" >> "$GITHUB_OUTPUT"
+
       - name: Save state
         id: commit
         if: ${{ steps.update.outputs.updated == '0' }}
         uses: EndBug/add-and-commit@v9
         with:
           add: "-- *.txt README.md"
-          message: "hydration"
-
-      - name: Get date
-        id: date
-        run: echo "date=$(date -u +%Y.%m.%W)" >> "$GITHUB_OUTPUT"
+          message: "${{ steps.date.outputs.date }}"
 
       - name: Save database
         if: ${{ steps.update.outputs.updated == '0' }}
@@ -83,6 +85,6 @@ jobs:
         with:
           artifacts: "*.zst"
           bodyFile: "CHANGELOG.md"
-          tag: "${{ steps.date.outputs.date }}"
+          tag: "v${{ steps.date.outputs.week }}"
           commit: "master"
           allowUpdates: true
