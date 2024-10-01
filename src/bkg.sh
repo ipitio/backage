@@ -28,8 +28,32 @@ main() {
         esac
     done
 
+    today=$(date -u +%Y-%m-%d)
+    BKG_SCRIPT_START=$(date -u +%s)
+    [ -n "$(get_BKG BKG_BATCH_FIRST_STARTED)" ] || set_BKG BKG_BATCH_FIRST_STARTED "$(date -u +%s)"
+    [ -n "$(get_BKG BKG_RATE_LIMIT_START)" ] || set_BKG BKG_RATE_LIMIT_START "$(date -u +%s)"
+    [ -n "$(get_BKG BKG_MIN_RATE_LIMIT_START)" ] || set_BKG BKG_MIN_RATE_LIMIT_START "$(date -u +%s)"
+    [ -n "$(get_BKG BKG_CALLS_TO_API)" ] || set_BKG BKG_CALLS_TO_API "0"
+    [ -n "$(get_BKG BKG_MIN_CALLS_TO_API)" ] || set_BKG BKG_MIN_CALLS_TO_API "0"
+    [ -n "$(get_BKG BKG_LAST_SCANNED_ID)" ] || set_BKG BKG_LAST_SCANNED_ID "0"
+    [ -n "$(get_BKG BKG_DIFF)" ] || set_BKG BKG_DIFF "0"
+    BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
     set_BKG BKG_OWNERS_QUEUE ""
     set_BKG BKG_TIMEOUT "0"
+    set_BKG BKG_SCRIPT_START "$BKG_SCRIPT_START"
+
+    # reset the rate limit if an hour has passed since the last run started
+    if (($(get_BKG BKG_RATE_LIMIT_START) + 3600 <= $(date -u +%s))); then
+        set_BKG BKG_RATE_LIMIT_START "$(date -u +%s)"
+        set_BKG BKG_CALLS_TO_API "0"
+    fi
+
+    # reset the secondary rate limit if a minute has passed since the last run started
+    if (($(get_BKG BKG_MIN_RATE_LIMIT_START) + 60 <= $(date -u +%s))); then
+        set_BKG BKG_MIN_RATE_LIMIT_START "$(date -u +%s)"
+        set_BKG BKG_MIN_CALLS_TO_API "0"
+    fi
+
     [ -f "$BKG_INDEX_SQL.zst" ] && [ ! -f "$BKG_INDEX_DB" ] && unzstd -v -c "$BKG_INDEX_SQL.zst" | sqlite3 "$BKG_INDEX_DB" || :
     [ -f "$BKG_INDEX_DB" ] || sqlite3 "$BKG_INDEX_DB" ""
     sqlite3 "$BKG_INDEX_DB" "create table if not exists '$BKG_INDEX_TBL_PKG' (

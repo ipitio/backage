@@ -24,7 +24,6 @@ echo "Dependencies verified!"
 # shellcheck disable=SC2046
 source $(which env_parallel.bash)
 env_parallel --session
-BKG_SCRIPT_START="$(date -u +%s)"
 BKG_ROOT=..
 BKG_ENV=env.env
 BKG_OWNERS=$BKG_ROOT/owners.txt
@@ -136,7 +135,7 @@ check_limit() {
     local max_len=${1:-18000}
     total_calls=$(get_BKG BKG_CALLS_TO_API)
     rate_limit_end=$(date -u +%s)
-    script_limit_diff=$((rate_limit_end - BKG_SCRIPT_START))
+    script_limit_diff=$((rate_limit_end - $(get_BKG BKG_SCRIPT_START)))
     hours_passed=$((rate_limit_diff / 3600))
     ((script_limit_diff < max_len)) || save_and_exit
     (($? != 3)) || return 3
@@ -373,27 +372,3 @@ ytox() {
 ytoy() {
     yq -oy "$1" | sed 's/"/\\"/g' >"${1%.*}.yml"
 }
-
-echo "Checking environment..."
-[ -n "$(get_BKG BKG_RATE_LIMIT_START)" ] || set_BKG BKG_RATE_LIMIT_START "$(date -u +%s)"
-[ -n "$(get_BKG BKG_MIN_RATE_LIMIT_START)" ] || set_BKG BKG_MIN_RATE_LIMIT_START "$(date -u +%s)"
-[ -n "$(get_BKG BKG_CALLS_TO_API)" ] || set_BKG BKG_CALLS_TO_API "0"
-[ -n "$(get_BKG BKG_MIN_CALLS_TO_API)" ] || set_BKG BKG_MIN_CALLS_TO_API "0"
-[ -n "$(get_BKG BKG_LAST_SCANNED_ID)" ] || set_BKG BKG_LAST_SCANNED_ID "0"
-[ -n "$(get_BKG BKG_DIFF)" ] || set_BKG BKG_DIFF "0"
-today=$(date -u +%Y-%m-%d)
-[ -n "$(get_BKG BKG_BATCH_FIRST_STARTED)" ] || set_BKG BKG_BATCH_FIRST_STARTED "$today"
-BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
-echo "Environment verified!"
-
-# reset the rate limit if an hour has passed since the last run started
-if (($(get_BKG BKG_RATE_LIMIT_START) + 3600 <= $(date -u +%s))); then
-    set_BKG BKG_RATE_LIMIT_START "$(date -u +%s)"
-    set_BKG BKG_CALLS_TO_API "0"
-fi
-
-# reset the secondary rate limit if a minute has passed since the last run started
-if (($(get_BKG BKG_MIN_RATE_LIMIT_START) + 60 <= $(date -u +%s))); then
-    set_BKG BKG_MIN_RATE_LIMIT_START "$(date -u +%s)"
-    set_BKG BKG_MIN_CALLS_TO_API "0"
-fi
