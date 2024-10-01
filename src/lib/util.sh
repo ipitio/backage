@@ -136,7 +136,7 @@ check_limit() {
     local max_len=${1:-18000}
     total_calls=$(get_BKG BKG_CALLS_TO_API)
     rate_limit_end=$(date -u +%s)
-    script_limit_diff=$((rate_limit_end - $(get_BKG BKG_SCRIPT_START)))
+    script_limit_diff=$((rate_limit_end - BKG_SCRIPT_START))
     hours_passed=$((rate_limit_diff / 3600))
     ((script_limit_diff < max_len)) || save_and_exit
     (($? != 3)) || return 3
