@@ -28,6 +28,7 @@ main() {
         esac
     done
 
+    echo "Update started..."
     set_BKG BKG_SCRIPT_START "$(date -u +%s)"
     today=$(date -u +%Y-%m-%d)
     [ -n "$(get_BKG BKG_BATCH_FIRST_STARTED)" ] || set_BKG BKG_BATCH_FIRST_STARTED "$today"
