@@ -8244,11 +8244,9 @@ null/wilczanora
 34334729/Wizard1209
 44951260/m-kus
 7966898/Groxan
-58223117/mismirnov
 48766599/A1exCoon
 9514267/simonian
 48160281/gastlypok
-672576/vvuwei
 5014045/k-karuna
 13188494/skubarenko
 22714654/ztepler
@@ -8489,10 +8487,3 @@ null/fatiherikli
 10080092/appc
 234539/djabberd
 546165/camlistore
-bdd
-brosner
-ferrarimarco
-jiangliu
-mascarenhas
-qemus
-rafaelgaspar
