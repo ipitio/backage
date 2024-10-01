@@ -40,11 +40,10 @@ jobs:
             popd || exit 1
           fi
 
-          pushd src
+          pushd src || exit 1
           [ ! -f index/.env ] || \cp index/.env env.env
-          source bkg.sh
-          get_db
-          popd
+          source bkg.sh ; get_db
+          popd || exit 1
 
       - name: Fetch all data
         uses: robinraju/release-downloader@v1
