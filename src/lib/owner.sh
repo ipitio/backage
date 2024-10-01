@@ -95,6 +95,7 @@ update_owner() {
 
         if [ -z "$pkgs" ]; then
             sed -i "/^(.*\/)*$owner$/d" "$BKG_OWNERS"
+            echo "No packages found for $owner"
             return 2
         fi
 

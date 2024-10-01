@@ -30,10 +30,6 @@ main() {
 
     set_BKG BKG_OWNERS_QUEUE ""
     set_BKG BKG_TIMEOUT "0"
-    set_BKG BKG_SCRIPT_START "$(date -u +%s)"
-    [ -n "$(get_BKG BKG_LAST_SCANNED_ID)" ] || set_BKG BKG_LAST_SCANNED_ID "0"
-    today=$(date -u +%Y-%m-%d)
-    BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
     [ -f "$BKG_INDEX_SQL.zst" ] && [ ! -f "$BKG_INDEX_DB" ] && unzstd -v -c "$BKG_INDEX_SQL.zst" | sqlite3 "$BKG_INDEX_DB" || :
     [ -f "$BKG_INDEX_DB" ] || sqlite3 "$BKG_INDEX_DB" ""
     sqlite3 "$BKG_INDEX_DB" "create table if not exists '$BKG_INDEX_TBL_PKG' (
@@ -58,7 +54,6 @@ main() {
     echo "all: $(wc -l <packages_all)"
     echo "done: $(wc -l <packages_already_updated)"
     echo "left: $pkg_left"
-    [ -n "$(get_BKG BKG_BATCH_FIRST_STARTED)" ] || set_BKG BKG_BATCH_FIRST_STARTED "$today"
     db_size_curr=$(stat -c %s "$BKG_INDEX_DB")
     db_size_prev=$(get_BKG BKG_DIFF)
     [ -n "$db_size_curr" ] || db_size_curr=0
@@ -134,6 +129,11 @@ main() {
     fi
 
     echo "Hydrating templates and cleaning up..."
+    sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, repo, package from '$BKG_INDEX_TBL_PKG';" | sort -u >packages_all
+    echo "$(
+        awk -F'|' '{print $1"/"$2}' <packages_all
+        awk -F'|' '{print $2}' <packages_all
+    )" | sort -u | parallel "sed -i '\,^{}$,d' $BKG_OWNERS"
     [ ! -f "$BKG_ROOT"/CHANGELOG.md ] || rm -f "$BKG_ROOT"/CHANGELOG.md
     \cp templates/.CHANGELOG.md "$BKG_ROOT"/CHANGELOG.md
     sqlite3 "$BKG_INDEX_DB" "select owner_id, repo, package from '$BKG_INDEX_TBL_PKG';" | sort -u >packages_all
@@ -145,7 +145,7 @@ main() {
     [ ! -f "$BKG_ROOT"/README.md ] || rm -f "$BKG_ROOT"/README.md
     \cp templates/.README.md "$BKG_ROOT"/README.md
     sed -i 's/<GITHUB_OWNER>/'"$GITHUB_OWNER"'/g; s/<GITHUB_REPO>/'"$GITHUB_REPO"'/g; s/<GITHUB_BRANCH>/'"$GITHUB_BRANCH"'/g; s/\[PACKAGES\]/'"$packages"'/g; s/\[DATE\]/'"$today"'/g' "$BKG_ROOT"/README.md
-    sed -i '/^BKG_VERSIONS_.*=/d; /^BKG_PACKAGES_.*=/d; /^BKG_OWNERS_.*=/d; /^BKG_TIMEOUT=/d; /^BKG_SCRIPT_START=/d' "$BKG_ENV"
+    sed -i '/^BKG_VERSIONS_.*=/d; /^BKG_PACKAGES_.*=/d; /^BKG_OWNERS_.*=/d; /^BKG_TIMEOUT=/d' "$BKG_ENV"
     \cp "$BKG_ROOT"/README.md "$BKG_INDEX_DIR"/README.md
     # shellcheck disable=SC2016
     sed -i 's/src\/img\/logo-b.png/logo-b.png/g; s/```py/```prolog/g; s/```js/```jboss-cli/g' "$BKG_INDEX_DIR"/README.md

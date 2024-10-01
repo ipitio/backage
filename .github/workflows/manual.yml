@@ -28,7 +28,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Fetch endpoint
+      - name: Fetch latest data
         run: |
           if git ls-remote --exit-code origin index &>/dev/null; then
             if [ -d index ]; then
@@ -43,10 +43,11 @@ jobs:
             popd || exit 1
           fi
 
+          pushd src || exit 1
           [ ! -f index/.env ] || \cp index/.env env.env
-
-      - name: Fetch latest data
-        run: cd src ; source bkg.sh && get_db ; cd ..
+          source bkg.sh
+          get_db
+          popd || exit 1
 
       - name: Fetch all data
         uses: robinraju/release-downloader@v1
@@ -67,9 +68,11 @@ jobs:
 
       - name: Get date
         id: date
-        run: |
-          echo "date=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
-          echo "week=$(date -u +%-Y.%-m).$((($(date -u +%-d)-1)/7)" >> "$GITHUB_OUTPUT"
+        run: echo "date=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+
+      - name: Get tag
+        id: tag
+        run: echo "tag=$(date -u +%-Y.%-m).$((($(date -u +%-d)-1)/7)" >> "$GITHUB_OUTPUT"
 
       - name: Save state
         id: commit
@@ -85,6 +88,6 @@ jobs:
         with:
           artifacts: "*.zst"
           bodyFile: "CHANGELOG.md"
-          tag: "v${{ steps.date.outputs.week }}"
+          tag: "v${{ steps.tag.outputs.tag }}"
           commit: "master"
           allowUpdates: true
