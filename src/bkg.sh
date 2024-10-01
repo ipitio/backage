@@ -28,6 +28,9 @@ main() {
         esac
     done
 
+    today=$(date -u +%Y-%m-%d)
+    [ -n "$(get_BKG BKG_BATCH_FIRST_STARTED)" ] || set_BKG BKG_BATCH_FIRST_STARTED "$today"
+    BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
     set_BKG BKG_OWNERS_QUEUE ""
     set_BKG BKG_TIMEOUT "0"
     [ -f "$BKG_INDEX_SQL.zst" ] && [ ! -f "$BKG_INDEX_DB" ] && unzstd -v -c "$BKG_INDEX_SQL.zst" | sqlite3 "$BKG_INDEX_DB" || :
@@ -65,7 +68,6 @@ main() {
         echo >>"$BKG_OWNERS"
         awk 'NF' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
         sed -i 's/^[[:space:]]*//;s/[[:space:]]*$//' "$BKG_OWNERS"
-        [ ! -d "$BKG_INDEX_DIR"/src ] || rm -rf "$BKG_INDEX_DIR"/src
         find "$BKG_INDEX_DIR" -mindepth 1 -maxdepth 1 -type d -exec basename {} \; | sort -u | awk '{print $1}' >>"$BKG_OWNERS"
         sort -u <<<"$(
             explore "$GITHUB_OWNER"
