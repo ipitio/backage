@@ -24,6 +24,7 @@ echo "Dependencies verified!"
 # shellcheck disable=SC2046
 source $(which env_parallel.bash)
 env_parallel --session
+BKG_SCRIPT_START="$(date -u +%s)"
 BKG_ROOT=..
 BKG_ENV=env.env
 BKG_OWNERS=$BKG_ROOT/owners.txt
@@ -370,8 +371,16 @@ ytoy() {
 }
 
 echo "Checking environment..."
-[ -n "$(get_BKG BKG_RATE_LIMIT_START)" ] || set_BKG BKG_RATE_LIMIT_START "0"
+[ -n "$(get_BKG BKG_RATE_LIMIT_START)" ] || set_BKG BKG_RATE_LIMIT_START "$(date -u +%s)"
+[ -n "$(get_BKG BKG_MIN_RATE_LIMIT_START)" ] || set_BKG BKG_MIN_RATE_LIMIT_START "$(date -u +%s)"
 [ -n "$(get_BKG BKG_CALLS_TO_API)" ] || set_BKG BKG_CALLS_TO_API "0"
+[ -n "$(get_BKG BKG_MIN_CALLS_TO_API)" ] || set_BKG BKG_MIN_CALLS_TO_API "0"
+[ -n "$(get_BKG BKG_LAST_SCANNED_ID)" ] || set_BKG BKG_LAST_SCANNED_ID "0"
+[ -n "$(get_BKG BKG_DIFF)" ] || set_BKG BKG_DIFF "0"
+today=$(date -u +%Y-%m-%d)
+[ -n "$(get_BKG BKG_BATCH_FIRST_STARTED)" ] || set_BKG BKG_BATCH_FIRST_STARTED "$today"
+BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
+echo "Environment verified!"
 
 # reset the rate limit if an hour has passed since the last run started
 if (($(get_BKG BKG_RATE_LIMIT_START) + 3600 <= $(date -u +%s))); then
