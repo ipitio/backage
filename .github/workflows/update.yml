@@ -65,11 +65,9 @@ jobs:
 
       - name: Get date
         id: date
-        run: echo "date=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
-
-      - name: Get tag
-        id: tag
-        run: echo "tag=$(date -u +%-Y.%-m).$((($(date -u +%-d)-1)/7)" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "date=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+          echo "tag=$(date -u +%-Y.%-m).$((($(date -u +%-d)-1)/7))" >> "$GITHUB_OUTPUT"
 
       - name: Save state
         id: commit
@@ -85,6 +83,6 @@ jobs:
         with:
           artifacts: "*.zst"
           bodyFile: "CHANGELOG.md"
-          tag: "v${{ steps.tag.outputs.tag }}"
+          tag: "v${{ steps.date.outputs.tag }}"
           commit: "master"
           allowUpdates: true
