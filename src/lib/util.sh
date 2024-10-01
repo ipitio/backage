@@ -241,16 +241,11 @@ dldb() {
     return $code
 }
 
-curl_gh() {
-    curl -H "Accept: application/vnd.github+json" -H "Authorization: Bearer $GITHUB_TOKEN" -H "X-GitHub-Api-Version: 2022-11-28" "$@"
-}
-
 query_api() {
     local res
     local calls_to_api
     local min_calls_to_api
-
-    res=$(curl_gh "https://api.github.com/$1")
+    res=$(curl -H "Accept: application/vnd.github+json" -H "Authorization: Bearer $GITHUB_TOKEN" -H "X-GitHub-Api-Version: 2022-11-28" -X "${2:-GET}" "https://api.github.com/$1")
     (($? != 3)) || return 3
     calls_to_api=$(get_BKG BKG_CALLS_TO_API)
     min_calls_to_api=$(get_BKG BKG_MIN_CALLS_TO_API)
@@ -265,7 +260,8 @@ get_db() {
     while ! dldb; do
         check_limit || return $?
         echo "Deleting the latest release..."
-        curl_gh -X DELETE "https://api.github.com/repos/ipitio/backage/releases/$(query_api "repos/ipitio/backage/releases/latest" | jq -r '.id')"
+        query_api "repos/ipitio/backage/releases/$(query_api "repos/ipitio/backage/releases/latest" | jq -r '.id')" DELETE
+        (($? != 3)) || return 3
     done
 }
 
