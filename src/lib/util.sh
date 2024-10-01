@@ -371,12 +371,7 @@ ytoy() {
 
 echo "Checking environment..."
 [ -n "$(get_BKG BKG_RATE_LIMIT_START)" ] || set_BKG BKG_RATE_LIMIT_START "0"
-[ -n "$(get_BKG BKG_MIN_RATE_LIMIT_START)" ] || set_BKG BKG_MIN_RATE_LIMIT_START "$(get_BKG BKG_RATE_LIMIT_START)"
 [ -n "$(get_BKG BKG_CALLS_TO_API)" ] || set_BKG BKG_CALLS_TO_API "0"
-[ -n "$(get_BKG BKG_MIN_CALLS_TO_API)" ] || set_BKG BKG_MIN_CALLS_TO_API "0"
-[ -n "$(get_BKG BKG_LAST_SCANNED_ID)" ] || set_BKG BKG_LAST_SCANNED_ID "0"
-[ -n "$(get_BKG BKG_DIFF)" ] || set_BKG BKG_DIFF "0"
-echo "Environment verified!"
 
 # reset the rate limit if an hour has passed since the last run started
 if (($(get_BKG BKG_RATE_LIMIT_START) + 3600 <= $(date -u +%s))); then
