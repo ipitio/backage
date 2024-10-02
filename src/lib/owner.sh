@@ -92,13 +92,7 @@ update_owner() {
         pages_left=$?
         ((pages_left != 3)) || return 3
         pkgs=$(get_BKG_set BKG_PACKAGES_"$owner")
-
-        if [ -z "$pkgs" ]; then
-            sed -i "/^(.*\/)*$owner$/d" "$BKG_OWNERS"
-            ((page > 1)) || echo "No packages found for $owner"
-            return 2
-        fi
-
+        [ -n "$pkgs" ] || sed -i '/^(.*\/)*'"$owner"'$/d' "$BKG_OWNERS"
         run_parallel update_package "$pkgs"
         (($? != 3)) || return 3
         ((pages_left != 2)) || break
