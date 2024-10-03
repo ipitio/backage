@@ -131,39 +131,42 @@
     </footer>
 
     <script>
-        if (window.location.pathname === '/') {
-            const params = new URLSearchParams(window.location.search);
-            const jsonUrl = params.get('url');
+        (async () => {
+            // Redirect to the XML file if the URL query parameter is present
+            if (window.location.pathname === '/') {
+                const params = new URLSearchParams(window.location.search);
+                const jsonUrl = params.get('url');
 
-            if (jsonUrl) {
-                try {
-                    const response = await fetch(decodeURIComponent(jsonUrl));
+                if (jsonUrl) {
+                    try {
+                        const response = await fetch(decodeURIComponent(jsonUrl));
 
-                    if (response.ok) {
-                        let xmlData = JSToXML.toXML(await response.json());
+                        if (response.ok) {
+                            let xmlData = JSToXML.toXML(await response.json());
 
-                        // Add surrounding <x></x> tags if xml is not valid
-                        const parser = new fxparser.XMLParser();
-                        try{
-                            parser.parse(xmlData);
-                        } catch (error) {
-                            xmlData = `<x>${xmlData}</x>`;
+                            // Add surrounding <x></x> tags if xml is not valid
+                            const parser = new fxparser.XMLParser();
+                            try{
+                                parser.parse(xmlData);
+                            } catch (error) {
+                                xmlData = `<x>${xmlData}</x>`;
+                            }
+
+                            xmlData = '<?xml version="1.0" encoding="UTF-8"?>' + xmlData;
+
+                            // return xml data to the client
+                            const blob = new Blob([xmlData], { type: 'application/xml' });
+                            const url = URL.createObjectURL(blob);
+                            window.location.href = url;
+                        } else {
+                            console.error('Error fetching JSON:', response.status);
                         }
-
-                        xmlData = '<?xml version="1.0" encoding="UTF-8"?>' + xmlData;
-
-                        // return xml data to the client
-                        const blob = new Blob([xmlData], { type: 'application/xml' });
-                        const url = URL.createObjectURL(blob);
-                        window.location.href = url;
-                    } else {
-                        console.error('Error fetching JSON:', response.status);
+                    } catch (error) {
+                        console.error('Error fetching JSON:', error);
                     }
-                } catch (error) {
-                    console.error('Error fetching JSON:', error);
                 }
             }
-        }
+        })();
 
         document.addEventListener("DOMContentLoaded", function () {
             // Render the README.md file
