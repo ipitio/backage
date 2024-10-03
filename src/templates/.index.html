@@ -11,6 +11,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/prolog.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/jboss-cli.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jstoxml/jstoxml.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fast-xml-parser/4.5.0/fxparser.min.js"></script>
     <style>
         body {
             font-family: Inter, sans-serif;
@@ -129,9 +131,42 @@
     </footer>
 
     <script>
-        // Ensure the DOM is fully loaded before running the script
-        document.addEventListener("DOMContentLoaded", function () {
-            // Fetch the README.md file
+        if (window.location.pathname === '/') {
+            const params = new URLSearchParams(window.location.search);
+            const jsonUrl = params.get('url');
+
+            if (jsonUrl) {
+                try {
+                    const response = await fetch(decodeURIComponent(jsonUrl));
+
+                    if (response.ok) {
+                        let xmlData = JSToXML.toXML(await response.json());
+
+                        // Add surrounding <x></x> tags if xml is not valid
+                        const parser = new fxparser.XMLParser();
+                        try{
+                            parser.parse(xmlData);
+                        } catch (error) {
+                            xmlData = `<x>${xmlData}</x>`;
+                        }
+
+                        xmlData = '<?xml version="1.0" encoding="UTF-8"?>' + xmlData;
+
+                        // return xml data to the client
+                        const blob = new Blob([xmlData], { type: 'application/xml' });
+                        const url = URL.createObjectURL(blob);
+                        window.location.href = url;
+                    } else {
+                        console.error('Error fetching JSON:', response.status);
+                    }
+                } catch (error) {
+                    console.error('Error fetching JSON:', error);
+                }
+            }
+        }
+
+        document.addEventListener("DOMContentLoaded", async function () {
+            // Render the README.md file
             fetch('README.md')
                 .then(response => {
                     if (!response.ok) {
@@ -140,15 +175,10 @@
                     return response.text();
                 })
                 .then(text => {
-                    // Use marked to parse the Markdown into HTML
                     const contentDiv = document.getElementById('content');
                     contentDiv.innerHTML = marked.parse(text);
-
-                    // Hide the loading message and show the content
                     document.getElementById('loading').style.display = 'none';
                     contentDiv.style.display = 'block';
-
-                    // Highlight code blocks
                     hljs.highlightAll();
                 })
                 .catch(error => {
