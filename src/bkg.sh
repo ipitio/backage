@@ -117,7 +117,7 @@ main() {
         parallel "sed -i '\,^{}$,d' $BKG_OWNERS" <"$connections"
         rm -f "$connections"
     elif [ "$mode" -eq 1 ]; then
-        save_owner arevindh
+        : #save_owner arevindh
     fi
 
     BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
