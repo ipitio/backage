@@ -133,7 +133,7 @@
     <script>
         (async () => {
             // Redirect to the XML file if the URL query parameter is present
-            if (window.location.pathname === '/') {
+            if (window.location.pathname.match(/^\/backage\/?$/)) {
                 const params = new URLSearchParams(window.location.search);
                 const jsonUrl = params.get('url');
 
