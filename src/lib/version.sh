@@ -15,7 +15,7 @@ save_version() {
 
     if [ -f "${table_version_name}"_already_updated ]; then
         check_limit || return $?
-        ! grep -q "$version_id" "${table_version_name}"_already_updated || return
+        grep -q "$version_id" "${table_version_name}"_already_updated && [ "$mode" -eq 0 ] && return || :
         version_tags=$(_jq "$1" '.. | try .tags | join(",")')
         [ -n "$version_tags" ] || version_tags=$(_jq "$1" '.. | try .tags')
 
