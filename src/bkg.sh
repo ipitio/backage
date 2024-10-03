@@ -118,37 +118,37 @@ main() {
         rm -f "$connections"
     elif [ "$mode" -eq 1 ]; then
         save_owner arevindh
-    elif [ "$mode" -eq 2 ]; then
-        return
     fi
 
-    BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
-    [ -d "$BKG_INDEX_DIR" ] || mkdir "$BKG_INDEX_DIR"
-    get_BKG_set BKG_OWNERS_QUEUE | env_parallel --lb update_owner
-    echo "Compressing the database..."
-    sqlite3 "$BKG_INDEX_DB" ".dump" | zstd -22 --ultra --long -T0 -o "$BKG_INDEX_SQL".new.zst
+    if [ "$mode" -ne 2 ]; then
+        BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
+        [ -d "$BKG_INDEX_DIR" ] || mkdir "$BKG_INDEX_DIR"
+        get_BKG_set BKG_OWNERS_QUEUE | env_parallel --lb update_owner
+        echo "Compressing the database..."
+        sqlite3 "$BKG_INDEX_DB" ".dump" | zstd -22 --ultra --long -T0 -o "$BKG_INDEX_SQL".new.zst
 
-    if [ -f "$BKG_INDEX_SQL".new.zst ]; then
-        # rotate the database if it's greater than 2GB
-        if [ -f "$BKG_INDEX_SQL".zst ] && [ "$(stat -c %s "$BKG_INDEX_SQL".new.zst)" -ge 2000000000 ]; then
-            rotated=true
-            echo "Rotating the database..."
-            local older_db
-            older_db="$(date -u +%Y.%m.%d)".zst
-            [ ! -f "$older_db" ] || rm -f "$older_db"
-            mv "$BKG_INDEX_SQL".zst "$older_db"
-            sqlite3 "$BKG_INDEX_DB" "delete from '$BKG_INDEX_TBL_PKG' where date < '$BKG_BATCH_FIRST_STARTED';"
-            sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name like '${BKG_INDEX_TBL_VER}_%';" | parallel --lb "sqlite3 '$BKG_INDEX_DB' 'delete from {} where date < \"$BKG_BATCH_FIRST_STARTED\";'"
-            sqlite3 "$BKG_INDEX_DB" "vacuum;"
-            rm -f "$BKG_INDEX_SQL".new.zst
-            sqlite3 "$BKG_INDEX_DB" ".dump" | zstd -22 --ultra --long -T0 -o "$BKG_INDEX_SQL".new.zst
-            echo "Rotated the database"
+        if [ -f "$BKG_INDEX_SQL".new.zst ]; then
+            # rotate the database if it's greater than 2GB
+            if [ -f "$BKG_INDEX_SQL".zst ] && [ "$(stat -c %s "$BKG_INDEX_SQL".new.zst)" -ge 2000000000 ]; then
+                rotated=true
+                echo "Rotating the database..."
+                local older_db
+                older_db="$(date -u +%Y.%m.%d)".zst
+                [ ! -f "$older_db" ] || rm -f "$older_db"
+                mv "$BKG_INDEX_SQL".zst "$older_db"
+                sqlite3 "$BKG_INDEX_DB" "delete from '$BKG_INDEX_TBL_PKG' where date < '$BKG_BATCH_FIRST_STARTED';"
+                sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name like '${BKG_INDEX_TBL_VER}_%';" | parallel --lb "sqlite3 '$BKG_INDEX_DB' 'delete from {} where date < \"$BKG_BATCH_FIRST_STARTED\";'"
+                sqlite3 "$BKG_INDEX_DB" "vacuum;"
+                rm -f "$BKG_INDEX_SQL".new.zst
+                sqlite3 "$BKG_INDEX_DB" ".dump" | zstd -22 --ultra --long -T0 -o "$BKG_INDEX_SQL".new.zst
+                echo "Rotated the database"
+            fi
+
+            mv "$BKG_INDEX_SQL".new.zst "$BKG_INDEX_SQL".zst
+            echo "Compressed the database"
+        else
+            echo "Failed to compress the database!"
         fi
-
-        mv "$BKG_INDEX_SQL".new.zst "$BKG_INDEX_SQL".zst
-        echo "Compressed the database"
-    else
-        echo "Failed to compress the database!"
     fi
 
     echo "Hydrating templates and cleaning up..."
