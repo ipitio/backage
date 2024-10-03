@@ -141,7 +141,7 @@
                     const response = await fetch(decodeURIComponent(jsonUrl));
 
                     if (response.ok) {
-                        const builder = new XMLBuilder();
+                        const builder = new fxparser.XMLBuilder();
                         let xml = builder.build(await response.json());
 
                         // Add surrounding <x></x> tags if xml is not valid
