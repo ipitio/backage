@@ -133,37 +133,37 @@
     </footer>
 
     <script>
-        (async () => {
-            const params = new URLSearchParams(window.location.search);
-            const jsonUrl = params.get('url');
+            (async () => {
+                const params = new URLSearchParams(window.location.search);
+                const jsonUrl = params.get('url');
 
-            if (jsonUrl) {
-                try {
-                    const response = await fetch(decodeURIComponent(jsonUrl));
+                if (jsonUrl) {
+                    try {
+                        const response = await fetch(decodeURIComponent(jsonUrl));
 
-                    if (response.ok) {
-                        const builder = new fxparser.XMLBuilder();
-                        let xml = builder.build(await response.json());
+                        if (response.ok) {
+                            const builder = new fxparser.XMLBuilder();
+                            let xml = builder.build(await response.json());
 
-                        // Add surrounding <x></x> tags if xml is not valid
-                        const parser = new fxparser.XMLParser();
-                        try {
-                            parser.parse(xml);
-                        } catch (error) {
-                            xml = `<x>${xml}</x>`;
+                            // Add surrounding <x></x> tags if xml is not valid
+                            const parser = new fxparser.XMLParser();
+                            try {
+                                parser.parse(xml);
+                            } catch (error) {
+                                xml = `<x>${xml}</x>`;
+                            }
+
+                            // return xml data to the client
+                            const blob = new Blob(['<?xml version="1.0" encoding="UTF-8"?>' + xml], { type: 'application/xml' });
+                            window.location.href = URL.createObjectURL(blob);
+                        } else {
+                            console.error('Error fetching JSON:', response.status);
                         }
-
-                        // return xml data to the client
-                        const blob = new Blob(['<?xml version="1.0" encoding="UTF-8"?>' + xml], { type: 'application/xml' });
-                        window.location.href = URL.createObjectURL(blob);
-                    } else {
-                        console.error('Error fetching JSON:', response.status);
+                    } catch (error) {
+                        console.error('Error fetching JSON:', error);
                     }
-                } catch (error) {
-                    console.error('Error fetching JSON:', error);
                 }
-            }
-        })();
+            })();
 
         document.addEventListener("DOMContentLoaded", function () {
             // Render the README.md file
@@ -187,7 +187,8 @@
                 });
         });
     </script>
-    <script onload="j2x();" src="https://cdnjs.cloudflare.com/ajax/libs/fast-xml-parser/4.5.0/fxparser.min.js"></script>c
+    <script onload="j2x();" src="https://cdnjs.cloudflare.com/ajax/libs/fast-xml-parser/4.5.0/fxparser.min.js"></script>
+    c
 </body>
 
 </html>
