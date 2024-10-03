@@ -3,28 +3,6 @@
 
 source lib/util.sh
 
-version_tags() {
-    local json=$1
-    local version_id=$2
-    local version_tags
-    version_tags=$(_jq "$json" '.. | try .tags | join(",")')
-    [ -n "$version_tags" ] || version_tags=$(_jq "$json" '.. | try .tags')
-    [[ ! "$version_tags" =~ null ]] || version_tags=""
-
-    if [ -z "$version_tags" ]; then
-        local html
-
-        for page in $(seq 1 2); do
-            html=$(curl "https://github.com/$owner/$repo/pkgs/$package_type/$package/versions?page=$page")
-            [ -z "$(grep -zo "$version_id" <<<"$html" | tr -d '\0')" ] || break
-        done
-
-        version_tags=$(grep -Po '(?<='"$version_id"'\?tag=)[^\"]+' <<<"$html" | tr -d '\0' | tr '\n' ',' | sed 's/,$//')
-    fi
-
-    echo "$version_tags"
-}
-
 save_version() {
     [ -n "$1" ] || return
     [ -n "$package" ] || return
@@ -38,10 +16,28 @@ save_version() {
     if [ -f "${table_version_name}"_already_updated ]; then
         check_limit || return $?
         ! grep -q "$version_id" "${table_version_name}"_already_updated || return
+        version_tags=$(_jq "$1" '.. | try .tags | join(",")')
+        [ -n "$version_tags" ] || version_tags=$(_jq "$1" '.. | try .tags')
+
+        if [ -z "$version_tags" ] || [[ "$version_tags" =~ null ]]; then
+            for page in $(seq 1 2); do
+                local html
+                html=$(curl "https://github.com/$owner/$repo/pkgs/$package_type/$package/versions?page=$page")
+
+                if [ -n "$(grep -zo "$version_id" <<<"$html" | tr -d '\0')" ]; then
+                    version_tags=$(grep -Po '(?<='"$version_id"'\?tag=)[^\"]+' <<<"$html" | tr -d '\0' | tr '\n' ',' | sed 's/,$//')
+                elif (($(grep -Po '\?tag=' <<<"$html" | wc -l) >= 30)); then
+                    continue
+                fi
+
+                break
+            done
+        fi
+
         echo "{
             \"id\": $version_id,
             \"name\": \"$version_name\",
-            \"tags\": \"$(version_tags "$1")\"
+            \"tags\": \"$version_tags\"
         }" | tr -d '\n' | jq -c . >"$BKG_INDEX_DIR/$owner/$repo/$package.$version_id.json" || echo "Failed to save $owner/$repo/$package/$version_id"
     else
         local version_size
