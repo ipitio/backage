@@ -9,7 +9,6 @@ main() {
     local owners
     local repos
     local packages
-    local today
     local pkg_left
     local db_size_curr
     local db_size_prev
