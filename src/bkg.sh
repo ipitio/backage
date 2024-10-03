@@ -4,7 +4,7 @@
 source lib/owner.sh
 
 main() {
-    local mode=0
+    mode=0
     local rotated=false
     local owners
     local repos
