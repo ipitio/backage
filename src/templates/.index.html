@@ -11,7 +11,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/prolog.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/jboss-cli.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <script type="module" src="https://cdn.jsdelivr.net/npm/jstoxml/jstoxml.min.js"></script>
+    <script onload="j2x();" type="module" src="https://cdn.jsdelivr.net/npm/jstoxml/jstoxml.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fast-xml-parser/4.5.0/fxparser.min.js"></script>
     <style>
         body {
@@ -131,7 +131,7 @@
     </footer>
 
     <script>
-        (async () => {
+        async function j2x() {
             const params = new URLSearchParams(window.location.search);
             const jsonUrl = params.get('url');
 
@@ -163,7 +163,7 @@
                     console.error('Error fetching JSON:', error);
                 }
             }
-        })();
+        };
 
         document.addEventListener("DOMContentLoaded", function () {
             // Render the README.md file
