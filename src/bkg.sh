@@ -111,8 +111,7 @@ main() {
             [ "$(wc -l <"$BKG_OWNERS")" -gt 10 ] || seq 1 10 | env_parallel --lb --halt soon,fail=1 page_owner
         fi
 
-        head -n250 "$BKG_OWNERS" | env_parallel --lb save_owner
-        tail -n250 "$BKG_OWNERS" | env_parallel --lb save_owner
+        env_parallel --lb save_owner <"$BKG_OWNERS"
         awk -F'|' '{print $1"/"$2}' <packages_to_update | sort -uR 2>/dev/null | head -n500 | env_parallel --lb save_owner
         set_BKG BKG_DIFF "$db_size_curr"
         parallel "sed -i '\,^{}$,d' $BKG_OWNERS" <"$connections"
