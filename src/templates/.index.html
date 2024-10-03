@@ -11,8 +11,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/prolog.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/jboss-cli.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <script onload="j2x();" type="module" src="https://cdn.jsdelivr.net/npm/jstoxml/jstoxml.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fast-xml-parser/4.5.0/fxparser.min.js"></script>
+    <script onload="j2x();" type="module" src="https://cdn.jsdelivr.net/npm/jstoxml/jstoxml.min.js"></script>
     <style>
         body {
             font-family: Inter, sans-serif;
@@ -140,7 +140,7 @@
                     const response = await fetch(decodeURIComponent(jsonUrl));
 
                     if (response.ok) {
-                        let xmlData = jstoxml.toXML(await response.json());
+                        let xmlData = toXML(await response.json());
 
                         // Add surrounding <x></x> tags if xml is not valid
                         const parser = new fxparser.XMLParser();
