@@ -152,8 +152,7 @@
 
                         // return xml data to the client
                         const blob = new Blob(['<?xml version="1.0" encoding="UTF-8"?>' + xml], { type: 'application/xml' });
-                        const url = URL.createObjectURL(blob);
-                        window.location.href = url;
+                        window.location.href = URL.createObjectURL(blob);
                     } else {
                         console.error('Error fetching JSON:', response.status);
                     }
