@@ -40,7 +40,8 @@
             font-size: 1.2em;
         }
 
-        h5, p {
+        h5,
+        p {
             font-size: 1em;
         }
 
@@ -78,7 +79,8 @@
             color: #ddd;
         }
 
-        th, td {
+        th,
+        td {
             padding: 0.5em 1em;
             border: 1px solid #333;
         }
@@ -126,7 +128,8 @@
     <div id="content" style="display: none;"></div>
 
     <footer>
-        &copy; <script>document.write(new Date().getFullYear())</script> ipitio
+        &copy;
+        <script>document.write(new Date().getFullYear())</script> ipitio
     </footer>
 
     <script>
@@ -144,7 +147,7 @@
 
                         // Add surrounding <x></x> tags if xml is not valid
                         const parser = new fxparser.XMLParser();
-                        try{
+                        try {
                             parser.parse(xml);
                         } catch (error) {
                             xml = `<x>${xml}</x>`;
