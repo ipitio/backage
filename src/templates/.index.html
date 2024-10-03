@@ -133,37 +133,22 @@
     </footer>
 
     <script>
-            (async () => {
-                const params = new URLSearchParams(window.location.search);
-                const jsonUrl = params.get('url');
+        const params = new URLSearchParams(window.location.search);
+        const jsonUrl = params.get('url');
+        let json = {};
+        let xml = '';
 
-                if (jsonUrl) {
-                    try {
-                        const response = await fetch(decodeURIComponent(jsonUrl));
+        (async () => {
+            if (jsonUrl) {
+                const response = await fetch(decodeURIComponent(jsonUrl));
 
-                        if (response.ok) {
-                            const builder = new fxparser.XMLBuilder();
-                            let xml = builder.build(await response.json());
-
-                            // Add surrounding <x></x> tags if xml is not valid
-                            const parser = new fxparser.XMLParser();
-                            try {
-                                parser.parse(xml);
-                            } catch (error) {
-                                xml = `<x>${xml}</x>`;
-                            }
-
-                            // return xml data to the client
-                            const blob = new Blob(['<?xml version="1.0" encoding="UTF-8"?>' + xml], { type: 'application/xml' });
-                            window.location.href = URL.createObjectURL(blob);
-                        } else {
-                            console.error('Error fetching JSON:', response.status);
-                        }
-                    } catch (error) {
-                        console.error('Error fetching JSON:', error);
-                    }
+                if (response.ok) {
+                    json = await response.json();
+                } else {
+                    console.error('Error fetching JSON:', response.status);
                 }
-            })();
+            }
+        })();
 
         document.addEventListener("DOMContentLoaded", function () {
             // Render the README.md file
@@ -180,6 +165,25 @@
                     document.getElementById('loading').style.display = 'none';
                     contentDiv.style.display = 'block';
                     hljs.highlightAll();
+
+                    try {
+                        const builder = new fxparser.XMLBuilder();
+                        xml = builder.build(json);
+
+                        // Add surrounding <x></x> tags if xml is not valid
+                        const parser = new fxparser.XMLParser();
+                        try {
+                            parser.parse(xml);
+                        } catch (error) {
+                            xml = `<x>${xml}</x>`;
+                        }
+
+                        // return xml data to the client
+                        const blob = new Blob(['<?xml version="1.0" encoding="UTF-8"?>' + xml], { type: 'application/xml' });
+                        window.location.href = URL.createObjectURL(blob);
+                    } catch (error) {
+                        console.error('Error fetching JSON:', error);
+                    }
                 })
                 .catch(error => {
                     console.error('Error fetching README:', error);
