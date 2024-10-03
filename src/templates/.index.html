@@ -140,6 +140,7 @@
                     const response = await fetch(decodeURIComponent(jsonUrl));
 
                     if (response.ok) {
+                        var toXML = window.jstoxml.toXML;
                         let xmlData = toXML(await response.json());
 
                         // Add surrounding <x></x> tags if xml is not valid
