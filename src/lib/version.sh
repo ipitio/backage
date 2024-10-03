@@ -23,6 +23,7 @@ save_version() {
             for page in $(seq 1 2); do
                 local html
                 html=$(curl "https://github.com/$owner/$repo/pkgs/$package_type/$package/versions?page=$page")
+                (($? != 3)) || return 3
 
                 if [ -n "$(grep -zo "$version_id" <<<"$html" | tr -d '\0')" ]; then
                     version_tags=$(grep -Po '(?<='"$version_id"'\?tag=)[^\"]+' <<<"$html" | tr -d '\0' | tr '\n' ',' | sed 's/,$//')
@@ -97,7 +98,7 @@ page_version() {
     (($? != 3)) || return 3
     echo "Started $owner/$package page $1"
     # if there are fewer than 100 lines, break
-    [ "$(wc -l <<<"$version_lines")" -eq 100 ] || return 2
+    [ "$(wc -l <<<"$version_lines")" -eq 50 ] || return 2
 }
 
 update_version() {
