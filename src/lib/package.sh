@@ -88,7 +88,7 @@ update_package() {
         primary key (id, date)
     );"
 
-    if ! grep -q "^$owner_id|$owner|$repo|$package$" packages_already_updated; then
+    if ! grep -q "^$owner_id|$owner|$repo|$package$" packages_already_updated || [ "$mode" -eq 1 ]; then
         html=$(curl "https://github.com/$owner/$repo/pkgs/$package_type/$package")
         (($? != 3)) || return 3
         [ -n "$(grep -Pzo 'Total downloads' <<<"$html" | tr -d '\0')" ] || return
@@ -130,7 +130,7 @@ update_package() {
     [[ "$raw_downloads" =~ ^[0-9]+$ || "$raw_downloads" == "-1" ]] || return
     [[ "$summed_raw_downloads" =~ ^[0-9]+$ ]] && ((summed_raw_downloads > raw_downloads)) && raw_downloads=$summed_raw_downloads || :
 
-    if ! grep -q "^$owner_id|$owner|$repo|$package$" packages_already_updated; then
+    if ! grep -q "^$owner_id|$owner|$repo|$package$" packages_already_updated || [ "$mode" -eq 1 ]; then
         sqlite3 "$BKG_INDEX_DB" "insert or replace into '$BKG_INDEX_TBL_PKG' (owner_id, owner_type, package_type, owner, repo, package, downloads, downloads_month, downloads_week, downloads_day, size, date) values ('$owner_id', '$owner_type', '$package_type', '$owner', '$repo', '$package', '$raw_downloads', '$raw_downloads_month', '$raw_downloads_week', '$raw_downloads_day', '$size', '$BKG_BATCH_FIRST_STARTED');"
         echo "Updated $owner/$package, refreshing..."
     fi
