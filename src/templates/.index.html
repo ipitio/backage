@@ -178,7 +178,7 @@
                         }
 
                         // return xml data to the client
-                        //const blob = new Blob(['<?xml version="1.0" encoding="UTF-8"?>' + xml], { type: 'application/xml' });
+                        const blob = new Blob(['<?xml version="1.0" encoding="UTF-8"?>' + xml], { type: 'application/xml' });
                         //window.location.href = URL.createObjectURL(blob);
 
                         // return xml as if it were a file being sent directly to the client
