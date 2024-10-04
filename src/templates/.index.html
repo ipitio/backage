@@ -133,17 +133,21 @@
     </footer>
 
     <script>
-        const params = new URLSearchParams(window.location.search);
-        const jsonUrl = params.get('url');
-        let json = {};
-        let xml = '';
-
         (async () => {
+            const params = new URLSearchParams(window.location.search);
+            const jsonUrl = params.get('url');
+
             if (jsonUrl) {
                 const response = await fetch(decodeURIComponent(jsonUrl));
 
                 if (response.ok) {
-                    json = await response.json();
+                    try {
+                        const builder = new fxp.XMLBuilder();
+                        const blob = new Blob([`<?xml version="1.0" encoding="UTF-8"?><x>${builder.build(await response.json())}</x>`], { type: 'application/xml' });
+                        window.location.href = URL.createObjectURL(blob);
+                    } catch (error) {
+                        console.error('Error fetching JSON:', error);
+                    }
                 } else {
                     console.error('Error fetching JSON:', response.status);
                 }
@@ -165,30 +169,6 @@
                     document.getElementById('loading').style.display = 'none';
                     contentDiv.style.display = 'block';
                     hljs.highlightAll();
-
-                    try {
-                        const builder = new fxp.XMLBuilder();
-                        xml = builder.build(json);
-
-                        // Add surrounding <x></x> tags if first and last tags are not the same
-                        let firstTag = xml.match(/^(?<=<)([^\/\s>]+)/);
-                        let lastTag = xml.match(/([^\/\s>]+)(?=>.*<\/\1>$)/);
-                        if (firstTag && lastTag && firstTag[1] !== lastTag[1]) {
-                            xml = `<x>${xml}</x>`;
-                        }
-
-                        // return xml data to the client
-                        const blob = new Blob(['<?xml version="1.0" encoding="UTF-8"?>' + xml], { type: 'application/xml' });
-                        //window.location.href = URL.createObjectURL(blob);
-
-                        // return xml as if it were a file being sent directly to the client
-                        const a = document.createElement('a');
-                        a.href = URL.createObjectURL(blob);
-                        a.download = 'data.xml';
-                        a.click();
-                    } catch (error) {
-                        console.error('Error fetching JSON:', error);
-                    }
                 })
                 .catch(error => {
                     console.error('Error fetching README:', error);
