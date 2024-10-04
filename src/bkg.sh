@@ -175,6 +175,7 @@ main() {
     \cp img/logo-b.png "$BKG_INDEX_DIR"/logo-b.png
     \cp img/logo.ico "$BKG_INDEX_DIR"/favicon.ico
     \cp templates/.index.html "$BKG_INDEX_DIR"/index.html
+    \cp templates/fxp.min.js "$BKG_INDEX_DIR"/fxp.min.js
     sed -i 's/GITHUB_REPO/'"$GITHUB_REPO"'/g' "$BKG_INDEX_DIR"/index.html
     rm -f packages_already_updated packages_all packages_to_update
     echo "{

@@ -11,7 +11,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/prolog.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/jboss-cli.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/fast-xml-parser/4.5.0/fxparser.min.js"></script>
+    <script src="./fxp.min.js"></script>
     <style>
         body {
             font-family: Inter, sans-serif;
@@ -167,11 +167,11 @@
                     hljs.highlightAll();
 
                     try {
-                        const builder = new fxparser.XMLBuilder();
+                        const builder = new fxp.XMLBuilder();
                         xml = builder.build(json);
 
                         // Add surrounding <x></x> tags if xml is not valid
-                        const parser = new fxparser.XMLParser();
+                        const parser = new fxp.XMLParser();
                         try {
                             parser.parse(xml);
                         } catch (error) {
