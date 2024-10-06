@@ -3462,8 +3462,6 @@ null/Bombkitty
 9287071/bpradipt
 809839/portersrc
 8780263/openconfig
-69270564/aws-observability
-647025/pypa
 4266575/anayadesign
 128636122/Contoso-Inc
 11767950/status-im
@@ -7785,7 +7783,6 @@ a-gubskiy
 neondatabase
 oliverguenther
 Project-OSRM
-aws-observability
 keradus
 lyrixx
 mach-composer
@@ -7795,3 +7792,6 @@ puma
 splunk
 testdrivenio
 xabbuh
+apigee
+cloudfoundry-incubator
+truecharts
