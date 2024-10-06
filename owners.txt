@@ -6253,7 +6253,6 @@ null/wilczanora
 176055/cbliard
 38206611/Kharonus
 2813966/birthe
-459462/oliverguenther
 327272/wielinde
 105520747/kevinliang327
 126408518/susanbaz
@@ -7781,7 +7780,6 @@ null/fatiherikli
 AndrewAnnex
 a-gubskiy
 neondatabase
-oliverguenther
 Project-OSRM
 keradus
 lyrixx
