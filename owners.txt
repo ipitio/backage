@@ -7385,7 +7385,6 @@ null/wilczanora
 46382080/overholser
 12833921/blaze
 13681719/googlecodelabs
-5680605/cloudfoundry-incubator
 636474/cartwheel
 528018/sbhackerspace
 619640/cartwheelweb
@@ -7487,7 +7486,6 @@ null/wilczanora
 400034/GromNaN
 578547/jderusse
 243674/nicolas-grekas
-2716794/keradus
 47313/fabpot
 744921/dcsg
 73419/javiereguiluz
