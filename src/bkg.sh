@@ -119,6 +119,8 @@ main() {
         rm -f "$connections"
     elif [ "$mode" -eq 1 ]; then
         save_owner arevindh
+    elif [ "$mode" -eq 2 ]; then
+        save_owner ipitio
     fi
 
     if [ "$mode" -ne 2 ]; then
