@@ -7761,6 +7761,4 @@ improv-wifi
 appc
 djabberd
 camlistore
-DenverCoder1
-grundprinzip
 mauriciovasquezbernal
