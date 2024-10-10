@@ -94,6 +94,7 @@ main() {
             explore "$GITHUB_OWNER/$GITHUB_REPO"
         )" >>"$connections"
         echo "$(
+            echo "$GITHUB_OWNER"
             cat "$connections"
             cat "$BKG_OWNERS"
         )" >"$BKG_OWNERS"
