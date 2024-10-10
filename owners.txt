@@ -7761,3 +7761,4 @@ improv-wifi
 appc
 djabberd
 camlistore
+alivcor
