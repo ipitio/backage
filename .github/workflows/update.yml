@@ -16,7 +16,8 @@ defaults:
 
 jobs:
   update:
-    runs-on: ubuntu-latest
+    # sqlite3-pcre is last available on Ubuntu 23.04 as of 2024-10-11
+    runs-on: ubuntu-22.04
 
     permissions:
       contents: write
