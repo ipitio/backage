@@ -1,3 +1,4 @@
+eiriksm
 83288197/osalau
 3117/jbarnette
 637/leavengood
@@ -4719,7 +4720,6 @@ null/filippegesser
 1800018/1000ch
 22856/AndreasL
 1876931/Ajedi32
-265913/abhimanyu003
 2766036/50Wliu
 3321773/AaronC81
 3715173/AALEKH
@@ -7761,4 +7761,5 @@ null/fatiherikli
 10080092/appc
 234539/djabberd
 546165/camlistore
-alivcor
+ACyphus
+riccardobl
