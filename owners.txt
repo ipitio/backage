@@ -1,3 +1,5 @@
+nuxratx
+reneleonhardt
 83288197/osalau
 3117/jbarnette
 637/leavengood
@@ -4619,7 +4621,6 @@ null/Bombkitty
 57558538/Alexey-Rivkin
 5534781/leofang
 44509866/cspades
-69536/benfred
 687269/lukeyeager
 757180/aflat
 7400326/ajschmidt8
@@ -5844,7 +5845,6 @@ null/wilczanora
 1904138/pxlcoder
 33187212/darinadler
 3098702/aj062
-34114/philn
 43051392/charliewolfe
 4356609/dcrousso
 4744394/facetothefate
@@ -7760,4 +7760,8 @@ null/fatiherikli
 10080092/appc
 234539/djabberd
 546165/camlistore
-recordonce
+Azure-Samples
+TandoorRecipes
+charlotte-ruby
+ericsciple
+timmow
