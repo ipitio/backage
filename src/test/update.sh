@@ -20,8 +20,8 @@ if git ls-remote --exit-code origin index &>/dev/null; then
     popd || exit 1
 fi
 
+[ -f index/.env ] && \cp index/.env src/env.env || echo "No .env file found"
 pushd src || exit 1
-[ ! -f ../index/.env ] || \cp ../index/.env env.env
 source bkg.sh
 main "${@:2}"
 
@@ -49,8 +49,8 @@ check_xml() {
 find .. -type f -name '*.json' | env_parallel check_json
 # xml should be valid, warn if it is not
 find .. -type f -name '*.xml' | env_parallel check_xml
-\cp env.env index/.env
 popd || exit 1
+\cp src/env.env index/.env
 git config --global --add safe.directory "$(pwd)"
 
 if git worktree list | grep -q index; then
