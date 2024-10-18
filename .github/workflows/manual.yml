@@ -69,7 +69,7 @@ jobs:
           GITHUB_BRANCH: ${{ github.head_ref || github.ref_name }}
 
       - name: Dry run
-        run: docker-compose exec bkg bash src/test/update.sh -m 1; echo "updated=$?" >> "$GITHUB_OUTPUT"
+        run: docker exec bkg bash src/test/update.sh -m 1; echo "updated=$?" >> "$GITHUB_OUTPUT"
 
       - name: Get date
         id: date
