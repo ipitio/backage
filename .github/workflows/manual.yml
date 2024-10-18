@@ -54,7 +54,7 @@ jobs:
         run: |
           docker run -v $PWD:/app --env-file <(env | grep GITHUB) \
             ghcr.io/$GITHUB_OWNER/$GITHUB_REPO:master \
-            bash src/test/update.sh -m 1; echo "updated=$?" >> "$GITHUB_OUTPUT"
+            bash src/test/update.sh /app -m 1; echo "updated=$?" >> "$GITHUB_OUTPUT"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_OWNER: ${{ github.repository_owner }}

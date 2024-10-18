@@ -5,7 +5,8 @@
 #
 # shellcheck disable=SC1090,SC1091
 
-git config --global --add safe.directory "$(pwd)"
+git config --global --add safe.directory "$1"
+pushd "$1" || exit 1
 
 if git ls-remote --exit-code origin index &>/dev/null; then
     if [ -d index ]; then
@@ -20,10 +21,10 @@ if git ls-remote --exit-code origin index &>/dev/null; then
     popd || exit 1
 fi
 
-pushd "${0%/*}/.." || exit 1
+pushd src || exit 1
 [ ! -f ../index/.env ] || \cp ../index/.env env.env
 source bkg.sh
-main "$@"
+main "${@:2}"
 
 check_json() {
     if [ ! -s "$1" ]; then
@@ -65,3 +66,5 @@ fi
 git pull --rebase --autostash
 git merge --abort 2>/dev/null
 git pull --rebase --autostash -s ours &>/dev/null
+
+popd || exit 1
