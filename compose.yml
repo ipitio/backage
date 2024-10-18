@@ -4,3 +4,8 @@ services:
     build: .
     volumes:
       - .:/app
+    environment:
+      - GITHUB_TOKEN=$GITHUB_TOKEN
+      - GITHUB_OWNER=$GITHUB_OWNER
+      - GITHUB_REPO=$GITHUB_REPO
+      - GITHUB_BRANCH=$GITHUB_BRANCH
