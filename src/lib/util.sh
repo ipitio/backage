@@ -228,7 +228,7 @@ _jq() {
 }
 
 dldb() {
-    local code=0
+    curl "https://github.com/ipitio/backage/releases/latest" | grep -q "index.sql.zst" || return 1
     echo "Downloading the latest database..."
     # `cd src ; source bkg.sh && dldb` to dl the latest db
     [ ! -f "$BKG_INDEX_DB" ] || mv "$BKG_INDEX_DB" "$BKG_INDEX_DB".bak
@@ -239,12 +239,10 @@ dldb() {
     else
         [ ! -f "$BKG_INDEX_DB".bak ] || mv "$BKG_INDEX_DB".bak "$BKG_INDEX_DB"
         echo "Failed to download the latest database"
-        curl "https://github.com/ipitio/backage/releases/latest" | grep -q "index.sql.zst" || code=1
     fi
 
     [ -f "$BKG_ROOT/.gitignore" ] || echo "index.db*" >>$BKG_ROOT/.gitignore
     grep -q "index.db" "$BKG_ROOT/.gitignore" || echo "index.db*" >>$BKG_ROOT/.gitignore
-    return $code
 }
 
 curl_gh() {
