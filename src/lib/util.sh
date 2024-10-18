@@ -223,8 +223,7 @@ query_api() {
 }
 
 get_db() {
-
-    while ! dldb &>/dev/null; do
+    while ! dldb; do
         echo "Deleting the latest release..."
         #curl_gh -X DELETE "https://api.github.com/repos/ipitio/backage/releases/$(query_api "repos/ipitio/backage/releases/latest" | jq -r '.id')"
     done
