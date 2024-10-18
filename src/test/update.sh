@@ -8,6 +8,7 @@
 pushd "$1"/src || exit 1
 source bkg.sh
 popd || exit 1
+git config --global --add safe.directory "$(pwd)"
 
 if git ls-remote --exit-code origin index &>/dev/null; then
     if [ -d index ]; then
@@ -52,7 +53,6 @@ find .. -type f -name '*.json' | env_parallel check_json
 find .. -type f -name '*.xml' | env_parallel check_xml
 popd || exit 1
 \cp src/env.env index/.env
-git config --global --add safe.directory "$(pwd)"
 
 if git worktree list | grep -q index; then
     pushd index || exit 1
