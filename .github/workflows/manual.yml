@@ -58,19 +58,15 @@ jobs:
           tarBall: false
           zipBall: false
 
-      - name: Start container
-        uses: hoverkraft-tech/compose-action@v2.0.2
-        with:
-          compose-file: "./compose.yml"
-
       - name: Dry run
         run: |
-          docker exec \
+          docker run \
             -e GITHUB_TOKEN=$GITHUB_TOKEN \
             -e GITHUB_OWNER=$GITHUB_OWNER \
             -e GITHUB_REPO=$GITHUB_REPO \
             -e GITHUB_BRANCH=$GITHUB_BRANCH \
-            bkg \
+            -v $PWD:/app \
+            $(docker build -q .) \
             bash src/test/update.sh ; echo "updated=$?" >> "$GITHUB_OUTPUT"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
