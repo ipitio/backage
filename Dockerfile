@@ -1,4 +1,4 @@
 FROM ubuntu:22.04
 WORKDIR /app
-COPY src/lib/util.sh .
-RUN . util.sh
+COPY . .
+RUN bash src/lib/util.sh

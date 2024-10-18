@@ -58,7 +58,7 @@ jobs:
           tarBall: false
           zipBall: false
 
-      - name: Run docker-compose
+      - name: Start container
         uses: hoverkraft-tech/compose-action@v2.0.2
         with:
           compose-file: "./compose.yml"
