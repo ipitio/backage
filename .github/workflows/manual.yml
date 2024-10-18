@@ -49,6 +49,11 @@ jobs:
           source bkg.sh
           get_db
           popd || exit 1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_OWNER: ${{ github.repository_owner }}
+          GITHUB_REPO: ${{ github.event.repository.name }}
+          GITHUB_BRANCH: ${{ github.head_ref || github.ref_name }}
 
       - name: Fetch all data
         uses: robinraju/release-downloader@v1
