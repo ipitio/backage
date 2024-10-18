@@ -273,9 +273,9 @@ docker_manifest_size() {
     local manifest=$1
 
     if [[ -n "$(jq '.. | try .layers[]' 2>/dev/null <<<"$manifest")" ]]; then
-        jq '.. | try .size | select(. > 0)' <<<"$manifest" | awk '{s+=$1} END {print s}'
+        jq '.. | try .size | select(. > 0)' <<<"$manifest" | awk '{s+=$1} END {printf "%d",  s}'
     elif [[ -n "$(jq '.. | try .manifests[]' 2>/dev/null <<<"$manifest")" ]]; then
-        jq '.. | try .size | select(. > 0)' <<<"$manifest" | awk '{s+=$1} END {print s/NR}'
+        jq '.. | try .size | select(. > 0)' <<<"$manifest" | awk '{s+=$1} END {printf "%d",  s/NR}'
     else
         echo -1
     fi

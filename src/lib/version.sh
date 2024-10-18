@@ -16,8 +16,8 @@ save_version() {
     if [ -f "${table_version_name}"_already_updated ]; then
         check_limit || return $?
         grep -q "$version_id" "${table_version_name}"_already_updated && [ "$mode" -eq 0 ] && return || :
-        version_tags=$(_jq "$1" '.. | try .tags | join(",")')
-        [ -n "$version_tags" ] || version_tags=$(_jq "$1" '.. | try .tags')
+        version_tags=$(_jq "$1" '.. | try .tags | select(. != null and . != "") | join(",")')
+        [ -n "$version_tags" ] || version_tags=$(_jq "$1" '.. | try .tags | select(. != null and . != "")')
 
         if [ -z "$version_tags" ] || [[ "$version_tags" =~ null ]]; then
             for page in $(seq 1 2); do
@@ -134,7 +134,10 @@ update_version() {
 
     if [ "$package_type" = "container" ]; then
         # https://unix.stackexchange.com/q/550463, https://stackoverflow.com/q/45186440
-        version_size=$(docker_manifest_size "$(awk -v RS='</pre>' '/<code.*?>/{gsub(/.*<code.*?>/, ""); print}' <<<"$version_html" | tr -d '\n' | sed 's/&quot;/"/g')")
+        local manifest
+        manifest=$(awk -v RS='</pre>' '/<code.*?>/{gsub(/.*<code.*?>/, ""); print}' <<<"$version_html" | sed 's/&quot;/"/g')
+        version_size=$(docker_manifest_size "$manifest")
+        [[ -n "$version_tags" ]] || version_tags=$(jq '.. | try ."org.opencontainers.image.version" | select(. != null and . != "")' <<<"$manifest")
         [[ "$version_size" =~ ^[0-9]+$ ]] || version_size=$(docker_manifest_size "$(docker manifest inspect -v "ghcr.io/$lower_owner/$lower_package$([[ "$version_name" =~ ^sha256:.+$ ]] && echo "@" || echo ":")$version_name" 2>&1)")
     else
         : # TODO: get size for other package types
