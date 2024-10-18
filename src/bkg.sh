@@ -3,6 +3,55 @@
 
 source lib/owner.sh
 
+check_limit() {
+    local total_calls
+    local rate_limit_end
+    local script_limit_diff
+    local rate_limit_diff
+    local hours_passed
+    local remaining_time
+    local minute_calls
+    local sec_limit_diff
+    local min_passed
+    local max_len=${1:-18000}
+    total_calls=$(get_BKG BKG_CALLS_TO_API)
+    rate_limit_end=$(date -u +%s)
+    script_limit_diff=$((rate_limit_end - $(get_BKG BKG_SCRIPT_START)))
+    hours_passed=$((rate_limit_diff / 3600))
+    ((script_limit_diff < max_len)) || save_and_exit
+    (($? != 3)) || return 3
+
+    if ((total_calls >= 1000 * (hours_passed + 1))); then
+        echo "$total_calls calls to the GitHub API in $((rate_limit_diff / 60)) minutes"
+        remaining_time=$((3600 * (hours_passed + 1) - rate_limit_diff))
+        ((remaining_time < max_len - script_limit_diff)) || save_and_exit
+        (($? != 3)) || return 3
+        echo "Sleeping for $remaining_time seconds..."
+        sleep $remaining_time
+        echo "Resuming!"
+        set_BKG BKG_RATE_LIMIT_START "$(date -u +%s)"
+        set_BKG BKG_CALLS_TO_API "0"
+    fi
+
+    # wait if 900 or more calls have been made in the last minute
+    minute_calls=$(get_BKG BKG_MIN_CALLS_TO_API)
+    rate_limit_end=$(date -u +%s)
+    sec_limit_diff=$((rate_limit_end - $(get_BKG BKG_MIN_RATE_LIMIT_START)))
+    min_passed=$((sec_limit_diff / 60))
+
+    if ((minute_calls >= 900 * (min_passed + 1))); then
+        echo "$minute_calls calls to the GitHub API in $sec_limit_diff seconds"
+        remaining_time=$((60 * (min_passed + 1) - sec_limit_diff))
+        ((remaining_time < max_len - script_limit_diff)) || save_and_exit
+        (($? != 3)) || return 3
+        echo "Sleeping for $remaining_time seconds..."
+        sleep $remaining_time
+        echo "Resuming!"
+        set_BKG BKG_MIN_RATE_LIMIT_START "$(date -u +%s)"
+        set_BKG BKG_MIN_CALLS_TO_API "0"
+    fi
+}
+
 main() {
     mode=0
     local rotated=false

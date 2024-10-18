@@ -46,7 +46,7 @@ jobs:
 
           pushd src || exit 1
           [ ! -f ../index/.env ] || \cp ../index/.env env.env
-          source bkg.sh
+          source lib/util.sh
           get_db
           popd || exit 1
         env:
