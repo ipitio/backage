@@ -273,7 +273,6 @@ get_db() {
     release=$(query_api "repos/ipitio/backage/releases/latest")
 
     while ! dldb; do
-        check_limit || return $?
         echo "Deleting the latest release..."
         curl_gh -X DELETE "https://api.github.com/repos/ipitio/backage/releases/$(jq -r '.id' <<<"$release")"
         release=$(query_api "repos/ipitio/backage/releases/latest")
