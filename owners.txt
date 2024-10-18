@@ -7760,8 +7760,4 @@ null/fatiherikli
 10080092/appc
 234539/djabberd
 546165/camlistore
-Azure-Samples
-TandoorRecipes
 charlotte-ruby
-ericsciple
-timmow
