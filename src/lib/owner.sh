@@ -24,9 +24,7 @@ request_owner() {
     grep -q "^(.*\/)*$owner$" "$BKG_OWNERS" || echo "$id/$owner" >>"$BKG_OWNERS"
 
     if [ "$(stat -c %s "$BKG_OWNERS")" -ge 100000000 ]; then
-        while ! ln "$BKG_OWNERS" "$BKG_OWNERS.lock" 2>/dev/null; do :; done
         sed -i '$d' "$BKG_OWNERS"
-        rm -f "$BKG_OWNERS.lock"
         return_code=2
     elif $paging && [ -n "$id" ]; then
         set_BKG BKG_LAST_SCANNED_ID "$id"
@@ -94,13 +92,7 @@ update_owner() {
         pages_left=$?
         ((pages_left != 3)) || return 3
         pkgs=$(get_BKG_set BKG_PACKAGES_"$owner")
-
-        if [ -z "$pkgs" ]; then
-            while ! ln "$BKG_OWNERS" "$BKG_OWNERS.lock" 2>/dev/null; do :; done
-            sed -i '/^(.*\/)*'"$owner"'$/d' "$BKG_OWNERS"
-            rm -f "$BKG_OWNERS.lock"
-        fi
-
+        sed -i '/^(.*\/)*'"$owner"'$/d' "$BKG_OWNERS"
         run_parallel update_package "$pkgs"
         (($? != 3)) || return 3
         ((pages_left != 2)) || break
