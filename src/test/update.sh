@@ -7,19 +7,16 @@
 
 pushd "$1" || exit 1
 
-if git ls-remote --exit-code origin index &>/dev/null; then
-    if [ -d index ]; then
-        [ ! -d index.bak ] || rm -rf index.bak
-        mv index index.bak
-    fi
-
-    git fetch origin index
-    git worktree add index index
-    pushd index || exit 1
-    git reset --hard origin/index
-    popd || exit 1
+if [ -d index ]; then
+    [ ! -d index.bak ] || rm -rf index.bak
+    mv index index.bak
 fi
 
+git fetch origin index
+git worktree add index index
+pushd index || exit 1
+git reset --hard origin/index
+popd || exit 1
 [ -f index/.env ] && \cp index/.env src/env.env || echo "No .env file found"
 pushd src || exit 1
 source bkg.sh
