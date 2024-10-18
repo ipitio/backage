@@ -36,6 +36,7 @@ find .. -type f -name '*.xml' | env_parallel check_xml
 popd || exit 1
 \cp "${0%/*}/.."/env.env index/.env
 
+git config --global --add safe.directory "$(pwd)"
 if git worktree list | grep -q index; then
     pushd index || exit 1
     git config --global user.name "${GITHUB_ACTOR}"
