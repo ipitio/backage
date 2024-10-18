@@ -30,25 +30,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Fetch latest data
-        run: |
-          if git ls-remote --exit-code origin index &>/dev/null; then
-            if [ -d index ]; then
-                [ ! -d index.bak ] || rm -rf index.bak
-                mv index index.bak
-            fi
-
-            git fetch origin index
-            git worktree add index index
-            pushd index || exit 1
-            git reset --hard origin/index
-            popd || exit 1
-          fi
-
-          pushd src || exit 1
-          [ ! -f ../index/.env ] || \cp ../index/.env env.env
-          source lib/util.sh
-          get_db
-          popd || exit 1
+        run: cd src && source lib/util.sh && get_db
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_OWNER: ${{ github.repository_owner }}
@@ -66,12 +48,7 @@ jobs:
       - name: Dry run
         id: update
         run: |
-          docker run \
-            -e GITHUB_TOKEN=$GITHUB_TOKEN \
-            -e GITHUB_OWNER=$GITHUB_OWNER \
-            -e GITHUB_REPO=$GITHUB_REPO \
-            -e GITHUB_BRANCH=$GITHUB_BRANCH \
-            -v $PWD:/app \
+          docker run -v $PWD:/app --env_file <(env | grep GITHUB) \
             $(docker build -q .) \
             bash src/test/update.sh -m 1; echo "updated=$?" >> "$GITHUB_OUTPUT"
         env:

@@ -2,7 +2,7 @@ name: build
 
 on:
   release:
-    types: [published]
+    types: [published, created, edited]
 
 env:
   REGISTRY: ghcr.io
@@ -36,7 +36,7 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v5.3.0
         with:
-          context: ./src
+          context: .
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

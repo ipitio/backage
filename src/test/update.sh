@@ -5,7 +5,23 @@
 #
 # shellcheck disable=SC1090,SC1091
 
+git config --global --add safe.directory "$(pwd)"
+
+if git ls-remote --exit-code origin index &>/dev/null; then
+    if [ -d index ]; then
+        [ ! -d index.bak ] || rm -rf index.bak
+        mv index index.bak
+    fi
+
+    git fetch origin index
+    git worktree add index index
+    pushd index || exit 1
+    git reset --hard origin/index
+    popd || exit 1
+fi
+
 pushd "${0%/*}/.." || exit 1
+[ ! -f ../index/.env ] || \cp ../index/.env env.env
 source bkg.sh
 main "$@"
 
@@ -36,7 +52,6 @@ find .. -type f -name '*.xml' | env_parallel check_xml
 popd || exit 1
 \cp "${0%/*}/.."/env.env index/.env
 
-git config --global --add safe.directory "$(pwd)"
 if git worktree list | grep -q index; then
     pushd index || exit 1
     git config --global user.name "${GITHUB_ACTOR}"

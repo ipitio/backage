@@ -231,7 +231,7 @@ get_db() {
 
     while ! dldb "$latest"; do
         echo "Deleting the latest release..."
-        #curl_gh -X DELETE "https://api.github.com/repos/ipitio/backage/releases/$(jq -r '.id' <<<"$release")"
+        curl_gh -X DELETE "https://api.github.com/repos/ipitio/backage/releases/$(jq -r '.id' <<<"$release")"
         release=$(query_api "repos/ipitio/backage/releases/latest")
         latest=$(jq -r '.tag_name' <<<"$release")
     done
