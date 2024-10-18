@@ -229,7 +229,7 @@ _jq() {
 
 dldb() {
     local code=0
-    echo "Downloading the latest database..."
+    #echo "Downloading the latest database..."
     # `cd src ; source bkg.sh && dldb` to dl the latest db
     [ ! -f "$BKG_INDEX_DB" ] || mv "$BKG_INDEX_DB" "$BKG_INDEX_DB".bak
     command curl -sSLNZ "https://github.com/ipitio/backage/releases/download/$(curl "https://github.com/ipitio/backage/releases/latest" | grep -oP 'href="/ipitio/backage/releases/tag/[^"]+' | cut -d'/' -f6)/index.sql.zst" | unzstd -v -c | sqlite3 "$BKG_INDEX_DB"
@@ -238,7 +238,7 @@ dldb() {
         [ ! -f "$BKG_INDEX_DB".bak ] || rm -f "$BKG_INDEX_DB".bak
     else
         [ ! -f "$BKG_INDEX_DB".bak ] || mv "$BKG_INDEX_DB".bak "$BKG_INDEX_DB"
-        echo "Failed to download the latest database"
+        #echo "Failed to download the latest database"
         curl "https://github.com/ipitio/backage/releases/latest" | grep -q "index.sql.zst" || code=1
     fi
 
@@ -270,7 +270,7 @@ query_api() {
 get_db() {
     while ! dldb; do
         check_limit || return $?
-        echo "Deleting the latest release..."
+        #echo "Deleting the latest release..."
         curl_gh -X DELETE "https://api.github.com/repos/ipitio/backage/releases/$(query_api "repos/ipitio/backage/releases/latest" | jq -r '.id')"
     done
     # echo the latest tag
