@@ -38,7 +38,7 @@ save_owner() {
     check_limit || return $?
     [ -n "$1" ] || return
     local owner_id
-    owner_id=$(owner_get_id "$1")
+    owner_id=$(owner_get_id "$1") || return
     ! set_BKG_set BKG_OWNERS_QUEUE "$owner_id" || echo "Queued $(cut -d'/' -f2 <<<"$owner_id")"
 }
 
@@ -92,7 +92,7 @@ update_owner() {
         pages_left=$?
         ((pages_left != 3)) || return 3
         pkgs=$(get_BKG_set BKG_PACKAGES_"$owner")
-        sed -i '/^(.*\/)*'"$owner"'$/d' "$BKG_OWNERS"
+        sed -i '/^(.*\/)*'"$owner"'$/d' "$BKG_OWNERS" &
         run_parallel update_package "$pkgs"
         (($? != 3)) || return 3
         ((pages_left != 2)) || break

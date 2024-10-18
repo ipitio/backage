@@ -17,9 +17,9 @@ save_version() {
         check_limit || return $?
         grep -q "$version_id" "${table_version_name}"_already_updated && [ "$mode" -eq 0 ] && return || :
         version_tags=$(_jq "$1" '.. | try .tags | select(. != null and . != "") | join(",")')
-        [ -n "$version_tags" ] || version_tags=$(_jq "$1" '.. | try .tags | select(. != null and . != "")')
+        [[ -n "$version_tags" && "$version_tags" != "[]" ]] || version_tags=$(_jq "$1" '.. | try .tags | select(. != null and . != "")')
 
-        if [ -z "$version_tags" ] || [[ "$version_tags" =~ null ]]; then
+        if [[ -z "$version_tags" || "$version_tags" == "[]" ]]; then
             for page in $(seq 1 2); do
                 local html
                 html=$(curl "https://github.com/$owner/$repo/pkgs/$package_type/$package/versions?page=$page")

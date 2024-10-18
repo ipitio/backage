@@ -58,14 +58,18 @@ jobs:
           tarBall: false
           zipBall: false
 
-      - name: Dry run
-        id: update
-        run: bash src/test/update.sh -m 1; echo "updated=$?" >> "$GITHUB_OUTPUT"
+      - name: Run docker-compose
+        uses: hoverkraft-tech/compose-action@v2.0.2
+        with:
+          compose-file: "./compose.yml"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_OWNER: ${{ github.repository_owner }}
           GITHUB_REPO: ${{ github.event.repository.name }}
           GITHUB_BRANCH: ${{ github.head_ref || github.ref_name }}
+
+      - name: Dry run
+        run: docker-compose exec bkg bash src/test/update.sh -m 1; echo "updated=$?" >> "$GITHUB_OUTPUT"
 
       - name: Get date
         id: date
