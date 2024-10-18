@@ -62,14 +62,21 @@ jobs:
         uses: hoverkraft-tech/compose-action@v2.0.2
         with:
           compose-file: "./compose.yml"
+
+      - name: Dry run
+        run: |
+          docker exec \
+            -e GITHUB_TOKEN=$GITHUB_TOKEN \
+            -e GITHUB_OWNER=$GITHUB_OWNER \
+            -e GITHUB_REPO=$GITHUB_REPO \
+            -e GITHUB_BRANCH=$GITHUB_BRANCH \
+            bkg \
+            bash src/test/update.sh ; echo "updated=$?" >> "$GITHUB_OUTPUT"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_OWNER: ${{ github.repository_owner }}
           GITHUB_REPO: ${{ github.event.repository.name }}
           GITHUB_BRANCH: ${{ github.head_ref || github.ref_name }}
-
-      - name: Dry run
-        run: docker exec bkg bash src/test/update.sh -m 1; echo "updated=$?" >> "$GITHUB_OUTPUT"
 
       - name: Get date
         id: date
