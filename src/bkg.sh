@@ -113,7 +113,7 @@ main() {
         fi
 
         env_parallel --lb save_owner <"$BKG_OWNERS"
-        awk -F'|' '{print $1"/"$2}' <packages_to_update | sort -uR 2>/dev/null | head -n500 | env_parallel --lb save_owner
+        awk -F'|' '{print $1"/"$2}' <packages_to_update | sort -uR 2>/dev/null | head -n1500 | env_parallel --lb save_owner
         set_BKG BKG_DIFF "$db_size_curr"
         parallel "sed -i '\,^{}$,d' $BKG_OWNERS" <"$connections"
         rm -f "$connections"
