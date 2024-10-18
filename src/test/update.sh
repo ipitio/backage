@@ -5,7 +5,6 @@
 #
 # shellcheck disable=SC1090,SC1091
 
-git config --global --add safe.directory "$1"
 pushd "$1" || exit 1
 
 if git ls-remote --exit-code origin index &>/dev/null; then
@@ -50,8 +49,9 @@ check_xml() {
 find .. -type f -name '*.json' | env_parallel check_json
 # xml should be valid, warn if it is not
 find .. -type f -name '*.xml' | env_parallel check_xml
+\cp env.env index/.env
 popd || exit 1
-\cp "${0%/*}/.."/env.env index/.env
+git config --global --add safe.directory "$(pwd)"
 
 if git worktree list | grep -q index; then
     pushd index || exit 1
