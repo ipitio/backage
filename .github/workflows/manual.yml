@@ -30,7 +30,11 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Fetch latest data
-        run: cd src && source lib/util.sh && get_db
+        run: |
+          pushd src || exit 1
+          source lib/util.sh
+          get_db
+          popd || exit 1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_OWNER: ${{ github.repository_owner }}
