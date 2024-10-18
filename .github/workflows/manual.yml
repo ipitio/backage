@@ -30,7 +30,6 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Fetch latest data
-        id: dl
         run: |
           if git ls-remote --exit-code origin index &>/dev/null; then
             if [ -d index ]; then
@@ -48,13 +47,13 @@ jobs:
           pushd src || exit 1
           [ ! -f ../index/.env ] || \cp ../index/.env env.env
           source bkg.sh
-          get_db | grep -oP "latest=\S+" >> "$GITHUB_OUTPUT"
+          get_db
           popd || exit 1
 
       - name: Fetch all data
         uses: robinraju/release-downloader@v1
         with:
-          tag: ${{ steps.dl.outputs.latest }}
+          latest: true
           fileName: "*.zst"
           tarBall: false
           zipBall: false

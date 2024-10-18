@@ -269,17 +269,10 @@ query_api() {
 }
 
 get_db() {
-    local release
-    echo "Getting the latest release..."
-    release=$(query_api "repos/ipitio/backage/releases/latest")
-    echo "Got the latest release"
     while ! dldb &>/dev/null; do
         echo "Deleting the latest release..."
-        curl_gh -X DELETE "https://api.github.com/repos/ipitio/backage/releases/$(jq -r '.id' <<<"$release")"
-        release=$(query_api "repos/ipitio/backage/releases/latest")
+        curl_gh -X DELETE "https://api.github.com/repos/ipitio/backage/releases/$(query_api "repos/ipitio/backage/releases/latest" | jq -r '.id')"
     done
-    # echo the latest tag
-    echo "latest=$(jq -r '.tag_name' <<<"$release")"
 }
 
 docker_manifest_size() {
