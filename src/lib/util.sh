@@ -190,7 +190,7 @@ dldb() {
     echo "Downloading the latest database..."
     # `cd src ; source bkg.sh && dldb` to dl the latest db
     [ ! -f "$BKG_INDEX_DB" ] || mv "$BKG_INDEX_DB" "$BKG_INDEX_DB".bak
-    command curl -sSLNZO "https://github.com/ipitio/backage/releases/download/$latest/index.sql.zst" | unzstd -v -c index.sql.zst | sqlite3 "$BKG_INDEX_DB"
+    command curl -sSLNZO "https://github.com/ipitio/backage/releases/download/$latest/index.sql.zst" | unzstd -v -c | sqlite3 "$BKG_INDEX_DB"
 
     if [ -f "$BKG_INDEX_DB" ]; then
         [ ! -f "$BKG_INDEX_DB".bak ] || rm -f "$BKG_INDEX_DB".bak
