@@ -64,6 +64,7 @@ jobs:
           zipBall: false
 
       - name: Dry run
+        id: update
         run: |
           docker run \
             -e GITHUB_TOKEN=$GITHUB_TOKEN \
