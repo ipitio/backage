@@ -119,7 +119,10 @@ del_BKG() {
 }
 
 save_and_exit() {
-    if (($(get_BKG BKG_TIMEOUT) == 0)); then
+    local to
+    to=$(get_BKG BKG_TIMEOUT)
+
+    if ((${to:-0} == 0)); then
         set_BKG BKG_TIMEOUT "1"
         echo "Stopping $$..."
     fi
