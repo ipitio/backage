@@ -376,3 +376,5 @@ ytox() {
 ytoy() {
     yq -oy "$1" | sed 's/"/\\"/g' >"${1%.*}.yml"
 }
+
+echo "Backage loaded"
