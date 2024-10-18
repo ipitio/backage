@@ -1,6 +1,6 @@
 services:
   bkg:
     container_name: bkg
-    image: ghcr.io/ipitio/backage:latest
+    build: .
     volumes:
       - .:/app
