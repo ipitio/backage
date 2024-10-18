@@ -4,5 +4,3 @@ services:
     image: ghcr.io/ipitio/backage:latest
     volumes:
       - .:/app
-    env_file: <( env | cut -f1 -d= )
-    command: bash src/test/update.sh
