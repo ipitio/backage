@@ -67,5 +67,3 @@ fi
 git pull --rebase --autostash
 git merge --abort 2>/dev/null
 git pull --rebase --autostash -s ours &>/dev/null
-
-popd || exit 1
