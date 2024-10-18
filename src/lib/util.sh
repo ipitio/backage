@@ -7,10 +7,10 @@
 # shellcheck disable=SC1090,SC1091,SC2015,SC2034
 
 apt_install() {
-    apt-get install wget curl jq parallel sqlite3 sqlite3-pcre zstd libxml2-utils -yqq
+    apt-get install git wget curl jq parallel sqlite3 sqlite3-pcre zstd libxml2-utils -yqq
 }
 
-if ! command -v wget &>/dev/null || command -v curl &>/dev/null || ! command -v jq &>/dev/null || ! command -v sqlite3 &>/dev/null || ! command -v zstd &>/dev/null || ! command -v parallel &>/dev/null || ! command -v xmllint &>/dev/null || [ ! -f /usr/lib/sqlite3/pcre.so ]; then
+if ! command -v git &>/dev/null || ! command -v wget &>/dev/null || command -v curl &>/dev/null || ! command -v jq &>/dev/null || ! command -v sqlite3 &>/dev/null || ! command -v zstd &>/dev/null || ! command -v parallel &>/dev/null || ! command -v xmllint &>/dev/null || [ ! -f /usr/lib/sqlite3/pcre.so ]; then
     echo "Installing dependencies..."
     if ! apt_install; then
         apt-get update

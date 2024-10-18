@@ -1,5 +1,5 @@
 FROM ubuntu:22.04
 WORKDIR /app
-COPY . .
-RUN bash src/lib/util.sh
+COPY src src
+RUN bash src/bkg.sh
 CMD ["tail", "-f", "/dev/null"]
