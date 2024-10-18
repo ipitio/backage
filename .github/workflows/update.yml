@@ -45,9 +45,9 @@ jobs:
       - name: Dry run
         id: update
         run: |
-          docker run -v $PWD:/app --env_file <(env | grep GITHUB) \
-            $(docker build -q .) \
-            bash src/test/update.sh; echo "updated=$?" >> "$GITHUB_OUTPUT"
+          docker run -v $PWD:/app --env-file <(env | grep GITHUB) \
+            ghcr.io/$GITHUB_OWNER/$GITHUB_REPO:latest \
+            bash src/test/update.sh -m 1; echo "updated=$?" >> "$GITHUB_OUTPUT"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_OWNER: ${{ github.repository_owner }}
