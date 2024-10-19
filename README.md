@@ -20,8 +20,6 @@ The GitHub Packages API doesn't expose much of the publicly-available metadata t
 
 To add any other users or organizations not yet [in the index](https://github.com/ipitio/backage/tree/index), add the case-sensitive name of each one on a new line in `owners.txt` on your own fork [here](https://github.com/ipitio/backage/edit/master/owners.txt) and make a pull request. Please add just the name(s) -- ids, repos, and packages will be obtained automatically!
 
-Use something like [shields.io/json](https://shields.io/badges/dynamic-json-badge) or [shields.io/xml](https://shields.io/badges/dynamic-xml-badge) with the endpoint parameters below to access the latest data and make badges like the ones above.
-
 <div align="center">
 
 </div>
@@ -32,7 +30,7 @@ Use something like [shields.io/json](https://shields.io/badges/dynamic-json-badg
 https://ipitio.github.io/backage/OWNER/REPO/PACKAGE.FORMAT
 ```
 
-Replace `OWNER/REPO/PACKAGE.FORMAT` with their respective values. The format can be either `json` or `xml`. If you're using Shields to evaluate expressions, like filters, you'll need the XML endpoint -- see [this issue](https://github.com/ipitio/backage/issues/23).
+Use something like [shields.io/json](https://shields.io/badges/dynamic-json-badge) or [shields.io/xml](https://shields.io/badges/dynamic-xml-badge) with this endpoint to access the latest data and make badges like the ones above. Replace `OWNER/REPO/PACKAGE.FORMAT` with their respective values. The format can be either `json` or `xml`. You'll need the XML endpoint to evaluate expressions, like filters, with Shields -- see [this issue](https://github.com/ipitio/backage/issues/23).
 
 ### Properties
 
