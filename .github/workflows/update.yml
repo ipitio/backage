@@ -50,7 +50,7 @@ jobs:
       - name: Dry run
         id: update
         run: |
-          docker run -u $(id -u) -v $PWD:/app --env-file <(env | grep GITHUB) \
+          docker run -v $PWD:/app --env-file <(env | grep GITHUB) \
             ghcr.io/$GITHUB_OWNER/$GITHUB_REPO:master \
             bash src/test/update.sh /app; echo "updated=$?" >> "$GITHUB_OUTPUT"
 
