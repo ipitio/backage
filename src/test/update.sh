@@ -10,7 +10,7 @@ source bkg.sh
 popd || exit 1
 git config --global --add safe.directory "$(pwd)"
 git config core.sharedRepository group
-chgrp -R wheel .
+chgrp -R docker .
 chmod -R g+wX .
 
 if git ls-remote --exit-code origin index &>/dev/null; then
