@@ -14,6 +14,12 @@ defaults:
     # based on https://github.com/actions/runner/issues/241#issuecomment-2019042651
     shell: 'script --return --quiet --log-out /dev/null --command "bash -e {0}"'
 
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  GITHUB_OWNER: ${{ github.repository_owner }}
+  GITHUB_REPO: ${{ github.event.repository.name }}
+  GITHUB_BRANCH: ${{ github.head_ref || github.ref_name }}
+
 jobs:
   update:
     # sqlite3-pcre is last available on Ubuntu 23.04 as of 2024-10-11
@@ -32,11 +38,6 @@ jobs:
           source lib/util.sh
           get_db
           popd || exit 1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_OWNER: ${{ github.repository_owner }}
-          GITHUB_REPO: ${{ github.event.repository.name }}
-          GITHUB_BRANCH: ${{ github.head_ref || github.ref_name }}
 
       - name: Fetch all data
         uses: robinraju/release-downloader@v1
@@ -50,13 +51,8 @@ jobs:
         id: update
         run: |
           docker run -v $PWD:/app --env-file <(env | grep GITHUB) \
-            ghcr.io/$GITHUB_OWNER/$GITHUB_REPO:master \
-            bash src/test/update.sh /app -m 1; echo "updated=$?" >> "$GITHUB_OUTPUT"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_OWNER: ${{ github.repository_owner }}
-          GITHUB_REPO: ${{ github.event.repository.name }}
-          GITHUB_BRANCH: ${{ github.head_ref || github.ref_name }}
+            ghcr.io/$GITHUB_OWNER/$GITHUB_REPO \
+            bash src/test/update.sh /app; echo "updated=$?" >> "$GITHUB_OUTPUT"
 
       - name: Get date
         id: date
