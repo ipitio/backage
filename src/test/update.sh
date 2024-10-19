@@ -8,10 +8,13 @@
 pushd "$1"/src || exit 1
 source bkg.sh
 popd || exit 1
-git config --global --add safe.directory "$(pwd)"
-git config core.sharedRepository group
-chgrp -R docker .
-chmod -R g+wX .
+git config --global --add safea.directory "$(pwd)"
+
+if groups | grep -q docker; then
+    git config core.sharedRepository group
+    chgrp -R docker .
+    chmod -R g+wX .
+fi
 
 if git ls-remote --exit-code origin index &>/dev/null; then
     if [ -d index ]; then
