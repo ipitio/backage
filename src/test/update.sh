@@ -8,7 +8,7 @@
 pushd "$1"/src || exit 1
 source bkg.sh
 popd || exit 1
-git config --global --add safea.directory "$(pwd)"
+git config --global --add safe.directory "$(pwd)"
 
 if groups | grep -q docker; then
     git config core.sharedRepository group
