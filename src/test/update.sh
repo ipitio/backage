@@ -10,8 +10,8 @@ source bkg.sh
 popd || exit 1
 git config --global --add safe.directory "$(pwd)"
 git config core.sharedRepository all
-sudo chmod -R a+rwX .
-sudo find . -type d -exec chmod g+s '{}' +
+sudo chmod -R a+rwX . || chmod -R a+rwX .
+sudo find . -type d -exec chmod g+s '{}' + || find . -type d -exec chmod g+s '{}' +
 
 if git ls-remote --exit-code origin index &>/dev/null; then
     if [ -d index ]; then
