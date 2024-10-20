@@ -5,16 +5,13 @@
 #
 # shellcheck disable=SC1090,SC1091
 
-pushd "$1"/src || exit 1
+pushd "${1:-.}"/src || exit 1
 source bkg.sh
 popd || exit 1
 git config --global --add safe.directory "$(pwd)"
-
-if groups | grep -q docker; then
-    git config core.sharedRepository group
-    chgrp -R docker .
-    chmod -R g+wX .
-fi
+git config core.sharedRepository all
+sudo chmod -R a+rwX .
+sudo find . -type d -exec chmod g+s '{}' +
 
 if git ls-remote --exit-code origin index &>/dev/null; then
     if [ -d index ]; then

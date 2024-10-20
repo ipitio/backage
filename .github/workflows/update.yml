@@ -52,7 +52,7 @@ jobs:
         run: |
           docker run -v $PWD:/app --env-file <(env | grep GITHUB) \
             ghcr.io/$GITHUB_OWNER/$GITHUB_REPO:master \
-            bash src/test/update.sh /app; echo "updated=$?" >> "$GITHUB_OUTPUT"
+            bash src/test/update.sh; echo "updated=$?" >> "$GITHUB_OUTPUT"
 
       - name: Get date
         id: date
