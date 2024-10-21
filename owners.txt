@@ -1,3 +1,4 @@
+nuxratx
 rtuszik
 83288197/osalau
 3117/jbarnette
@@ -4837,7 +4838,6 @@ null/filippegesser
 52343/jbpros
 6801122/dunossauro
 3394270/johnknoop
-28048/dkowis
 30417112/eraffel-MDSol
 191521/jarl-dk
 9792/josephwilk
@@ -7759,11 +7759,12 @@ null/fatiherikli
 10080092/appc
 234539/djabberd
 546165/camlistore
-JulienBreux
-abhimanyu003
-alessandroste
-benfred
-jameswritescode
-openzipkin-contrib
-philn
-photostructure
+Fil
+Juice10
+ajnart
+ansible-community
+cpanato
+reactjs
+terrajobst
+tetrateio
+thom4parisot
