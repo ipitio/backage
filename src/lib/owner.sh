@@ -92,12 +92,12 @@ update_owner() {
         pages_left=$?
         ((pages_left != 3)) || return 3
         pkgs=$(get_BKG_set BKG_PACKAGES_"$owner")
-        sed -i '/^(.*\/)*'"$owner"'$/d' "$BKG_OWNERS" &
         run_parallel update_package "$pkgs"
         (($? != 3)) || return 3
         ((pages_left != 2)) || break
         set_BKG BKG_PACKAGES_"$owner" ""
     done
 
+    sed -i '/^\(.*\/\)*'"$owner"'$/d' "$BKG_OWNERS"
     echo "Updated $owner"
 }
