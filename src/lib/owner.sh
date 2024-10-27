@@ -44,7 +44,7 @@ save_owner() {
 
 page_owner() {
     check_limit || return $?
-    [ -n "$1" ] || return
+    ((${1:-0} > 0)) || return
     local owners_more="[]"
     local users_more="[]"
     local orgs_more="[]"
