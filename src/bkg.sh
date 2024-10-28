@@ -125,7 +125,7 @@ main() {
             parallel "sed -i '\,^{}$,d' $BKG_OWNERS" <"$connections"
             set_BKG BKG_DIFF "$db_size_curr"
             rm -f "$connections"
-            [ "$(wc -l <"$BKG_OWNERS")" -gt 64 ] || seq 0 1 | env_parallel --lb --halt soon,fail=1 page_owner
+            [ "$(wc -l <"$BKG_OWNERS")" -gt 32 ] || seq 1 2 | env_parallel --lb --halt soon,fail=1 page_owner
         else
             save_owner "$GITHUB_OWNER"
         fi
