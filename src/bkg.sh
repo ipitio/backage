@@ -104,8 +104,6 @@ main() {
             awk -F'|' '{print $1"/"$2}' <packages_all
             awk -F'|' '{print $2}' <packages_all
         )" | sort -u | parallel "sed -i '\,^{}$,d' $BKG_OWNERS"
-        [ "$(wc -l <"$BKG_OWNERS")" -gt 10 ] || seq 0 1 | env_parallel --lb --halt soon,fail=1 page_owner
-
 
         if [[ "$pkg_left" == "0" || "${db_size_curr::-2}" == "${db_size_prev::-2}" ]]; then
             set_BKG BKG_BATCH_FIRST_STARTED "$today"
@@ -114,10 +112,11 @@ main() {
         fi
 
         env_parallel --lb save_owner <"$BKG_OWNERS"
-        awk -F'|' '{print $1"/"$2}' <packages_to_update | sort -uR 2>/dev/null | head -n1500 | env_parallel --lb save_owner
+        awk -F'|' '{print $1"/"$2}' <packages_to_update | sort -uR 2>/dev/null | head -n1000 | env_parallel --lb save_owner
         parallel "sed -i '\,^{}$,d' $BKG_OWNERS" <"$connections"
         set_BKG BKG_DIFF "$db_size_curr"
         rm -f "$connections"
+        [ "$(wc -l <"$BKG_OWNERS")" -gt 64 ] || seq 0 1 | env_parallel --lb --halt soon,fail=1 page_owner
     elif [ "$mode" -eq 1 ]; then
         save_owner ipitio
     fi
