@@ -51,7 +51,7 @@ page_owner() {
         echo "Checking owners page $1..."
         users_more=$(query_api "users?per_page=100&page=$1&since=$(get_BKG BKG_LAST_SCANNED_ID)")
         orgs_more=$(query_api "organizations?per_page=100&page=$1&since=$(get_BKG BKG_LAST_SCANNED_ID)")
-        owners_more=$(jq --argjson users "$users_more" --argjson orgs "$orgs_more" -n '$users + $orgs | unique_by(.login))')
+        owners_more=$(jq --argjson users "$users_more" --argjson orgs "$orgs_more" -n '$users + $orgs | unique_by(.login)')
     fi
 
     # if owners doesn't have .login, break
