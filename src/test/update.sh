@@ -5,7 +5,9 @@
 #
 # shellcheck disable=SC1090,SC1091
 
-pushd "${1:-.}"/src || exit 1
+root="${1:-.}"
+[ "${root:0:1}" != "-" ] || root="."
+pushd "$root"/src || exit 1
 source bkg.sh
 popd || exit 1
 git config --global --add safe.directory "$(pwd)"

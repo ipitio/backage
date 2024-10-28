@@ -4,7 +4,6 @@
 source lib/package.sh
 
 request_owner() {
-    check_limit || return $?
     [ -n "$1" ] || return
     local owner=""
     local id=""
@@ -35,7 +34,6 @@ request_owner() {
 }
 
 save_owner() {
-    check_limit || return $?
     [ -n "$1" ] || return
     local owner_id
     owner_id=$(owner_get_id "$1") || return
@@ -43,7 +41,6 @@ save_owner() {
 }
 
 page_owner() {
-    check_limit || return $?
     ((${1:-0} > 0)) || return
     local owners_more="[]"
     local users_more="[]"
@@ -84,13 +81,13 @@ update_owner() {
     [ -d "$BKG_INDEX_DIR/$owner" ] || mkdir "$BKG_INDEX_DIR/$owner"
     set_BKG BKG_PACKAGES_"$owner" ""
     run_parallel save_package "$(sqlite3 "$BKG_INDEX_DB" "select package_type, package from '$BKG_INDEX_TBL_PKG' where owner_id = '$owner_id';" | awk -F'|' '{print "////"$1"//"$2}' | sort -uR)"
+    (($? != 3)) || return 3
 
     for page in $(seq 1 100); do
         local pages_left=0
         local pkgs
         page_package "$page"
         pages_left=$?
-        ((pages_left != 3)) || return 3
         pkgs=$(get_BKG_set BKG_PACKAGES_"$owner")
         run_parallel update_package "$pkgs"
         (($? != 3)) || return 3

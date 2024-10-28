@@ -22,7 +22,6 @@ save_package() {
 }
 
 page_package() {
-    check_limit || return $?
     [ -n "$1" ] || return
     [ -n "$owner" ] || return
     local packages_lines
