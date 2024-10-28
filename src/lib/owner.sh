@@ -41,7 +41,8 @@ save_owner() {
 }
 
 page_owner() {
-    ((${1:-0} > 0)) || return
+    local page=${1:-0}
+    ((page > 0)) || return
     local owners_more="[]"
     local users_more="[]"
     local orgs_more="[]"
