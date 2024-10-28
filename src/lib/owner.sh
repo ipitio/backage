@@ -26,6 +26,7 @@ request_owner() {
         sed -i '$d' "$BKG_OWNERS"
         return_code=2
     elif $paging && [ -n "$id" ]; then
+        echo "Requested $owner"
         set_BKG BKG_LAST_SCANNED_ID "$id"
     fi
 
@@ -52,7 +53,6 @@ page_owner() {
         users_more=$(query_api "users?per_page=100&page=$1&since=$(get_BKG BKG_LAST_SCANNED_ID)")
         orgs_more=$(query_api "organizations?per_page=100&page=$1&since=$(get_BKG BKG_LAST_SCANNED_ID)")
         owners_more=$(jq --argjson users "$users_more" --argjson orgs "$orgs_more" -n '$users + $orgs | unique_by(.login))')
-        (($? != 3)) || return 3
     fi
 
     # if owners doesn't have .login, break
@@ -60,7 +60,6 @@ page_owner() {
     local owners_lines
     owners_lines=$(jq -r '.[] | @base64' <<<"$owners_more")
     run_parallel request_owner "$owners_lines"
-    (($? != 3)) || return 3
     echo "Checked owners page $1"
     [ "$(wc -l <<<"$owners_lines")" -gt 0 ] || return 2
 }

@@ -40,6 +40,7 @@ BKG_INDEX_DIR=$BKG_ROOT/index
 BKG_INDEX_TBL_OWN=owners
 BKG_INDEX_TBL_PKG=packages
 BKG_INDEX_TBL_VER=versions
+BKG_MODE=0
 
 # format numbers like 1000 to 1k
 numfmt() {
@@ -323,7 +324,7 @@ owner_has_packages() {
     local owner=$1
     local owner_type
     [ -n "$(curl "https://github.com/orgs/$owner/people" | grep -zoP 'href="/orgs/'"$owner"'/people"' | tr -d '\0')" ] && owner_type="orgs" || owner_type="users"
-    packages_lines=$(grep -zoP 'href="/'"$owner_type"'/'"$owner"'/packages/[^/]+/package/[^"]+"' <([ "$owner_type" = "users" ] && curl "https://github.com/$owner?tab=packages&visibility=public&&per_page=1&page=1" || curl "https://github.com/$owner_type/$owner/packages?visibility=public&per_page=1&page=1") | tr -d '\0')
+    packages_lines=$(grep -zoP 'href="/'"$owner_type"'/'"$owner"'/packages/[^/]+/package/[^"]+"' <([ "$owner_type" = "users" ] && curl "https://github.com/$owner?tab=packages$([ "$BKG_MODE" -lt 2 ] && echo "&visibility=public" || { [ "$BKG_MODE" -eq 5 ] && echo "&visibility=private" || echo ""; })&&per_page=1&page=1" || curl "https://github.com/$owner_type/$owner/packages?per_page=1$([ "$BKG_MODE" -lt 2 ] && echo "&visibility=public" || { [ "$BKG_MODE" -eq 5 ] && echo "&visibility=private" || echo ""; })&page=1") | tr -d '\0')
     [ -n "$packages_lines" ] || return 1
 }
 

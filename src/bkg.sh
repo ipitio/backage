@@ -1,10 +1,19 @@
 #!/bin/bash
 # shellcheck disable=SC1091,SC2015
+#
+# Modes:
+# 0 - Update all public (default)
+# 1 - Update own public
+# 2 - Just clean up
+# 3 - Update all public and own private
+# 4 - Update own public and private
+# 5 - Update own private
+#
+# Usage: bash bkg.sh [-m <mode>]
 
 source lib/owner.sh
 
 main() {
-    mode=0
     local rotated=false
     local owners
     local repos
@@ -18,7 +27,7 @@ main() {
     while getopts "m:" flag; do
         case ${flag} in
         m)
-            mode=$((OPTARG))
+            BKG_MODE=$((OPTARG))
             ;;
         ?)
             echo "Invalid option found: -${OPTARG}."
@@ -82,46 +91,45 @@ main() {
     [ -n "$db_size_curr" ] || db_size_curr=0
     [ -n "$db_size_prev" ] || db_size_prev=0
 
-    # if this is a scheduled update, scrape all owners
-    if [ "$mode" -eq 0 ]; then
-        sed -i '/^\s*$/d' "$BKG_OWNERS"
-        echo >>"$BKG_OWNERS"
-        awk 'NF' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
-        sed -i 's/^[[:space:]]*//;s/[[:space:]]*$//' "$BKG_OWNERS"
-        find "$BKG_INDEX_DIR" -mindepth 1 -maxdepth 1 -type d -exec basename {} \; | sort -u | awk '{print $1}' >>"$BKG_OWNERS"
-        sort -u <<<"$(
-            explore "$GITHUB_OWNER"
-            explore "$GITHUB_OWNER/$GITHUB_REPO"
-        )" >>"$connections"
-        echo "$(
-            echo "$GITHUB_OWNER"
-            cat "$connections"
-            cat "$BKG_OWNERS"
-        )" >"$BKG_OWNERS"
-        awk '!seen[$0]++' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
-        # remove owners from $BKG_OWNERS that are in $packages_all
-        echo "$(
-            awk -F'|' '{print $1"/"$2}' <packages_all
-            awk -F'|' '{print $2}' <packages_all
-        )" | sort -u | parallel "sed -i '\,^{}$,d' $BKG_OWNERS"
+    if [ "$BKG_MODE" -ne 2 ]; then
+        if [ "$BKG_MODE" -eq 0 ] || [ "$BKG_MODE" -eq 3 ]; then
+            sed -i '/^\s*$/d' "$BKG_OWNERS"
+            echo >>"$BKG_OWNERS"
+            awk 'NF' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
+            sed -i 's/^[[:space:]]*//;s/[[:space:]]*$//' "$BKG_OWNERS"
+            find "$BKG_INDEX_DIR" -mindepth 1 -maxdepth 1 -type d -exec basename {} \; | sort -u | awk '{print $1}' >>"$BKG_OWNERS"
+            sort -u <<<"$(
+                explore "$GITHUB_OWNER"
+                explore "$GITHUB_OWNER/$GITHUB_REPO"
+            )" >>"$connections"
+            echo "$(
+                echo "$GITHUB_OWNER"
+                cat "$connections"
+                cat "$BKG_OWNERS"
+            )" >"$BKG_OWNERS"
+            awk '!seen[$0]++' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
+            # remove owners from $BKG_OWNERS that are in $packages_all
+            echo "$(
+                awk -F'|' '{print $1"/"$2}' <packages_all
+                awk -F'|' '{print $2}' <packages_all
+            )" | sort -u | parallel "sed -i '\,^{}$,d' $BKG_OWNERS"
 
-        if [[ "$pkg_left" == "0" || "${db_size_curr::-2}" == "${db_size_prev::-2}" ]]; then
-            set_BKG BKG_BATCH_FIRST_STARTED "$today"
-            rm -f packages_to_update
-            \cp packages_all packages_to_update
+            if [[ "$pkg_left" == "0" || "${db_size_curr::-2}" == "${db_size_prev::-2}" ]]; then
+                set_BKG BKG_BATCH_FIRST_STARTED "$today"
+                rm -f packages_to_update
+                \cp packages_all packages_to_update
+            fi
+
+            env_parallel --lb save_owner <"$BKG_OWNERS"
+            awk -F'|' '{print $1"/"$2}' <packages_to_update | sort -uR 2>/dev/null | head -n1000 | env_parallel --lb save_owner
+            parallel "sed -i '\,^{}$,d' $BKG_OWNERS" <"$connections"
+            set_BKG BKG_DIFF "$db_size_curr"
+            rm -f "$connections"
+            [ "$(wc -l <"$BKG_OWNERS")" -gt 64 ] || seq 0 1 | env_parallel --lb --halt soon,fail=1 page_owner
+        else
+            save_owner "$GITHUB_OWNER"
         fi
 
-        env_parallel --lb save_owner <"$BKG_OWNERS"
-        awk -F'|' '{print $1"/"$2}' <packages_to_update | sort -uR 2>/dev/null | head -n1000 | env_parallel --lb save_owner
-        parallel "sed -i '\,^{}$,d' $BKG_OWNERS" <"$connections"
-        set_BKG BKG_DIFF "$db_size_curr"
-        rm -f "$connections"
-        [ "$(wc -l <"$BKG_OWNERS")" -gt 64 ] || seq 0 1 | env_parallel --lb --halt soon,fail=1 page_owner
-    elif [ "$mode" -eq 1 ]; then
-        save_owner ipitio
-    fi
-
-    if [ "$mode" -ne 2 ]; then
         BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
         [ -d "$BKG_INDEX_DIR" ] || mkdir "$BKG_INDEX_DIR"
         get_BKG_set BKG_OWNERS_QUEUE | env_parallel --lb update_owner
