@@ -52,6 +52,7 @@ save_version() {
         version_dl_week=$(_jq "$1" '.downloads_week')
         version_dl_day=$(_jq "$1" '.downloads_day')
         version_tags=$(_jq "$1" '.tags')
+        [[ "$version_id" =~ ^[0-9]+$ ]] || version_id=\"$version_id\"
         [[ "$version_size" =~ ^[0-9]+$ ]] || version_size=-1
         [[ "$version_dl" =~ ^[0-9]+$ ]] || version_dl=-1
         [[ "$version_dl_month" =~ ^[0-9]+$ ]] || version_dl_month=-1

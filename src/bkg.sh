@@ -114,18 +114,18 @@ main() {
                 awk -F'|' '{print $2}' <packages_all
             )" | sort -u | parallel "sed -i '\,^{}$,d' $BKG_OWNERS"
 
-            if [[ "$pkg_left" == "0" || "${db_size_curr::-2}" == "${db_size_prev::-2}" ]]; then
+            if [[ "$pkg_left" == "0" || "${db_size_curr::-3}" == "${db_size_prev::-3}" ]]; then
                 set_BKG BKG_BATCH_FIRST_STARTED "$today"
                 rm -f packages_to_update
                 \cp packages_all packages_to_update
             fi
 
-            env_parallel --lb save_owner <"$BKG_OWNERS"
+            [ "$(wc -l <"$BKG_OWNERS")" -gt 100 ] || seq 1 2 | env_parallel --lb --halt soon,fail=1 page_owner
+            head -n100 "$BKG_OWNERS" | env_parallel --lb save_owner
             awk -F'|' '{print $1"/"$2}' <packages_to_update | sort -uR 2>/dev/null | head -n1000 | env_parallel --lb save_owner
             parallel "sed -i '\,^{}$,d' $BKG_OWNERS" <"$connections"
             set_BKG BKG_DIFF "$db_size_curr"
             rm -f "$connections"
-            [ "$(wc -l <"$BKG_OWNERS")" -gt 32 ] || seq 1 2 | env_parallel --lb --halt soon,fail=1 page_owner
         else
             save_owner "$GITHUB_OWNER"
         fi
