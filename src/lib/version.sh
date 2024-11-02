@@ -46,6 +46,7 @@ save_version() {
         local version_dl_month
         local version_dl_week
         local version_dl_day
+        local version_json
         version_size=$(_jq "$1" '.size')
         version_dl=$(_jq "$1" '.downloads')
         version_dl_month=$(_jq "$1" '.downloads_month')
@@ -58,25 +59,8 @@ save_version() {
         [[ "$version_dl_month" =~ ^[0-9]+$ ]] || version_dl_month=-1
         [[ "$version_dl_week" =~ ^[0-9]+$ ]] || version_dl_week=-1
         [[ "$version_dl_day" =~ ^[0-9]+$ ]] || version_dl_day=-1
-
-        echo "{
-            \"id\": $version_id,
-            \"name\": \"$version_name\",
-            \"date\": \"$(date -u +%Y-%m-%d)\",
-            \"newest\": false,
-            \"latest\": false,
-            \"size\": \"$(numfmt_size <<<"$version_size")\",
-            \"downloads\": \"$(numfmt <<<"$version_dl")\",
-            \"downloads_month\": \"$(numfmt <<<"$version_dl_month")\",
-            \"downloads_week\": \"$(numfmt <<<"$version_dl_week")\",
-            \"downloads_day\": \"$(numfmt <<<"$version_dl_day")\",
-            \"raw_size\": $version_size,
-            \"raw_downloads\": $version_dl,
-            \"raw_downloads_month\": $version_dl_month,
-            \"raw_downloads_week\": $version_dl_week,
-            \"raw_downloads_day\": $version_dl_day,
-            \"tags\": [\"${version_tags//,/\",\"}\"]
-        }" | tr -d '\n' | jq -c . >"$BKG_INDEX_DIR/$owner/$repo/$package.d/$version_id.json" || echo "Failed to refresh $owner/$repo/$package/$version_id: {
+        [[ ! "$version_tags" =~ ^\".*\"$ ]] || version_tags=${version_tags:1:-1}
+        version_json="{
             \"id\": $version_id,
             \"name\": \"$version_name\",
             \"date\": \"$(date -u +%Y-%m-%d)\",
@@ -94,6 +78,7 @@ save_version() {
             \"raw_downloads_day\": $version_dl_day,
             \"tags\": [\"${version_tags//,/\",\"}\"]
         }"
+        echo "$version_json" | tr -d '\n' | jq -c . >"$BKG_INDEX_DIR/$owner/$repo/$package.d/$version_id.json" || echo "Failed to refresh $owner/$repo/$package/$version_id: $version_json"
     fi
 }
 
