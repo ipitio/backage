@@ -4,8 +4,8 @@ on:
   workflow_dispatch:
 
   workflow_run:
-     workflows: ["build"]
-     types: [completed]
+    workflows: ["build"]
+    types: [completed]
 
   pull_request:
     types:

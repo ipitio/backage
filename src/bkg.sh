@@ -9,7 +9,7 @@
 # 4 - Update own public and private
 # 5 - Update own private
 #
-# Usage: bash bkg.sh [-m <mode>]
+# Usage: source bkg.sh && main [-m <mode>]
 
 source lib/owner.sh
 
@@ -107,22 +107,21 @@ main() {
                 cat "$connections"
                 cat "$BKG_OWNERS"
             )" >"$BKG_OWNERS"
+            [ "$(wc -l <"$BKG_OWNERS")" -ge 100 ] || seq 1 2 | env_parallel --lb --halt soon,fail=1 page_owner
             awk '!seen[$0]++' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
-            # remove owners from $BKG_OWNERS that are in $packages_all
             echo "$(
-                awk -F'|' '{print $1"/"$2}' <packages_all
-                awk -F'|' '{print $2}' <packages_all
+                awk -F'|' '{print $1"/"$2}' packages_all
+                awk -F'|' '{print $2}' packages_all
             )" | sort -u | parallel "sed -i '\,^{}$,d' $BKG_OWNERS"
 
-            if [[ "$pkg_left" == "0" || "${db_size_curr::-3}" == "${db_size_prev::-3}" ]]; then
+            if [[ "$pkg_left" == "0" || "${db_size_curr::-2}" == "${db_size_prev::-2}" ]]; then
                 set_BKG BKG_BATCH_FIRST_STARTED "$today"
                 rm -f packages_to_update
                 \cp packages_all packages_to_update
             fi
 
-            [ "$(wc -l <"$BKG_OWNERS")" -gt 100 ] || seq 1 2 | env_parallel --lb --halt soon,fail=1 page_owner
             head -n100 "$BKG_OWNERS" | env_parallel --lb save_owner
-            awk -F'|' '{print $1"/"$2}' <packages_to_update | sort -uR 2>/dev/null | head -n1000 | env_parallel --lb save_owner
+            awk -F'|' '{print $1"/"$2}' packages_to_update | sort -uR 2>/dev/null | head -n1000 | env_parallel --lb save_owner
             parallel "sed -i '\,^{}$,d' $BKG_OWNERS" <"$connections"
             set_BKG BKG_DIFF "$db_size_curr"
             rm -f "$connections"
@@ -133,6 +132,7 @@ main() {
         BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
         [ -d "$BKG_INDEX_DIR" ] || mkdir "$BKG_INDEX_DIR"
         get_BKG_set BKG_OWNERS_QUEUE | env_parallel --lb update_owner
+        sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, repo, package from '$BKG_INDEX_TBL_PKG';" | sort -u >packages_all
         echo "Compressing the database..."
         sqlite3 "$BKG_INDEX_DB" ".dump" | zstd -22 --ultra --long -T0 -o "$BKG_INDEX_SQL".new.zst
 
@@ -162,19 +162,13 @@ main() {
     fi
 
     echo "Hydrating templates and cleaning up..."
-    sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, repo, package from '$BKG_INDEX_TBL_PKG';" | sort -u >packages_all
-    echo "$(
-        awk -F'|' '{print $1"/"$2}' <packages_all
-        awk -F'|' '{print $2}' <packages_all
-    )" | sort -u | parallel "sed -i '\,^{}$,d' $BKG_OWNERS"
     [ ! -f "$BKG_ROOT"/CHANGELOG.md ] || rm -f "$BKG_ROOT"/CHANGELOG.md
     \cp templates/.CHANGELOG.md "$BKG_ROOT"/CHANGELOG.md
-    sqlite3 "$BKG_INDEX_DB" "select owner_id, repo, package from '$BKG_INDEX_TBL_PKG';" | sort -u >packages_all
-    owners=$(awk -F'|' '{print $1}' <packages_all | sort -u | wc -l)
-    repos=$(awk -F'|' '{print $1"|"$2}' <packages_all | sort -u | wc -l)
+    owners=$(awk -F'|' '{print $1}' packages_all | sort -u | wc -l)
+    repos=$(awk -F'|' '{print $1"|"$3}' packages_all | sort -u | wc -l)
     packages=$(wc -l <packages_all)
     sed -i 's/\[DATE\]/'"$(date -u +%F)"'/g; s/\[OWNERS\]/'"$owners"'/g; s/\[REPOS\]/'"$repos"'/g; s/\[PACKAGES\]/'"$packages"'/g' "$BKG_ROOT"/CHANGELOG.md
-    ! $rotated || echo "P.S. The database grew over 2GB and was rotated, but you can find all previous data under the [latest release](https://github.com/$GITHUB_OWNER/$GITHUB_REPO/releases/latest)." >>"$BKG_ROOT"/CHANGELOG.md
+    ! $rotated || echo "P.S. The database was rotated, but you can find all previous data under the [latest release](https://github.com/$GITHUB_OWNER/$GITHUB_REPO/releases/latest)." >>"$BKG_ROOT"/CHANGELOG.md
     [ ! -f "$BKG_ROOT"/README.md ] || rm -f "$BKG_ROOT"/README.md
     \cp templates/.README.md "$BKG_ROOT"/README.md
     sed -i 's/<GITHUB_OWNER>/'"$GITHUB_OWNER"'/g; s/<GITHUB_REPO>/'"$GITHUB_REPO"'/g; s/<GITHUB_BRANCH>/'"$GITHUB_BRANCH"'/g; s/\[PACKAGES\]/'"$packages"'/g; s/\[DATE\]/'"$today"'/g' "$BKG_ROOT"/README.md
