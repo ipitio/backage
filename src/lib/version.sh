@@ -76,7 +76,24 @@ save_version() {
             \"raw_downloads_week\": $version_dl_week,
             \"raw_downloads_day\": $version_dl_day,
             \"tags\": [\"${version_tags//,/\",\"}\"]
-        }" | tr -d '\n' | jq -c . >"$BKG_INDEX_DIR/$owner/$repo/$package.d/$version_id.json" || echo "Failed to refresh $owner/$repo/$package/$version_id"
+        }" | tr -d '\n' | jq -c . >"$BKG_INDEX_DIR/$owner/$repo/$package.d/$version_id.json" || echo "Failed to refresh $owner/$repo/$package/$version_id: {
+            \"id\": $version_id,
+            \"name\": \"$version_name\",
+            \"date\": \"$(date -u +%Y-%m-%d)\",
+            \"newest\": false,
+            \"latest\": false,
+            \"size\": \"$(numfmt_size <<<"$version_size")\",
+            \"downloads\": \"$(numfmt <<<"$version_dl")\",
+            \"downloads_month\": \"$(numfmt <<<"$version_dl_month")\",
+            \"downloads_week\": \"$(numfmt <<<"$version_dl_week")\",
+            \"downloads_day\": \"$(numfmt <<<"$version_dl_day")\",
+            \"raw_size\": $version_size,
+            \"raw_downloads\": $version_dl,
+            \"raw_downloads_month\": $version_dl_month,
+            \"raw_downloads_week\": $version_dl_week,
+            \"raw_downloads_day\": $version_dl_day,
+            \"tags\": [\"${version_tags//,/\",\"}\"]
+        }"
     fi
 }
 
