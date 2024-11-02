@@ -143,12 +143,13 @@ check_limit() {
     local sec_limit_diff
     local min_passed
     local max_len=${1:-18000}
-    total_calls=$(get_BKG BKG_CALLS_TO_API)
     rate_limit_end=$(date -u +%s)
     script_limit_diff=$((rate_limit_end - $(get_BKG BKG_SCRIPT_START)))
-    hours_passed=$((rate_limit_diff / 3600))
     ((script_limit_diff < max_len)) || save_and_exit
     (($? != 3)) || return 3
+    total_calls=$(get_BKG BKG_CALLS_TO_API)
+    rate_limit_diff=$((rate_limit_end - $(get_BKG BKG_RATE_LIMIT_START)))
+    hours_passed=$((rate_limit_diff / 3600))
 
     if ((total_calls >= 1000 * (hours_passed + 1))); then
         echo "$total_calls calls to the GitHub API in $((rate_limit_diff / 60)) minutes"
