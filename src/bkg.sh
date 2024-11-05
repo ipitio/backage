@@ -107,7 +107,7 @@ main() {
                 cat "$connections"
                 cat "$BKG_OWNERS"
             )" >"$BKG_OWNERS"
-            [[ -n "$BKG_OWNERS" && "$(wc -l <"$BKG_OWNERS")" -ge 100 ]] || seq 1 2 | env_parallel --lb --halt soon,fail=1 page_owner
+            [[ -n "$BKG_OWNERS" && "$(wc -l <"$BKG_OWNERS")" -ge 100 ]] && echo "owners: $(wc -l <"$BKG_OWNERS")" || seq 1 2 | env_parallel --lb --halt soon,fail=1 page_owner
             awk '!seen[$0]++' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
             echo "$(
                 awk -F'|' '{print $1"/"$2}' packages_all
