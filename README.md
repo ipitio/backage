@@ -30,9 +30,10 @@ https://ipitio.github.io/backage/OWNER/REPO/PACKAGE.FORMAT
 
 Use something like [shields.io/json](https://shields.io/badges/dynamic-json-badge) or [shields.io/xml](https://shields.io/badges/dynamic-xml-badge) with this endpoint to access the latest data and make badges like the ones above. Replace `OWNER/REPO/PACKAGE.FORMAT` with their respective values.
 
-> [!NOTE] The format can be either `json` or `xml`. You'll need the XML endpoint to evaluate expressions, like filters, with Shields -- see [this issue](https://github.com/ipitio/backage/issues/23).
-
-> [!TIP] Use the proxy to convert external JSON to XML! This doesn't currently work with Shields, though.
+> [!NOTE]
+> The format can be either `json` or `xml`. You'll need the XML endpoint to evaluate expressions, like filters, with Shields -- see [this issue](https://github.com/ipitio/backage/issues/23).
+> [!TIP]
+> Use the proxy to convert external JSON to XML! This doesn't currently work with Shields, though.
 
 You'll find these properties for the package and its versions:
 
