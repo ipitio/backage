@@ -97,6 +97,7 @@ main() {
             echo >>"$BKG_OWNERS"
             awk 'NF' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
             sed -i 's/^[[:space:]]*//;s/[[:space:]]*$//' "$BKG_OWNERS"
+            [[ "$(wc -l <"$BKG_OWNERS")" -ge 100 ]] || seq 1 2 | env_parallel --lb --halt soon,fail=1 page_owner
             find "$BKG_INDEX_DIR" -mindepth 1 -maxdepth 1 -type d -exec basename {} \; | sort -u | awk '{print $1}' >>"$BKG_OWNERS"
             sort -u <<<"$(
                 explore "$GITHUB_OWNER"
@@ -107,7 +108,6 @@ main() {
                 cat "$connections"
                 cat "$BKG_OWNERS"
             )" >"$BKG_OWNERS"
-            [[ -n "$BKG_OWNERS" && "$(wc -l <"$BKG_OWNERS")" -ge 100 ]] && echo "owners: $(wc -l <"$BKG_OWNERS")" || seq 1 2 | env_parallel --lb --halt soon,fail=1 page_owner
             awk '!seen[$0]++' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
             echo "$(
                 awk -F'|' '{print $1"/"$2}' packages_all
