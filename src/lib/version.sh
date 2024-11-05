@@ -59,7 +59,7 @@ save_version() {
         [[ "$version_dl_month" =~ ^[0-9]+$ ]] || version_dl_month=-1
         [[ "$version_dl_week" =~ ^[0-9]+$ ]] || version_dl_week=-1
         [[ "$version_dl_day" =~ ^[0-9]+$ ]] || version_dl_day=-1
-        [[ ! "$version_tags" =~ ^\".*\"$ ]] || version_tags=${version_tags:1:-1}
+        [[ -z "$version_tags" || "$version_tags" =~ ^\".*\"$ ]] || version_tags=\"$version_tags\"
         version_json="{
             \"id\": $version_id,
             \"name\": \"$version_name\",
@@ -76,7 +76,7 @@ save_version() {
             \"raw_downloads_month\": $version_dl_month,
             \"raw_downloads_week\": $version_dl_week,
             \"raw_downloads_day\": $version_dl_day,
-            \"tags\": [\"${version_tags//,/\",\"}\"]
+            \"tags\": [${version_tags//,/\",\"}]
         }"
         echo "$version_json" | tr -d '\n' | jq -c . >"$BKG_INDEX_DIR/$owner/$repo/$package.d/$version_id.json" || echo "Failed to refresh $owner/$repo/$package/$version_id: $version_json"
     fi

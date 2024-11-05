@@ -143,7 +143,7 @@
                 if (response.ok) {
                     try {
                         const builder = new fxp.XMLBuilder();
-                        const blob = new Blob([`<?xml version="1.0" encoding="UTF-8"?><x>${builder.build(await response.json())}</x>`], { type: 'text/xml' });
+                        const blob = new Blob([`<?xml version="1.0" encoding="UTF-8"?><xml>${builder.build(await response.json())}</xml>`], { type: 'text/xml' });
                         window.location.href = URL.createObjectURL(blob);
                     } catch (error) {
                         console.error('Error fetching JSON:', error);

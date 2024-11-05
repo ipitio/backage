@@ -12,25 +12,27 @@
 
 </div>
 
-The GitHub Packages API doesn't expose much of the publicly-available metadata that other registries provide. This completely automated closed-loop system [is the solution](https://github.com/badges/shields/issues/5594#issuecomment-2157626147).
+The GitHub Packages API doesn't expose much of the publicly-available metadata that other registries provide. This completely automated closed-loop system [is the solution](https://github.com/badges/shields/issues/5594#issuecomment-2157626147). **Just star this project to have GitHub supplement the API with an additional endpoint for your public packages!**
 
-**Just star this project to have GitHub serve JSON and XML endpoints for your public packages and those of any organizations you're publicly a part of!** A service ran by GitHub will add them to its circular priority queue within the next few hours and update the [dataset](https://github.com/ipitio/backage/releases/latest). If you'd then like the service to forget and ignore some or all of your packages, add `owner[/repo[/package]]` to `optout.txt` [here](https://github.com/ipitio/backage/edit/master/optout.txt) and make a pull request.
+A service ran by GitHub will add them to its circular priority queue within the next few hours and update the [dataset](https://github.com/ipitio/backage/releases/latest). If you'd then like the service to forget and ignore some or all of your packages, add `owner[/repo[/package]]` to `optout.txt` [here](https://github.com/ipitio/backage/edit/master/optout.txt) and make a pull request.
 
-To add any other users or organizations not yet [in the index](https://github.com/ipitio/backage/tree/index), add the case-sensitive name of each one on a new line in `owners.txt` on your own fork [here](https://github.com/ipitio/backage/edit/master/owners.txt) and make a pull request. Please add just the name(s) -- ids, repos, and packages will be obtained automatically!
+To add any other users or organizations, add the case-sensitive name of each one on a new line in `owners.txt` on your own fork [here](https://github.com/ipitio/backage/edit/master/owners.txt) and make a pull request. Please add just the name(s) -- ids, repos, and packages will be found automatically!
 
 <div align="center">
 
 </div>
 
-## Endpoint
+## Metadata Endpoint
 
 ```py
 https://ipitio.github.io/backage/OWNER/REPO/PACKAGE.FORMAT
 ```
 
-Use something like [shields.io/json](https://shields.io/badges/dynamic-json-badge) or [shields.io/xml](https://shields.io/badges/dynamic-xml-badge) with this endpoint to access the latest data and make badges like the ones above. Replace `OWNER/REPO/PACKAGE.FORMAT` with their respective values. The format can be either `json` or `xml`. You'll need the XML endpoint to evaluate expressions, like filters, with Shields -- see [this issue](https://github.com/ipitio/backage/issues/23).
+Use something like [shields.io/json](https://shields.io/badges/dynamic-json-badge) or [shields.io/xml](https://shields.io/badges/dynamic-xml-badge) with this endpoint to access the latest data and make badges like the ones above. Replace `OWNER/REPO/PACKAGE.FORMAT` with their respective values.
 
-### Properties
+> [!NOTE] The format can be either `json` or `xml`. You'll need the XML endpoint to evaluate expressions, like filters, with Shields -- see [this issue](https://github.com/ipitio/backage/issues/23).
+
+> [!TIP] Use the proxy to convert external JSON to XML! This doesn't currently work with Shields, though.
 
 You'll find these properties for the package and its versions:
 
@@ -90,8 +92,6 @@ You'll find these properties for the package and its versions:
 
 </details>
 
-### Paths
-
 They can be queried with the following paths:
 
 <details>
@@ -145,3 +145,13 @@ Versions can be filtered in and tags out:
 ```
 
 </details>
+
+## JSON2XML Proxy
+
+```py
+https://ipitio.github.io/backage?json=https://URLENCODED/JSON/PATH
+```
+
+Use your own JSON endpoint with this proxy to convert it into XML. Try it out in your browser:
+
+##### [https://ipitio.github.io/backage?json=https://ipitio.github.io/backage/ipitio/backage/backage.json](https://ipitio.github.io/backage?json=https://ipitio.github.io/backage/ipitio/backage/backage.json)

@@ -107,14 +107,14 @@ main() {
                 cat "$connections"
                 cat "$BKG_OWNERS"
             )" >"$BKG_OWNERS"
-            [ "$(wc -l <"$BKG_OWNERS")" -ge 100 ] || seq 1 2 | env_parallel --lb --halt soon,fail=1 page_owner
+            [ "$(wc -l <"$BKG_OWNERS")" -ge 100 ] || seq 1 5 | env_parallel --lb --halt soon,fail=1 page_owner
             awk '!seen[$0]++' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
             echo "$(
                 awk -F'|' '{print $1"/"$2}' packages_all
                 awk -F'|' '{print $2}' packages_all
             )" | sort -u | parallel "sed -i '\,^{}$,d' $BKG_OWNERS"
 
-            if [[ "$pkg_left" == "0" || "${db_size_curr::-2}" == "${db_size_prev::-2}" ]]; then
+            if [[ "$pkg_left" == "0" || "${db_size_curr::-1}" == "${db_size_prev::-1}" ]]; then
                 set_BKG BKG_BATCH_FIRST_STARTED "$today"
                 rm -f packages_to_update
                 \cp packages_all packages_to_update
