@@ -97,7 +97,7 @@ main() {
             echo >>"$BKG_OWNERS"
             awk 'NF' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
             sed -i 's/^[[:space:]]*//;s/[[:space:]]*$//' "$BKG_OWNERS"
-            [[ "$(wc -l <"$BKG_OWNERS")" -ge 100 ]] || seq 1 2 | env_parallel --lb --halt soon,fail=1 page_owner
+            [[ "$(wc -l <"$BKG_OWNERS")" -ge 100 ]] || seq 1 2 | env_parallel --fast --lb --halt soon,fail=1 page_owner
             find "$BKG_INDEX_DIR" -mindepth 1 -maxdepth 1 -type d -exec basename {} \; | sort -u | awk '{print $1}' >>"$BKG_OWNERS"
             sort -u <<<"$(
                 explore "$GITHUB_OWNER"
@@ -112,7 +112,7 @@ main() {
             echo "$(
                 awk -F'|' '{print $1"/"$2}' packages_all
                 awk -F'|' '{print $2}' packages_all
-            )" | sort -u | parallel "sed -i '\,^{}$,d' $BKG_OWNERS"
+            )" | sort -u | parallel --fast "sed -i '\,^{}$,d' $BKG_OWNERS"
 
             if [[ "$pkg_left" == "0" || "${db_size_curr::-1}" == "${db_size_prev::-1}" ]]; then
                 set_BKG BKG_BATCH_FIRST_STARTED "$today"
@@ -120,9 +120,9 @@ main() {
                 \cp packages_all packages_to_update
             fi
 
-            head -n100 "$BKG_OWNERS" | env_parallel --lb save_owner
-            awk -F'|' '{print $1"/"$2}' packages_to_update | sort -uR 2>/dev/null | head -n1000 | env_parallel --lb save_owner
-            parallel "sed -i '\,^{}$,d' $BKG_OWNERS" <"$connections"
+            head -n100 "$BKG_OWNERS" | env_parallel --fast --lb save_owner
+            awk -F'|' '{print $1"/"$2}' packages_to_update | sort -uR 2>/dev/null | head -n1000 | env_parallel --fast --lb save_owner
+            parallel --fast "sed -i '\,^{}$,d' $BKG_OWNERS" <"$connections"
             set_BKG BKG_DIFF "$db_size_curr"
             rm -f "$connections"
         else
@@ -131,7 +131,7 @@ main() {
 
         BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
         [ -d "$BKG_INDEX_DIR" ] || mkdir "$BKG_INDEX_DIR"
-        get_BKG_set BKG_OWNERS_QUEUE | env_parallel --lb update_owner
+        get_BKG_set BKG_OWNERS_QUEUE | env_parallel --fast --lb update_owner
         sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, repo, package from '$BKG_INDEX_TBL_PKG';" | sort -u >packages_all
         echo "Compressing the database..."
         sqlite3 "$BKG_INDEX_DB" ".dump" | zstd -22 --ultra --long -T0 -o "$BKG_INDEX_SQL".new.zst
@@ -146,7 +146,7 @@ main() {
                 [ ! -f "$older_db" ] || rm -f "$older_db"
                 mv "$BKG_INDEX_SQL".zst "$older_db"
                 sqlite3 "$BKG_INDEX_DB" "delete from '$BKG_INDEX_TBL_PKG' where date < '$BKG_BATCH_FIRST_STARTED';"
-                sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name like '${BKG_INDEX_TBL_VER}_%';" | parallel --lb "sqlite3 '$BKG_INDEX_DB' 'delete from {} where date < \"$BKG_BATCH_FIRST_STARTED\";'"
+                sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name like '${BKG_INDEX_TBL_VER}_%';" | parallel --fast --lb "sqlite3 '$BKG_INDEX_DB' 'delete from {} where date < \"$BKG_BATCH_FIRST_STARTED\";'"
                 sqlite3 "$BKG_INDEX_DB" "vacuum;"
                 rm -f "$BKG_INDEX_SQL".new.zst
                 sqlite3 "$BKG_INDEX_DB" ".dump" | zstd -22 --ultra --long -T0 -o "$BKG_INDEX_SQL".new.zst
