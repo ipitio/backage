@@ -150,3 +150,4 @@
 86455/sfsugar
 93575/newcity
 94808/flickr
+DigitalNZ
