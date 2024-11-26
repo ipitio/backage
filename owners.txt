@@ -194,5 +194,3 @@ DigitalNZ
 109142/twilio
 110639/zigotto
 103144/alanm
-jhawthorn
-jhchabran
