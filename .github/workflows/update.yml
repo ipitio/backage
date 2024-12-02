@@ -2,7 +2,7 @@ name: update
 
 on:
   schedule:
-    - cron: "* */3 * * *"
+    - cron: "* */5 * * *"
 
 concurrency:
   group: ${{ github.ref }}
@@ -56,17 +56,7 @@ jobs:
 
       - name: Get date
         id: date
-        run: |
-          echo "date=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
-          echo "tag=$(date -u +%-Y.%-m).$((($(date -u +%-d)-1)/7))" >> "$GITHUB_OUTPUT"
-
-      - name: Save state
-        id: commit
-        if: ${{ steps.update.outputs.updated == '0' }}
-        uses: EndBug/add-and-commit@v9
-        with:
-          add: "-- *.txt README.md"
-          message: "${{ steps.date.outputs.date }}"
+        run: echo "tag=$(date -u +%-Y.%-m).$((($(date -u +%-d)-1)/7))" >> "$GITHUB_OUTPUT"
 
       - name: Save database
         if: ${{ steps.update.outputs.updated == '0' }}

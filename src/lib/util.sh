@@ -373,7 +373,7 @@ explore() {
 }
 
 ytox() {
-    echo "<?xml version=\"1.0\" encoding=\"UTF-8\"?><bkg>$(yq -ox -I0 "$1" | sed 's/"/\\"/g')</bkg>" >"${1%.*}.xml"
+    echo "<?xml version=\"1.0\" encoding=\"UTF-8\"?><xml>$(yq -ox -I0 "$1" | sed 's/"/\\"/g')</xml>" >"${1%.*}.xml"
 }
 
 ytoy() {
