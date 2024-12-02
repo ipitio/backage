@@ -1,6 +1,6 @@
 <div align="center">
 
-[![logo](src/img/logo-b.png)](https://github.com/ipitio/backage)
+[![logo](src/img/logo-b.webp)](https://github.com/ipitio/backage)
 
 # [backage](https://github.com/ipitio/backage)
 
@@ -8,13 +8,14 @@
 
 ---
 
-[![build](https://github.com/ipitio/backage/actions/workflows/publish.yml/badge.svg)](https://github.com/ipitio/backage/pkgs/container/backage) [![packages](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fgithub.com%2Fipitio%2Fbackage%2Fraw%2Findex%2F.json&query=%24.packages&logo=github&logoColor=959da5&label=packages&labelColor=333a41&color=2ebc4f)](https://github.com/ipitio/backage/tree/index) [![date](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fgithub.com%2Fipitio%2Fbackage%2Fraw%2Findex%2F.json&query=%24.date&logo=github&logoColor=959da5&label=refreshed&labelColor=333a41&color=2ebc4f)](https://github.com/ipitio/backage/releases/latest)
+[![build](https://github.com/ipitio/backage/actions/workflows/publish.yml/badge.svg)](https://github.com/ipitio/backage/pkgs/container/backage) [![builds](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fipitio.github.io%2Fbackage%2Fipitio%2Fbackage%2Fbackage.json&query=%24.downloads&logo=github&logoColor=959da5&label=builds&labelColor=333a41)](https://github.com/ipitio/backage/releases/latest)
+[![built](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fgithub.com%2Fipitio%2Fbackage%2Fraw%2Findex%2F.json&query=%24.date&logo=github&logoColor=959da5&label=built&labelColor=333a41&color=purple)](https://github.com/ipitio/backage/releases/latest) [![packages](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fgithub.com%2Fipitio%2Fbackage%2Fraw%2Findex%2F.json&query=%24.packages&logo=github&logoColor=959da5&label=packages&labelColor=333a41&color=grey)](https://github.com/ipitio/backage/tree/index)
 
 </div>
 
-The GitHub Packages API doesn't expose much of the publicly-available metadata that other registries provide. This completely automated closed-loop system [is the solution](https://github.com/badges/shields/issues/5594#issuecomment-2157626147). **Just star this project to have GitHub supplement its API with an additional endpoint for your public packages!**
+Wish you could show npm, gem, mvn, Gradle, NuGet, or GHCR badges? Tough luck; the GitHub Packages API has never exposed the publicly-available metadata that other registries provide, like pulls... That is, until now: **Just star this project to have GitHub supplement its API with an additional endpoint for your public packages!**
 
-A service ran by GitHub will add them to its circular priority queue within the next few hours and update the [dataset](https://github.com/ipitio/backage/releases/latest). If you'd then like the service to forget and ignore some or all of your packages, add `owner[/repo[/package]]` to `optout.txt` [here](https://github.com/ipitio/backage/edit/master/optout.txt) and make a pull request.
+A service ran by GitHub will add them to its circular priority queue within the next few hours and update the [closed-loop system](https://github.com/ipitio/backage/releases/latest). If you'd then like the service to forget and ignore some or all of your packages, add `owner[/repo[/package]]` to `optout.txt` [here](https://github.com/ipitio/backage/edit/master/optout.txt) and make a pull request.
 
 To add any other users or organizations not yet [in the index](https://github.com/ipitio/backage/tree/index), add the case-sensitive name of each one on a new line in `owners.txt` on your own fork [here](https://github.com/ipitio/backage/edit/master/owners.txt) and make a pull request. Please add just the name(s) -- ids, repos, and packages will be found automatically!
 
@@ -28,7 +29,7 @@ To add any other users or organizations not yet [in the index](https://github.co
 https://ipitio.github.io/backage/OWNER/REPO/PACKAGE.FORMAT
 ```
 
-Use something like [shields.io/json](https://shields.io/badges/dynamic-json-badge) or [shields.io/xml](https://shields.io/badges/dynamic-xml-badge) with this endpoint to access the latest data and make badges like the ones above. Replace `OWNER/REPO/PACKAGE.FORMAT` with their respective values.
+Replace `OWNER/REPO/PACKAGE.FORMAT` with their respective values, then use something like [shields.io/json](https://shields.io/badges/dynamic-json-badge) or [shields.io/xml](https://shields.io/badges/dynamic-xml-badge) to access the latest data and make badges like `refreshes` above or the one [here](https://github.com/badges/shields/issues/5594#issuecomment-2157626147).
 
 > [!NOTE]
 > The format can be either `json` or `xml`. You'll need the XML endpoint to evaluate expressions, like filters, with Shields -- see [this issue](https://github.com/ipitio/backage/issues/23).
@@ -129,21 +130,21 @@ $.version[?(@.latest)].tags[?(@!="latest")]
 You can query a package for its properties, like size or version:
 
 ```py
-/bkg/PROPERTY
+/xml/PROPERTY
 ```
 
 ```py
-/bkg/size
+/xml/size
 ```
 
 Versions can be filtered in and tags out:
 
 ```py
-/bkg/version[FILTER]/PROPERTY
+/xml/version[FILTER]/PROPERTY
 ```
 
 ```py
-/bkg/version[./latest[.="true"]]/tags[.!="latest"]
+/xml/version[./latest[.="true"]]/tags[.!="latest"]
 ```
 
 </details>
