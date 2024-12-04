@@ -4,16 +4,17 @@
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
+=======
+>>>>>>> Stashed changes
 120682/ackypi
 =======
 >>>>>>> Stashed changes
 121380/downgrade
 123975/rubyworks
 127979/lightyear
-124904/finn-no
 126797/portu
 127825/yieldbuild
-127483/bywatersolutions
 120701/munrosaunders
 123784/datagraph
 120699/fgdfgsdf
@@ -24,12 +25,10 @@
 120732/thebobcampbell
 127550/octolabs
 120705/pisticek
-123473/digineo
 126498/echowaves
 120654/wimlawrence
 126884/ruckus-matte
 120723/mitzev
-120708/mandrews
 125487/wdas
 120658/rianhunter
 120642/calebrown
@@ -52,14 +51,6 @@
 123689/teachmetocode
 120695/fliptop
 120688/crchemist
-=======
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
-=======
-=======
->>>>>>> Stashed changes
->>>>>>> Stashed changes
 122756/tmlab
 120827/mecherra
 121639/grays
@@ -162,8 +153,11 @@
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 Ragin-LundF
 =======
+=======
+>>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
 =======
@@ -324,6 +318,7 @@ Ragin-LundF
 125598/orenmiki
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 rahulghangas
 rails
 >>>>>>> Stashed changes
@@ -338,4 +333,10 @@ tetrateio
 fetlife
 fh-erfurt
 inveniosoftware
+>>>>>>> Stashed changes
+=======
+jeffmendoza
+jendrik
+whomwah
+whywaita
 >>>>>>> Stashed changes
