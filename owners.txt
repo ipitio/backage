@@ -4,6 +4,7 @@
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 128206/chonger
 =======
 128237/clicknpunch
@@ -90,6 +91,8 @@
 >>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
+=======
+>>>>>>> Stashed changes
 128190/jkgurto
 132833/onixmedia
 128179/morecho
@@ -156,10 +159,8 @@
 128304/rainerstudhalter
 128310/thebos1
 128279/islocated
-=======
 133406/bootzilla
 140822/LiveWorld
-134074/afsy
 133422/OverMe
 133352/bkgeig
 133339/aLies
@@ -172,8 +173,6 @@
 133389/cgutierrez
 133412/mmaa
 136048/bigfix
-134345/bitbq
-134596/nanil
 133360/att88
 133382/andrewburgesscimex
 135697/cohpy
@@ -184,7 +183,6 @@
 139637/doppelpack
 133341/meno
 133410/somesuper123
-133465/majisti
 136854/vzaar
 133417/aaronsama
 135788/webfactory
@@ -194,16 +192,13 @@
 137488/pickabee
 139320/yatter
 133439/lalong13
-134443/renthop
 140344/faradayio
 133392/Debbie
 133387/stnadmin
 139031/qed42
-134868/devfort
 133438/woodybrood
 135231/hybridmethod
 140590/phenix
-135319/signaturelabs
 133358/davidwaizer
 140821/powcloud
 133433/ynnova
@@ -213,7 +208,6 @@
 139714/aeseducation
 133413/rancid
 139620/yodal
-133673/plus2
 135745/wyeworks
 139638/metonymous
 139833/designcommission
@@ -226,21 +220,15 @@
 133419/rmitchell
 133437/scottkirkwood
 140361/swiz
-134658/gokart
-134458/papertower
-135512/greenriver
 133403/RasmusTG
 133346/swaizer
 137056/arcticelvis
-134730/alphaonelabs
 133427/gtadmin
-134679/msysgit
 133355/geoffbeier
 133430/Wiilazer
 140770/rightdesign
 133402/jaydg
 133343/gitstief
-133505/viva9
 133347/edge11
 137670/kaskadia
 133335/grovermusket
@@ -289,7 +277,6 @@
 139101/greenmangaming
 133364/wolfbane
 133429/JOHANNY12
-133390/tgfi
 133440/lokidg
 133350/fdrake
 133415/greentin
@@ -303,7 +290,6 @@
 133746/managedministries
 133369/fengyan
 137828/yenihayat
-133458/myspace
 133399/presbrey
 140178/m247
 139759/automatonic
@@ -312,7 +298,6 @@
 133423/walpolea
 133409/ricardocaspirro
 140966/siteminder-au
-135244/russwc
 135617/stripes39
 133363/codetroll
 140207/hugsandimenn
@@ -331,4 +316,7 @@
 140160/kbib
 133338/thurisaz
 133353/jeethukarthik
->>>>>>> Stashed changes
+bgotink
+billyvg
+edaniels
+eddiejaoude
