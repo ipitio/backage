@@ -11,26 +11,22 @@ sudonot() {
 }
 
 apt_install() {
-    apt-get install -yqq "$@" || {
+    sudonot apt-get install -yqq "$@" || {
         apt-get update
-        apt-get install -yqq "$@"
+        sudonot apt-get install -yqq "$@"
     }
 }
 
 yq_install() {
-    mv -f /usr/bin/yq /usr/bin/yq.bak
-    curl -sSLNZo /usr/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
-    chmod +x /usr/bin/yq
+    sudonot mv -f /usr/bin/yq /usr/bin/yq.bak
+    sudonot curl -sSLNZo /usr/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+    sudonot chmod +x /usr/bin/yq
 }
 
-dep_check() {
-    echo "Verifying dependencies..."
-    apt_install git curl jq parallel sqlite3 sqlite3-pcre zstd libxml2-utils
-    yq -V | grep -q mikefarah || yq_install
-    echo "Dependencies verified!"
-}
-
-sudonot dep_check
+echo "Verifying dependencies..."
+apt_install git curl jq parallel sqlite3 sqlite3-pcre zstd libxml2-utils
+yq -V | grep -q mikefarah || yq_install
+echo "Dependencies verified!"
 # shellcheck disable=SC2046
 source $(which env_parallel.bash)
 env_parallel --session
