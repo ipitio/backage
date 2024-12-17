@@ -35,15 +35,6 @@
 133453/hyipbc
 133449/alphabet
 133442/darksamus
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-soundcloud
-=======
-=======
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
 139759/automatonic
 133383/macmenco
 136242/cimex
@@ -88,7 +79,6 @@ soundcloud
 134345/bitbq
 133525/Gltoyne
 133602/bjornfor
-133522/bsheldrick
 133527/handitan
 133508/ThorinHanson
 133555/in4mr
@@ -191,6 +181,7 @@ soundcloud
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 seriousben
 transloadit
 >>>>>>> Stashed changes
@@ -205,4 +196,11 @@ sawanoboly
 =======
 digineo
 dipdup-io
+>>>>>>> Stashed changes
+=======
+evanextreme
+radiorabe
+rafadc
+wordlift
+woremacx
 >>>>>>> Stashed changes
