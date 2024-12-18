@@ -1,5 +1,6 @@
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 133448/msiedlarek
 133486/karsany
 133482/ollivetti
@@ -84,6 +85,8 @@
 133508/ThorinHanson
 133555/in4mr
 133533/avanek
+=======
+>>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
 =======
@@ -188,6 +191,7 @@
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 seriousben
 transloadit
 >>>>>>> Stashed changes
@@ -220,4 +224,10 @@ ninpl
 =======
 >>>>>>> Stashed changes
 =======
+>>>>>>> Stashed changes
+=======
+TiagoDanin
+datastax
+rosswhitfield
+rsese
 >>>>>>> Stashed changes
