@@ -5,7 +5,10 @@
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 =======
+=======
+>>>>>>> Stashed changes
 133448/msiedlarek
 133486/karsany
 133482/ollivetti
@@ -40,11 +43,8 @@
 133515/kevinastock
 133539/jsolomon
 133612/snn-zz
->>>>>>> Stashed changes
 141085/collexion
 133610/alex008
-<<<<<<< Updated upstream
-=======
 133581/zamal
 133534/tejima
 133609/edwardchc
@@ -75,7 +75,6 @@
 133660/dimasavage
 133667/ari2009
 139759/automatonic
->>>>>>> Stashed changes
 139637/doppelpack
 133619/Bouwdie
 133653/jary
@@ -93,12 +92,15 @@
 140966/siteminder-au
 138211/PHP-Point-Of-Sale
 139833/designcommission
+<<<<<<< Updated upstream
 =======
 >>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
 =======
 139833/designcommission
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
@@ -219,6 +221,7 @@
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 =======
 fivethreeo
 robertpfeiffer
@@ -242,6 +245,8 @@ joehalliwell
 kcp-dev
 nazarepiedady
 rafadc
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
