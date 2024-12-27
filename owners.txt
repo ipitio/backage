@@ -232,6 +232,10 @@
 141666/cpmaynard
 141656/fokcep
 147654/siyelo
+pkgforge
+pkgforge-community
+pkgforge-dev
+pkgforge-security
 andrekolodochka
 andrewn
 p2pu
