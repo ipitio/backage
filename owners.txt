@@ -1,3 +1,4 @@
+136522/joegumbo
 136854/vzaar
 141879/wirefreethought
 141085/collexion
@@ -155,3 +156,4 @@ pkgforge-dev
 pkgforge-security
 ianunruh
 icco
+redhat-developer
