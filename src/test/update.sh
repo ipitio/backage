@@ -72,6 +72,7 @@ fi
 (git pull --rebase --autostash 2>/dev/null)
 (git merge --abort 2>/dev/null)
 (git pull --rebase --autostash -s ours &>/dev/null)
+find . -type f -name '*.txt' -exec sed -i '/^<<<<<<<\|=======\|>>>>>>>/d' {} \;
 git add -- *.txt README.md
 git commit -m "$(date -u +%Y-%m-%d)"
 git push
