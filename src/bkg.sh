@@ -90,7 +90,6 @@ main() {
     db_size_prev=$(get_BKG BKG_DIFF)
     [ -n "$db_size_curr" ] || db_size_curr=0
     [ -n "$db_size_prev" ] || db_size_prev=0
-    sed -i '/^<<<<<<<\|=======\|>>>>>>>/d' "$BKG_OWNERS"
 
     if [ "$BKG_MODE" -ne 2 ]; then
         if [ "$BKG_MODE" -eq 0 ] || [ "$BKG_MODE" -eq 3 ]; then
