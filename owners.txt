@@ -104,17 +104,10 @@
 145106/smoseson
 145014/agileworks
 149499/PolicyStat
-145122/ryumu
-145109/keix
 145034/HarveyRobertNewell
 146804/EffectiveProgramming-Forks
 151030/akelos
-145110/libregeek
-145094/photogrammer
-145102/whatupwilly
 149218/FudgeMsg
-145114/altgeld
-145106/smoseson
 150392/Soundation
 145112/magesha
 145118/paulur
