@@ -127,3 +127,4 @@
 145198/aestetix
 145187/supersantux
 145201/swernerx
+ublue-os
