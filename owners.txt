@@ -147,7 +147,5 @@
 149088/rmbjspd
 152469/bazaarvoice
 149056/RickStitch
-cross-rs
-ctomc
-krobertson
-krystal
+cardoe
+carlocab
