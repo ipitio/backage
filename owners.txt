@@ -61,5 +61,3 @@
 149088/rmbjspd
 152469/bazaarvoice
 149056/RickStitch
-cardoe
-carlocab
