@@ -37,6 +37,7 @@ request_owner() {
 save_owner() {
     [ -n "$1" ] || return
     local owner_id
+    curl "https://github.com/$owner" | grep -zoP 'meta.*?u\/\d+' | tr -d '\0' | grep -oP 'u\/\d+' | sort -u | head -n1 | grep -oP '\d+'
     owner_id=$(owner_get_id "$1") || return
     ! set_BKG_set BKG_OWNERS_QUEUE "$owner_id" || echo "Queued $(cut -d'/' -f2 <<<"$owner_id")"
 }
