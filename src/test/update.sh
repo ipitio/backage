@@ -16,6 +16,7 @@ git config --global --add safe.directory "$(pwd)"
 git config core.sharedRepository all
 sudo chmod -R a+rwX . 2>/dev/null || chmod -R a+rwX .
 sudo find . -type d -exec chmod g+s '{}' + 2>/dev/null || find . -type d -exec chmod g+s '{}' +
+fd_list=$(find . -type f -o -type d)
 
 if git ls-remote --exit-code origin index &>/dev/null; then
     if [ -d index ]; then
@@ -68,6 +69,8 @@ popd || exit 1
 
 if git worktree list | grep -q index; then
     pushd index || exit 1
+    # shellcheck disable=SC2086
+    git rm -r --ignore-unmatch $fd_list
     git add .
     git commit -m "$(date -u +%Y-%m-%d)"
     git push
