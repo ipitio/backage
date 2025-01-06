@@ -128,19 +128,20 @@ main() {
             fi
 
             echo "Adding owners..."
-            head -n100 "$BKG_OWNERS" | env_parallel --lb save_owner
+            [ ! -s "$BKG_OWNERS" ] || head -n100 "$BKG_OWNERS" | env_parallel --lb save_owner
             echo "Queuing owners..."
             [ ! -s packages_to_update ] || awk -F'|' '{print $1"/"$2}' packages_to_update | sort -uR 2>/dev/null | head -n1000 | env_parallel --lb save_owner
             echo "Cleaning up..."
             [ ! -s connections ] || parallel "sed -i '\,^{}$,d' $BKG_OWNERS" <"$connections"
             set_BKG BKG_DIFF "$db_size_curr"
-            rm -f "$connections"
         else
             save_owner "$GITHUB_OWNER"
-            explore "$GITHUB_OWNER" people | env_parallel --lb save_owner
+            explore "$GITHUB_OWNER" people >"$connections"
+            [ ! -s "$connections" ] || env_parallel --lb save_owner <"$connections"
         fi
 
         echo "Queued owners"
+        rm -f "$connections"
         BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
         [ -d "$BKG_INDEX_DIR" ] || mkdir "$BKG_INDEX_DIR"
         get_BKG_set BKG_OWNERS_QUEUE | env_parallel --lb update_owner
