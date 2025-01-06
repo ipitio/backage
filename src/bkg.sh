@@ -97,12 +97,19 @@ main() {
             echo >>"$BKG_OWNERS"
             awk 'NF' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
             sed -i 's/^[[:space:]]*//;s/[[:space:]]*$//' "$BKG_OWNERS"
-            [[ "$(wc -l <"$BKG_OWNERS")" -ge 100 ]] || seq 1 2 | env_parallel --lb --halt soon,fail=1 page_owner
             find "$BKG_INDEX_DIR" -mindepth 1 -maxdepth 1 -type d -exec basename {} \; | sort -u | awk '{print $1}' >>"$BKG_OWNERS"
-            sort -u <<<"$(
-                explore "$GITHUB_OWNER"
-                explore "$GITHUB_OWNER/$GITHUB_REPO"
-            )" >>"$connections"
+
+            if [ "$GITHUB_OWNER" = "ipitio" ]; then
+                [[ "$(wc -l <"$BKG_OWNERS")" -ge 100 ]] || seq 1 2 | env_parallel --lb --halt soon,fail=1 page_owner
+                sort -u <<<"$(
+                    explore "$GITHUB_OWNER"
+                    explore "$GITHUB_OWNER/$GITHUB_REPO"
+                )" >"$connections"
+            else
+                ! grep -q '/' "$BKG_OWNERS" || : >"$BKG_OWNERS"
+                curl_orgs "$GITHUB_OWNER" >"$connections"
+            fi
+
             echo "$(
                 echo "$GITHUB_OWNER"
                 cat "$connections"
@@ -128,7 +135,6 @@ main() {
         else
             save_owner "$GITHUB_OWNER"
             curl_orgs "$GITHUB_OWNER" | env_parallel --lb save_owner
-            : >"$BKG_OWNERS"
         fi
 
         BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
