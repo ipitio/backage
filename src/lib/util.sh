@@ -314,7 +314,13 @@ owner_get_id() {
         if [[ ! "$owner_id" =~ ^[1-9] && -n "$GITHUB_TOKEN" ]]; then
             owner_id=$(query_api "users/$owner")
             (($? != 3)) || return 3
-            owner_id=$(jq -r '.id' <<<"$owner_id") || return 1
+            owner_id=$(jq -r '.id' <<<"$owner_id")
+
+            if [[ ! "$owner_id" =~ ^[1-9] ]]; then
+                owner_id=$(query_api "orgs/$owner")
+                (($? != 3)) || return 3
+                owner_id=$(jq -r '.id' <<<"$owner_id") || return 1
+            fi
         fi
     fi
 
