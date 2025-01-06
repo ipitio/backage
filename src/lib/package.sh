@@ -26,7 +26,7 @@ page_package() {
     [ -n "$owner" ] || return
     local packages_lines
     echo "Starting $owner page $1..."
-    [ "$owner_type" = "users" ] && pkg_html=$(curl "https://github.com/$owner?tab=packages$([ "$BKG_MODE" -lt 2 ] && echo "&visibility=public" || { [ "$BKG_MODE" -eq 5 ] && echo "&visibility=private" || echo ""; })&&per_page=100&page=$1") || pkg_html=$(curl "https://github.com/$owner_type/$owner/packages?per_page=100$([ "$BKG_MODE" -lt 2 ] && echo "&visibility=public" || { [ "$BKG_MODE" -eq 5 ] && echo "&visibility=private" || echo ""; })&page=$1")
+    [ "$owner_type" = "users" ] && pkg_html=$(curl "https://github.com/$owner?tab=packages$([ "$BKG_MODE" -lt 2 ] && echo "&visibility=public" || { [ "$BKG_MODE" -eq 5 ] && echo "&visibility=private" || echo ""; })&per_page=100&page=$1") || pkg_html=$(curl "https://github.com/$owner_type/$owner/packages?per_page=100$([ "$BKG_MODE" -lt 2 ] && echo "&visibility=public" || { [ "$BKG_MODE" -eq 5 ] && echo "&visibility=private" || echo ""; })&page=$1")
     (($? != 3)) || return 3
     packages_lines=$(grep -zoP 'href="/'"$owner_type"'/'"$owner"'/packages/[^/]+/package/[^"]+"' <<<"$pkg_html" | tr -d '\0')
     [ -n "$packages_lines" ] || return 2
@@ -35,8 +35,8 @@ page_package() {
     run_parallel save_package "$packages_lines"
     (($? != 3)) || return 3
     echo "Started $owner page $1"
-    # if there are fewer than 100 lines, break
-    [ "$(wc -l <<<"$packages_lines")" -eq 100 ] || return 2
+    # if there are fewer than 30 lines, break
+    [ "$(wc -l <<<"$packages_lines")" -eq 30 ] || return 2
 }
 
 update_package() {

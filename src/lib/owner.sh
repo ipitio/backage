@@ -82,7 +82,7 @@ update_owner() {
     run_parallel save_package "$(sqlite3 "$BKG_INDEX_DB" "select package_type, package from '$BKG_INDEX_TBL_PKG' where owner_id = '$owner_id';" | awk -F'|' '{print "////"$1"//"$2}' | sort -uR)"
     (($? != 3)) || return 3
 
-    for page in $(seq 1 100); do
+    for page in $(seq 1 100000); do
         local pages_left=0
         local pkgs
         page_package "$page"
