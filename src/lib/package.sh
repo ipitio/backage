@@ -55,6 +55,8 @@ update_package() {
     local version_with_tag_count=-1
     local version_newest_id=-1
     local latest_version=-1
+    local owner_rank
+    local repo_rank
     package_type=$(cut -d'/' -f1 <<<"$1")
     repo=$(cut -d'/' -f2 <<<"$1")
     package=$(cut -d'/' -f3 <<<"$1")
@@ -143,6 +145,11 @@ update_package() {
     [[ "$version_with_tag_count" =~ ^[0-9]+$ ]] || version_with_tag_count=0
     [[ "$version_newest_id" =~ ^[0-9]+$ ]] || version_newest_id=-1
     [[ "$latest_version" =~ ^[0-9]+$ ]] || latest_version=-1
+    owner_rank=$(sqlite3 "$BKG_INDEX_DB" "select rank from (select package, rank () over (order by downloads desc) rank from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and date in (select date from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' order by date desc limit 1)) where package='$package';")
+    repo_rank=$(sqlite3 "$BKG_INDEX_DB" "select rank from (select package, rank () over (order by downloads desc) rank from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and repo='$repo' and date in (select date from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and repo='$repo' order by date desc limit 1)) where package='$package';")
+    [[ "$owner_rank" =~ ^[0-9]+$ ]] || owner_rank=-1
+    [[ "$repo_rank" =~ ^[0-9]+$ ]] || repo_rank=-1
+
     echo "{
         \"owner_type\": \"$owner_type\",
         \"package_type\": \"$package_type\",
@@ -154,6 +161,8 @@ update_package() {
         \"size\": \"$(numfmt_size <<<"$size")\",
         \"versions\": \"$(numfmt <<<"$version_count")\",
         \"tagged\": \"$(numfmt <<<"$version_with_tag_count")\",
+        \"owner_rank\": \"$(numfmt <<<"$owner_rank")\",
+        \"repo_rank\": \"$(numfmt <<<"$repo_rank")\",
         \"downloads\": \"$(numfmt <<<"$raw_downloads")\",
         \"downloads_month\": \"$(numfmt <<<"$raw_downloads_month")\",
         \"downloads_week\": \"$(numfmt <<<"$raw_downloads_week")\",
@@ -161,6 +170,8 @@ update_package() {
         \"raw_size\": $size,
         \"raw_versions\": $version_count,
         \"raw_tagged\": $version_with_tag_count,
+        \"raw_owner_rank\": $owner_rank,
+        \"raw_repo_rank\": $repo_rank,
         \"raw_downloads\": $raw_downloads,
         \"raw_downloads_month\": $raw_downloads_month,
         \"raw_downloads_week\": $raw_downloads_week,
