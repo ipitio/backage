@@ -116,7 +116,7 @@ main() {
                 cat "$BKG_OWNERS"
             )" >"$BKG_OWNERS"
             awk '!seen[$0]++' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
-            echo "$(
+            [ ! -s packages_all ] || echo "$(
                 awk -F'|' '{print $1"/"$2}' packages_all
                 awk -F'|' '{print $2}' packages_all
             )" | sort -u | parallel "sed -i '\,^{}$,d' $BKG_OWNERS"
@@ -130,9 +130,9 @@ main() {
             echo "Adding owners..."
             head -n100 "$BKG_OWNERS" | env_parallel --lb save_owner
             echo "Queuing owners..."
-            awk -F'|' '{print $1"/"$2}' packages_to_update | sort -uR 2>/dev/null | head -n1000 | env_parallel --lb save_owner
+            [ ! -s packages_to_update ] || awk -F'|' '{print $1"/"$2}' packages_to_update | sort -uR 2>/dev/null | head -n1000 | env_parallel --lb save_owner
             echo "Cleaning up..."
-            parallel "sed -i '\,^{}$,d' $BKG_OWNERS" <"$connections"
+            [ ! -s connections ] || parallel "sed -i '\,^{}$,d' $BKG_OWNERS" <"$connections"
             set_BKG BKG_DIFF "$db_size_curr"
             rm -f "$connections"
         else
