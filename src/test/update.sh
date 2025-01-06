@@ -3,7 +3,7 @@
 # Usage: ./update.sh
 # Copyright (c) ipitio
 #
-# shellcheck disable=SC1090,SC1091
+# shellcheck disable=SC1090,SC1091,SC2015
 
 root="${1:-.}"
 [ "${root:0:1}" != "-" ] || root="."
@@ -28,7 +28,7 @@ if git ls-remote --exit-code origin index &>/dev/null; then
     popd || exit 1
 fi
 
-[ -f index/.env ] && \cp index/.env src/env.env || echo "No .env file found"
+[ -f index/.env ] && \cp index/.env src/env.env || touch src/env.env
 pushd src || exit 1
 main "${@:2}"
 
