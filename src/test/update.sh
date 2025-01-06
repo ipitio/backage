@@ -58,11 +58,11 @@ find .. -type f -name '*.json' | env_parallel check_json
 find .. -type f -name '*.xml' | env_parallel check_xml
 popd || exit 1
 \cp src/env.env index/.env
+git config --global user.name "${GITHUB_ACTOR}"
+git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
 
 if git worktree list | grep -q index; then
     pushd index || exit 1
-    git config --global user.name "${GITHUB_ACTOR}"
-    git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
     git add .
     git commit -m "$(date -u +%Y-%m-%d)"
     git push
@@ -72,7 +72,7 @@ fi
 (git pull --rebase --autostash 2>/dev/null)
 (git merge --abort 2>/dev/null)
 (git pull --rebase --autostash -s ours &>/dev/null)
-find . -type f -name '*.txt' -exec sed -i '/^<<<<<<<\|=======\|>>>>>>>/d' {} \;
+find . -type f -name '*.txt' -exec sed -i '/^<<<<<<<\|=======\|>>>>>>>/d' {} \; 2>/dev/null
 git add -- *.txt README.md
 git commit -m "$(date -u +%Y-%m-%d)"
 git push

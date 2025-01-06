@@ -99,7 +99,7 @@ main() {
             sed -i 's/^[[:space:]]*//;s/[[:space:]]*$//' "$BKG_OWNERS"
             find "$BKG_INDEX_DIR" -mindepth 1 -maxdepth 1 -type d -exec basename {} \; 2>/dev/null | sort -u | awk '{print $1}' >>"$BKG_OWNERS"
 
-            if [ -n "$GITHUB_RELEASE" ] && [ "$GITHUB_RELEASE" = "success" ]; then
+            if [ "$GITHUB_OWNER" = "ipitio" ]; then
                 [[ "$(wc -l <"$BKG_OWNERS")" -ge 100 ]] || seq 1 2 | env_parallel --lb --halt soon,fail=1 page_owner
                 sort -u <<<"$(
                     explore "$GITHUB_OWNER"
