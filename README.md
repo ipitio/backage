@@ -8,22 +8,23 @@
 
 ---
 
-[![build](https://github.com/ipitio/backage/actions/workflows/publish.yml/badge.svg)](https://github.com/ipitio/backage/pkgs/container/backage) [![builds](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fipitio.github.io%2Fbackage%2Fipitio%2Fbackage%2Fbackage.json&query=%24.downloads&logo=github&logoColor=959da5&label=builds&labelColor=333a41)](https://github.com/ipitio/backage/releases/latest)
-[![built](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fgithub.com%2Fipitio%2Fbackage%2Fraw%2Findex%2F.json&query=%24.date&logo=github&logoColor=959da5&label=built&labelColor=333a41&color=purple)](https://github.com/ipitio/backage/releases/latest) [![packages](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fgithub.com%2Fipitio%2Fbackage%2Fraw%2Findex%2F.json&query=%24.packages&logo=github&logoColor=959da5&label=packages&labelColor=333a41&color=grey)](https://github.com/ipitio/backage/tree/index)
+[![packages](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fgithub.com%2Fipitio%2Fbackage%2Fraw%2Findex%2F.json&query=%24.packages&logo=github&logoColor=959da5&label=packages&labelColor=333a41&color=grey)](https://github.com/ipitio/backage/tree/index) [![build](https://github.com/ipitio/backage/actions/workflows/publish.yml/badge.svg)](https://github.com/ipitio/backage/pkgs/container/backage) [![built](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fgithub.com%2Fipitio%2Fbackage%2Fraw%2Findex%2F.json&query=%24.date&logo=github&logoColor=959da5&label=built&labelColor=333a41&color=purple)](https://github.com/ipitio/backage/releases/latest)
 
 </div>
 
-Wish you could show npm, gem, mvn, Gradle, NuGet, or GHCR badges? Tough luck; the GitHub Packages API has never exposed the publicly-available metadata that other registries provide, like pulls... That is, until now: **Just star this project to have GitHub supplement its API with an additional endpoint for your public packages!**
+Wish you could show npm, gem, mvn, Gradle, NuGet, or GHCR badges? Tough luck; the GitHub Packages API has never exposed the publicly-available metadata that other registries provide, like pulls... That is, until now: **Star this project to have GitHub supplement its API with an additional endpoint for your public packages!**
 
 A service ran by GitHub will add them to its circular priority queue within the next few hours and update the [closed-loop system](https://github.com/ipitio/backage/releases/latest). If you'd then like the service to forget and ignore some or all of your packages, add `owner[/repo[/package]]` to `optout.txt` [here](https://github.com/ipitio/backage/edit/master/optout.txt) and make a pull request.
 
 To add any other users or organizations not yet [in the index](https://github.com/ipitio/backage/tree/index), add the case-sensitive name of each one on a new line in `owners.txt` on your own fork [here](https://github.com/ipitio/backage/edit/master/owners.txt) and make a pull request. Please add just the name(s) -- ids, repos, and packages will be found automatically!
 
+Once you've confirmed that the packages you're interested in are found and their metadata update without issue, you can create an independent instance for them that'll update much more frequently (every hour or so) by creating a fork of just the `master` branch and enabling Actions from its tab. While you can update your `optout.txt` immediately, please wait for the [Alternative URL](#alternative-url) in your fork to change to yours before adding any other users or organizations to your `owners.txt`. This centralized repo will then serve as a backup.
+
 <div align="center">
 
 </div>
 
-## Metadata Endpoint
+## The Endpoint
 
 ```prolog
 https://ipitio.github.io/backage/OWNER/REPO/PACKAGE.FORMAT
@@ -149,12 +150,20 @@ Versions can be filtered in and tags out:
 
 </details>
 
+### Alternative URL
+
+```prolog
+https://github.com/ipitio/backage/raw/index/OWNER/REPO/PACKAGE.FORMAT
+```
+
+The endpoint is also available at this URL that doesn't rely on Pages.
+
 ## JSON2XML Proxy
 
 ```prolog
-https://ipitio.github.io/backage?json=https://URLENCODED/JSON/PATH
+https://ipitio.github.io/backage?json=https://URL/ENCODED/JSON
 ```
 
 Use your own JSON endpoint with this proxy to convert it into XML. Try it out in your browser:
 
-##### [https://ipitio.github.io/backage?json=https://ipitio.github.io/backage/ipitio/backage/backage.json](https://ipitio.github.io/backage?json=https://ipitio.github.io/backage/ipitio/backage/backage.json)
+**<<https://ipitio.github.io/backage?json=https://raw.githubusercontent.com/>ipitio/backage/index/.json>**
