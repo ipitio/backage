@@ -10,6 +10,8 @@ root="${1:-.}"
 pushd "$root"/src || exit 1
 source bkg.sh
 popd || exit 1
+git config --global user.name "${GITHUB_ACTOR}"
+git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
 git config --global --add safe.directory "$(pwd)"
 git config core.sharedRepository all
 sudo chmod -R a+rwX . 2>/dev/null || chmod -R a+rwX .
@@ -28,6 +30,9 @@ if git ls-remote --exit-code origin index &>/dev/null; then
     popd || exit 1
 else
     git worktree add index
+    git checkout -b index
+    git push -u origin index
+    git checkout master
 fi
 
 [ -f index/.env ] && \cp index/.env src/env.env || touch src/env.env
@@ -60,8 +65,6 @@ find .. -type f -name '*.json' | env_parallel check_json
 find .. -type f -name '*.xml' | env_parallel check_xml
 popd || exit 1
 \cp src/env.env index/.env
-git config --global user.name "${GITHUB_ACTOR}"
-git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
 
 if git worktree list | grep -q index; then
     pushd index || exit 1
