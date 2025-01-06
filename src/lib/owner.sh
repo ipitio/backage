@@ -38,6 +38,7 @@ save_owner() {
     [ -n "$1" ] || return
     local owner_id
     owner_id=$(owner_get_id "$1") || return
+    echo "owner_id: $owner_id"
     ! set_BKG_set BKG_OWNERS_QUEUE "$owner_id" || echo "Queued $(cut -d'/' -f2 <<<"$owner_id")"
 }
 

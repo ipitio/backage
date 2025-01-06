@@ -128,9 +128,6 @@ main() {
                 \cp packages_all packages_to_update
             fi
 
-            echo "Adding owners..."
-            echo "owners: $(wc -l <"$BKG_OWNERS")"
-            cat "$BKG_OWNERS"
             [ ! -s "$BKG_OWNERS" ] || head -n100 "$BKG_OWNERS" | env_parallel --lb save_owner
             echo "Queuing owners..."
             [ ! -s packages_to_update ] || awk -F'|' '{print $1"/"$2}' packages_to_update | sort -uR 2>/dev/null | head -n1000 | env_parallel --lb save_owner
