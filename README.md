@@ -18,7 +18,7 @@ A service ran by GitHub will add them to its circular priority queue within the 
 
 To add any other users or organizations not yet [in the index](https://github.com/ipitio/backage/tree/index), add the case-sensitive name of each one on a new line in `owners.txt` on your own fork [here](https://github.com/ipitio/backage/edit/master/owners.txt) and make a pull request. Please add just the name(s) -- ids, repos, and packages will be found automatically!
 
-Once you've confirmed that the packages you're interested in are found and their metadata updates without issue, you can create an independent instance for them that'll update much more frequently (every hour or so) by creating a fork of just the `master` branch and enabling Actions from its tab. While you can update your `optout.txt` immediately, please wait for the [Alternative URL](#alternative-url) in your fork to change to yours before adding any other users or organizations to your `owners.txt`. This centralized repo will then serve as a backup.
+Once you've confirmed that the packages you're interested in are found and their metadata update without issue, you can create an independent instance for them that'll update much more frequently (every hour or so) by creating a fork of just the `master` branch and enabling Actions from its tab. While you can update your `optout.txt` immediately, please wait for the [Alternative URL](#alternative-url) in your fork to change to yours before adding any other users or organizations to your `owners.txt`. This centralized repo will then serve as a backup.
 
 <div align="center">
 

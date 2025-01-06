@@ -107,7 +107,7 @@ main() {
                 )" >"$connections"
             else
                 ! grep -q '/' "$BKG_OWNERS" || : >"$BKG_OWNERS"
-                curl_orgs "$GITHUB_OWNER" >"$connections"
+                explore "$GITHUB_OWNER" people >"$connections"
             fi
 
             echo "$(
@@ -134,7 +134,7 @@ main() {
             rm -f "$connections"
         else
             save_owner "$GITHUB_OWNER"
-            curl_orgs "$GITHUB_OWNER" | env_parallel --lb save_owner
+            explore "$GITHUB_OWNER" people | env_parallel --lb save_owner
         fi
 
         BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)

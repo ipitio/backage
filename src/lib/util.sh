@@ -336,18 +336,19 @@ get_owners() {
 curl_users() {
     local users
     users="$(curl "https://github.com/$1" | grep -oP 'href="/.+?".*>' | tr -d '\0' | grep -Ev '( .*|\?(return_to|tab))=' | tr -d '\0' | grep -oP '/.*?"' | cut -c2- | rev | cut -c2- | rev | grep -v "/")"
-    [ -n "$1" ] && echo "$users" || get_owners "$users"
+    [ -n "$2" ] && echo "$users" || get_owners "$users"
 }
 
 curl_orgs() {
     local orgs
     orgs="$(curl "https://github.com/$1" | grep -oP '/orgs/[^/]+' | tr -d '\0' | cut -d'/' -f3)"
-    [ -n "$1" ] && echo "$orgs" || get_owners "$orgs"
+    [ -n "$2" ] && echo "$orgs" || get_owners "$orgs"
 }
 
 explore() {
     local node=$1
     [[ "$node" =~ .*\/.* ]] && local graph=("stargazers" "watchers" "forks") || local graph=("followers" "following" "people")
+    [ -z "$2" ] || graph=("$2")
 
     for edge in "${graph[@]}"; do
         local page=1
