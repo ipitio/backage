@@ -40,19 +40,20 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Fetch latest data
-        run: |
-          pushd src || exit 1
-          source lib/util.sh
-          get_db
-          popd || exit 1
-
       - name: Check for release
         id: release
         continue-on-error: true
         uses: cardinalby/git-get-release-action@v1
         with:
           latest: true
+
+      - name: Fetch latest data
+        if: ${{ steps.release.outcome == 'success' }}
+        run: |
+          pushd src || exit 1
+          source lib/util.sh
+          get_db
+          popd || exit 1
 
       - name: Fetch all data
         if: ${{ steps.release.outcome == 'success' }}
