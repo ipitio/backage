@@ -91,7 +91,7 @@ page_version() {
 
     if [ -n "$GITHUB_TOKEN" ]; then
         echo "Starting $owner/$package page $1..."
-        versions_json_more=$(query_api "$owner_type/$owner/packages/$package_type/$package/versions?per_page=4&page=$1")
+        versions_json_more=$(query_api "$owner_type/$owner/packages/$package_type/$package/versions?per_page=$(grep -c ^processor /proc/cpuinfo)&page=$1")
         (($? != 3)) || return 3
     fi
 
