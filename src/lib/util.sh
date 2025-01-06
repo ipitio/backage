@@ -233,12 +233,12 @@ _jq() {
 }
 
 dldb() {
-    local latest=${1:-$(curl "https://github.com/ipitio/backage/releases/latest" | grep -oP 'href="/ipitio/backage/releases/tag/[^"]+' | cut -d'/' -f6)}
-    [[ "$(curl -o /dev/null --silent -Iw '%{http_code}' "https://github.com/ipitio/backage/releases/download/$latest/index.sql.zst")" != "404" ]] || return 1
+    local latest=${1:-$(curl "https://github.com/${GITHUB_OWNER:-ipitio}/${GITHUB_REPO:-backage}/releases/latest" | grep -oP "href=\"/${GITHUB_OWNER:-ipitio}/${GITHUB_REPO:-backage}/releases/tag/[^\"]+" | cut -d'/' -f6)}
+    [[ "$(curl -o /dev/null --silent -Iw '%{http_code}' "https://github.com/${GITHUB_OWNER:-ipitio}/${GITHUB_REPO:-backage}/releases/download/$latest/index.sql.zst")" != "404" ]] || return 1
     echo "Downloading the latest database..."
     # `cd src ; source bkg.sh && dldb` to dl the latest db
     [ ! -f "$BKG_INDEX_DB" ] || mv "$BKG_INDEX_DB" "$BKG_INDEX_DB".bak
-    command curl -sSLNZ "https://github.com/ipitio/backage/releases/download/$latest/index.sql.zst" | unzstd -v -c | sqlite3 "$BKG_INDEX_DB"
+    command curl -sSLNZ "https://github.com/${GITHUB_OWNER:-ipitio}/${GITHUB_REPO:-backage}/releases/download/$latest/index.sql.zst" | unzstd -v -c | sqlite3 "$BKG_INDEX_DB"
 
     if [ -f "$BKG_INDEX_DB" ]; then
         [ ! -f "$BKG_INDEX_DB".bak ] || rm -f "$BKG_INDEX_DB".bak
@@ -274,13 +274,13 @@ query_api() {
 get_db() {
     local release
     local latest
-    release=$(query_api "repos/ipitio/backage/releases/latest")
+    release=$(query_api "repos/${GITHUB_OWNER:-ipitio}/${GITHUB_REPO:-backage}/releases/latest")
     latest=$(jq -r '.tag_name' <<<"$release")
 
     while ! dldb "$latest"; do
         echo "Deleting the latest release..."
-        curl_gh -X DELETE "https://api.github.com/repos/ipitio/backage/releases/$(jq -r '.id' <<<"$release")"
-        release=$(query_api "repos/ipitio/backage/releases/latest")
+        curl_gh -X DELETE "https://api.github.com/repos/${GITHUB_OWNER:-ipitio}/${GITHUB_REPO:-backage}/releases/$(jq -r '.id' <<<"$release")"
+        release=$(query_api "repos/${GITHUB_OWNER:-ipitio}/${GITHUB_REPO:-backage}/releases/latest")
         latest=$(jq -r '.tag_name' <<<"$release")
     done
 }
