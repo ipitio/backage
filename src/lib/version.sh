@@ -91,7 +91,7 @@ page_version() {
 
     if [ -n "$GITHUB_TOKEN" ]; then
         echo "Starting $owner/$package page $1..."
-        versions_json_more=$(query_api "$owner_type/$owner/packages/$package_type/$package/versions?per_page=50&page=$1")
+        versions_json_more=$(query_api "$owner_type/$owner/packages/$package_type/$package/versions?per_page=4&page=$1")
         (($? != 3)) || return 3
     fi
 
@@ -100,8 +100,7 @@ page_version() {
     run_parallel save_version "$version_lines"
     (($? != 3)) || return 3
     echo "Started $owner/$package page $1"
-    # if there are fewer than 100 lines, break
-    [ "$(wc -l <<<"$version_lines")" -eq 50 ] || return 2
+    [ "$(wc -l <<<"$version_lines")" -gt 1 ] || return 2
 }
 
 update_version() {
