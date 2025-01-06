@@ -2,7 +2,7 @@ name: update
 
 on:
   schedule:
-    - cron: "* */5 * * *"
+    - cron: "0 * * * *"
 
 concurrency:
   group: ${{ github.ref }}
@@ -50,9 +50,10 @@ jobs:
       - name: Dry run
         id: update
         run: |
+          [ "$GITHUB_OWNER" = "ipitio" ] && mode=0 || mode=1
           docker run -v $PWD:/app --env-file <(env | grep GITHUB) \
             ghcr.io/ipitio/backage:master \
-            bash src/test/update.sh -m 0; echo "updated=$?" >> "$GITHUB_OUTPUT"
+            bash src/test/update.sh -m $mode; echo "updated=$?" >> "$GITHUB_OUTPUT"
 
       - name: Get date
         id: date

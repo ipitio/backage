@@ -8,8 +8,7 @@
 
 ---
 
-[![build](https://github.com/ipitio/backage/actions/workflows/publish.yml/badge.svg)](https://github.com/ipitio/backage/pkgs/container/backage) [![builds](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fipitio.github.io%2Fbackage%2Fipitio%2Fbackage%2Fbackage.json&query=%24.downloads&logo=github&logoColor=959da5&label=builds&labelColor=333a41)](https://github.com/ipitio/backage/releases/latest)
-[![built](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fgithub.com%2Fipitio%2Fbackage%2Fraw%2Findex%2F.json&query=%24.date&logo=github&logoColor=959da5&label=built&labelColor=333a41&color=purple)](https://github.com/ipitio/backage/releases/latest) [![packages](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fgithub.com%2Fipitio%2Fbackage%2Fraw%2Findex%2F.json&query=%24.packages&logo=github&logoColor=959da5&label=packages&labelColor=333a41&color=grey)](https://github.com/ipitio/backage/tree/index)
+[![packages](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fgithub.com%2Fipitio%2Fbackage%2Fraw%2Findex%2F.json&query=%24.packages&logo=github&logoColor=959da5&label=packages&labelColor=333a41&color=grey)](https://github.com/ipitio/backage/tree/index) [![build](https://github.com/ipitio/backage/actions/workflows/publish.yml/badge.svg)](https://github.com/ipitio/backage/pkgs/container/backage) [![built](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fgithub.com%2Fipitio%2Fbackage%2Fraw%2Findex%2F.json&query=%24.date&logo=github&logoColor=959da5&label=built&labelColor=333a41&color=purple)](https://github.com/ipitio/backage/releases/latest)
 
 </div>
 
@@ -23,7 +22,7 @@ To add any other users or organizations not yet [in the index](https://github.co
 
 </div>
 
-## Metadata Endpoint
+## The Endpoint
 
 ```py
 https://ipitio.github.io/backage/OWNER/REPO/PACKAGE.FORMAT
@@ -149,12 +148,20 @@ Versions can be filtered in and tags out:
 
 </details>
 
+## Alternative URL
+
+```py
+https://github.com/ipitio/backage/raw/index/OWNER/REPO/PACKAGE.FORMAT
+```
+
+Should you find the centralized queue too slow, simply create a fork of only `master` and enable Actions from its tab. Your public packages will be available at this URL around the start of the next hour, once it changes to your fork.
+
 ## JSON2XML Proxy
 
 ```py
-https://ipitio.github.io/backage?json=https://URLENCODED/JSON/PATH
+https://ipitio.github.io/backage?json=https://URL/ENCODED/JSON
 ```
 
 Use your own JSON endpoint with this proxy to convert it into XML. Try it out in your browser:
 
-##### [https://ipitio.github.io/backage?json=https://ipitio.github.io/backage/ipitio/backage/backage.json](https://ipitio.github.io/backage?json=https://ipitio.github.io/backage/ipitio/backage/backage.json)
+**<https://ipitio.github.io/backage?json=https://raw.githubusercontent.com/ipitio/backage/index/.json>**

@@ -127,6 +127,8 @@ main() {
             rm -f "$connections"
         else
             save_owner "$GITHUB_OWNER"
+            curl_orgs "$GITHUB_OWNER" | env_parallel --lb save_owner
+            : >"$BKG_OWNERS"
         fi
 
         BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
