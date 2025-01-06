@@ -99,7 +99,6 @@ main() {
             sed -i 's/^[[:space:]]*//;s/[[:space:]]*$//' "$BKG_OWNERS"
             find "$BKG_INDEX_DIR" -mindepth 1 -maxdepth 1 -type d -exec basename {} \; | sort -u | awk '{print $1}' >>"$BKG_OWNERS"
 
-            echo "Exploring connections..."
             if [ -n "$GITHUB_RELEASE" ] && [ "$GITHUB_RELEASE" = "success" ]; then
                 [[ "$(wc -l <"$BKG_OWNERS")" -ge 100 ]] || seq 1 2 | env_parallel --lb --halt soon,fail=1 page_owner
                 sort -u <<<"$(
@@ -110,7 +109,6 @@ main() {
                 ! grep -q '/' "$BKG_OWNERS" || : >"$BKG_OWNERS"
                 explore "$GITHUB_OWNER" people >"$connections"
             fi
-            echo "Explored connections"
 
             echo "$(
                 echo "$GITHUB_OWNER"
@@ -129,8 +127,11 @@ main() {
                 \cp packages_all packages_to_update
             fi
 
+            echo "Adding owners..."
             head -n100 "$BKG_OWNERS" | env_parallel --lb save_owner
+            echo "Queuing owners..."
             awk -F'|' '{print $1"/"$2}' packages_to_update | sort -uR 2>/dev/null | head -n1000 | env_parallel --lb save_owner
+            echo "Cleaning up..."
             parallel "sed -i '\,^{}$,d' $BKG_OWNERS" <"$connections"
             set_BKG BKG_DIFF "$db_size_curr"
             rm -f "$connections"
