@@ -26,6 +26,8 @@ if git ls-remote --exit-code origin index &>/dev/null; then
     pushd index || exit 1
     git reset --hard origin/index
     popd || exit 1
+else
+    git worktree add index
 fi
 
 [ -f index/.env ] && \cp index/.env src/env.env || touch src/env.env
