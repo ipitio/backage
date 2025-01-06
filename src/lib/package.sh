@@ -96,7 +96,8 @@ update_package() {
         raw_downloads=$(grep -Pzo 'Total downloads[^"]*"\d*' <<<"$html" | grep -Pzo '\d*$' | tr -d '\0') # https://stackoverflow.com/a/74214537
         sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name' where date >= '$BKG_BATCH_FIRST_STARTED';" | sort -u >"${table_version_name}"_already_updated
 
-        for page in $(seq 1 2); do
+        for page in $(seq 0 1); do
+            ((page > 0)) || continue
             local pages_left=0
             page_version "$page"
             pages_left=$?
