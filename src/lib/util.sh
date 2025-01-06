@@ -299,7 +299,7 @@ docker_manifest_size() {
 
 owner_get_id() {
     local owner
-    local owner_id=""
+    local owner_id="0"
     owner=$(echo "$1" | tr -d '[:space:]')
     [ -n "$owner" ] || return
 
