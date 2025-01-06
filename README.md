@@ -18,7 +18,7 @@ A service ran by GitHub will add them to its circular priority queue within the 
 
 To add any other users or organizations not yet [in the index](https://github.com/ipitio/backage/tree/index), add the case-sensitive name of each one on a new line in `owners.txt` on your own fork [here](https://github.com/ipitio/backage/edit/master/owners.txt) and make a pull request. Please add just the name(s) -- ids, repos, and packages will be found automatically!
 
-Once you've confirmed that the packages you're interested in are found and their metadata update without issue, you can create an independent instance for them that'll update much more frequently (every hour or so) by creating a fork of just the `master` branch and enabling Actions from its tab. While you can update your `optout.txt` immediately, please wait for the [Alternative URL](#alternative-url) in your fork to change to yours before adding any other users or organizations to your `owners.txt`. This centralized repo will then serve as a backup.
+Once you've confirmed that the packages you're interested in are found and their metadata update without issue, you can create an independent instance for them that'll update more frequently by creating a fork of just the `master` branch and enabling Actions from its tab. While you can update your `optout.txt` immediately, please wait for the [Alternative URL](#alternative-url) in your fork to change to yours before adding any other users or organizations to your `owners.txt`. This centralized repo will then serve as a backup.
 
 <div align="center">
 
@@ -56,6 +56,8 @@ You'll find these properties for the package and its versions:
 |        `size`         |    string    | Formatted size of the latest version                |
 |      `versions`       |    string    | Formatted count of all versions ever tracked        |
 |       `tagged`        |    string    | Formatted count of all tagged versions ever tracked |
+|     `owner_rank`      |    string    | Formatted rank by downloads within the owner        |
+|      `repo_rank`      |    string    | Formatted rank by downloads within the repository   |
 |      `downloads`      |    string    | Formatted count of all downloads                    |
 |   `downloads_month`   |    string    | Formatted count of all downloads in the last month  |
 |   `downloads_week`    |    string    | Formatted count of all downloads in the last week   |
@@ -63,6 +65,8 @@ You'll find these properties for the package and its versions:
 |      `raw_size`       |    number    | Size of the latest version, in bytes                |
 |    `raw_versions`     |    number    | Count of versions tracked                           |
 |     `raw_tagged`      |    number    | Count of tagged versions tracked                    |
+|   `raw_owner_rank`    |    number    | Rank by downloads within the owner                  |
+|    `raw_repo_rank`    |    number    | Rank by downloads within the repository             |
 |    `raw_downloads`    |    number    | Count of all downloads                              |
 | `raw_downloads_month` |    number    | Count of all downloads in the last month            |
 | `raw_downloads_week`  |    number    | Count of all downloads in the last week             |
@@ -166,4 +170,4 @@ https://ipitio.github.io/backage?json=https://URL/ENCODED/JSON
 
 Use your own JSON endpoint with this proxy to convert it into XML. Try it out in your browser:
 
-**<<https://ipitio.github.io/backage?json=https://raw.githubusercontent.com/>ipitio/backage/index/.json>**
+**<https://ipitio.github.io/backage?json=https://raw.githubusercontent.com/ipitio/backage/index/.json>**
