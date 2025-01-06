@@ -47,7 +47,15 @@ jobs:
           get_db
           popd || exit 1
 
+      - name: Check for release
+        id: release
+        continue-on-error: true
+        uses: cardinalby/git-get-release-action@v1
+        with:
+          latest: true
+
       - name: Fetch all data
+        if: ${{ steps.release.outcome == 'success' }}
         uses: robinraju/release-downloader@v1
         with:
           latest: true
