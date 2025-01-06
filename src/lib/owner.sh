@@ -60,7 +60,7 @@ page_owner() {
     owners_lines=$(jq -r '.[] | @base64' <<<"$owners_more")
     run_parallel request_owner "$owners_lines"
     echo "Checked owners page $1"
-    [ "$(wc -l <<<"$owners_lines")" -gt 0 ] || return 2
+    [ "$(wc -l <<<"$owners_lines")" -gt 1 ] || return 2
 }
 
 update_owner() {

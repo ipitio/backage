@@ -35,8 +35,7 @@ page_package() {
     run_parallel save_package "$packages_lines"
     (($? != 3)) || return 3
     echo "Started $owner page $1"
-    # if there are fewer than 30 lines, break
-    [ "$(wc -l <<<"$packages_lines")" -eq 30 ] || return 2
+    [ "$(wc -l <<<"$packages_lines")" -gt 1 ] || return 2
 }
 
 update_package() {
