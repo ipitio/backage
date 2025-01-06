@@ -99,7 +99,8 @@ main() {
             sed -i 's/^[[:space:]]*//;s/[[:space:]]*$//' "$BKG_OWNERS"
             find "$BKG_INDEX_DIR" -mindepth 1 -maxdepth 1 -type d -exec basename {} \; | sort -u | awk '{print $1}' >>"$BKG_OWNERS"
 
-            if [ "$GITHUB_OWNER" = "ipitio" ]; then
+            echo "Exploring connections..."
+            if [ -n "$GITHUB_RELEASE" ] && [ "$GITHUB_RELEASE" = "success" ]; then
                 [[ "$(wc -l <"$BKG_OWNERS")" -ge 100 ]] || seq 1 2 | env_parallel --lb --halt soon,fail=1 page_owner
                 sort -u <<<"$(
                     explore "$GITHUB_OWNER"
@@ -109,6 +110,7 @@ main() {
                 ! grep -q '/' "$BKG_OWNERS" || : >"$BKG_OWNERS"
                 explore "$GITHUB_OWNER" people >"$connections"
             fi
+            echo "Explored connections"
 
             echo "$(
                 echo "$GITHUB_OWNER"
@@ -137,6 +139,7 @@ main() {
             explore "$GITHUB_OWNER" people | env_parallel --lb save_owner
         fi
 
+        echo "Queued owners"
         BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
         [ -d "$BKG_INDEX_DIR" ] || mkdir "$BKG_INDEX_DIR"
         get_BKG_set BKG_OWNERS_QUEUE | env_parallel --lb update_owner
