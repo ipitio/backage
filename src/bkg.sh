@@ -118,6 +118,7 @@ main() {
             sed -i '/solutions\|sponsors\|enterprise\|premium-support/d' "$BKG_OWNERS"
             awk '!seen[$0]++' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
             [ ! -s packages_all ] || echo "$(
+                awk -F'|' '{print "0/"$2}' packages_all
                 awk -F'|' '{print $1"/"$2}' packages_all
                 awk -F'|' '{print $2}' packages_all
             )" | sort -u | parallel "sed -i '\,^{}$,d' $BKG_OWNERS"
