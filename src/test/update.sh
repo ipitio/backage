@@ -16,7 +16,7 @@ git config --global --add safe.directory "$(pwd)"
 git config core.sharedRepository all
 sudo chmod -R a+rwX . 2>/dev/null || chmod -R a+rwX .
 sudo find . -type d -exec chmod g+s '{}' + 2>/dev/null || find . -type d -exec chmod g+s '{}' +
-fd_list=$(find . -type f -o -type d | sed "s|$(pwd)/||g")
+fd_list=$(find . -type f -o -type d -printf "%P\n" | grep -vE "^(\.git|.*\.md)$")
 
 if git ls-remote --exit-code origin index &>/dev/null; then
     if [ -d index ]; then
@@ -25,17 +25,19 @@ if git ls-remote --exit-code origin index &>/dev/null; then
     fi
 
     git fetch origin index
-    git worktree add index index
-    pushd index || exit 1
-    git reset --hard origin/index
-    popd || exit 1
 else
-    git worktree add index
     git checkout -b index
+    xargs rm -rf <<<"$fd_list"
+    git add .
+    git commit -m "init index"
     git push -u origin index
     git checkout master
 fi
 
+git worktree add index index
+pushd index || exit 1
+git reset --hard origin/index
+popd || exit 1
 [ -f index/.env ] && \cp index/.env src/env.env || touch src/env.env
 pushd src || exit 1
 main "${@:2}"
@@ -69,8 +71,7 @@ popd || exit 1
 
 if git worktree list | grep -q index; then
     pushd index || exit 1
-    # shellcheck disable=SC2086
-    git rm -r --ignore-unmatch $fd_list
+    xargs rm -rf <<<"$fd_list"
     git add .
     git commit -m "$(date -u +%Y-%m-%d)"
     git push
