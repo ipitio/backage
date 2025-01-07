@@ -299,7 +299,7 @@ docker_manifest_size() {
 
 owner_get_id() {
     local owner
-    local owner_id="0"
+    local owner_id=""
     owner=$(echo "$1" | tr -d '[:space:]')
     [ -n "$owner" ] || return
 
@@ -362,13 +362,13 @@ explore() {
             local nodes
 
             if [[ "$node" =~ .*\/.* ]]; then
-                nodes=$(curl_users "$node/$edge?page=$page" 1) # repo
+                nodes=$(curl_users "$node/$edge?page=$page") # repo
             else
-                nodes=$(curl_users "orgs/$node/$edge?page=$page" 1) # org
+                nodes=$(curl_users "orgs/$node/$edge?page=$page") # org
 
                 if [ -z "$nodes" ]; then
-                    nodes=$(curl_users "$node?tab=$edge&page=$page" 1) # user
-                    curl_orgs "$1" 1
+                    nodes=$(curl_users "$node?tab=$edge&page=$page") # user
+                    curl_orgs "$1"
                 fi
             fi
 
