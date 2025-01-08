@@ -98,10 +98,11 @@ update_owner() {
     find "$BKG_INDEX_DIR/$owner" -type f -name '*.json' | while read -r pkg; do
         for arr in "$owner" "$owner/$(jq -r '.repo' "$pkg")"; do
             [ -f "$BKG_INDEX_DIR/$arr.json" ] || echo "[]" >"$BKG_INDEX_DIR/$arr.json"
-            jq -s 'reduce .[0] as $obj (.[1]; . + [$obj]) | unique_by(.owner_id, .repo, .package)' "$pkg" "$BKG_INDEX_DIR/$arr.json" >"$BKG_INDEX_DIR/$arr.json.tmp"
-            jq -s '{ ("'"$arr"'"): . }' "$BKG_INDEX_DIR/$arr.json.tmp" >"$BKG_INDEX_DIR/$arr.json"
+            jq -cs 'reduce .[0] as $obj (.[1]; . + [$obj]) | unique_by(.owner_id, .repo, .package)' "$pkg" "$BKG_INDEX_DIR/$arr.json" >"$BKG_INDEX_DIR/$arr.json.tmp"
+            jq -cs '{ ("object"): . }' "$BKG_INDEX_DIR/$arr.json.tmp" >"$BKG_INDEX_DIR/$arr.json"
             ytox "$BKG_INDEX_DIR/$arr.json"
             mv -f "$BKG_INDEX_DIR/$arr.json.tmp" "$BKG_INDEX_DIR/$arr.json"
+            mv -f "$BKG_INDEX_DIR/$arr.json" "$BKG_INDEX_DIR/$arr/.json"
         done
     done
 
