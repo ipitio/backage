@@ -16,7 +16,7 @@ git config --global --add safe.directory "$(pwd)"
 git config core.sharedRepository all
 sudo chmod -R a+rwX . 2>/dev/null || chmod -R a+rwX .
 sudo find . -type d -exec chmod g+s '{}' + 2>/dev/null || find . -type d -exec chmod g+s '{}' +
-fd_list=$(find . -type f -o -type d -printf "%P\n" | grep -vE "^(\.git|.*\.md)$")
+fd_list=$(find . -type f -o -type d | grep -vE "^\.\/(\.git\/*|.*\.md$)")
 
 if git ls-remote --exit-code origin index &>/dev/null; then
     if [ -d index ]; then
