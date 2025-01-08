@@ -73,17 +73,6 @@
 0/btcpayserver
 0/btungut
 0/buckelij
-0/bumi
-0/buom
-0/burtcorp
-0/burtonator
-0/bvolpato
-0/bxy4543
-0/bytecodealliance
-0/c-base
-0/cabberley
-0/caius
-0/cakephp
 0/caldwell
 0/cameri
 0/camptocamp
