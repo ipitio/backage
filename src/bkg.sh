@@ -165,7 +165,7 @@ main() {
             fi
 
             mv "$BKG_INDEX_SQL".new.zst "$BKG_INDEX_SQL".zst
-            chmod 666 "$BKG_INDEX_SQL".zst
+            chmod 666 "$BKG_INDEX_SQL" "$BKG_INDEX_SQL".zst
             echo "Compressed the database"
         else
             echo "Failed to compress the database!"
