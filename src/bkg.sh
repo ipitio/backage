@@ -115,7 +115,7 @@ main() {
                 cat "$BKG_OWNERS"
                 find "$BKG_INDEX_DIR" -mindepth 1 -maxdepth 1 -type d -exec basename {} \; 2>/dev/null | sort -u | awk '{print "0/"$1}'
             )" >"$BKG_OWNERS"
-            sed -i '/^\(.*\/\)*(solutions\|sponsors\|enterprise\|premium-support)$/d' "$BKG_OWNERS"
+            sed -i '/^\(.*\/\)*\(solutions\|sponsors\|enterprise\|premium-support\)$/d' "$BKG_OWNERS"
             awk '!seen[$0]++' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
             [ ! -s packages_all ] || echo "$(
                 awk -F'|' '{print "0/"$2}' packages_all
