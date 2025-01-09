@@ -82,11 +82,9 @@ update_owner() {
 
     for page in $(seq 1 100000); do
         local pages_left=0
-        local pkgs
         page_package "$page"
         pages_left=$?
-        pkgs=$(get_BKG BKG_PACKAGES_"$owner")
-        run_parallel update_package "$pkgs"
+        run_parallel update_package "$(get_BKG_set BKG_PACKAGES_"$owner")"
         (($? != 3)) || return 3
         ((pages_left != 2)) || break
         set_BKG BKG_PACKAGES_"$owner" ""
