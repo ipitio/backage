@@ -66,7 +66,6 @@ page_owner() {
 update_owner() {
     check_limit || return $?
     [ -n "$1" ] || return
-    local ppl_html
     owner=$(cut -d'/' -f2 <<<"$1")
     owner_id=$(cut -d'/' -f1 <<<"$1")
     echo "Updating $owner..."
@@ -74,9 +73,8 @@ update_owner() {
     # decode percent-encoded characters and make lowercase (eg. for docker manifest)
     # shellcheck disable=SC2034
     lower_owner=$(perl -pe 's/%([0-9A-Fa-f]{2})/chr(hex($1))/eg' <<<"${owner//%/%25}" | tr '[:upper:]' '[:lower:]')
-    ppl_html=$(curl "https://github.com/orgs/$owner/people")
     (($? != 3)) || return 3
-    [ -n "$(grep -zoP 'href="/orgs/'"$owner"'/people"' <<<"$ppl_html" | tr -d '\0')" ] && export owner_type="orgs" || export owner_type="users"
+    [ -n "$(grep -zoP 'href="/orgs/'"$owner"'/people"' <<<"$(curl "https://github.com/orgs/$owner/people")" | tr -d '\0')" ] && export owner_type="orgs" || export owner_type="users"
     [ -d "$BKG_INDEX_DIR/$owner" ] || mkdir "$BKG_INDEX_DIR/$owner"
     set_BKG BKG_PACKAGES_"$owner" ""
     run_parallel save_package "$(sqlite3 "$BKG_INDEX_DB" "select package_type, package from '$BKG_INDEX_TBL_PKG' where owner_id = '$owner_id';" | awk -F'|' '{print "////"$1"//"$2}' | sort -uR)"
