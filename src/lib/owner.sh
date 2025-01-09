@@ -99,7 +99,7 @@ update_owner() {
         for arr in "$owner" "$owner/$(basename "$(dirname "$pkg")")"; do
             [ -f "$BKG_INDEX_DIR/$arr.json" ] || echo "[]" >"$BKG_INDEX_DIR/$arr/.json"
             jq -cs '[.[0]] + .[1]' "$pkg" "$BKG_INDEX_DIR/$arr/.json" >"$BKG_INDEX_DIR/$arr/.json.tmp"
-            jq -cs '{ ("object"): . }' "$BKG_INDEX_DIR/$arr/.json.tmp" >"$BKG_INDEX_DIR/$arr/.json"
+            jq -cs '{ ("package"): . }' "$BKG_INDEX_DIR/$arr/.json.tmp" >"$BKG_INDEX_DIR/$arr/.json"
             ytox "$BKG_INDEX_DIR/$arr/.json"
             mv -f "$BKG_INDEX_DIR/$arr/.json.tmp" "$BKG_INDEX_DIR/$arr/.json"
         done
