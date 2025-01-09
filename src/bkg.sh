@@ -145,8 +145,8 @@ main() {
 
         if [ "$GITHUB_OWNER" = "ipitio" ]; then
             get_BKG_set BKG_OWNERS_QUEUE | env_parallel --lb update_owner
-        else
-            get_BKG_set BKG_OWNERS_QUEUE | update_owner
+        else # typically fewer owners
+            get_BKG_set BKG_OWNERS_QUEUE | while read -r owner; do update_owner "$owner"; done
         fi
 
         sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, repo, package from '$BKG_INDEX_TBL_PKG';" | sort -u >packages_all

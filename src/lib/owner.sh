@@ -65,10 +65,9 @@ page_owner() {
 
 update_owner() {
     check_limit || return $?
-    owner=${1:-$(</dev/stdin)}
-    [ -n "$owner" ] || return
-    owner_id=$(cut -d'/' -f1 <<<"$owner")
-    owner=$(cut -d'/' -f2 <<<"$owner")
+    [ -n "$1" ] || return
+    owner_id=$(cut -d'/' -f1 <<<"$1")
+    owner=$(cut -d'/' -f2 <<<"$1")
     echo "Updating $owner..."
 
     # decode percent-encoded characters and make lowercase (eg. for docker manifest)
@@ -85,7 +84,13 @@ update_owner() {
         local pages_left=0
         page_package "$page"
         pages_left=$?
-        run_parallel update_package "$(get_BKG_set BKG_PACKAGES_"$owner")"
+
+        if [ "$GITHUB_OWNER" = "ipitio" ]; then
+            run_parallel update_package "$(get_BKG_set BKG_PACKAGES_"$owner")"
+        else
+            get_BKG_set BKG_PACKAGES_"$owner" | env_parallel --lb update_package
+        fi
+
         (($? != 3)) || return 3
         ((pages_left != 2)) || break
         set_BKG BKG_PACKAGES_"$owner" ""
