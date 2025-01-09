@@ -142,7 +142,13 @@ main() {
         rm -f "$connections"
         BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
         [ -d "$BKG_INDEX_DIR" ] || mkdir "$BKG_INDEX_DIR"
-        get_BKG_set BKG_OWNERS_QUEUE | env_parallel --lb update_owner
+
+        if [ "$GITHUB_OWNER" = "ipitio" ]; then
+            get_BKG_set BKG_OWNERS_QUEUE | env_parallel --lb update_owner
+        else
+            run_parallel update_owner "$(get_BKG_set BKG_OWNERS_QUEUE)"
+        fi
+
         sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, repo, package from '$BKG_INDEX_TBL_PKG';" | sort -u >packages_all
         echo "Compressing the database..."
         sqlite3 "$BKG_INDEX_DB" ".dump" | zstd -22 --ultra --long -T0 -o "$BKG_INDEX_SQL".new.zst

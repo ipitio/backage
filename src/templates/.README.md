@@ -12,13 +12,13 @@
 
 </div>
 
-Wish you could show npm, gem, mvn, Gradle, NuGet, or GHCR badges? Or just query for the download counts? Tough luck; the GitHub Packages API has never exposed this publicly-available metadata that other registries provide. That is, until now: **Star this project to have GitHub supplement its API with an additional endpoint for your public packages!**
+Wish you could show npm, gem, mvn, Gradle, NuGet, or GHCR badges? Or just query for the download counts? Tough luck; the GitHub Packages API has never exposed publicly-available metadata that other registries provide. This is the solution: **Star this project to have GitHub generate an additional endpoint for your public packages!**
 
 A service ran by GitHub will add them to its circular priority queue within the next few hours and update the [closed-loop system](https://github.com/ipitio/backage/releases/latest). If you'd then like the service to forget and ignore some or all of your packages, add `owner[/repo[/package]]` to `optout.txt` [here](https://github.com/ipitio/backage/edit/master/optout.txt) and make a pull request.
 
 To add any other users or organizations not yet [in the index](https://github.com/ipitio/backage/tree/index), add the case-sensitive name of each one on a new line in `owners.txt` on your own fork [here](https://github.com/ipitio/backage/edit/master/owners.txt) and make a pull request. Please add just the name(s) -- ids, repos, and packages will be found automatically!
 
-Once you've confirmed that the packages you're interested in are found and their metadata update without issue, you can create an independent instance for them that'll update more frequently. Simply fork just the `master` branch and enable Actions from its tab. While you can update your `optout.txt` immediately, please wait for the [Alternative URL](#alternative-url) in your fork to change to yours before adding any other users or organizations to your `owners.txt`. This centralized repo will then serve as a backup.
+Once you've confirmed that the packages you're interested in are found and their metadata update without issue, you can create an independent instance for them that'll update more frequently. This centralized repo will then serve as a backup. Simply fork just the `master` branch, then enable Actions from its tab and all disabled workflows. While you can update your `optout.txt` immediately, please wait for the [Alternative URL](#alternative-url) in your fork to change to yours before adding any other users or organizations to your `owners.txt`.
 
 <div align="center">
 
@@ -30,7 +30,7 @@ Once you've confirmed that the packages you're interested in are found and their
 https://ipitio.github.io/backage/OWNER/[REPO/[PACKAGE]].FORMAT
 ```
 
-Replace the parameters with their respective values, scoping to your parsing needs, then use something like [shields.io/json](https://shields.io/badges/dynamic-json-badge) or [shields.io/xml](https://shields.io/badges/dynamic-xml-badge) to access the latest data and make badges like `refreshes` above or the one [here](https://github.com/badges/shields/issues/5594#issuecomment-2157626147).
+Replace the parameters with their respective values, scoping to your parsing needs, then access the latest data however you want. Use something like [shields.io/json](https://shields.io/badges/dynamic-json-badge) or [shields.io/xml](https://shields.io/badges/dynamic-xml-badge) to make badges like the ones above or the one [here](https://github.com/badges/shields/issues/5594#issuecomment-2157626147).
 
 > [!NOTE]
 > The format can be either `json` or `xml`. You'll need the XML endpoint to evaluate expressions, like filters, with Shields -- see [this issue](https://github.com/ipitio/backage/issues/23).
@@ -126,7 +126,7 @@ $.version[FILTER].PROPERTY
 $.version[?(@.latest)].tags[?(@!="latest")]
 ```
 
-As can packages in `OWNER/[REPO/].json` files:
+As can packages in `owner[/repo]/.json` files:
 
 ```js
 $.[FILTER].PROPERTY
@@ -158,7 +158,7 @@ Versions can be filtered in and tags out:
 /xml/version[./latest[.="true"]]/tags[.!="latest"]
 ```
 
-As can packages in `OWNER/[REPO/].xml` files:
+As can packages in `owner[/repo]/.xml` files:
 
 ```py
 /xml/package[FILTER]/PROPERTY

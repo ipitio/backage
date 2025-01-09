@@ -165,8 +165,7 @@ check_limit() {
 
     # wait if 900 or more calls have been made in the last minute
     minute_calls=$(get_BKG BKG_MIN_CALLS_TO_API)
-    rate_limit_end=$(date -u +%s)
-    sec_limit_diff=$((rate_limit_end - $(get_BKG BKG_MIN_RATE_LIMIT_START)))
+    sec_limit_diff=$(($(date -u +%s) - $(get_BKG BKG_MIN_RATE_LIMIT_START)))
     min_passed=$((sec_limit_diff / 60))
 
     if ((minute_calls >= 900 * (min_passed + 1))); then
