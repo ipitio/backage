@@ -65,9 +65,10 @@ page_owner() {
 
 update_owner() {
     check_limit || return $?
-    [ -n "$1" ] || return
-    owner=$(cut -d'/' -f2 <<<"$1")
-    owner_id=$(cut -d'/' -f1 <<<"$1")
+    owner=${1:-$(</dev/stdin)}
+    [ -n "$owner" ] || return
+    owner_id=$(cut -d'/' -f1 <<<"$owner")
+    owner=$(cut -d'/' -f2 <<<"$owner")
     echo "Updating $owner..."
 
     # decode percent-encoded characters and make lowercase (eg. for docker manifest)
