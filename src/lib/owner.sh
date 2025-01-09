@@ -82,15 +82,11 @@ update_owner() {
 
     for page in $(seq 1 100000); do
         local pages_left=0
+        local pkgs
         page_package "$page"
         pages_left=$?
-
-        if [ "$GITHUB_OWNER" = "ipitio" ]; then
-            run_parallel update_package "$(get_BKG_set BKG_PACKAGES_"$owner")"
-        else
-            get_BKG_set BKG_PACKAGES_"$owner" | env_parallel --lb update_package
-        fi
-
+        pkgs=$(get_BKG BKG_PACKAGES_"$owner")
+        run_parallel update_package "$pkgs"
         (($? != 3)) || return 3
         ((pages_left != 2)) || break
         set_BKG BKG_PACKAGES_"$owner" ""
