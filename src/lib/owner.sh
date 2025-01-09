@@ -95,7 +95,7 @@ update_owner() {
     done
 
     # merge packages into arrays
-    find "$BKG_INDEX_DIR/$owner" -type f -name '*.json' | while read -r pkg; do
+    find "$BKG_INDEX_DIR/$owner" -type f -name '*.json' ! -name '.*' | while read -r pkg; do
         for arr in "$owner" "$owner/$(basename "$(dirname "$pkg")")"; do
             [ -f "$BKG_INDEX_DIR/$arr.json" ] || echo "[]" >"$BKG_INDEX_DIR/$arr/.json"
             jq -cs '[.[0]] + .[1]' "$pkg" "$BKG_INDEX_DIR/$arr/.json" >"$BKG_INDEX_DIR/$arr/.json.tmp"
