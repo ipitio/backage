@@ -69,6 +69,12 @@ PRAGMA cache_size = -500000;
 
 get_BKG() {
     [ -f "$BKG_ENV" ] || return
+    while [ -f "$BKG_ENV.lock" ]; do :; done
+    grep "^$1=" "$BKG_ENV" | cut -d'=' -f2
+}
+
+get_BKG_safe() {
+    [ -f "$BKG_ENV" ] || return
     until ln "$BKG_ENV" "$BKG_ENV.lock" 2>/dev/null; do :; done
     grep "^$1=" "$BKG_ENV" | cut -d'=' -f2
     rm -f "$BKG_ENV.lock"
@@ -145,11 +151,11 @@ check_limit() {
     local min_passed
     local max_len=${1:-18000}
     rate_limit_end=$(date -u +%s)
-    script_limit_diff=$((rate_limit_end - $(get_BKG BKG_SCRIPT_START)))
+    script_limit_diff=$((rate_limit_end - $(get_BKG_safe BKG_SCRIPT_START)))
     ((script_limit_diff < max_len)) || save_and_exit
     (($? != 3)) || return 3
-    total_calls=$(get_BKG BKG_CALLS_TO_API)
-    rate_limit_diff=$((rate_limit_end - $(get_BKG BKG_RATE_LIMIT_START)))
+    total_calls=$(get_BKG_safe BKG_CALLS_TO_API)
+    rate_limit_diff=$((rate_limit_end - $(get_BKG_safe BKG_RATE_LIMIT_START)))
     hours_passed=$((rate_limit_diff / 3600))
 
     if ((total_calls >= 1000 * (hours_passed + 1))); then
@@ -165,8 +171,8 @@ check_limit() {
     fi
 
     # wait if 900 or more calls have been made in the last minute
-    minute_calls=$(get_BKG BKG_MIN_CALLS_TO_API)
-    sec_limit_diff=$(($(date -u +%s) - $(get_BKG BKG_MIN_RATE_LIMIT_START)))
+    minute_calls=$(get_BKG_safe BKG_MIN_CALLS_TO_API)
+    sec_limit_diff=$(($(date -u +%s) - $(get_BKG_safe BKG_MIN_RATE_LIMIT_START)))
     min_passed=$((sec_limit_diff / 60))
 
     if ((minute_calls >= 900 * (min_passed + 1))); then
