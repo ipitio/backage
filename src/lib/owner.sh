@@ -19,7 +19,7 @@ request_owner() {
     fi
 
     ! grep -q "$owner" packages_all || return 1
-    while ! ln "$BKG_OWNERS" "$BKG_OWNERS.lock" 2>/dev/null; do :; done
+    until ln "$BKG_OWNERS" "$BKG_OWNERS.lock" 2>/dev/null; do :; done
     grep -q "^(.*\/)*$owner$" "$BKG_OWNERS" || echo "$id/$owner" >>"$BKG_OWNERS"
 
     if [ "$(stat -c %s "$BKG_OWNERS")" -ge 100000000 ]; then

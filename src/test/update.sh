@@ -14,9 +14,8 @@ git config --global user.name "${GITHUB_ACTOR}"
 git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
 git config --global --add safe.directory "$(pwd)"
 git config core.sharedRepository all
-sudo chmod -R a+rwX . 2>/dev/null || chmod -R a+rwX .
-sudo find . -type d -exec chmod g+s '{}' + 2>/dev/null || find . -type d -exec chmod g+s '{}' +
-fd_list=$(find . -type f -o -type d | grep -vE "^\.($|\/(\.git\/*|.*\.md$))")
+sudonot chmod -R a+rwX .
+sudonot find . -type d -exec chmod g+s '{}' +
 
 if git ls-remote --exit-code origin index &>/dev/null; then
     if [ -d index ]; then
@@ -26,10 +25,11 @@ if git ls-remote --exit-code origin index &>/dev/null; then
 
     git fetch origin index
 else
-    git checkout -b index
+    fd_list=$(find . -type f -o -type d | grep -vE "^\.($|\/(\.git\/*|.*\.md$))")
+    git switch --orphan index
     xargs rm -rf <<<"$fd_list"
     git add .
-    git commit -m "init index"
+    git commit --allow-empty -m "init index"
     git push -u origin index
     git checkout master
 fi
@@ -71,7 +71,6 @@ popd || exit 1
 
 if git worktree list | grep -q index; then
     pushd index || exit 1
-    xargs rm -rf <<<"$fd_list"
     git add .
     git commit -m "$(date -u +%Y-%m-%d)"
     git push

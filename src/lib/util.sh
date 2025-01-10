@@ -69,8 +69,9 @@ PRAGMA cache_size = -500000;
 
 get_BKG() {
     [ -f "$BKG_ENV" ] || return
-    while [ -f "$BKG_ENV.lock" ]; do :; done
+    until ln "$BKG_ENV" "$BKG_ENV.lock" 2>/dev/null; do :; done
     grep "^$1=" "$BKG_ENV" | cut -d'=' -f2
+    rm -f "$BKG_ENV.lock"
 }
 
 set_BKG() {
@@ -79,7 +80,7 @@ set_BKG() {
     value=$(echo "$2" | perl -pe 'chomp if eof')
     tmp_file=$(mktemp)
     [ -f "$BKG_ENV" ] || return
-    while ! ln "$BKG_ENV" "$BKG_ENV.lock" 2>/dev/null; do :; done
+    until ln "$BKG_ENV" "$BKG_ENV.lock" 2>/dev/null; do :; done
 
     if ! grep -q "^$1=" "$BKG_ENV"; then
         echo "$1=$value" >>"$BKG_ENV"
@@ -101,7 +102,7 @@ get_BKG_set() {
 set_BKG_set() {
     local list
     local code=0
-    while ! ln "$BKG_ENV" "$BKG_ENV.$1.lock" 2>/dev/null; do :; done
+    until ln "$BKG_ENV" "$BKG_ENV.$1.lock" 2>/dev/null; do :; done
     list=$(get_BKG_set "$1" | awk '!seen[$0]++' | perl -pe 's/\n/\\n/g')
     # shellcheck disable=SC2076
     [[ "$list" =~ "$2" ]] && code=1 || list="${list:+$list\n}$2"
@@ -112,7 +113,7 @@ set_BKG_set() {
 
 del_BKG() {
     [ -f "$BKG_ENV" ] || return
-    while ! ln "$BKG_ENV" "$BKG_ENV.lock" 2>/dev/null; do :; done
+    until ln "$BKG_ENV" "$BKG_ENV.lock" 2>/dev/null; do :; done
     parallel "sed -i '/^{}=/d' $BKG_ENV" ::: "$@"
     sed -i '/^\s*$/d' "$BKG_ENV"
     echo >>"$BKG_ENV"
@@ -276,7 +277,7 @@ get_db() {
     release=$(query_api "repos/${GITHUB_OWNER:-ipitio}/${GITHUB_REPO:-backage}/releases/latest")
     latest=$(jq -r '.tag_name' <<<"$release")
 
-    while ! dldb "$latest"; do
+    until dldb "$latest"; do
         echo "Deleting the latest release..."
         curl_gh -X DELETE "https://api.github.com/repos/${GITHUB_OWNER:-ipitio}/${GITHUB_REPO:-backage}/releases/$(jq -r '.id' <<<"$release")"
         release=$(query_api "repos/${GITHUB_OWNER:-ipitio}/${GITHUB_REPO:-backage}/releases/latest")
