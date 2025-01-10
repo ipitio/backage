@@ -63,8 +63,8 @@ You'll find these properties for the package and its versions:
 |   `downloads_week`    |    string    | Formatted count of all downloads in the last week   |
 |    `downloads_day`    |    string    | Formatted count of all downloads in the last day    |
 |      `raw_size`       |    number    | Size of the latest version, in bytes                |
-|    `raw_versions`     |    number    | Count of versions tracked                           |
-|     `raw_tagged`      |    number    | Count of tagged versions tracked                    |
+|    `raw_versions`     |    number    | Count of versions ever tracked                      |
+|     `raw_tagged`      |    number    | Count of tagged versions ever tracked               |
 |   `raw_owner_rank`    |    number    | Rank by downloads within the owner                  |
 |    `raw_repo_rank`    |    number    | Rank by downloads within the repository             |
 |    `raw_downloads`    |    number    | Count of all downloads                              |
