@@ -79,14 +79,23 @@ update_owner() {
     set_BKG BKG_PACKAGES_"$owner" ""
     run_parallel save_package "$(sqlite3 "$BKG_INDEX_DB" "select package_type, package from '$BKG_INDEX_TBL_PKG' where owner_id = '$owner_id';" | awk -F'|' '{print "////"$1"//"$2}' | sort -uR)"
     (($? != 3)) || return 3
+    local start_page
+    start_page=$(get_BKG BKG_PAGE_"$owner")
 
-    for page in $(seq 1 100000); do
+    for page in $(seq "${start_page:-1}" 100000); do
         local pages_left=0
+        set_BKG BKG_PAGE_"$owner" "$page"
         page_package "$page"
         pages_left=$?
         run_parallel update_package "$(get_BKG_set BKG_PACKAGES_"$owner")"
         (($? != 3)) || return 3
-        ((pages_left != 2)) || break
+
+        if ((pages_left != 2)); then
+            set_BKG BKG_PAGE_"$owner" ""
+            del_BKG BKG_PAGE_"$owner"
+            break
+        fi
+
         set_BKG BKG_PACKAGES_"$owner" ""
     done
 
