@@ -189,8 +189,8 @@ check_limit() {
 
 curl() {
     # if connection times out or max time is reached, wait increasing amounts of time before retrying
-    local i=0
-    local max_attempts=10
+    local i=2
+    local max_attempts=7
     local wait_time=1
     local result
 
@@ -198,9 +198,10 @@ curl() {
         result=$(command curl -sSLNZ --connect-timeout 60 -m 120 "$@" 2>/dev/null)
         [ -n "$result" ] && echo "$result" && return 0
         check_limit || return $?
+        echo "\`curl $*\` failed, retrying in $wait_time seconds..."
         sleep "$wait_time"
         ((i++))
-        ((wait_time *= 2))
+        ((wait_time *= i))
     done
 
     return 1
