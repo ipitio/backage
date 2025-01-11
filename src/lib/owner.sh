@@ -90,7 +90,7 @@ update_owner() {
         run_parallel update_package "$(get_BKG_set BKG_PACKAGES_"$owner")"
         (($? != 3)) || return 3
 
-        if ((pages_left != 2)); then
+        if ((pages_left == 2)); then
             set_BKG BKG_PAGE_"$owner_id" ""
             del_BKG BKG_PAGE_"$owner_id"
             break
