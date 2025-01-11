@@ -30,6 +30,8 @@ A service ran by GitHub will add them to its circular priority queue within the 
 > [!TIP]
 > Use the proxy to convert external JSON to XML! This doesn't currently work with Shields, though.
 
+### The Data
+
 You'll find these properties for packages and their versions:
 
 <details>
