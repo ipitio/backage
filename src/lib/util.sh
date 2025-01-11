@@ -198,12 +198,12 @@ curl() {
         result=$(command curl -sSLNZ --connect-timeout 60 -m 120 "$@" 2>/dev/null)
         [ -n "$result" ] && echo "$result" && return 0
         check_limit || return $?
-        echo "\`curl $*\` failed, retrying in $wait_time seconds..."
         sleep "$wait_time"
         ((i++))
         ((wait_time *= i))
     done
 
+    echo ""
     return 1
 }
 
