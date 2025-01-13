@@ -112,10 +112,13 @@ update_owner() {
     echo "Creating $owner repo arrays..."
     local owner_repos
     owner_repos=$(find "$BKG_INDEX_DIR/$owner" -mindepth 1 -maxdepth 1 -type d -print0 | xargs -0 -I {} basename {})
-    parallel "jq -c --arg repo {} '[.[] | select(.repo == \$repo)]' \"$BKG_INDEX_DIR/$owner/.json\" > \"$BKG_INDEX_DIR/$owner/{}/.json.tmp\"" <<<"$owner_repos"
-    xargs -I {} sh -c "jq -cs '{ (\"package\"): . }' \"$BKG_INDEX_DIR/$owner/{}/.json.tmp\" > \"$BKG_INDEX_DIR/$owner/{}/.json\"" <<<"$owner_repos"
-    xargs -I {} ytox "$BKG_INDEX_DIR/$owner/{}/.json.tmp" <<<"$owner_repos"
-    xargs -I {} mv -f "$BKG_INDEX_DIR/$owner/{}/.json.tmp" "$BKG_INDEX_DIR/$owner/{}/.json" <<<"$owner_repos"
+
+    if [ -n "$owner_repos" ]; then
+        parallel "jq -c --arg repo {} '[.[] | select(.repo == \$repo)]' \"$BKG_INDEX_DIR/$owner/.json\" > \"$BKG_INDEX_DIR/$owner/{}/.json.tmp\"" <<<"$owner_repos"
+        xargs -I {} sh -c "jq -cs '{ (\"package\"): . }' \"$BKG_INDEX_DIR/$owner/{}/.json.tmp\" > \"$BKG_INDEX_DIR/$owner/{}/.json\"" <<<"$owner_repos"
+        xargs -I {} ytox "$BKG_INDEX_DIR/$owner/{}/.json.tmp" <<<"$owner_repos"
+        xargs -I {} mv -f "$BKG_INDEX_DIR/$owner/{}/.json.tmp" "$BKG_INDEX_DIR/$owner/{}/.json" <<<"$owner_repos"
+    fi
 
     sed -i '/^\(.*\/\)*'"$owner"'$/d' "$BKG_OWNERS"
     echo "Updated $owner"
