@@ -6,6 +6,8 @@
 #
 # shellcheck disable=SC1090,SC1091,SC2015,SC2034
 
+set -o allexport
+
 sudonot() {
     sudo "$@" >/dev/null 2>&1 || "$@"
 }
@@ -392,3 +394,5 @@ ytox() {
 ytoy() {
     yq -oy "$1" | sed 's/"/\\"/g' >"${1%.*}.yml"
 }
+
+set +o allexport
