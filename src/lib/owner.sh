@@ -101,18 +101,16 @@ update_owner() {
         set_BKG BKG_PACKAGES_"$owner" ""
     done
 
-    # merge packages into owner array
-    echo "Creating $owner array..."
-    find "$BKG_INDEX_DIR/$owner" -type f -name '*.json' ! -name '.*' -print0 | xargs -0 jq -cs '[.] | add' >"$BKG_INDEX_DIR/$owner/.json.tmp"
-    jq -cs '{ ("package"): . }' "$BKG_INDEX_DIR/$owner/.json.tmp" >"$BKG_INDEX_DIR/$owner/.json"
-    ytox "$BKG_INDEX_DIR/$owner/.json"
-    mv -f "$BKG_INDEX_DIR/$owner/.json.tmp" "$BKG_INDEX_DIR/$owner/.json"
-
-    # split owner array into repo arrays
     local owner_repos
     owner_repos=$(find "$BKG_INDEX_DIR/$owner" -mindepth 1 -maxdepth 1 -type d -print0 | xargs -0 -I {} basename {})
 
     if [ -n "$owner_repos" ]; then
+        echo "Creating $owner array..."
+        find "$BKG_INDEX_DIR/$owner" -type f -name '*.json' ! -name '.*' -print0 | xargs -0 jq -cs '[.] | add' >"$BKG_INDEX_DIR/$owner/.json.tmp"
+        jq -cs '{ ("package"): . }' "$BKG_INDEX_DIR/$owner/.json.tmp" >"$BKG_INDEX_DIR/$owner/.json"
+        ytox "$BKG_INDEX_DIR/$owner/.json"
+        mv -f "$BKG_INDEX_DIR/$owner/.json.tmp" "$BKG_INDEX_DIR/$owner/.json"
+
         echo "Creating $owner repo arrays..."
         parallel "jq -c --arg repo {} '[.[] | select(.repo == \$repo)]' \"$BKG_INDEX_DIR/$owner/.json\" > \"$BKG_INDEX_DIR/$owner/{}/.json.tmp\"" <<<"$owner_repos"
         xargs -I {} sh -c "jq -cs '{ (\"package\"): . }' \"$BKG_INDEX_DIR/$owner/{}/.json.tmp\" > \"$BKG_INDEX_DIR/$owner/{}/.json\"" <<<"$owner_repos"
