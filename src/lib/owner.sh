@@ -86,7 +86,7 @@ update_owner() {
     for page in $(seq "$start_page" 100000); do
         local pages_left=0
         set_BKG BKG_PAGE_"$owner_id" "$page"
-        ((page - start_page < 130)) || break
+        ((page - start_page < 1000)) || break
         page_package "$page"
         pages_left=$?
         run_parallel update_package "$(get_BKG_set BKG_PACKAGES_"$owner")"
