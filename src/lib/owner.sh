@@ -113,8 +113,8 @@ update_owner() {
 
         echo "Creating $owner repo arrays..."
         parallel "jq -c --arg repo {} '[.[] | select(.repo == \$repo)]' \"$BKG_INDEX_DIR/$owner/.json\" > \"$BKG_INDEX_DIR/$owner/{}/.json.tmp\"" <<<"$owner_repos"
-        xargs -I {} sh -c "jq -cs '{ (\"package\"): . }' \"$BKG_INDEX_DIR/$owner/{}/.json.tmp\" > \"$BKG_INDEX_DIR/$owner/{}/.json\"" <<<"$owner_repos"
-        xargs -I {} ytox "$BKG_INDEX_DIR/$owner/{}/.json" <<<"$owner_repos"
+        xargs -I {} bash -c "jq -cs '{ (\"package\"): . }' \"$BKG_INDEX_DIR/$owner/{}/.json.tmp\" > \"$BKG_INDEX_DIR/$owner/{}/.json\"" <<<"$owner_repos"
+        xargs -I {} bash -c "ytox \"$BKG_INDEX_DIR/$owner/{}/.json\"" <<<"$owner_repos"
         xargs -I {} mv -f "$BKG_INDEX_DIR/$owner/{}/.json.tmp" "$BKG_INDEX_DIR/$owner/{}/.json" <<<"$owner_repos"
     fi
 
