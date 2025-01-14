@@ -217,3 +217,16 @@
 0/useparagon
 0/viamrobotics
 0/wigmorewelsh
+0/MUNComputerScienceSociety
+0/MelvinTo
+0/Sixeight
+0/SkyAPM
+0/arschles
+0/containerd
+0/frafra
+0/freddydk
+0/karupanerura
+0/metabronx
+0/michaelbanfield
+0/ngosang
+0/nicolaka
