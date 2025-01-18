@@ -370,13 +370,13 @@ explore() {
             local nodes
 
             if [[ "$node" =~ .*\/.* ]]; then
-                nodes=$(curl_users "$node/$edge?page=$page") # repo
+                nodes=$(curl_users "$node/$edge?page=$page" "$2") # repo
             else
-                nodes=$(curl_users "orgs/$node/$edge?page=$page") # org
+                nodes=$(curl_users "orgs/$node/$edge?page=$page" "$2") # org
 
                 if [ -z "$nodes" ]; then
-                    nodes=$(curl_users "$node?tab=$edge&page=$page") # user
-                    curl_orgs "$1"
+                    nodes=$(curl_users "$node?tab=$edge&page=$page" "$2") # user
+                    curl_orgs "$1" "$2"
                 fi
             fi
 

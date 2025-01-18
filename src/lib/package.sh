@@ -33,6 +33,7 @@ page_package() {
     packages_lines=${packages_lines//href=/\\nhref=}
     packages_lines=${packages_lines//\\n/$'\n'} # replace \n with newline
     run_parallel save_package "$packages_lines"
+    (( $1 > 1)) || grep -q href <<<"$packages_lines" || sed -i '/^\(.*\/\)*'"$owner"'$/d' "$BKG_OWNERS"
     (($? != 3)) || return 3
     echo "Started $owner page $1"
     [ "$(wc -l <<<"$packages_lines")" -gt 1 ] || return 2
