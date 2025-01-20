@@ -102,10 +102,12 @@
 211680/woodshole
 208542/foraker
 211437/mediapilot
+208632/teamashasv
 204290/badi95
 206167/cpanel
 204202/garliu
 204251/uApp
+208563/peatfirestudios
 204297/robsonc
 204278/ctznkane24
 204259/willdady
@@ -166,13 +168,6 @@
 205992/cygni
 204298/jtrickett
 204239/luiso
-handshake-org
-icoretech
-ilosamart
-matschaffer
-Dahlgren
-DataDog
-WyriHaximusNet
 ausaccessfed
 bcachet
 bertux
@@ -187,8 +182,6 @@ kehiy
 kenchan
 kezhenxu94
 linuskoester
-masih
-maslow
 matt-FFFFFF
 nitishkumar71
 samj1912
@@ -198,3 +191,4 @@ matt-FFFFFF
 nitishkumar71
 samj1912
 snh
+Jaxelr
