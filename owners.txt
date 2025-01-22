@@ -117,6 +117,20 @@ benthosdev
 davidB
 elmarco
 envato
+G-Research
+YakDriver
+acdha
+adzerk
+ajbouh
+alexgleason
+alexymantha
+alpine-ros
+bemble
+davidB
+dgl
+elmarco
+envato
+filiptronicek
 jduimovich
 juliushaertl
 kehiy
@@ -125,4 +139,5 @@ kezhenxu94
 linuskoester
 matt-FFFFFF
 nitishkumar71
+pfefferle
 samj1912
