@@ -80,8 +80,6 @@
 208641/joeykrim
 208541/hoyenko
 216588/ssltrust
-netauth
-netdata
 216891/liquidweb
 222445/clipperz
 215272/thunderz14enator
@@ -90,8 +88,6 @@ netdata
 219185/sones
 215283/abliss
 215281/darkbreton
-215663/admore-factory
-216220/Readify
 215295/paragjoshi
 222053/baseblack
 215327/molly-xx
@@ -102,16 +98,13 @@ netdata
 215359/Jmaharman
 215362/mrJohn
 215291/ervikaspec
-216300/gameiqinc
 219582/brushingbits
-216121/zype
 220672/yalemssa
 215347/pramodGrit
 216755/okn
 217990/sunnyconf
 220511/richardt
 219765/tweetdeck-archive
-216185/c9wireless
 215368/paazav
 218394/mediasilo
 215273/hiroimaichi
@@ -130,7 +123,6 @@ netdata
 219337/leaflabs
 220095/storyteller
 218926/cocoaheadstrier
-216282/xmgstudio
 218537/makeramen
 215351/ecolucas
 221513/webtatic
@@ -158,11 +150,9 @@ netdata
 215271/arfizal
 215322/yangy71
 215298/ninuo
-215768/gddinteractive
 215268/aldifarad
 215309/yaro333
 218025/embedly
-215426/Westerdals
 215354/strock
 219451/austinphp
 215292/michaelkostal
@@ -177,7 +167,6 @@ netdata
 222668/fusefm
 215304/rezponze
 215276/dan1
-215441/mukuru
 215340/e3401
 222294/uberbuilder
 215325/claudiou
@@ -212,7 +201,6 @@ netdata
 223090/locomotive
 215279/soch
 215316/asgar
-216588/ssltrust
 221285/stadtwerk
 215288/offmct
 217976/farbenmeer
@@ -253,3 +241,5 @@ transloadit
 vertica
 zsh-users
 zvonkok
+IBM
+difro
