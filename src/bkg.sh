@@ -99,29 +99,34 @@ main() {
             sed -i 's/^[[:space:]]*//;s/[[:space:]]*$//' "$BKG_OWNERS"
 
             if [ "$GITHUB_OWNER" = "ipitio" ]; then
-                [[ "$(wc -l <"$BKG_OWNERS")" -ge 100 ]] || seq 1 2 | env_parallel --lb --halt soon,fail=1 page_owner
                 sort -u <<<"$(
                     explore "$GITHUB_OWNER"
                     explore "$GITHUB_OWNER/$GITHUB_REPO"
                 )" >"$connections"
+                [[ "$(wc -l <"$BKG_OWNERS")" -ge $(($(wc -l "$connections") + 100)) ]] || seq 1 2 | env_parallel --lb --halt soon,fail=1 page_owner
             else
                 ! grep -q '/' "$BKG_OWNERS" || : >"$BKG_OWNERS"
                 explore "$GITHUB_OWNER" people >"$connections"
             fi
 
             echo "$(
-                echo "0/$GITHUB_OWNER"
-                cat "$connections"
                 cat "$BKG_OWNERS"
                 find "$BKG_INDEX_DIR" -mindepth 1 -maxdepth 1 -type d -exec basename {} \; 2>/dev/null | sort -u | awk '{print $1}'
             )" >"$BKG_OWNERS"
-            sed -i '/^\(.*\/\)*\(solutions\|sponsors\|enterprise\|premium-support\)$/d' "$BKG_OWNERS"
-            awk '!seen[$0]++' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
             [ ! -s packages_all ] || echo "$(
                 awk -F'|' '{print "0/"$2}' packages_all
                 awk -F'|' '{print $1"/"$2}' packages_all
                 awk -F'|' '{print $2}' packages_all
             )" | sort -u | parallel "sed -i '\,^{}$,d' $BKG_OWNERS"
+
+            echo "$(
+                echo "0/$GITHUB_OWNER"
+                cat "$connections"
+                cat "$BKG_OWNERS"
+            )" >"$BKG_OWNERS"
+
+            awk '!seen[$0]++' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
+            sed -i '/^\(.*\/\)*\(solutions\|sponsors\|enterprise\|premium-support\)$/d' "$BKG_OWNERS"
 
             if [[ "$pkg_left" == "0" || "${db_size_curr::-1}" == "${db_size_prev::-1}" ]]; then
                 set_BKG BKG_BATCH_FIRST_STARTED "$today"
@@ -129,7 +134,7 @@ main() {
                 \cp packages_all packages_to_update
             fi
 
-            head -n100 "$BKG_OWNERS" | env_parallel --lb save_owner
+            head -n $(($(wc -l "$connections") + 100)) "$BKG_OWNERS" | env_parallel --lb save_owner
             awk -F'|' '{print $1"/"$2}' packages_to_update | sort -uR 2>/dev/null | head -n1000 | env_parallel --lb save_owner
             parallel "sed -i '\,^{}$,d' $BKG_OWNERS" <"$connections"
             set_BKG BKG_DIFF "$db_size_curr"
