@@ -127,3 +127,7 @@ halvards
 loafoe
 locol23
 mubi
+GoogleCloudPlatform
+HyukjinKwon
+Open-Earth-Foundation
+PSanetra
