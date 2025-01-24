@@ -362,3 +362,5 @@ joshpc
 jpbede
 tooky
 torchbox
+Azure-Samples
+BPScott
