@@ -103,7 +103,7 @@ main() {
                     explore "$GITHUB_OWNER"
                     explore "$GITHUB_OWNER/$GITHUB_REPO"
                 )" >"$connections"
-                [[ "$(wc -l <"$BKG_OWNERS")" -ge $(($(wc -l "$connections") + 100)) ]] || seq 1 2 | env_parallel --lb --halt soon,fail=1 page_owner
+                [[ "$(wc -l <"$BKG_OWNERS")" -ge $(($(wc -l <"$connections") + 100)) ]] || seq 1 2 | env_parallel --lb --halt soon,fail=1 page_owner
             else
                 ! grep -q '/' "$BKG_OWNERS" || : >"$BKG_OWNERS"
                 explore "$GITHUB_OWNER" people >"$connections"
@@ -134,7 +134,7 @@ main() {
                 \cp packages_all packages_to_update
             fi
 
-            head -n $(($(wc -l "$connections") + 100)) "$BKG_OWNERS" | env_parallel --lb save_owner
+            head -n $(($(wc -l <"$connections") + 100)) "$BKG_OWNERS" | env_parallel --lb save_owner
             awk -F'|' '{print $1"/"$2}' packages_to_update | sort -uR 2>/dev/null | head -n1000 | env_parallel --lb save_owner
             parallel "sed -i '\,^{}$,d' $BKG_OWNERS" <"$connections"
             set_BKG BKG_DIFF "$db_size_curr"
