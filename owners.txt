@@ -99,7 +99,6 @@
 228829/zamich
 228854/Ashall
 228860/dcasani
-229892/artilect
 228879/chris-ftni
 228865/rframbes
 229522/idiles
@@ -116,13 +115,10 @@
 232918/placeiq
 228827/sameb112
 230882/spreadthesource
-229039/castleproject-deprecated
-229562/errornot
 234788/zengularity
 234138/monterail
 228807/smcintyre
 228903/edb2000
-229272/mesos
 228851/slantview
 228900/jtsmooth420
 228846/elfobiguezz
@@ -138,7 +134,6 @@
 233258/netcenter
 231654/untyped
 228867/quacknup
-228842/vimarc
 228887/skhoshoo
 235989/rails-experiments
 228890/yahuja
@@ -156,3 +151,4 @@ andrasbacsai
 angristan
 apigee
 thepatrick
+Btodhunter
