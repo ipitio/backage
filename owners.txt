@@ -27,9 +27,6 @@ concourse
 davidB
 elmarco
 envato
-iqlusioninc
-grmrgecko
-heaths
 jduimovich
 juliushaertl
 kehiy
@@ -51,3 +48,8 @@ liip
 lmello
 lucacasonato
 oliverguenther
+matt-FFFFFF
+nitishkumar71
+samj1912
+akr4
+bobbypage
