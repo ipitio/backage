@@ -233,3 +233,9 @@ peters
 peterzhu2118
 puma
 rero
+Arthur1
+NixOS
+cpunion
+daenney
+mitsuru
+miurahr
