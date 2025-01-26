@@ -11,9 +11,6 @@
 228984/boutyline
 228987/ngbrown
 229702/tablexi
-229001/lmartanovic
-228984/boutyline
-228987/ngbrown
 229509/lainformatica
 233707/nipy
 228958/lusis
@@ -22,9 +19,6 @@
 228973/bemcho
 228972/aznblur
 228948/paulabiomed2010
-228994/exiges
-228973/bemcho
-228972/aznblur
 233524/thefuelteam
 228965/Rothgar86
 229029/zacrel
@@ -38,8 +32,6 @@
 230466/zyxware
 229015/sasha-uk
 233467/aligni
-230466/zyxware
-229015/sasha-uk
 228947/johannessimon
 234930/unsworn
 232756/versapay-old
@@ -53,13 +45,6 @@
 229040/onivan
 232830/servs
 228964/grzesiak
-PHeonix25
-Sixeight
-TrustedComputingGroup
-Utesgui
-WyriHaximus
-farcaller
-zmoazeni
 ausaccessfed
 bcachet
 bertux
