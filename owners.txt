@@ -19,6 +19,7 @@
 239379/xmpie
 237292/editoraglobo
 nitishkumar71
+peterzhu2118
 ausaccessfed
 bcachet
 bertux
@@ -47,3 +48,4 @@ freshbooks
 kelvie
 kenfdev
 vigetlabs
+vmware
