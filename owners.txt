@@ -9,11 +9,6 @@
 238806/sboisson
 238832/mikmeloni
 244107/ams-clj
-enonic
-jmprusi
-jnewland
-jenkinsci
-jepio
 246756/9miles
 248306/Basis
 250181/Appswell
@@ -145,7 +140,6 @@ jepio
 245015/aino
 243018/tranquility-base
 242933/ubuntujenkins
-244030/indyaltnet
 242951/pinattuland
 245416/fivesixty
 246257/freeflightsim
@@ -189,7 +183,6 @@ jepio
 242934/joaopinto
 243036/mwojdyr
 243028/epispade
-244370/xcoders
 245398/woome
 242978/mcallister
 244003/zenkraft
@@ -199,7 +192,6 @@ bcachet
 bertux
 concourse
 davidB
-eddumelendez
 elmarco
 envato
 jduimovich
