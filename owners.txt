@@ -109,3 +109,5 @@ johnstcn
 kagaya85
 klihub
 utkarsh2102
+enonic
+mtconnect
