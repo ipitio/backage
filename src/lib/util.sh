@@ -257,7 +257,7 @@ dldb() {
             num_owner_db=$(sqlite3 "$BKG_INDEX_DB" "SELECT COUNT(DISTINCT owner) FROM $BKG_INDEX_TBL_PKG")
             num_owner_index=$(find "$BKG_INDEX_DIR" -mindepth 1 -maxdepth 1 -type d -exec basename {} \; 2>/dev/null | sort -u | awk '{print $1}' | wc -l)
 
-            if ((num_owner_db < num_owner_index)) && ((db_size < 100000)); then
+            if ((num_owner_db < num_owner_index)) && ((db_size < 1000000)); then
                 [ ! -f "$BKG_INDEX_DB".bak ] || mv "$BKG_INDEX_DB".bak "$BKG_INDEX_DB"
                 echo "Failed to download the latest database"
                 return 1
