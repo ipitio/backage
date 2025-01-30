@@ -39,6 +39,7 @@ pushd index || exit 1
 git reset --hard origin/index
 popd || exit 1
 [ -f index/.env ] && \cp index/.env src/env.env || touch src/env.env
+pushd src || exit 1
 
 db_size=$(stat -c %s "$BKG_INDEX_DB")
 num_owner_db=$(sqlite3 "$BKG_INDEX_DB" "SELECT COUNT(DISTINCT owner) FROM $BKG_INDEX_TBL_PKG")
@@ -51,7 +52,6 @@ if ((num_owner_db < num_owner_index)) && ((db_size < 100000)); then
     exit 1
 fi
 
-pushd src || exit 1
 main "${@:2}"
 
 check_json() {
