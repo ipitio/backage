@@ -64,3 +64,5 @@ enonic
 alexbrazier
 liudalibj
 lizbaron
+anthony-c-martin
+resonatehq
