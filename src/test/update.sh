@@ -39,6 +39,18 @@ pushd index || exit 1
 git reset --hard origin/index
 popd || exit 1
 [ -f index/.env ] && \cp index/.env src/env.env || touch src/env.env
+
+db_size=$(stat -c %s "$BKG_INDEX_DB")
+num_owner_db=$(sqlite3 "$BKG_INDEX_DB" "SELECT COUNT(DISTINCT owner) FROM $BKG_INDEX_TBL_PKG")
+num_owner_index=$(find "$BKG_INDEX_DIR" -mindepth 1 -maxdepth 1 -type d -exec basename {} \; 2>/dev/null | sort -u | awk '{print $1}' | wc -l)
+
+if ((num_owner_db < num_owner_index)) && ((db_size < 100000)); then
+    [ ! -f "$BKG_INDEX_DB".bak ] || mv "$BKG_INDEX_DB".bak "$BKG_INDEX_DB"
+    echo "Failed to download the latest database"
+    delete_release "$(query_api "repos/${GITHUB_OWNER:-ipitio}/${GITHUB_REPO:-backage}/releases/latest")"
+    exit 1
+fi
+
 pushd src || exit 1
 main "${@:2}"
 

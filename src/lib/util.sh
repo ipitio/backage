@@ -249,21 +249,6 @@ dldb() {
     command curl -sSLNZ "https://github.com/${GITHUB_OWNER:-ipitio}/${GITHUB_REPO:-backage}/releases/download/$latest/index.sql.zst" | unzstd -v -c | sqlite3 "$BKG_INDEX_DB"
 
     if [ -f "$BKG_INDEX_DB" ]; then
-        if [ -d index ]; then
-            local db_size
-            local num_owner_db
-            local num_owner_index
-            db_size=$(stat -c %s "$BKG_INDEX_DB")
-            num_owner_db=$(sqlite3 "$BKG_INDEX_DB" "SELECT COUNT(DISTINCT owner) FROM $BKG_INDEX_TBL_PKG")
-            num_owner_index=$(find "$BKG_INDEX_DIR" -mindepth 1 -maxdepth 1 -type d -exec basename {} \; 2>/dev/null | sort -u | awk '{print $1}' | wc -l)
-
-            if ((num_owner_db < num_owner_index)) && ((db_size < 1000000)); then
-                [ ! -f "$BKG_INDEX_DB".bak ] || mv "$BKG_INDEX_DB".bak "$BKG_INDEX_DB"
-                echo "Failed to download the latest database"
-                return 1
-            fi
-        fi
-
         [ ! -f "$BKG_INDEX_DB".bak ] || rm -f "$BKG_INDEX_DB".bak
     else
         [ ! -f "$BKG_INDEX_DB".bak ] || mv "$BKG_INDEX_DB".bak "$BKG_INDEX_DB"
@@ -294,6 +279,11 @@ query_api() {
     echo "$res"
 }
 
+delete_release() {
+    echo "Deleting the latest release..."
+    curl_gh -X DELETE "https://api.github.com/repos/${GITHUB_OWNER:-ipitio}/${GITHUB_REPO:-backage}/releases/$(jq -r '.id' <<<"$1")"
+}
+
 get_db() {
     local release
     local latest
@@ -301,8 +291,7 @@ get_db() {
     latest=$(jq -r '.tag_name' <<<"$release")
 
     until dldb "$latest"; do
-        echo "Deleting the latest release..."
-        curl_gh -X DELETE "https://api.github.com/repos/${GITHUB_OWNER:-ipitio}/${GITHUB_REPO:-backage}/releases/$(jq -r '.id' <<<"$release")"
+        delete_release "$release"
         release=$(query_api "repos/${GITHUB_OWNER:-ipitio}/${GITHUB_REPO:-backage}/releases/latest")
         latest=$(jq -r '.tag_name' <<<"$release")
     done
