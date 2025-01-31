@@ -20,7 +20,7 @@ yq_install() {
 
 echo "Verifying dependencies..."
 
-if ! command -v git >/dev/null || ! command -v curl >/dev/null || ! command -v jq >/dev/null || ! command -v parallel >/dev/null || ! command -v sqlite3 >/dev/null || ! command -v sqlite3-pcre >/dev/null || ! command -v zstd >/dev/null || ! command -v libxml2-utils >/dev/null; then
+if ! command -v git >/dev/null || ! command -v curl >/dev/null || ! command -v jq >/dev/null || ! command -v parallel >/dev/null || ! command -v sqlite3 >/dev/null || ! command -v sqlite3-pcre >/dev/null || ! command -v zstd >/dev/null || [ ! -e /usr/include/libxml ]; then
     apt-get update
     sudonot apt-get install -yqq git curl jq parallel sqlite3 sqlite3-pcre zstd libxml2-utils
 fi
