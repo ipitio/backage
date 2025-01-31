@@ -21,7 +21,7 @@ apt_install() {
 
 yq_install() {
     [ ! -f /usr/bin/yq ] || sudonot mv -f /usr/bin/yq /usr/bin/yq.bak
-    sudonot curl -sSLNZo /usr/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+    sudonot curl -LNZo /usr/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
     sudonot chmod +x /usr/bin/yq
 }
 
