@@ -24,7 +24,7 @@ apt_install() {
 }
 
 yq_install() {
-    sudonot mv -f /usr/bin/yq /usr/bin/yq.bak
+    [ ! -f /usr/bin/yq ] || sudonot mv -f /usr/bin/yq /usr/bin/yq.bak
     sudonot curl -sSLNZo /usr/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
     sudonot chmod +x /usr/bin/yq
 }
@@ -32,7 +32,7 @@ yq_install() {
 echo "Verifying dependencies..."
 apt_install git curl jq parallel sqlite3 sqlite3-pcre zstd snapd
 sudonot snap install libxml2-utils
-yq -V | grep -q mikefarah || yq_install
+yq -V | grep -q mikefarah 2>/dev/null || yq_install
 echo "Dependencies verified!"
 # shellcheck disable=SC2046
 source $(which env_parallel.bash)
