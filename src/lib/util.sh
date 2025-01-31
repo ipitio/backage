@@ -9,7 +9,11 @@
 set -o allexport
 
 sudonot() {
-    sudo "$@" || "$@"
+    if command -v sudo >/dev/null; then
+        sudo "$@"
+    else
+        "$@"
+    fi
 }
 
 apt_install() {
