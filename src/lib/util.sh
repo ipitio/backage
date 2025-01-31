@@ -28,6 +28,8 @@ yq_install() {
 echo "Verifying dependencies..."
 apt_install git curl jq parallel sqlite3 sqlite3-pcre zstd libxml2-utils
 yq -V | grep -q mikefarah 2>/dev/null || yq_install
+ls
+stat -c %s "$BKG_INDEX_SQL".zst
 echo "Dependencies verified!"
 # shellcheck disable=SC2046
 source $(which env_parallel.bash)
