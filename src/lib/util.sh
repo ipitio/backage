@@ -12,6 +12,13 @@ sudonot() {
     sudo "$@" || "$@"
 }
 
+apt_install() {
+    if ! dpkg -l "$@" >/dev/null 2>&1; then
+        apt-get update
+        sudonot apt-get install -yqq "$@"
+    fi
+}
+
 yq_install() {
     [ ! -f /usr/bin/yq ] || sudonot mv -f /usr/bin/yq /usr/bin/yq.bak
     sudonot curl -sSLNZo /usr/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
@@ -19,12 +26,7 @@ yq_install() {
 }
 
 echo "Verifying dependencies..."
-
-if ! dpkg -l git curl jq parallel sqlite3 sqlite3-pcre zstd libxml2-utils >/dev/null 2>&1; then
-    apt-get update
-    sudonot apt-get install -yqq git curl jq parallel sqlite3 sqlite3-pcre zstd libxml2-utils
-fi
-
+apt_install git curl jq parallel sqlite3 sqlite3-pcre zstd libxml2-utils
 yq -V | grep -q mikefarah 2>/dev/null || yq_install
 echo "Dependencies verified!"
 # shellcheck disable=SC2046

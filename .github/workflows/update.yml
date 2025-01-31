@@ -39,14 +39,6 @@ jobs:
         with:
           latest: true
 
-      - name: Fetch latest data
-        if: ${{ steps.release.outcome == 'success' }}
-        run: |
-          pushd src || exit 1
-          source lib/util.sh
-          get_db
-          popd || exit 1
-
       - name: Fetch all data
         if: ${{ steps.release.outcome == 'success' }}
         uses: robinraju/release-downloader@v1
