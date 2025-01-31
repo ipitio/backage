@@ -12,15 +12,13 @@ sudonot() {
     if [ -f /.dockerenv ]; then
         "$@"
     else
-        sudo "$@"
+        sudo "$@" || "$@"
     fi
 }
 
 apt_install() {
-    sudonot apt-get install -yqq "$@" || {
-        apt-get update
-        sudonot apt-get install -yqq "$@"
-    }
+    apt-get update
+    sudonot apt-get install -yqq "$@"
 }
 
 yq_install() {
@@ -30,8 +28,7 @@ yq_install() {
 }
 
 echo "Verifying dependencies..."
-apt_install git curl jq parallel sqlite3 sqlite3-pcre zstd snapd
-sudonot snap install libxml2-utils
+apt_install git curl jq parallel sqlite3 sqlite3-pcre zstd libxml2-utils
 yq -V | grep -q mikefarah 2>/dev/null || yq_install
 echo "Dependencies verified!"
 # shellcheck disable=SC2046
