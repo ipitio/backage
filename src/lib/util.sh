@@ -279,11 +279,6 @@ query_api() {
     echo "$res"
 }
 
-delete_release() {
-    echo "Deleting the latest release..."
-    curl_gh -X DELETE "https://api.github.com/repos/${GITHUB_OWNER:-ipitio}/${GITHUB_REPO:-backage}/releases/$(jq -r '.id' <<<"$1")"
-}
-
 get_db() {
     local release
     local latest
@@ -291,7 +286,8 @@ get_db() {
     latest=$(jq -r '.tag_name' <<<"$release")
 
     until dldb "$latest"; do
-        delete_release "$release"
+        echo "Deleting the latest release..."
+        curl_gh -X DELETE "https://api.github.com/repos/${GITHUB_OWNER:-ipitio}/${GITHUB_REPO:-backage}/releases/$(jq -r '.id' <<<"$release")"
         release=$(query_api "repos/${GITHUB_OWNER:-ipitio}/${GITHUB_REPO:-backage}/releases/latest")
         latest=$(jq -r '.tag_name' <<<"$release")
     done
