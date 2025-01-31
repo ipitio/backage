@@ -151,13 +151,13 @@ check_limit() {
     local rate_limit_start
     rate_limit_end=$(date -u +%s)
     rate_limit_start=$(get_BKG BKG_SCRIPT_START)
-    [ -n "$rate_limit_start" ] || echo "BKG_SCRIPT_START empty!"
+    [ -n "$rate_limit_start" ] || set_BKG BKG_SCRIPT_START "$rate_limit_end"
     script_limit_diff=$((rate_limit_end - rate_limit_start))
     ((script_limit_diff < max_len)) || save_and_exit
     (($? != 3)) || return 3
     total_calls=$(get_BKG BKG_CALLS_TO_API)
     rate_limit_start=$(get_BKG BKG_RATE_LIMIT_START)
-    [ -n "$rate_limit_start" ] || echo "BKG_RATE_LIMIT_START empty!"
+    [ -n "$rate_limit_start" ] || set_BKG BKG_RATE_LIMIT_START "$rate_limit_end"
     rate_limit_diff=$((rate_limit_end - rate_limit_start))
     hours_passed=$((rate_limit_diff / 3600))
 
@@ -176,7 +176,7 @@ check_limit() {
     # wait if 900 or more calls have been made in the last minute
     minute_calls=$(get_BKG BKG_MIN_CALLS_TO_API)
     rate_limit_start=$(get_BKG BKG_MIN_RATE_LIMIT_START)
-    [ -n "$rate_limit_start" ] || echo "BKG_MIN_RATE_LIMIT_START empty!"
+    [ -n "$rate_limit_start" ] || set_BKG BKG_MIN_RATE_LIMIT_START "$(date -u +%s)"
     sec_limit_diff=$(($(date -u +%s) - rate_limit_start))
     min_passed=$((sec_limit_diff / 60))
 
