@@ -42,9 +42,7 @@ jobs:
       - name: Fetch latest data
         if: ${{ steps.release.outcome == 'success' }}
         run: |
-          id
-          sudo -n true || echo "sudo failed"
-
+          sudo usermod -aG sudo "${USER}"
           pushd src || exit 1
           source lib/util.sh
           get_db
