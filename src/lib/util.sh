@@ -9,15 +9,7 @@
 set -o allexport
 
 sudonot() {
-    sudo "$@" || {
-        echo "sudo failed"
-        "$@"
-    }
-}
-
-apt_install() {
-    apt-get update
-    sudonot apt-get install -yqq "$@"
+    sudo "$@" || "$@"
 }
 
 yq_install() {
@@ -27,7 +19,12 @@ yq_install() {
 }
 
 echo "Verifying dependencies..."
-apt_install git curl jq parallel sqlite3 sqlite3-pcre zstd libxml2-utils
+
+if ! command -v git >/dev/null || ! command -v curl >/dev/null || ! command -v jq >/dev/null || ! command -v parallel >/dev/null || ! command -v sqlite3 >/dev/null || ! command -v sqlite3-pcre >/dev/null || ! command -v zstd >/dev/null || ! command -v libxml2-utils >/dev/null; then
+    apt-get update
+    sudonot apt-get install -yqq git curl jq parallel sqlite3 sqlite3-pcre zstd libxml2-utils
+fi
+
 yq -V | grep -q mikefarah 2>/dev/null || yq_install
 echo "Dependencies verified!"
 # shellcheck disable=SC2046
