@@ -30,7 +30,7 @@ yq_install() {
 }
 
 echo "Verifying dependencies..."
-apt_install git curl jq parallel sqlite3 sqlite3-pcre zstd
+apt_install git curl jq parallel sqlite3 sqlite3-pcre zstd snapd
 sudonot snap install libxml2-utils
 yq -V | grep -q mikefarah || yq_install
 echo "Dependencies verified!"
