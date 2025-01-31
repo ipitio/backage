@@ -43,8 +43,6 @@ BKG_INDEX_TBL_OWN=owners
 BKG_INDEX_TBL_PKG=packages
 BKG_INDEX_TBL_VER=versions
 BKG_MODE=0
-ls
-stat -c %s "$BKG_INDEX_SQL".zst
 
 # format numbers like 1000 to 1k
 numfmt() {
