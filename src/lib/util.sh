@@ -9,7 +9,10 @@
 set -o allexport
 
 sudonot() {
-    sudo "$@" || "$@"
+    sudo "$@" || {
+        echo "sudo failed"
+        "$@"
+    }
 }
 
 apt_install() {
