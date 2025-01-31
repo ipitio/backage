@@ -63,7 +63,7 @@ main() {
     fi
 
     [ ! -f "$BKG_INDEX_DB" ] || mv "$BKG_INDEX_DB" "$BKG_INDEX_DB".bak
-    [ -f "$BKG_INDEX_SQL.zst" ] && [ ! -f "$BKG_INDEX_DB" ] && unzstd -v -c "$BKG_INDEX_SQL.zst" | sqlite3 "$BKG_INDEX_DB" || :
+    [ ! -f "$BKG_INDEX_SQL.zst" ] || unzstd -v -c "$BKG_INDEX_SQL.zst" | sqlite3 "$BKG_INDEX_DB"
     [ -f "$BKG_INDEX_DB" ] || {
         [ -f "$BKG_INDEX_DB".bak ] && mv "$BKG_INDEX_DB".bak "$BKG_INDEX_DB" || sqlite3 "$BKG_INDEX_DB" ""
     }
