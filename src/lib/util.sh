@@ -9,11 +9,7 @@
 set -o allexport
 
 sudonot() {
-    if [ -f /.dockerenv ]; then
-        "$@"
-    else
-        sudo "$@" || "$@"
-    fi
+    sudo "$@" || "$@"
 }
 
 apt_install() {
