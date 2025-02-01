@@ -102,7 +102,7 @@ main() {
             sed -i '/^\s*$/d' "$BKG_OWNERS"
             echo >>"$BKG_OWNERS"
             awk 'NF' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
-            sed -i 's/^[[:space:]]*//;s/[[:space:]]*$//' "$BKG_OWNERS"
+            sed -i 's/^[[:space:]]*//;s/[[:space:]]*$//; /^$/d; /^0\/$/d' "$BKG_OWNERS"
 
             if [ "$GITHUB_OWNER" = "ipitio" ]; then
                 sort -u <<<"$(
