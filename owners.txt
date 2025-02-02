@@ -92,8 +92,4 @@
 251331/lambdamoo
 251368/chrono32
 251316/cifroes
-0/headlamp-k8s
-0/hectorsector
-0/helaili
-0/AkihiroSuda
-0/tzkt
+0/radiorabe
