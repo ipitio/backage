@@ -134,6 +134,8 @@
 263356/shopzilla
 251306/drtpig
 251395/d-dog
+259653/protecinnovations
+264714/OpenSesame
 251389/aeeaaee
 262657/pafoa
 251406/iceyu
@@ -145,11 +147,13 @@
 251394/zanity
 251380/joelancaster1975
 253438/asee
+260822/netsultants
 251327/charlewn
 251357/eborgbjerg
 251358/edforshaw
 255694/wheely
 251390/hamlet123
+261363/food52
 251348/inztinkt
 251328/isuttle
 251366/smsm6600
@@ -186,6 +190,7 @@
 251310/shaps80
 251361/splatterb0y
 264580/bevuta
+260793/neurodebian
 251396/ddwolf
 251342/Ninib
 251331/lambdamoo
@@ -194,3 +199,5 @@
 0/headlamp-k8s
 0/hectorsector
 0/helaili
+0/AkihiroSuda
+0/tzkt
