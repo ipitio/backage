@@ -138,6 +138,7 @@ main() {
                 set_BKG BKG_BATCH_FIRST_STARTED "$today"
                 rm -f packages_to_update
                 \cp packages_all packages_to_update
+                : >packages_already_updated
             fi
 
             head -n $(($(wc -l <"$connections") + 100)) "$BKG_OWNERS" | env_parallel --lb save_owner
