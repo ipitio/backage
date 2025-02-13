@@ -83,7 +83,6 @@
 294663/code54
 283636/mindsnacks
 283615/dimalypai
-0/samj1912
 300193/4man
 296916/Avature
 294665/BLepers
@@ -151,7 +150,6 @@
 294719/coscos
 295312/wizmedia
 294684/bdroutman
-294788/sapresearch
 294705/sasuke-zz
 294752/fredlira
 294762/codersys
@@ -181,7 +179,6 @@
 294725/matthewlarn
 294671/AliHoussein
 302206/leadtune
-294997/webtorque
 301770/metaminded
 294723/ndemir
 300253/zeevex
@@ -200,7 +197,6 @@
 294767/vierito5
 300380/suportephpbb
 294766/jpann
-295051/gojee
 301682/welikepie
 294689/scunningham
 296819/guvam
@@ -273,7 +269,6 @@
 297488/basilicom
 294716/jrassi
 301102/WGBH
-294857/Nuvyyo
 294735/crosebrugh
 294679/mhoebeke
 0/ausaccessfed
@@ -290,3 +285,4 @@
 0/kenchan
 0/linuskoester
 0/matt-FFFFFF
+0/pipedrive
