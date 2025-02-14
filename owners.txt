@@ -179,9 +179,7 @@
 0/kenchan
 0/linuskoester
 0/matt-FFFFFF
-0/pipedrive
-0/FeynmanZhou
-0/Fil
 0/nitishkumar71
 0/nitishkumar71
+0/qemus
 0/samj1912
