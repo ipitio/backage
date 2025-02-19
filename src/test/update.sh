@@ -10,10 +10,19 @@ root="${1:-.}"
 pushd "$root"/src || exit 1
 source bkg.sh
 popd || exit 1
+
+# permissions
 git config --global user.name "${GITHUB_ACTOR}"
 git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
 git config --global --add safe.directory "$(pwd)"
 git config core.sharedRepository all
+
+# performance
+git config core.fsmonitor true
+git config core.untrackedcache true
+git config feature.manyFiles true
+git update-index --index-version 4
+
 sudonot chmod -R a+rwX .
 sudonot find . -type d -exec chmod g+s '{}' +
 

@@ -147,7 +147,7 @@ check_limit() {
     local minute_calls
     local sec_limit_diff
     local min_passed
-    local max_len=${1:-18000}
+    local max_len=${1:-14400}
     local rate_limit_start
     rate_limit_end=$(date -u +%s)
     [ -n "$BKG_SCRIPT_START" ] && rate_limit_start="$BKG_SCRIPT_START" || {
