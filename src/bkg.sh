@@ -127,7 +127,7 @@ main() {
 
             echo "$(
                 echo "0/$GITHUB_OWNER"
-                sort <"$connections" | uniq -c | sort -nr | awk '{print $2}'
+                sort "$connections" | uniq -c | sort -nr | awk '{print $2}'
                 cat "$BKG_OWNERS"
             )" >"$BKG_OWNERS"
 
