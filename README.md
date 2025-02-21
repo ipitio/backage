@@ -12,7 +12,15 @@
 
 </div>
 
-Wish you could show npm, gem, mvn, Gradle, NuGet, or GHCR badges? Or just query for the download counts? This endpoint makes that possible, using only free GitHub resources; the GitHub Packages API doesn't, and has never, exposed the publicly-available metadata that other registries provide.
+Ever wish you could show npm, gem, mvn, Gradle, NuGet, or GHCR badges for GitHub Packages? Or just query for the download counts? This endpoint makes that possible, using only free GitHub resources; the API doesn't, and has never, exposed the public metadata that other registries provide.
+
+## Getting Started
+
+If this is [`ipitio/backage`](https://github.com/ipitio/backage), all you have to do is **star the repo to get your public packages added!** The service's circular priority queue will update the [closed-loop system](https://github.com/ipitio/backage/releases/latest) with them within the next few hours. Additionally watching and forking the repo, and following the owner, are ways to increase their priority. Yes, I know, but these are the graphs GitHub has available.
+
+Otherwise, if this is a fork, you'd prefer an alternative method, or your packages weren't added to the [index](https://github.com/ipitio/backage/tree/index) after a day, enter the case-sensitive name of each missing user or organization on a new line at the top of `owners.txt` [here](https://github.com/ipitio/backage/edit/master/owners.txt) and make a pull request. Please submit just the name(s) -- ids, repos, and packages will be found automatically!
+
+After you've confirmed that everything works, you can create an independent instance that'll update faster and more frequently, up to hourly. Simply fork just the `master` branch, enable Actions from its tab and all disabled workflows, and use the [Alternative URL](#alternative-url) when it changes. Your own packages will be picked up automatically! If you need to edit `owners.txt`, do so after the first run. This centralized repo will then serve as a backup for all subsets of packages not in `optout.txt`.
 
 ## The Endpoint
 
@@ -20,19 +28,9 @@ Wish you could show npm, gem, mvn, Gradle, NuGet, or GHCR badges? Or just query 
 https://ipitio.github.io/backage/OWNER/[REPO/[PACKAGE]].FORMAT
 ```
 
-If this is [`ipitio/backage`](https://github.com/ipitio/backage), all you have to do is **star the repo to have GitHub generate this additional endpoint for your public packages!** A service ran by GitHub will add them to its circular priority queue within the next few hours and update the [closed-loop system](https://github.com/ipitio/backage/releases/latest). Additionally watching and forking the repo, and following the owner, are ways to increase your priority. Yes, I know, but these are the signals that can be automatically processed. Otherwise, if this is a fork or you'd prefer an alternative method, see [below](#manual-actions).
+Once the packages you're interested in have been added, replace the parameters with their respective values, scoping to your parsing needs, then access the latest data however you want. The format can be either `json` or `xml`. Use something like [shields.io/json](https://shields.io/badges/dynamic-json-badge) or [shields.io/xml](https://shields.io/badges/dynamic-xml-badge) to make badges like [this one](https://github.com/badges/shields/issues/5594#issuecomment-2157626147); you'll need `xml` to evaluate expressions, like filters ([issue](https://github.com/ipitio/backage/issues/23)).
 
-Once added, replace the parameters above with their respective values, scoping to your parsing needs, then access the latest data however you want. Use something like [shields.io/json](https://shields.io/badges/dynamic-json-badge) or [shields.io/xml](https://shields.io/badges/dynamic-xml-badge) to make badges like the ones you just scrolled past or the one [here](https://github.com/badges/shields/issues/5594#issuecomment-2157626147).
-
-> [!NOTE]
-> The format can be either `json` or `xml`. You'll need the XML endpoint to evaluate expressions, like filters, with Shields -- see [this issue](https://github.com/ipitio/backage/issues/23).
-
-> [!TIP]
-> Use the proxy to convert external JSON to XML! This doesn't currently work with Shields, though.
-
-### The Data
-
-You'll find these properties for packages and their versions:
+### Available Properties
 
 <details>
 
@@ -94,7 +92,7 @@ You'll find these properties for packages and their versions:
 
 </details>
 
-They can be queried with the following paths:
+### Query Syntax
 
 <details>
 
@@ -160,12 +158,6 @@ As can packages in `owner[/repo]/.xml` files:
 
 </details>
 
-### Manual Actions
-
-To add any other users or organizations not yet [in the index](https://github.com/ipitio/backage/tree/index), add the case-sensitive name of each one on a new line at the top of `owners.txt` on your own fork [here](https://github.com/ipitio/backage/edit/master/owners.txt) and make a pull request. Please add just the name(s) -- ids, repos, and packages will be found automatically! If you'd like the service to forget and ignore any subset of packages, add `owner[/repo[/package]]` to `optout.txt` [here](https://github.com/ipitio/backage/edit/master/optout.txt) and make a pull request.
-
-You can create an independent instance for them that'll update faster and more frequently. Simply fork just the `master` branch, then enable Actions from its tab and all disabled workflows. Your own packages will be picked up automatically! If you previously had to edit the `txt` files, you can do so again after the first run. I recommend that you first confirm here that the packages you're interested in are picked up without issue. This centralized repo will then serve as a backup.
-
 ### Alternative URL
 
 ```py
@@ -180,6 +172,6 @@ The endpoint is also available here!
 https://ipitio.github.io/backage?json=https://URL/ENCODED/JSON
 ```
 
-Use your own JSON endpoint with this proxy to convert it into XML. Try it out in your browser:
+Use your own external JSON with this proxy to convert it into XML. This doesn't currently work with Shields. Try it out in your browser:
 
 **<https://ipitio.github.io/backage?json=https://raw.githubusercontent.com/ipitio/backage/index/.json>**
