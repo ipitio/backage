@@ -93,8 +93,6 @@
 308063/dailybeast
 304142/canosso
 304040/yedidiah
-0/mscharley
-0/mseashor
 311708/EHDSpoon
 311685/MaitreyaDwaipayan
 311744/Funkadelic1
@@ -128,7 +126,6 @@
 311729/robertbrannon
 314006/trueanalyst
 311699/grokit
-311999/heroku-examples
 317764/scalarium
 311695/aschoerk
 314979/pbotla
@@ -193,7 +190,6 @@
 311716/cruller
 311696/kausha28
 311713/madriddesign
-311742/beacon50
 311700/evaway
 311723/giuliopaci
 311712/chelseay142
@@ -217,7 +213,6 @@
 317762/azanka
 312877/ycharts
 311688/OPSPL
-311877/limb-php-framework
 311751/librato-takshakc
 311722/gretchen
 317769/vimeo
@@ -235,7 +230,6 @@
 314309/simplins
 317731/indonesia
 311750/jdjolly
-311763/flaptor
 317726/copacinofujikado
 317268/xapi-project
 313072/concentricsky
@@ -247,7 +241,6 @@
 315412/idlesoft
 313725/stormid
 311718/harjits
-312196/le-personal
 311735/wildbill
 311737/kwiebke
 313169/mendicant-original
@@ -265,3 +258,4 @@
 316994/op4g
 0/mattgotteiner
 0/matti
+0/joejcollins
