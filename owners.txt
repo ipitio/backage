@@ -168,7 +168,6 @@
 0/jduimovich
 0/juliushaertl
 0/kenchan
-0/labkode
 0/linuskoester
 0/matt-FFFFFF
 0/miaowware
