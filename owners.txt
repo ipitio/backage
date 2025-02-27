@@ -6,21 +6,11 @@
 314704/pablokam
 314701/lu8aja
 314658/coolnet
-314667/darkpuca
-314664/lewisbellwood
-314702/msantic
 317789/revealit
-314651/elvixeffizy
-314677/dipser
-314659/sammymanee
 314628/samplerboy
 317822/newsapps
 317816/PhysikOnline
-314694/soanker
-314704/pablokam
-314701/lu8aja
 317967/n01se
-314658/coolnet
 314621/adonis2600
 314654/duvelmoi9
 314673/ryanrivera
@@ -32,9 +22,6 @@
 314663/n1zyy
 315090/piclyf
 314625/lonobers
-314698/anneshen
-314663/n1zyy
-315090/piclyf
 314979/pbotla
 317950/Pragmatic-Source
 314712/yepyepyep
@@ -80,9 +67,6 @@
 314666/wonca
 316634/NMyVision
 314709/Dineo
-0/micromaomao
-0/motemen
-0/djspiewak
 0/ausaccessfed
 0/bcachet
 0/bertux
@@ -95,7 +79,6 @@
 0/elmarco
 0/enonic
 0/envato
-0/ikifar2012
 0/jduimovich
 0/johnstcn
 0/jongalloway
@@ -111,3 +94,7 @@
 0/seveas
 0/waeltken
 0/wainersm
+0/johnbcodes
+0/jonashackt
+0/jongio
+0/jonleibowitz
