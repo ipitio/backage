@@ -68,14 +68,5 @@
 317943/sweisman
 317948/darrenvkelly
 318044/Three20
-0/NaCl-Ltd
-0/arthurgeek
-0/Bearbobs
-0/Benjamin-Frost
-0/bignerdranch
-0/btungut
-0/choonkeat
-0/chrira
-0/distribution
-0/youpy
-0/neondatabase
+0/pry
+0/psf
