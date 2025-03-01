@@ -1,5 +1,6 @@
 317866/dsong
 317854/timthomas
+317860/adelorenzo
 318221/ohpasoftware
 317849/afalk
 317824/bozena
@@ -177,3 +178,11 @@
 318044/Three20
 0/NaCl-Ltd
 0/arthurgeek
+0/Bearbobs
+0/Benjamin-Frost
+0/bignerdranch
+0/btungut
+0/choonkeat
+0/chrira
+0/distribution
+0/youpy
