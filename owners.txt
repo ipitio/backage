@@ -102,6 +102,10 @@
 318169/rej1587
 318127/Blistic
 318141/vlad-pax
+318169/rej1587
+318127/Blistic
+318141/vlad-pax
+318299/gofigure2
 318134/ricardopontes
 318186/jslomka
 318160/jgemedina
