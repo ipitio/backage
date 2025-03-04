@@ -386,7 +386,7 @@ explore() {
                 fi
             fi
 
-            echo "$nodes"
+            grep -v "$(cut -d'/' -f1 <<<"$node")" <<<"$nodes"
             [[ "$(wc -l <<<"$nodes")" -ge 15 ]] || break
             ((page++))
         done
