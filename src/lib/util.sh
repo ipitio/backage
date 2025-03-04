@@ -355,13 +355,13 @@ get_owners() {
 
 curl_users() {
     local users
-    users="$(curl "https://github.com/$(cut -d'/' -f2 <<<"$1")" | grep -oP 'href="/.+?".*>' | tr -d '\0' | grep -Ev '( .*|\?(return_to|tab))=' | tr -d '\0' | grep -oP '/.*?"' | cut -c2- | rev | cut -c2- | rev | grep -v "/")"
+    users="$(curl "https://github.com/$1" | grep -oP 'href="/.+?".*>' | tr -d '\0' | grep -Ev '( .*|\?(return_to|tab))=' | tr -d '\0' | grep -oP '/.*?"' | cut -c2- | rev | cut -c2- | rev | grep -v "/")"
     [ -z "$2" ] && echo "$users" || get_owners "$users"
 }
 
 curl_orgs() {
     local orgs
-    orgs="$(curl "https://github.com/$(cut -d'/' -f2 <<<"$1")" | grep -oP '/orgs/[^/]+' | tr -d '\0' | cut -d'/' -f3)"
+    orgs="$(curl "https://github.com/$1" | grep -oP '/orgs/[^/]+' | tr -d '\0' | cut -d'/' -f3)"
     [ -z "$2" ] && echo "$orgs" || get_owners "$orgs"
 }
 
