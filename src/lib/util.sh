@@ -376,21 +376,32 @@ explore() {
             local nodes
 
             if [[ "$node" =~ .*\/.* ]]; then
-                nodes=$(curl_users "$node/$edge?page=$page" "$2") # repo
+                nodes=$(curl_users "$node/$edge?page=$page") # repo
             else
-                nodes=$(curl_users "orgs/$node/$edge?page=$page" "$2") # org
+                nodes=$(curl_users "orgs/$node/$edge?page=$page") # org
 
                 if [ -z "$nodes" ]; then
-                    nodes=$(curl_users "$node?tab=$edge&page=$page" "$2") # user
-                    curl_orgs "$1" "$2"
+                    nodes=$(curl_users "$node?tab=$edge&page=$page") # user
+                    curl_orgs "$1"
                 fi
             fi
 
-            grep -v "$(cut -d'/' -f1 <<<"$node")" <<<"$nodes"
+            echo "$nodes"
             [[ "$(wc -l <<<"$nodes")" -ge 15 ]] || break
             ((page++))
         done
     done
+}
+
+get_membership() {
+    local owner
+    owner=$(cut -d'/' -f2 <<<"$1")
+
+    if [ -n "$(grep -zoP 'href="/orgs/'"$owner"'/people"' <<<"$(curl "https://github.com/orgs/$owner/people")" | tr -d '\0')" ]; then
+        explore "$owner" "people"
+    else
+        curl_orgs "$owner"
+    fi
 }
 
 ytox() {

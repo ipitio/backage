@@ -99,20 +99,21 @@ main() {
 
     if [ "$BKG_MODE" -ne 2 ]; then
         if [ "$BKG_MODE" -eq 0 ] || [ "$BKG_MODE" -eq 3 ]; then
-            sed -i '/^\s*$/d' "$BKG_OWNERS"
-            echo >>"$BKG_OWNERS"
-            awk 'NF' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
-            sed -i 's/^[[:space:]]*//;s/[[:space:]]*$//; /^$/d; /^0\/$/d' "$BKG_OWNERS"
-
             if [ "$GITHUB_OWNER" = "ipitio" ]; then
-                sort -u <<<"$(
-                    explore "$GITHUB_OWNER"
-                    explore "$GITHUB_OWNER/$GITHUB_REPO"
-                )" >"$connections"
-                [[ "$(wc -l <"$BKG_OWNERS")" -ge $(($(wc -l <"$connections") + 100)) ]] || seq 1 2 | env_parallel --lb --halt soon,fail=1 page_owner
+                explore "$GITHUB_OWNER" >"$connections"
+                explore "$GITHUB_OWNER/$GITHUB_REPO" >>"$connections"
+
+                # get orgs of connections
+                temp_connections=$(mktemp)
+                while read -r connection; do curl_orgs "$connection" >>"$temp_connections"; done <"$connections"
+                cat "$temp_connections" >>"$connections"
+                rm -f "$temp_connections"
+
+                sed -i 's/^[[:space:]]*//;s/[[:space:]]*$//; /^$/d; /^0\/$/d' "$connections"
+                [[ "$(wc -l <"$BKG_OWNERS")" -ge $(($(sort -u <"$connections" | wc -l) + 100)) ]] || seq 1 2 | env_parallel --lb --halt soon,fail=1 page_owner
             else
                 ! grep -q '/' "$BKG_OWNERS" || : >"$BKG_OWNERS"
-                explore "$GITHUB_OWNER" people >"$connections"
+                get_membership "$GITHUB_OWNER" >"$connections"
             fi
 
             echo "$(
@@ -131,8 +132,10 @@ main() {
                 cat "$BKG_OWNERS"
             )" >"$BKG_OWNERS"
 
+            echo >>"$BKG_OWNERS"
+            awk 'NF' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
+            sed -i 's/^[[:space:]]*//;s/[[:space:]]*$//; /^$/d; /^0\/$/d; /^\(.*\/\)*\(solutions\|sponsors\|enterprise\|premium-support\)$/d' "$BKG_OWNERS"
             awk '!seen[$0]++' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
-            sed -i '/^\(.*\/\)*\(solutions\|sponsors\|enterprise\|premium-support\)$/d' "$BKG_OWNERS"
 
             if [[ "$pkg_left" == "0" || "${db_size_curr::-1}" == "${db_size_prev::-1}" ]]; then
                 set_BKG BKG_BATCH_FIRST_STARTED "$today"
@@ -147,7 +150,7 @@ main() {
             set_BKG BKG_DIFF "$db_size_curr"
         else
             save_owner "$GITHUB_OWNER"
-            explore "$GITHUB_OWNER" people >"$connections"
+            get_membership "$GITHUB_OWNER" >"$connections"
             [ ! -s "$connections" ] || env_parallel --lb save_owner <"$connections"
         fi
 
