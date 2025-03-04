@@ -151,6 +151,7 @@ main() {
                 awk -F'|' '{print $2}' packages_already_updated
             )" | sort -u | parallel "sed -i '\,^{}$,d' $BKG_OWNERS"
 
+            sed -i 's/"//g' "$BKG_OWNERS"
             head -n $(($(sort -u <"$connections" | wc -l) + 100)) "$BKG_OWNERS" | env_parallel --lb save_owner
             awk -F'|' '{print $1"/"$2}' packages_to_update | sort -uR 2>/dev/null | head -n1000 | env_parallel --lb save_owner
             parallel "sed -i '\,^{}$,d' $BKG_OWNERS" <"$connections"
