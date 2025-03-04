@@ -23,6 +23,7 @@ main() {
     local db_size_prev
     local connections
     connections=$(mktemp) || exit 1
+    temp_connections=$(mktemp) || exit 1
 
     while getopts "m:" flag; do
         case ${flag} in
@@ -111,10 +112,8 @@ main() {
                 explore "$GITHUB_OWNER/$GITHUB_REPO" >>"$connections"
 
                 # get orgs of connections
-                temp_connections=$(mktemp)
                 while read -r connection; do curl_orgs "$connection" >>"$temp_connections"; done <"$connections"
                 cat "$temp_connections" >>"$connections"
-                rm -f "$temp_connections"
 
                 sed -i 's/^[[:space:]]*//;s/[[:space:]]*$//; /^$/d; /^0\/$/d' "$connections"
                 [[ "$(wc -l <"$BKG_OWNERS")" -ge $(($(sort -u <"$connections" | wc -l) + 100)) ]] || seq 1 2 | env_parallel --lb --halt soon,fail=1 page_owner
@@ -123,35 +122,43 @@ main() {
                 get_membership "$GITHUB_OWNER" >"$connections"
             fi
 
+            sort "$connections" | uniq -c | sort -nr | awk '{print $2}' >"$connections".bak
+            mv "$connections".bak "$connections"
+            cp "$connections" "$temp_connections"
+
             echo "$(
                 cat "$BKG_OWNERS"
                 find "$BKG_INDEX_DIR" -mindepth 1 -maxdepth 1 -type d -exec basename {} \; 2>/dev/null | sort -u | awk '{print "0/"$1}'
             )" >"$BKG_OWNERS"
 
+            echo : >all_owners_in_db
             [ ! -s packages_all ] || echo "$(
                 awk -F'|' '{print "0/"$2}' packages_all
                 awk -F'|' '{print $1"/"$2}' packages_all
                 awk -F'|' '{print $2}' packages_all
-            )" | sort -u | parallel "sed -i '\,^{}$,d' $BKG_OWNERS"
+            )" | sort -u >all_owners_in_db
+            parallel "sed -i '\,^{}$,d' $BKG_OWNERS" <all_owners_in_db
+            parallel "sed -i '\,^{}$,d' $temp_connections" <all_owners_in_db
+
+            echo : >all_owners_tu
+            [ ! -s packages_to_update ] || echo "$(
+                awk -F'|' '{print "0/"$2}' packages_to_update
+                awk -F'|' '{print $1"/"$2}' packages_to_update
+                awk -F'|' '{print $2}' packages_to_update
+            )" | sort -u >all_owners_tu
 
             echo "$(
                 echo "0/$GITHUB_OWNER"
-                sort "$connections" | uniq -c | sort -nr | awk '{print $2}'
+                cat "$temp_connections"
+                grep -Fxf all_owners_in_db "$connections" | grep -Fxf all_owners_tu
                 cat "$BKG_OWNERS"
             )" >"$BKG_OWNERS"
 
+            rm -f all_owners_in_db all_owners_tu
             echo >>"$BKG_OWNERS"
             awk 'NF' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
             sed -i 's/^[[:space:]]*//;s/[[:space:]]*$//; /^$/d; /^0\/$/d; /^null\/.*/d; /^\(.*\/\)*\(solutions\|sponsors\|enterprise\|premium-support\)$/d' "$BKG_OWNERS"
             awk '!seen[$0]++' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
-
-            [ ! -s packages_already_updated ] || echo "$(
-                awk -F'|' '{print "0/"$2}' packages_already_updated
-                awk -F'|' '{print $1"/"$2}' packages_already_updated
-                awk -F'|' '{print $2}' packages_already_updated
-            )" | sort -u | parallel "sed -i '\,^{}$,d' $BKG_OWNERS"
-
-            sed -i 's/"//g' "$BKG_OWNERS"
             head -n $(($(sort -u <"$connections" | wc -l) + 100)) "$BKG_OWNERS" | env_parallel --lb save_owner
             awk -F'|' '{print $1"/"$2}' packages_to_update | sort -uR 2>/dev/null | head -n1000 | env_parallel --lb save_owner
             parallel "sed -i '\,^{}$,d' $BKG_OWNERS" <"$connections"
@@ -163,6 +170,7 @@ main() {
         fi
 
         rm -f "$connections"
+        rm -f "$temp_connections"
         BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
         [ -d "$BKG_INDEX_DIR" ] || mkdir "$BKG_INDEX_DIR"
 
