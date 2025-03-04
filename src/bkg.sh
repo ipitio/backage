@@ -110,6 +110,7 @@ main() {
                 rm -f "$temp_connections"
 
                 sed -i 's/^[[:space:]]*//;s/[[:space:]]*$//; /^$/d; /^0\/$/d' "$connections"
+                cat "$connections"
                 [[ "$(wc -l <"$BKG_OWNERS")" -ge $(($(sort -u <"$connections" | wc -l) + 100)) ]] || seq 1 2 | env_parallel --lb --halt soon,fail=1 page_owner
             else
                 ! grep -q '/' "$BKG_OWNERS" || : >"$BKG_OWNERS"
@@ -144,7 +145,7 @@ main() {
                 : >packages_already_updated
             fi
 
-            head -n $(($(wc -l <"$connections") + 100)) "$BKG_OWNERS" | env_parallel --lb save_owner
+            head -n $(($(sort -u <"$connections" | wc -l) + 100)) "$BKG_OWNERS" | env_parallel --lb save_owner
             awk -F'|' '{print $1"/"$2}' packages_to_update | sort -uR 2>/dev/null | head -n1000 | env_parallel --lb save_owner
             parallel "sed -i '\,^{}$,d' $BKG_OWNERS" <"$connections"
             set_BKG BKG_DIFF "$db_size_curr"
