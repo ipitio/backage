@@ -99,6 +99,13 @@ main() {
 
     if [ "$BKG_MODE" -ne 2 ]; then
         if [ "$BKG_MODE" -eq 0 ] || [ "$BKG_MODE" -eq 3 ]; then
+            if [[ "$pkg_left" == "0" || "${db_size_curr::-1}" == "${db_size_prev::-1}" ]]; then
+                set_BKG BKG_BATCH_FIRST_STARTED "$today"
+                rm -f packages_to_update
+                \cp packages_all packages_to_update
+                : >packages_already_updated
+            fi
+
             if [ "$GITHUB_OWNER" = "ipitio" ]; then
                 explore "$GITHUB_OWNER" >"$connections"
                 explore "$GITHUB_OWNER/$GITHUB_REPO" >>"$connections"
@@ -120,6 +127,7 @@ main() {
                 cat "$BKG_OWNERS"
                 find "$BKG_INDEX_DIR" -mindepth 1 -maxdepth 1 -type d -exec basename {} \; 2>/dev/null | sort -u | awk '{print "0/"$1}'
             )" >"$BKG_OWNERS"
+
             [ ! -s packages_all ] || echo "$(
                 awk -F'|' '{print "0/"$2}' packages_all
                 awk -F'|' '{print $1"/"$2}' packages_all
@@ -137,12 +145,11 @@ main() {
             sed -i 's/^[[:space:]]*//;s/[[:space:]]*$//; /^$/d; /^0\/$/d; /^null\/.*/d; /^\(.*\/\)*\(solutions\|sponsors\|enterprise\|premium-support\)$/d' "$BKG_OWNERS"
             awk '!seen[$0]++' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
 
-            if [[ "$pkg_left" == "0" || "${db_size_curr::-1}" == "${db_size_prev::-1}" ]]; then
-                set_BKG BKG_BATCH_FIRST_STARTED "$today"
-                rm -f packages_to_update
-                \cp packages_all packages_to_update
-                : >packages_already_updated
-            fi
+            [ ! -s packages_already_updated ] || echo "$(
+                awk -F'|' '{print "0/"$2}' packages_already_updated
+                awk -F'|' '{print $1"/"$2}' packages_already_updated
+                awk -F'|' '{print $2}' packages_already_updated
+            )" | sort -u | parallel "sed -i '\,^{}$,d' $BKG_OWNERS"
 
             head -n $(($(sort -u <"$connections" | wc -l) + 100)) "$BKG_OWNERS" | env_parallel --lb save_owner
             awk -F'|' '{print $1"/"$2}' packages_to_update | sort -uR 2>/dev/null | head -n1000 | env_parallel --lb save_owner
