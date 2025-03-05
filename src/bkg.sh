@@ -142,8 +142,10 @@ main() {
 
             : >missing_versions
             awk -F'|' '{print $2"/"$3"/"$4}' packages_all | sort -u | while read -r orp; do
-                if [ -z "$(sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name like '${BKG_INDEX_TBL_VER}%_${orp//\//_}';")" ]; then
-                    echo "${orp%%/*}" >>missing_versions
+                local owner=${orp%%/*}
+
+                if grep -qP "^(.*/)?$owner$" "$connections" && [ -z "$(sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name like '${BKG_INDEX_TBL_VER}%_${orp//\//_}';")" ]; then
+                    echo "$owner" >>missing_versions
                     sed -i '\,\|'"${orp##*/}"'\|,d' packages_already_updated
                 fi
             done
@@ -158,7 +160,7 @@ main() {
             echo "$(
                 echo "0/$GITHUB_OWNER"
 
-                # connections that have to finish updating
+                # new connections that have to finish updating
                 cat missing_versions
 
                 # new connections
