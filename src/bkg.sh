@@ -145,12 +145,11 @@ main() {
             awk -F'|' '{print $2"/"$3"/"$4}' packages_all | sort -u | while read -r orp; do
                 local owner=${orp%%/*}
 
-                if grep -qP "^(.*/)?$owner$" "$connections" && grep -q "_${orp//\//_}" version_tables; then
+                if grep -qP "^(.*/)?$owner$" "$connections" && ! grep -qP "_${orp//\//_}$" version_tables; then
                     echo "$owner" >>missing_versions
                     sed -i '\,\|'"${orp##*/}"'\|,d' packages_already_updated
                 fi
             done
-            echo "missing_versions: $(cat missing_versions)"
 
             : >all_owners_tu
             [ ! -s packages_to_update ] || echo "$(
