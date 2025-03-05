@@ -131,26 +131,24 @@ main() {
                 find "$BKG_INDEX_DIR" -mindepth 1 -maxdepth 1 -type d -exec basename {} \; 2>/dev/null | sort -u | awk '{print "0/"$1}'
             )" >"$BKG_OWNERS"
 
-            echo : >all_owners_in_db
-            echo : >all_owners_pkgs
-
-            if [ -s packages_all ]; then
-                echo "$(
-                    awk -F'|' '{print "0/"$2}' packages_all
-                    awk -F'|' '{print $1"/"$2}' packages_all
-                    awk -F'|' '{print $2}' packages_all
-                )" | sort -u >all_owners_in_db
-                awk -F'|' '{print $2"/"$3"/"$4}' packages_all | sort -u >all_owners_pkgs
-            fi
-
+            : >all_owners_in_db
+            [ -s packages_all ] || echo "$(
+                awk -F'|' '{print "0/"$2}' packages_all
+                awk -F'|' '{print $1"/"$2}' packages_all
+                awk -F'|' '{print $2}' packages_all
+            )" | sort -u >all_owners_in_db
             parallel "sed -i '\,^{}$,d' $BKG_OWNERS" <all_owners_in_db
             parallel "sed -i '\,^{}$,d' $temp_connections" <all_owners_in_db
 
-            echo : > missing_versions
-            while read -r owner; do [ "$(grep -c "^${owner##*/}/" all_owners_pkgs)" -le "$(sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name like '${BKG_INDEX_TBL_VER}%_${owner}_%';" | wc -l)" ] || echo "${owner##*/}" >>missing_versions ; done <"$connections"
-            parallel "sed -i '\,\|{}\|,d' packages_already_updated" <missing_versions
+            : >missing_versions
+            awk -F'|' '{print $2"/"$3"/"$4}' packages_all | sort -u | while read -r orp; do
+                if [ -z "$(sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name like '${BKG_INDEX_TBL_VER}%_${orp//\//_}';")" ]; then
+                    echo "${orp%%/*}" >>missing_versions
+                    sed -i '\,\|'"${orp##*/}"'\|,d' packages_already_updated
+                fi
+            done
 
-            echo : >all_owners_tu
+            : >all_owners_tu
             [ ! -s packages_to_update ] || echo "$(
                 awk -F'|' '{print "0/"$2}' packages_to_update
                 awk -F'|' '{print $1"/"$2}' packages_to_update
@@ -160,11 +158,11 @@ main() {
             echo "$(
                 echo "0/$GITHUB_OWNER"
 
-                # new connections
-                cat "$temp_connections"
-
                 # connections that have to finish updating
                 cat missing_versions
+
+                # new connections
+                cat "$temp_connections"
 
                 # connections that have to be updated
                 grep -Fxf all_owners_in_db "$connections" | grep -Fxf all_owners_tu
@@ -173,7 +171,7 @@ main() {
                 cat "$BKG_OWNERS"
             )" >"$BKG_OWNERS"
 
-            rm -f all_owners_in_db all_owners_tu all_owners_pkgs missing_versions
+            rm -f all_owners_in_db all_owners_tu missing_versions
             echo >>"$BKG_OWNERS"
             awk 'NF' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
             sed -i 's/^[[:space:]]*//;s/[[:space:]]*$//; /^$/d; /^0\/$/d; /^null\/.*/d; /^\(.*\/\)*\(solutions\|sponsors\|enterprise\|premium-support\)$/d' "$BKG_OWNERS"
