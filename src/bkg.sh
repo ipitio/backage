@@ -148,7 +148,7 @@ main() {
 
             echo : > missing_versions
             while read -r owner; do [ "$(grep -c "^${owner##*/}/" all_owners_pkgs)" -le "$(sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name like '${BKG_INDEX_TBL_VER}%_${owner}_%';" | wc -l)" ] || echo "${owner##*/}" >>missing_versions ; done <"$connections"
-            parallel "sed -i '\,|{}|,d' packages_already_updated" <missing_versions
+            parallel "sed -i '\,\|{}\|,d' packages_already_updated" <missing_versions
 
             echo : >all_owners_tu
             [ ! -s packages_to_update ] || echo "$(
