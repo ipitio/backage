@@ -59,6 +59,20 @@ numfmt_size() {
     awk '{ split("kB MB GB TB PB EB ZB YB", v); s=0; while( $1>999.9 ) { $1/=1000; s++ } print int($1*10)/10 " " v[s] }' | sed 's/[[:blank:]]*$//'
 }
 
+fmtsize_num() {
+    awk '{
+        if ($2) {
+            u = substr($2, 1, 1)
+            p = index("kMGTPEZY", u)
+            if (p > 0) {
+                m = match($2, /i?B$/) ? (match($2, /iB$/) ? 1024 : 1000) : (match($2, /b$/) ? 125 : 1024)
+                $1 *= m ^ p
+            }
+        }
+        print int($1)
+    }'
+}
+
 sqlite3() {
     command sqlite3 -init <(echo "
 .output /dev/null

@@ -132,11 +132,17 @@ main() {
             )" >"$BKG_OWNERS"
 
             echo : >all_owners_in_db
-            [ ! -s packages_all ] || echo "$(
-                awk -F'|' '{print "0/"$2}' packages_all
-                awk -F'|' '{print $1"/"$2}' packages_all
-                awk -F'|' '{print $2}' packages_all
-            )" | sort -u >all_owners_in_db
+            echo : >all_owners_pkgs
+
+            if [ -s packages_all ]; then
+                echo "$(
+                    awk -F'|' '{print "0/"$2}' packages_all
+                    awk -F'|' '{print $1"/"$2}' packages_all
+                    awk -F'|' '{print $2}' packages_all
+                )" | sort -u >all_owners_in_db
+                awk -F'|' '{print $2"/"$3$4}' packages_all | sort -u >all_owners_pkgs
+            fi
+
             parallel "sed -i '\,^{}$,d' $BKG_OWNERS" <all_owners_in_db
             parallel "sed -i '\,^{}$,d' $temp_connections" <all_owners_in_db
 
@@ -149,8 +155,17 @@ main() {
 
             echo "$(
                 echo "0/$GITHUB_OWNER"
+
+                # new connections
                 cat "$temp_connections"
+
+                # connections that have to finish updating
+                while read -r owner; do [ "$(grep -c "^${owner##*/}/" all_owners_pkgs)" -le "$(sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name like '${BKG_INDEX_TBL_VER}%_${owner}_%';" | wc -l)" ] || echo "$owner"; done <"$connections"
+
+                # connections that have to be updated
                 grep -Fxf all_owners_in_db "$connections" | grep -Fxf all_owners_tu
+
+                # requests
                 cat "$BKG_OWNERS"
             )" >"$BKG_OWNERS"
 
