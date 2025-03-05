@@ -150,6 +150,7 @@ main() {
                     sed -i '\,\|'"${orp##*/}"'\|,d' packages_already_updated
                 fi
             done
+            echo "missing_versions: $(cat missing_versions)"
 
             : >all_owners_tu
             [ ! -s packages_to_update ] || echo "$(
@@ -177,7 +178,7 @@ main() {
             rm -f all_owners_in_db all_owners_tu missing_versions version_tables
             echo >>"$BKG_OWNERS"
             awk 'NF' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
-            sed -i 's/^[[:space:]]*//;s/[[:space:]]*$//; /^$/d; /^0\/$/d; /^null\/.*/d; /^\(.*\/\)*\(solutions\|sponsors\|enterprise\|premium-support\)$/d' "$BKG_OWNERS"
+            sed -i 's/"//g; s/^[[:space:]]*//;s/[[:space:]]*$//; /^$/d; /^0\/$/d; /^null\/.*/d; /^\(.*\/\)*\(solutions\|sponsors\|enterprise\|premium-support\)$/d' "$BKG_OWNERS"
             awk '!seen[$0]++' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
             head -n $(($(wc -l <"$connections") + 100)) "$BKG_OWNERS" | env_parallel --lb save_owner
             awk -F'|' '{print $1"/"$2}' packages_to_update | sort -uR 2>/dev/null | head -n1000 | env_parallel --lb save_owner
