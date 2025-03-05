@@ -116,7 +116,7 @@ main() {
                 cat "$temp_connections" >>"$connections"
 
                 sed -i 's/^[[:space:]]*//;s/[[:space:]]*$//; /^$/d; /^0\/$/d' "$connections"
-                [[ "$(wc -l <"$BKG_OWNERS")" -ge $(($(sort -u <"$connections" | wc -l) + 100)) ]] || seq 1 2 | env_parallel --lb --halt soon,fail=1 page_owner
+                [[ "$(wc -l <"$BKG_OWNERS")" -ge $(($(sort -u "$connections" | wc -l) + 100)) ]] || seq 1 2 | env_parallel --lb --halt soon,fail=1 page_owner
             else
                 ! grep -q '/' "$BKG_OWNERS" || : >"$BKG_OWNERS"
                 get_membership "$GITHUB_OWNER" >"$connections"
@@ -140,11 +140,15 @@ main() {
                     awk -F'|' '{print $1"/"$2}' packages_all
                     awk -F'|' '{print $2}' packages_all
                 )" | sort -u >all_owners_in_db
-                awk -F'|' '{print $2"/"$3$4}' packages_all | sort -u >all_owners_pkgs
+                awk -F'|' '{print $2"/"$3"/"$4}' packages_all | sort -u >all_owners_pkgs
             fi
 
             parallel "sed -i '\,^{}$,d' $BKG_OWNERS" <all_owners_in_db
             parallel "sed -i '\,^{}$,d' $temp_connections" <all_owners_in_db
+
+            echo : > missing_versions
+            while read -r owner; do [ "$(grep -c "^${owner##*/}/" all_owners_pkgs)" -le "$(sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name like '${BKG_INDEX_TBL_VER}%_${owner}_%';" | wc -l)" ] || echo "${owner##*/}" >>missing_versions ; done <"$connections"
+            parallel "sed -i '\,|{}|,d' packages_already_updated" <missing_versions
 
             echo : >all_owners_tu
             [ ! -s packages_to_update ] || echo "$(
@@ -160,7 +164,7 @@ main() {
                 cat "$temp_connections"
 
                 # connections that have to finish updating
-                while read -r owner; do [ "$(grep -c "^${owner##*/}/" all_owners_pkgs)" -le "$(sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name like '${BKG_INDEX_TBL_VER}%_${owner}_%';" | wc -l)" ] || echo "$owner"; done <"$connections"
+                cat missing_versions
 
                 # connections that have to be updated
                 grep -Fxf all_owners_in_db "$connections" | grep -Fxf all_owners_tu
@@ -169,12 +173,12 @@ main() {
                 cat "$BKG_OWNERS"
             )" >"$BKG_OWNERS"
 
-            rm -f all_owners_in_db all_owners_tu
+            rm -f all_owners_in_db all_owners_tu all_owners_pkgs missing_versions
             echo >>"$BKG_OWNERS"
             awk 'NF' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
             sed -i 's/^[[:space:]]*//;s/[[:space:]]*$//; /^$/d; /^0\/$/d; /^null\/.*/d; /^\(.*\/\)*\(solutions\|sponsors\|enterprise\|premium-support\)$/d' "$BKG_OWNERS"
             awk '!seen[$0]++' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
-            head -n $(($(sort -u <"$connections" | wc -l) + 100)) "$BKG_OWNERS" | env_parallel --lb save_owner
+            head -n $(($(wc -l <"$connections") + 100)) "$BKG_OWNERS" | env_parallel --lb save_owner
             awk -F'|' '{print $1"/"$2}' packages_to_update | sort -uR 2>/dev/null | head -n1000 | env_parallel --lb save_owner
             parallel "sed -i '\,^{}$,d' $BKG_OWNERS" <"$connections"
             set_BKG BKG_DIFF "$db_size_curr"
