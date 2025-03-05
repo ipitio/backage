@@ -141,10 +141,11 @@ main() {
             parallel "sed -i '\,^{}$,d' $temp_connections" <all_owners_in_db
 
             : >missing_versions
+            sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name like '${BKG_INDEX_TBL_VER}_%';" >version_tables
             awk -F'|' '{print $2"/"$3"/"$4}' packages_all | sort -u | while read -r orp; do
                 local owner=${orp%%/*}
 
-                if grep -qP "^(.*/)?$owner$" "$connections" && [ -z "$(sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name like '${BKG_INDEX_TBL_VER}%_${orp//\//_}';")" ]; then
+                if grep -qP "^(.*/)?$owner$" "$connections" && grep -q "_${orp//\//_}" version_tables; then
                     echo "$owner" >>missing_versions
                     sed -i '\,\|'"${orp##*/}"'\|,d' packages_already_updated
                 fi
@@ -173,7 +174,7 @@ main() {
                 cat "$BKG_OWNERS"
             )" >"$BKG_OWNERS"
 
-            rm -f all_owners_in_db all_owners_tu missing_versions
+            rm -f all_owners_in_db all_owners_tu missing_versions version_tables
             echo >>"$BKG_OWNERS"
             awk 'NF' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
             sed -i 's/^[[:space:]]*//;s/[[:space:]]*$//; /^$/d; /^0\/$/d; /^null\/.*/d; /^\(.*\/\)*\(solutions\|sponsors\|enterprise\|premium-support\)$/d' "$BKG_OWNERS"
