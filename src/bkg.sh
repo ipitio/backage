@@ -140,18 +140,6 @@ main() {
             parallel "sed -i '\,^{}$,d' $BKG_OWNERS" <all_owners_in_db
             parallel "sed -i '\,^{}$,d' $temp_connections" <all_owners_in_db
 
-            : >missing_versions
-            sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name like '${BKG_INDEX_TBL_VER}_%';" >version_tables
-            awk -F'|' '{print $2"/"$3"/"$4}' packages_all | sort -u | while read -r orp; do
-                local owner=${orp%%/*}
-                owner=$(grep -P "^(.*/)?$owner$" "$connections")
-
-                if [ -n "$owner" ] && ! grep -qP "_${orp//\//_}$" version_tables; then
-                    echo "$owner" >>missing_versions
-                    sed -i '\,\|'"${orp//\//\\|}"'\|,d' packages_already_updated
-                fi
-            done
-
             : >all_owners_tu
             [ ! -s packages_to_update ] || echo "$(
                 awk -F'|' '{print "0/"$2}' packages_to_update
@@ -161,9 +149,6 @@ main() {
 
             echo "$(
                 echo "0/$GITHUB_OWNER"
-
-                # new connections that have to finish updating
-                cat missing_versions
 
                 # new connections
                 cat "$temp_connections"
