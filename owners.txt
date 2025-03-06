@@ -1010,7 +1010,6 @@
 0/hoellen
 0/home-assistant
 0/home-assistant-libs
-0/homematic-community
 0/hoverbird
 0/htrgouvea
 0/huan
@@ -1062,7 +1061,6 @@
 0/issyl0
 0/italoag
 0/itewk
-0/itobey
 0/itszero
 0/ittybittyapps
 0/ivangabriele
@@ -1206,8 +1204,6 @@
 0/ktock
 0/kube-rs
 0/kubeflow
-0/kubernetes-sigs
-0/kvaps
 0/kwe
 0/kyanny
 0/kyverno
@@ -1524,7 +1520,6 @@
 0/pinheadmz
 0/pipedrive
 0/pkgforge
-0/pkgforge-dev
 0/plankanban
 0/plazi
 0/pluginkollektiv
