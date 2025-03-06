@@ -1207,6 +1207,7 @@
 0/kube-rs
 0/kubeflow
 0/kubernetes-sigs
+0/kvaps
 0/kwe
 0/kyanny
 0/kyverno
