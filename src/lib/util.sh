@@ -76,12 +76,12 @@ fmtsize_num() {
 sqlite3() {
     command sqlite3 -init <(echo "
 .output /dev/null
-.timeout 10000000
+.timeout 100000
 .load /usr/lib/sqlite3/pcre.so
 PRAGMA synchronous = OFF;
 PRAGMA foreign_keys = ON;
-PRAGMA journal_mode = MEMORY;
-PRAGMA locking_mode = EXCLUSIVE;
+PRAGMA journal_mode = WAL;
+PRAGMA locking_mode = NORMAL;
 PRAGMA cache_size = -500000;
 .output stdout
 ") "$@" 2>/dev/null
