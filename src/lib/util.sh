@@ -80,7 +80,7 @@ sqlite3() {
 .load /usr/lib/sqlite3/pcre.so
 PRAGMA synchronous = OFF;
 PRAGMA foreign_keys = ON;
-PRAGMA journal_mode = WAL;
+PRAGMA journal_mode = OFF;
 PRAGMA locking_mode = NORMAL;
 PRAGMA cache_size = -500000;
 .output stdout
