@@ -168,6 +168,7 @@ main() {
             head -n $(($(wc -l <"$connections") + 100)) "$BKG_OWNERS" | env_parallel --lb save_owner
             awk -F'|' '{print $1"/"$2}' packages_to_update | sort -uR 2>/dev/null | head -n1000 | env_parallel --lb save_owner
             parallel "sed -i '\,^{}$,d' $BKG_OWNERS" <"$connections"
+            sed -i '/^0\//d' "$BKG_OWNERS"
             set_BKG BKG_DIFF "$db_size_curr"
         else
             save_owner "$GITHUB_OWNER"

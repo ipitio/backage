@@ -74,6 +74,7 @@ fmtsize_num() {
 }
 
 sqlite3() {
+    until ln "$BKG_INDEX_DB" "$BKG_INDEX_DB.lock" 2>/dev/null; do :; done
     command sqlite3 -init <(echo "
 .output /dev/null
 .timeout 100000
@@ -85,6 +86,7 @@ PRAGMA locking_mode = EXCLUSIVE;
 PRAGMA cache_size = -500000;
 .output stdout
 ") "$@" 2>/dev/null
+    rm -f "$BKG_INDEX_DB.lock"
 }
 
 get_BKG() {
