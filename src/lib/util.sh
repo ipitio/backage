@@ -74,10 +74,9 @@ fmtsize_num() {
 }
 
 sqlite3() {
-    until ln "$BKG_INDEX_DB" "$BKG_INDEX_DB.lock" 2>/dev/null; do :; done
     command sqlite3 -init <(echo "
 .output /dev/null
-.timeout 100000
+.timeout 10000000
 .load /usr/lib/sqlite3/pcre.so
 PRAGMA synchronous = OFF;
 PRAGMA foreign_keys = ON;
@@ -86,7 +85,6 @@ PRAGMA locking_mode = EXCLUSIVE;
 PRAGMA cache_size = -500000;
 .output stdout
 ") "$@" 2>/dev/null
-    rm -f "$BKG_INDEX_DB.lock"
 }
 
 get_BKG() {
