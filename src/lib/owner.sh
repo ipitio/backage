@@ -74,6 +74,8 @@ update_owner() {
         rm -rf "$BKG_INDEX_DIR/${owner:?}"
         sqlite3 "$BKG_INDEX_DB" "delete from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id';"
         sqlite3 "$BKG_INDEX_DB" "drop table if exists '$(sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name like '${BKG_INDEX_TBL_VER}_%_${owner}_%';")';"
+        set_BKG BKG_PAGE_"$owner_id" ""
+        del_BKG BKG_PAGE_"$owner_id"
         return
     fi
 
