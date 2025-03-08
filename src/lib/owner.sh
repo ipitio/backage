@@ -68,6 +68,15 @@ update_owner() {
     [ -n "$1" ] || return
     owner_id=$(cut -d'/' -f1 <<<"$1")
     owner=$(cut -d'/' -f2 <<<"$1")
+
+    if grep -q "^$owner$" "$BKG_OPTOUT"; then
+        echo "$owner was opted out!"
+        rm -rf "$BKG_INDEX_DIR/${owner:?}"
+        sqlite3 "$BKG_INDEX_DB" "delete from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id';"
+        sqlite3 "$BKG_INDEX_DB" "drop table if exists '$(sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name like '${BKG_INDEX_TBL_VER}_%_${owner}_%';")';"
+        return
+    fi
+
     echo "Updating $owner..."
 
     # decode percent-encoded characters and make lowercase (eg. for docker manifest)
