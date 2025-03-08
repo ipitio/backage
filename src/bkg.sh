@@ -118,8 +118,13 @@ main() {
                 sed -i 's/^[[:space:]]*//;s/[[:space:]]*$//; /^$/d; /^0\/$/d' "$connections"
                 [[ "$(wc -l <"$BKG_OWNERS")" -ge $(($(sort -u "$connections" | wc -l) + 100)) ]] || seq 1 2 | env_parallel --lb --halt soon,fail=1 page_owner
             else
-                ! grep -q '/' "$BKG_OWNERS" || : >"$BKG_OWNERS"
                 get_membership "$GITHUB_OWNER" >"$connections"
+
+                if grep -q '/' "$BKG_OWNERS"; then
+                    : >"$BKG_OWNERS"
+                    while read -r connection; do sed -i '\,^'"$(cut -d'/' -f2 <<<"$connection")"'\(/.*\)\?$,d' "$BKG_OPTOUT"; done <"$connections"
+                    sed -i "\,^$GITHUB_OWNER\(/.*\)\?$,d" "$BKG_OPTOUT"
+                fi
             fi
 
             sort "$connections" | uniq -c | sort -nr | awk '{print $2}' >"$connections".bak

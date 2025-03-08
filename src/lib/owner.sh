@@ -88,8 +88,8 @@ update_owner() {
     [ -n "$(grep -zoP 'href="/orgs/'"$owner"'/people"' <<<"$(curl "https://github.com/orgs/$owner/people")" | tr -d '\0')" ] && export owner_type="orgs" || export owner_type="users"
     [ -d "$BKG_INDEX_DIR/$owner" ] || mkdir "$BKG_INDEX_DIR/$owner"
     set_BKG BKG_PACKAGES_"$owner" ""
-    run_parallel save_package "$(sqlite3 "$BKG_INDEX_DB" "select package_type, package from '$BKG_INDEX_TBL_PKG' where owner_id = '$owner_id';" | awk -F'|' '{print "////"$1"//"$2}' | sort -uR)"
-    (($? != 3)) || return 3
+    #run_parallel save_package "$(sqlite3 "$BKG_INDEX_DB" "select package_type, package from '$BKG_INDEX_TBL_PKG' where owner_id = '$owner_id';" | awk -F'|' '{print "////"$1"//"$2}' | sort -uR)"
+    #(($? != 3)) || return 3
     local start_page
     start_page=$(get_BKG BKG_PAGE_"$owner_id")
     [ -n "$start_page" ] || start_page=1
@@ -97,7 +97,7 @@ update_owner() {
     for page in $(seq "$start_page" 100000); do
         local pages_left=0
         ((page == start_page)) || set_BKG BKG_PAGE_"$owner_id" "$page"
-        ((page - start_page < 1000)) || break
+        ((page - start_page < 51)) || break
         page_package "$page"
         pages_left=$?
         run_parallel update_package "$(get_BKG_set BKG_PACKAGES_"$owner")"
