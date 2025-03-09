@@ -174,4 +174,4 @@ https://ipitio.github.io/backage?json=https://URL/ENCODED/JSON
 
 Use your own external JSON with this proxy to convert it into XML. This doesn't currently work with Shields. Try it out in your browser:
 
-**<<https://ipitio.github.io/backage?json=https://raw.githubusercontent.com/>ipitio/backage/index/.json>**
+**<https://ipitio.github.io/backage?json=https://raw.githubusercontent.com/ipitio/backage/index/.json>**
