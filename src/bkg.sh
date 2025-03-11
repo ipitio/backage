@@ -100,7 +100,7 @@ main() {
 
     if [ "$BKG_MODE" -ne 2 ]; then
         if [ "$BKG_MODE" -eq 0 ] || [ "$BKG_MODE" -eq 3 ]; then
-            if [[ "$pkg_left" == "0" || "${db_size_curr::-1}" == "${db_size_prev::-1}" ]]; then
+            if [[ "$pkg_left" == "0" || "${db_size_curr::-2}" == "${db_size_prev::-2}" ]]; then
                 set_BKG BKG_BATCH_FIRST_STARTED "$today"
                 rm -f packages_to_update
                 \cp packages_all packages_to_update
