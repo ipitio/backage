@@ -100,7 +100,7 @@ main() {
 
     if [ "$BKG_MODE" -ne 2 ]; then
         if [ "$BKG_MODE" -eq 0 ] || [ "$BKG_MODE" -eq 3 ]; then
-            if [[ "$pkg_left" == "0" || "${db_size_curr::-2}" == "${db_size_prev::-2}" ]]; then
+            if [[ "$pkg_left" == "0" || "${db_size_curr::-4}" == "${db_size_prev::-4}" ]]; then
                 set_BKG BKG_BATCH_FIRST_STARTED "$today"
                 rm -f packages_to_update
                 \cp packages_all packages_to_update
@@ -170,7 +170,7 @@ main() {
             awk 'NF' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
             sed -i 's/"//g; s/^[[:space:]]*//;s/[[:space:]]*$//; /^$/d; /^0\/$/d; /^null\/.*/d; /^\(.*\/\)*\(solutions\|sponsors\|enterprise\|premium-support\)$/d' "$BKG_OWNERS"
             awk '!seen[$0]++' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
-            head -n $(($(wc -l <"$connections") + 1)) "$BKG_OWNERS" | env_parallel --lb save_owner
+            head -n $(($(wc -l <"$connections") + 2)) "$BKG_OWNERS" | env_parallel --lb save_owner
             awk -F'|' '{print $1"/"$2}' packages_to_update | sort -uR 2>/dev/null | head -n1000 | env_parallel --lb save_owner
             parallel "sed -i '\,^{}$,d' $BKG_OWNERS" <"$connections"
             sed -i '/^0\//d' "$BKG_OWNERS"
