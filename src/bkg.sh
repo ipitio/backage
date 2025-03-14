@@ -100,13 +100,6 @@ main() {
 
     if [ "$BKG_MODE" -ne 2 ]; then
         if [ "$BKG_MODE" -eq 0 ] || [ "$BKG_MODE" -eq 3 ]; then
-            if [[ "$pkg_left" == "0" || "${db_size_curr::-4}" == "${db_size_prev::-4}" ]]; then
-                set_BKG BKG_BATCH_FIRST_STARTED "$today"
-                rm -f packages_to_update
-                \cp packages_all packages_to_update
-                : >packages_already_updated
-            fi
-
             if [ "$GITHUB_OWNER" = "ipitio" ]; then
                 explore "$GITHUB_OWNER" >"$connections"
                 explore "$GITHUB_OWNER/$GITHUB_REPO" >>"$connections"
@@ -145,12 +138,29 @@ main() {
             parallel "sed -i '\,^{}$,d' $BKG_OWNERS" <all_owners_in_db
             parallel "sed -i '\,^{}$,d' $temp_connections" <all_owners_in_db
 
+            if [[ "$pkg_left" == "0" || "${db_size_curr::-4}" == "${db_size_prev::-4}" ]]; then
+                set_BKG BKG_BATCH_FIRST_STARTED "$today"
+                rm -f packages_to_update
+                \cp packages_all packages_to_update
+                : >packages_already_updated
+            fi
+
             : >all_owners_tu
             [ ! -s packages_to_update ] || echo "$(
                 awk -F'|' '{print "0/"$2}' packages_to_update
                 awk -F'|' '{print $1"/"$2}' packages_to_update
                 awk -F'|' '{print $2}' packages_to_update
             )" | sort -u >all_owners_tu
+
+            : >connections_tu
+            grep -Fxf all_owners_tu "$connections" >connections_tu
+
+            if [ -s connections_tu ]; then
+                set_BKG BKG_BATCH_FIRST_STARTED "$today"
+                rm -f packages_to_update
+                \cp packages_all packages_to_update
+                : >packages_already_updated
+            fi
 
             echo "$(
                 echo "0/$GITHUB_OWNER"
@@ -159,13 +169,13 @@ main() {
                 cat "$temp_connections"
 
                 # connections that have to be updated
-                grep -Fxf all_owners_in_db "$connections" | grep -Fxf all_owners_tu
+                cat connections_tu
 
                 # requests
                 cat "$BKG_OWNERS"
             )" >"$BKG_OWNERS"
 
-            rm -f all_owners_in_db all_owners_tu missing_versions version_tables
+            rm -f all_owners_in_db all_owners_tu missing_versions version_tables connections_tu
             echo >>"$BKG_OWNERS"
             awk 'NF' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
             sed -i 's/"//g; s/^[[:space:]]*//;s/[[:space:]]*$//; /^$/d; /^0\/$/d; /^null\/.*/d; /^\(.*\/\)*\(solutions\|sponsors\|enterprise\|premium-support\)$/d' "$BKG_OWNERS"
