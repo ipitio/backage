@@ -1,8 +1,3 @@
-326568/smilenet
-327624/MindSea
-326644/ScottCarpman
-326565/steveteuber
-326639/puranik
 326609/Zehnox
 326627/terrencetalbot
 326570/completehavoc
