@@ -1,8 +1,3 @@
-328102/Workday
-328014/tinkertanker
-326634/mventre
-326612/madumlao
-326576/cloudyi
 326595/ugoletti
 326816/jbossas
 328530/pyamf
