@@ -1,8 +1,3 @@
-326635/jaredhales
-326604/darkmatteraudio
-326922/rapportive-oss
-326765/groupme
-326574/hoss
 326649/amet123
 326601/gbtsouza
 326573/ryarwood
