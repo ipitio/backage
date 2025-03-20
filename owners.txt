@@ -1,9 +1,3 @@
-vm75
-326599/amirk25
-330413/simpleteq
-327994/Gruslic
-326804/serenetech
-328696/AdamM6
 328731/Amylee
 328744/CJICantLie
 328645/Barreljack
