@@ -1,8 +1,3 @@
-328656/gaugedcampaignsdev
-328642/ptmahent
-328734/tumdum
-328725/seisemeia
-331631/bunkyo-koki
 328711/bcourt
 328718/dulacp
 328724/qronon
