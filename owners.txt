@@ -1,8 +1,3 @@
-328669/f1serge
-328697/vangojames
-331372/wanderlust
-328661/matigrob
-330967/jbossejb3
 328681/kihwang
 331029/profoundry-us
 331250/monodevelop
