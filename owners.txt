@@ -1,8 +1,3 @@
-328681/kihwang
-331029/profoundry-us
-331250/monodevelop
-331487/WarGaming
-330809/albion
 328689/eheydrick
 328648/aenglander
 328649/zekekoch
