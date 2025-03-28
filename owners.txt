@@ -1,8 +1,3 @@
-328719/tlindema
-328732/pierreuv
-328693/Superjomn
-331089/elua
-328674/zedtrix
 328730/rhd110
 330420/codrschool
 328738/illum1n4ti
