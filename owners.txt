@@ -1,8 +1,3 @@
-328676/kovafri
-330543/coggraphics
-330930/oakstudios
-328704/peacemaker
-331750/ZeusWPI
 328719/tlindema
 328732/pierreuv
 328693/Superjomn
