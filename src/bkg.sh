@@ -138,6 +138,7 @@ main() {
             parallel "sed -i '\,^{}$,d' $BKG_OWNERS" <all_owners_in_db
             parallel "sed -i '\,^{}$,d' $temp_connections" <all_owners_in_db
 
+            tail "$BKG_OWNERS"
             echo "connections_new: $(wc -l <"$temp_connections")"
             head "$temp_connections"
 
