@@ -1,8 +1,3 @@
-331168/Ryyn
-328691/DorleEnterprise
-328723/Ewanse
-328687/nguago
-328683/paulsimon99
 328665/edtechre
 328743/parmitage
 328700/godot70
