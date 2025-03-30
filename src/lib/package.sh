@@ -55,6 +55,7 @@ update_package() {
     local version_with_tag_count=-1
     local version_newest_id=-1
     local latest_version=-1
+    local latest_tags
     local owner_rank
     local repo_rank
     package_type=$(cut -d'/' -f1 <<<"$1")
@@ -97,7 +98,7 @@ update_package() {
         raw_downloads=$(grep -Pzo 'Total downloads[^"]*"\d*' <<<"$html" | grep -Pzo '\d*$' | tr -d '\0') # https://stackoverflow.com/a/74214537
         sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name' where date >= '$BKG_BATCH_FIRST_STARTED';" | sort -u >"${table_version_name}"_already_updated
 
-        for page in $(seq 0 10); do
+        for page in $(seq 0 10); do # max page = 50
             ((page > 0)) || continue
             local pages_left=0
             page_version "$page"
@@ -106,11 +107,12 @@ update_package() {
             rm -f "$BKG_INDEX_DIR/$owner/$repo/$package".*.json
             ((pages_left != 3)) || return 3
             jq -e . <<<"$versions_json" &>/dev/null || versions_json="[{\"id\":\"-1\",\"name\":\"latest\",\"tags\":\"\"}]"
-            jq -e 'length > 1' <<<"$versions_json" &>/dev/null && versions_json=$(jq -c 'map(select(.id >= 0))' <<<"$versions_json")
+            ! jq -e 'length > 1' <<<"$versions_json" &>/dev/null || versions_json=$(jq -c 'map(select(.id >= 0))' <<<"$versions_json")
+            [ -n "$latest_tags" ] || latest_tags=$(jq -r '.[].tags | select(. | split(",";"") | any(. == "latest"))' <<<"$versions_json")
             run_parallel update_version "$(jq -r '.[] | @base64' <<<"$versions_json")"
             (($? != 3)) || return 3
             ((pages_left != 2)) || break
-            ! jq -e 'any(.[].tags; contains("latest"))' <<<"$versions_json" &>/dev/null || break
+            [ -z "$latest_tags" ] || break
         done
 
         rm -f "${table_version_name}"_already_updated
@@ -141,7 +143,9 @@ update_package() {
     version_count=$(sqlite3 "$BKG_INDEX_DB" "select count(distinct id) from '$table_version_name' where id regexp '^[0-9]+$';")
     version_with_tag_count=$(sqlite3 "$BKG_INDEX_DB" "select count(distinct id) from '$table_version_name' where id regexp '^[0-9]+$' and tags != '' and tags is not null;")
     version_newest_id=$(find "$BKG_INDEX_DIR/$owner/$repo/$package.d" -type f -name "*.json" 2>/dev/null | grep -oP '\d+' | sort -n | tail -n1)
-    latest_version=$(sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name' where id regexp '^[0-9]+$' and tags != '' and tags is not null and id in ($(find "$BKG_INDEX_DIR/$owner/$repo/$package.d" -type f -name "*.json" 2>/dev/null | grep -oP '\d+' | sort -n | tr '\n' ',' | sed 's/,$//')) order by id desc limit 1;")
+    [ -z "$latest_tags" ] || latest_version=$(sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name' where id regexp '^[0-9]+$' and tags like '%$latest_tags%' order by id desc limit 1;")
+    [[ "$latest_version" =~ ^[0-9]+$ ]] || latest_version=$(sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name' where id regexp '^[0-9]+$' and tags != '' and tags is not null and tags not like 'sha256-%' order by id desc limit 1;")
+    [[ "$latest_version" =~ ^[0-9]+$ ]] || latest_version=$(sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name' where id regexp '^[0-9]+$' and tags != '' and tags is not null order by id desc limit 1;")
     [[ "$version_count" =~ ^[0-9]+$ ]] || version_count=0
     [[ "$version_with_tag_count" =~ ^[0-9]+$ ]] || version_with_tag_count=0
     [[ "$version_newest_id" =~ ^[0-9]+$ ]] || version_newest_id=-1
