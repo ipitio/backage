@@ -108,7 +108,8 @@ update_package() {
             ((pages_left != 3)) || return 3
             jq -e . <<<"$versions_json" &>/dev/null || versions_json="[{\"id\":\"-1\",\"name\":\"latest\",\"tags\":\"\"}]"
             ! jq -e 'length > 1' <<<"$versions_json" &>/dev/null || versions_json=$(jq -c 'map(select(.id >= 0))' <<<"$versions_json")
-            [ -n "$latest_tags" ] || latest_tags=$(jq -r '.[].tags | select(. | split(",";"") | any(. == "latest"))' <<<"$versions_json")
+            [ -n "$latest_tags" ] || latest_tags=$(jq -r '.[].tags | select(. | split(",";"") | any(. | contains("latest")))' <<<"$versions_json")
+            latest_tags=$(perl -pe 's/(?<!\\)"/\\"/g' <<<"$latest_tags")
             run_parallel update_version "$(jq -r '.[] | @base64' <<<"$versions_json")"
             (($? != 3)) || return 3
             ((pages_left != 2)) || break

@@ -17,7 +17,9 @@ save_version() {
         check_limit || return $?
         grep -q "$version_id" "${table_version_name}"_already_updated && [ "$BKG_MODE" -eq 0 ] && return || :
         version_tags=$(_jq "$1" '.. | try .tags | select(. != null and . != "") | join(",")')
+        version_tags=$(perl -pe 's/(?<!\\)"/\\"/g' <<<"$version_tags")
         [[ -n "$version_tags" && "$version_tags" != "[]" ]] || version_tags=$(_jq "$1" '.. | try .tags | select(. != null and . != "")')
+        version_tags=$(perl -pe 's/(?<!\\)"/\\"/g' <<<"$version_tags")
 
         if [[ -z "$version_tags" || "$version_tags" == "[]" ]]; then
             for page in $(seq 1 2); do
@@ -35,6 +37,7 @@ save_version() {
             done
         fi
 
+        version_tags=$(perl -pe 's/(?<!\\)"/\\"/g' <<<"$version_tags")
         echo "{
             \"id\": $version_id,
             \"name\": \"$version_name\",
