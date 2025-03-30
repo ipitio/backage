@@ -138,6 +138,11 @@ main() {
             parallel "sed -i '\,^{}$,d' $BKG_OWNERS" <all_owners_in_db
             parallel "sed -i '\,^{}$,d' $temp_connections" <all_owners_in_db
 
+            echo "requests: $(wc -l <"$BKG_OWNERS")"
+            head "$BKG_OWNERS"
+            echo "connections_new: $(wc -l <"$connections")"
+            head "$connections"
+
             if [[ "$pkg_left" == "0" || "${db_size_curr::-5}" == "${db_size_prev::-5}" ]]; then
                 set_BKG BKG_BATCH_FIRST_STARTED "$today"
                 rm -f packages_to_update
@@ -153,6 +158,9 @@ main() {
             )" | sort -u >all_owners_tu
 
             grep -Fxf all_owners_tu "$connections" >connections_tu
+
+            echo "connections_tu: $(wc -l <connections_tu)"
+            head connections_tu
 
             if [ ! -s connections_tu ]; then
                 set_BKG BKG_BATCH_FIRST_STARTED "$today"
