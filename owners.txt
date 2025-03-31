@@ -152,7 +152,6 @@
 330919/techmeetup
 328922/bobserr
 328899/guspatagonico
-329361/ipasoftware
 329597/hensam
 329133/bitsmedia
 330543/coggraphics
