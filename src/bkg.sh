@@ -122,7 +122,6 @@ main() {
 
             sort "$connections" | uniq -c | sort -nr | awk '{print $2}' >"$connections".bak
             mv "$connections".bak "$connections"
-            cp "$connections" "$temp_connections"
 
             echo "$(
                 cat "$BKG_OWNERS"
@@ -135,12 +134,9 @@ main() {
                 awk -F'|' '{print $1"/"$2}' packages_all
                 awk -F'|' '{print $2}' packages_all
             )" | sort -u >all_owners_in_db
-            parallel "sed -i '\,^{}$,d' $BKG_OWNERS" <all_owners_in_db
-            parallel "sed -i '\,^{}$,d' $temp_connections" <all_owners_in_db
-
-            tail "$BKG_OWNERS"
-            echo "connections_new: $(wc -l <"$temp_connections")"
-            head "$temp_connections"
+            grep -vFxf all_owners_in_db "$BKG_OWNERS" >owners.tmp
+            mv owners.tmp "$BKG_OWNERS"
+            grep -vFxf all_owners_in_db "$connections" >"$temp_connections"
 
             if [[ "$pkg_left" == "0" || "${db_size_curr::-5}" == "${db_size_prev::-5}" ]]; then
                 set_BKG BKG_BATCH_FIRST_STARTED "$today"
