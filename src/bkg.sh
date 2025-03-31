@@ -129,7 +129,7 @@ main() {
             )" >"$BKG_OWNERS"
 
             : >all_owners_in_db
-            [ -s packages_all ] || echo "$(
+            [ ! -s packages_all ] || echo "$(
                 awk -F'|' '{print "0/"$2}' packages_all
                 awk -F'|' '{print $1"/"$2}' packages_all
                 awk -F'|' '{print $2}' packages_all
