@@ -98,13 +98,12 @@ main() {
     [ -n "$db_size_curr" ] || db_size_curr=0
     [ -n "$db_size_prev" ] || db_size_prev=0
     clean_owners "$BKG_OPTOUT"
-    grep -oP '^[^\/]+' optout.txt >optout.tmp
     opted_out=$(wc -l <"$BKG_OPTOUT")
     opted_out_before=$(get_BKG BKG_OUT)
 
     if [ "$BKG_MODE" -ne 2 ]; then
         if [ "$BKG_MODE" -eq 0 ] || [ "$BKG_MODE" -eq 3 ]; then
-            if [ -z "$opted_out_before" ] || (( opted_out_before < opted_out )); then
+            if [ -n "$opted_out_before" ] && (( opted_out_before < opted_out )); then
                 grep -oP '^[^\/]+' "$BKG_OPTOUT" | env_parallel --lb save_owner
             else
                 if [ "$GITHUB_OWNER" = "ipitio" ]; then
