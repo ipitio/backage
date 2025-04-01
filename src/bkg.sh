@@ -100,90 +100,98 @@ main() {
 
     if [ "$BKG_MODE" -ne 2 ]; then
         if [ "$BKG_MODE" -eq 0 ] || [ "$BKG_MODE" -eq 3 ]; then
-            if [ "$GITHUB_OWNER" = "ipitio" ]; then
-                explore "$GITHUB_OWNER" >"$connections"
-                explore "$GITHUB_OWNER/$GITHUB_REPO" >>"$connections"
+            local opted_out_before
+            local opted_out
+            clean_owners "$BKG_OPTOUT"
+            opted_out=$(wc -l <"$BKG_OPTOUT")
+            opted_out_before=$(get_BKG BKG_OUT)
 
-                # get orgs of connections
-                while read -r connection; do curl_orgs "$connection" >>"$temp_connections"; done <"$connections"
-                cat "$temp_connections" >>"$connections"
-
-                sed -i 's/^[[:space:]]*//;s/[[:space:]]*$//; /^$/d; /^0\/$/d' "$connections"
-                [[ "$(wc -l <"$BKG_OWNERS")" -ge $(($(sort -u "$connections" | wc -l) + 100)) ]] || seq 1 2 | env_parallel --lb --halt soon,fail=1 page_owner
+            if [ -z "$opted_out_before" ] || (( opted_out_before != opted_out )); then
+                set_BKG BKG_OUT "$opted_out"
+                env_parallel --lb save_owner <"$BKG_OPTOUT"
             else
-                get_membership "$GITHUB_OWNER" >"$connections"
+                if [ "$GITHUB_OWNER" = "ipitio" ]; then
+                    explore "$GITHUB_OWNER" >"$connections"
+                    explore "$GITHUB_OWNER/$GITHUB_REPO" >>"$connections"
 
-                if grep -q '/' "$BKG_OWNERS"; then
-                    : >"$BKG_OWNERS"
-                    while read -r connection; do sed -i '\,^'"$(cut -d'/' -f2 <<<"$connection")"'\(/.*\)\?$,d' "$BKG_OPTOUT"; done <"$connections"
-                    sed -i "\,^$GITHUB_OWNER\(/.*\)\?$,d" "$BKG_OPTOUT"
+                    # get orgs of connections
+                    while read -r connection; do curl_orgs "$connection" >>"$temp_connections"; done <"$connections"
+                    cat "$temp_connections" >>"$connections"
+
+                    sed -i 's/^[[:space:]]*//;s/[[:space:]]*$//; /^$/d; /^0\/$/d' "$connections"
+                    [[ "$(wc -l <"$BKG_OWNERS")" -ge $(($(sort -u "$connections" | wc -l) + 100)) ]] || seq 1 2 | env_parallel --lb --halt soon,fail=1 page_owner
+                else
+                    get_membership "$GITHUB_OWNER" >"$connections"
+
+                    if grep -q '/' "$BKG_OWNERS"; then
+                        : >"$BKG_OWNERS"
+                        while read -r connection; do sed -i '\,^'"$(cut -d'/' -f2 <<<"$connection")"'\(/.*\)\?$,d' "$BKG_OPTOUT"; done <"$connections"
+                        sed -i "\,^$GITHUB_OWNER\(/.*\)\?$,d" "$BKG_OPTOUT"
+                    fi
                 fi
+
+                sort "$connections" | uniq -c | sort -nr | awk '{print $2}' >"$connections".bak
+                mv "$connections".bak "$connections"
+
+                echo "$(
+                    cat "$BKG_OWNERS"
+                    find "$BKG_INDEX_DIR" -mindepth 1 -maxdepth 1 -type d -exec basename {} \; 2>/dev/null | sort -u | awk '{print "0/"$1}'
+                )" >"$BKG_OWNERS"
+
+                : >all_owners_in_db
+                [ ! -s packages_all ] || echo "$(
+                    awk -F'|' '{print "0/"$2}' packages_all
+                    awk -F'|' '{print $1"/"$2}' packages_all
+                    awk -F'|' '{print $2}' packages_all
+                )" | sort -u >all_owners_in_db
+                grep -vFxf all_owners_in_db "$BKG_OWNERS" >owners.tmp
+                mv owners.tmp "$BKG_OWNERS"
+                grep -vFxf all_owners_in_db "$connections" >"$temp_connections"
+
+                if [[ "$pkg_left" == "0" || "${db_size_curr::-5}" == "${db_size_prev::-5}" ]]; then
+                    set_BKG BKG_BATCH_FIRST_STARTED "$today"
+                    rm -f packages_to_update
+                    \cp packages_all packages_to_update
+                    : >packages_already_updated
+                fi
+
+                : >all_owners_tu
+                [ ! -s packages_to_update ] || echo "$(
+                    awk -F'|' '{print "0/"$2}' packages_to_update
+                    awk -F'|' '{print $1"/"$2}' packages_to_update
+                    awk -F'|' '{print $2}' packages_to_update
+                )" | sort -u >all_owners_tu
+
+                grep -Fxf all_owners_tu "$connections" >connections_tu
+
+                if [ ! -s connections_tu ]; then
+                    set_BKG BKG_BATCH_FIRST_STARTED "$today"
+                    rm -f packages_to_update
+                    \cp packages_all packages_to_update
+                    : >packages_already_updated
+                fi
+
+                echo "$(
+                    echo "0/$GITHUB_OWNER"
+
+                    # new connections
+                    cat "$temp_connections"
+
+                    # connections that have to be updated
+                    cat connections_tu
+
+                    # requests
+                    cat "$BKG_OWNERS"
+                )" >"$BKG_OWNERS"
+
+                rm -f all_owners_in_db all_owners_tu connections_tu
+                clean_owners "$BKG_OWNERS"
+                head -n $(($(wc -l <"$connections") + 2)) "$BKG_OWNERS" | env_parallel --lb save_owner
+                awk -F'|' '{print $1"/"$2}' packages_to_update | sort -uR 2>/dev/null | head -n1000 | env_parallel --lb save_owner
+                parallel "sed -i '\,^{}$,d' $BKG_OWNERS" <"$connections"
+                sed -i '/^0\//d' "$BKG_OWNERS"
+                set_BKG BKG_DIFF "$db_size_curr"
             fi
-
-            sort "$connections" | uniq -c | sort -nr | awk '{print $2}' >"$connections".bak
-            mv "$connections".bak "$connections"
-
-            echo "$(
-                cat "$BKG_OWNERS"
-                find "$BKG_INDEX_DIR" -mindepth 1 -maxdepth 1 -type d -exec basename {} \; 2>/dev/null | sort -u | awk '{print "0/"$1}'
-            )" >"$BKG_OWNERS"
-
-            : >all_owners_in_db
-            [ ! -s packages_all ] || echo "$(
-                awk -F'|' '{print "0/"$2}' packages_all
-                awk -F'|' '{print $1"/"$2}' packages_all
-                awk -F'|' '{print $2}' packages_all
-            )" | sort -u >all_owners_in_db
-            grep -vFxf all_owners_in_db "$BKG_OWNERS" >owners.tmp
-            mv owners.tmp "$BKG_OWNERS"
-            grep -vFxf all_owners_in_db "$connections" >"$temp_connections"
-
-            if [[ "$pkg_left" == "0" || "${db_size_curr::-5}" == "${db_size_prev::-5}" ]]; then
-                set_BKG BKG_BATCH_FIRST_STARTED "$today"
-                rm -f packages_to_update
-                \cp packages_all packages_to_update
-                : >packages_already_updated
-            fi
-
-            : >all_owners_tu
-            [ ! -s packages_to_update ] || echo "$(
-                awk -F'|' '{print "0/"$2}' packages_to_update
-                awk -F'|' '{print $1"/"$2}' packages_to_update
-                awk -F'|' '{print $2}' packages_to_update
-            )" | sort -u >all_owners_tu
-
-            grep -Fxf all_owners_tu "$connections" >connections_tu
-
-            if [ ! -s connections_tu ]; then
-                set_BKG BKG_BATCH_FIRST_STARTED "$today"
-                rm -f packages_to_update
-                \cp packages_all packages_to_update
-                : >packages_already_updated
-            fi
-
-            echo "$(
-                echo "0/$GITHUB_OWNER"
-
-                # new connections
-                cat "$temp_connections"
-
-                # connections that have to be updated
-                cat connections_tu
-
-                # requests
-                cat "$BKG_OWNERS"
-            )" >"$BKG_OWNERS"
-
-            rm -f all_owners_in_db all_owners_tu missing_versions version_tables connections_tu
-            echo >>"$BKG_OWNERS"
-            awk 'NF' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
-            sed -i 's/"//g; s/^[[:space:]]*//;s/[[:space:]]*$//; /^$/d; /^0\/$/d; /^null\/.*/d; /^\(.*\/\)*\(solutions\|sponsors\|enterprise\|premium-support\)$/d' "$BKG_OWNERS"
-            awk '!seen[$0]++' "$BKG_OWNERS" >owners.tmp && mv owners.tmp "$BKG_OWNERS"
-            head -n $(($(wc -l <"$connections") + 2)) "$BKG_OWNERS" | env_parallel --lb save_owner
-            awk -F'|' '{print $1"/"$2}' packages_to_update | sort -uR 2>/dev/null | head -n1000 | env_parallel --lb save_owner
-            parallel "sed -i '\,^{}$,d' $BKG_OWNERS" <"$connections"
-            sed -i '/^0\//d' "$BKG_OWNERS"
-            set_BKG BKG_DIFF "$db_size_curr"
         else
             save_owner "$GITHUB_OWNER"
             get_membership "$GITHUB_OWNER" >"$connections"

@@ -426,4 +426,13 @@ ytoy() {
     yq -oy "$1" | sed 's/"/\\"/g' >"${1%.*}.yml"
 }
 
+clean_owners(){
+    local temp_file
+    temp_file=$(mktemp)
+    echo >>"$1"
+    awk 'NF' "$1" >"$temp_file" && cp -f "$temp_file" "$1"
+    sed -i 's/"//g; s/^[[:space:]]*//;s/[[:space:]]*$//; /^$/d; /^0\/$/d; /^null\/.*/d; /^\(.*\/\)*\(solutions\|sponsors\|enterprise\|premium-support\)$/d' "$1"
+    awk '!seen[$0]++' "$1" >"$temp_file" && cp -f "$temp_file" "$1"
+}
+
 set +o allexport
