@@ -97,18 +97,15 @@ main() {
     db_size_prev=$(get_BKG BKG_DIFF)
     [ -n "$db_size_curr" ] || db_size_curr=0
     [ -n "$db_size_prev" ] || db_size_prev=0
+    clean_owners "$BKG_OPTOUT"
+    grep -oP '^[^\/]+' optout.txt >optout.tmp
+    opted_out=$(wc -l <"$BKG_OPTOUT")
+    opted_out_before=$(get_BKG BKG_OUT)
 
     if [ "$BKG_MODE" -ne 2 ]; then
         if [ "$BKG_MODE" -eq 0 ] || [ "$BKG_MODE" -eq 3 ]; then
-            local opted_out_before
-            local opted_out
-            clean_owners "$BKG_OPTOUT"
-            opted_out=$(wc -l <"$BKG_OPTOUT")
-            opted_out_before=$(get_BKG BKG_OUT)
-
-            if [ -z "$opted_out_before" ] || (( opted_out_before != opted_out )); then
-                set_BKG BKG_OUT "$opted_out"
-                env_parallel --lb save_owner <"$BKG_OPTOUT"
+            if [ -z "$opted_out_before" ] || (( opted_out_before < opted_out )); then
+                grep -oP '^[^\/]+' "$BKG_OPTOUT" | env_parallel --lb save_owner
             else
                 if [ "$GITHUB_OWNER" = "ipitio" ]; then
                     explore "$GITHUB_OWNER" >"$connections"
@@ -209,6 +206,7 @@ main() {
             run_parallel update_owner "$(get_BKG_set BKG_OWNERS_QUEUE)"
         fi
 
+        set_BKG BKG_OUT "$opted_out"
         sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, repo, package from '$BKG_INDEX_TBL_PKG';" | sort -u >packages_all
         echo "Compressing the database..."
         sqlite3 "$BKG_INDEX_DB" ".dump" | zstd -22 --ultra --long -T0 -o "$BKG_INDEX_SQL".new.zst

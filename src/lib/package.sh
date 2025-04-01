@@ -71,6 +71,8 @@ update_package() {
         sqlite3 "$BKG_INDEX_DB" "delete from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and package='$package';"
         sqlite3 "$BKG_INDEX_DB" "drop table if exists '$table_version_name';"
         return
+    elif [ -z "$opted_out_before" ] || (( opted_out_before < opted_out )); then
+        return
     fi
 
     # shellcheck disable=SC2034
