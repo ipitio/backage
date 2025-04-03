@@ -99,8 +99,9 @@ update_package() {
         echo "Updating $owner/$package..."
         raw_downloads=$(grep -Pzo 'Total downloads[^"]*"\d*' <<<"$html" | grep -Pzo '\d*$' | tr -d '\0') # https://stackoverflow.com/a/74214537
         sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name' where date >= '$BKG_BATCH_FIRST_STARTED';" | sort -u >"${table_version_name}"_already_updated
+        local break_now=false
 
-        for page in $(seq 0 2); do
+        for page in $(seq 0 5); do
             ((page > 0)) || continue
             local pages_left=0
             page_version "$page"
@@ -115,7 +116,8 @@ update_package() {
             run_parallel update_version "$(jq -r '.[] | @base64' <<<"$versions_json")"
             (($? != 3)) || return 3
             ((pages_left != 2)) || break
-            [ -z "$latest_tags" ] || break
+            ! $break_now || break
+            [ -z "$latest_tags" ] || break_now=true
         done
 
         rm -f "${table_version_name}"_already_updated
