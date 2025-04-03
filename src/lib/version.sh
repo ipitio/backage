@@ -38,6 +38,7 @@ save_version() {
         fi
 
         version_tags=$(perl -pe 's/(?<!\\)"/\\"/g' <<<"$version_tags")
+        [ "$version_tags" != "[]" ] || version_tags=""
         echo "{
             \"id\": $version_id,
             \"name\": \"$version_name\",
@@ -94,7 +95,7 @@ page_version() {
 
     if [ -n "$GITHUB_TOKEN" ]; then
         echo "Starting $owner/$package page $1..."
-        versions_json_more=$(query_api "$owner_type/$owner/packages/$package_type/$package/versions?per_page=$(( $1 * 2 ))&page=$1")
+        versions_json_more=$(query_api "$owner_type/$owner/packages/$package_type/$package/versions?per_page=100&page=$1")
         (($? != 3)) || return 3
     fi
 
@@ -127,12 +128,12 @@ update_version() {
     echo "Updating $owner/$package/$version_id..."
     version_html=$(curl "https://github.com/$owner/$repo/pkgs/$package_type/$package/$version_id")
     (($? != 3)) || return 3
-    version_raw_downloads=$(echo "$version_html" | grep -Pzo 'Total downloads<[^<]*<[^<]*' | grep -Pzo '\d*$' | tr -d '\0' | tr -d ',')
+    version_raw_downloads=$(echo "$version_html" | grep -Pzo 'Total downloads<[^<]*<[^<]*' | grep -Pzo '(,|\d)*$' | tr -d '\0' | tr -d ',')
 
     if [[ "$version_raw_downloads" =~ ^[0-9]+$ ]]; then
-        version_raw_downloads_month=$(grep -Pzo 'Last 30 days<[^<]*<[^<]*' <<<"$version_html" | grep -Pzo '\d*$' | tr -d '\0' | tr -d ',')
-        version_raw_downloads_week=$(grep -Pzo 'Last week<[^<]*<[^<]*' <<<"$version_html" | grep -Pzo '\d*$' | tr -d '\0' | tr -d ',')
-        version_raw_downloads_day=$(grep -Pzo 'Today<[^<]*<[^<]*' <<<"$version_html" | grep -Pzo '\d*$' | tr -d '\0' | tr -d ',')
+        version_raw_downloads_month=$(grep -Pzo 'Last 30 days<[^<]*<[^<]*' <<<"$version_html" | grep -Pzo '(,|\d)*$' | tr -d '\0' | tr -d ',')
+        version_raw_downloads_week=$(grep -Pzo 'Last week<[^<]*<[^<]*' <<<"$version_html" | grep -Pzo '(,|\d)*$' | tr -d '\0' | tr -d ',')
+        version_raw_downloads_day=$(grep -Pzo 'Today<[^<]*<[^<]*' <<<"$version_html" | grep -Pzo '(,|\d)*$' | tr -d '\0' | tr -d ',')
     else
         version_raw_downloads=-1
     fi

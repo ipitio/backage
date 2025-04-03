@@ -22,6 +22,7 @@ main() {
     local db_size_curr
     local db_size_prev
     local connections
+    local return_code=0
     connections=$(mktemp) || exit 1
     temp_connections=$(mktemp) || exit 1
 
@@ -105,6 +106,7 @@ main() {
         if [ "$BKG_MODE" -eq 0 ] || [ "$BKG_MODE" -eq 3 ]; then
             if [ -n "$opted_out_before" ] && (( opted_out_before < opted_out )); then
                 grep -oP '^[^\/]+' "$BKG_OPTOUT" | env_parallel --lb save_owner
+                return_code=1
             else
                 if [ "$GITHUB_OWNER" = "ipitio" ]; then
                     explore "$GITHUB_OWNER" >"$connections"
@@ -267,4 +269,5 @@ main() {
     }" | tr -d '\n' | jq -c . >"$BKG_INDEX_DIR"/.json
     ytox "$BKG_INDEX_DIR"/.json
     echo "Done!"
+    return $return_code
 }

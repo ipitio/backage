@@ -62,20 +62,14 @@ if [ "$GITHUB_OWNER" = "ipitio" ] && ((num_owner_db < num_owner_index/2)) && ((d
 fi
 
 main "${@:2}"
+return_code=$?
 
-check_json() {
+check_files() {
     if [ ! -s "$1" ]; then
-        echo "Empty json: $1"
+        echo "Empty file: $1"
         rm -f "$1"
-    else
-        jq -e . <<<"$(cat "$1")" &>/dev/null || echo "Invalid json: $1"
-    fi
-}
-
-check_xml() {
-    if [ ! -s "$1" ]; then
-        echo "Empty xml: $1"
-        rm -f "$1"
+    elif [[ "$1" == *.json ]]; then
+        jq -e . "$1" &>/dev/null || echo "Invalid json: $1"
     else
         xmllint --noout "$1" &>/dev/null || echo "Invalid xml: $1"
     fi
@@ -83,10 +77,8 @@ check_xml() {
 
 # db should not be empty, error if it is
 [ "$(stat -c %s "$BKG_INDEX_SQL".zst)" -ge 100 ] || exit 1
-# json should be valid, warn if it is not
-find .. -type f -name '*.json' | env_parallel check_json
-# xml should be valid, warn if it is not
-find .. -type f -name '*.xml' | env_parallel check_xml
+# files should be valid, warn if not, unless only opted out owners
+(( return_code == 1 )) || find .. -type f -name '*.json' -o -name '*.xml' | env_parallel check_files
 popd || exit 1
 \cp src/env.env index/.env
 
