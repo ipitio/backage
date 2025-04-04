@@ -204,7 +204,7 @@ update_package() {
             \"raw_downloads_month\": $raw_downloads_month,
             \"raw_downloads_week\": $raw_downloads_week,
             \"raw_downloads_day\": $raw_downloads_day,
-            \"tags\": [\"\"]
+            \"tags\": []
         }]")
     }" | tr -d '\n' | jq -c . >"$json_file".abs || echo "Failed to update $owner/$package with $size bytes and $raw_downloads downloads and $version_count versions and $version_with_tag_count tagged versions and $raw_downloads_month downloads this month and $raw_downloads_week downloads this week and $raw_downloads_day downloads today and $latest_version latest version and $version_newest_id newest version"
     [[ ! -f "$json_file".abs || ! -s "$json_file".abs ]] || jq -c --arg newest "$version_newest_id" --arg latest "$latest_version" '.version |= map(if .id == ($newest | tonumber) then .newest = true else . end | if .id == ($latest | tonumber) then .latest = true else . end)' "$json_file".abs >"$json_file".rel

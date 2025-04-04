@@ -21,7 +21,7 @@ save_version() {
         [[ -n "$version_tags" && "$version_tags" != "[]" ]] || version_tags=$(_jq "$1" '.. | try .tags | select(. != null and . != "")')
         version_tags=$(perl -pe 's/(?<!\\)"/\\"/g' <<<"$version_tags")
 
-        if [[ -z "$version_tags" || "$version_tags" == "[]" ]]; then
+        if [[ -z "$version_tags" || "$version_tags" == "[]" || "$version_tags" == '"[]"' ]]; then
             for page in $(seq 1 2); do
                 local html
                 html=$(curl "https://github.com/$owner/$repo/pkgs/$package_type/$package/versions?page=$page")
@@ -38,11 +38,12 @@ save_version() {
         fi
 
         version_tags=$(perl -pe 's/(?<!\\)"/\\"/g' <<<"$version_tags")
-        [ "$version_tags" != "[]" ] || version_tags=""
+        [[ "$version_tags" != "[]" && "$version_tags" != '"[]"' ]] || version_tags=""
+        [[ -z "$version_tags" || "$version_tags" =~ ^\".*\"$ ]] || version_tags=\"$version_tags\"
         echo "{
             \"id\": $version_id,
             \"name\": \"$version_name\",
-            \"tags\": \"$version_tags\"
+            \"tags\": $version_tags
         }" | tr -d '\n' | jq -c . >"$BKG_INDEX_DIR/$owner/$repo/$package.$version_id.json" || echo "Failed to save $owner/$repo/$package/$version_id"
     else
         local version_size
@@ -153,6 +154,7 @@ update_version() {
     fi
 
     [[ "$version_size" =~ ^[0-9]+$ ]] || version_size=-1
+    [[ "$version_tags" != "[]" && "$version_tags" != '"[]"' ]] || version_tags=""
     sqlite3 "$BKG_INDEX_DB" "insert or replace into '$table_version_name' (id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags) values ('$version_id', '$version_name', '$version_size', '$version_raw_downloads', '$version_raw_downloads_month', '$version_raw_downloads_week', '$version_raw_downloads_day', '$today', '$version_tags');"
     echo "Updated $owner/$package/$version_id"
 }
