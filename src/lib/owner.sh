@@ -27,7 +27,9 @@ request_owner() {
         return_code=2
     elif $paging && [ -n "$id" ]; then
         echo "Requested $owner"
-        set_BKG BKG_LAST_SCANNED_ID "$id"
+        local last_id
+        last_id=$(get_BKG BKG_LAST_SCANNED_ID)
+        (( id <= last_id )) || set_BKG BKG_LAST_SCANNED_ID "$id"
     fi
 
     rm -f "$BKG_OWNERS.lock"
@@ -49,8 +51,10 @@ page_owner() {
 
     if [ -n "$GITHUB_TOKEN" ]; then
         echo "Checking owners page $1..."
-        users_more=$(query_api "users?per_page=100&page=$1&since=$(get_BKG BKG_LAST_SCANNED_ID)")
-        orgs_more=$(query_api "organizations?per_page=100&page=$1&since=$(get_BKG BKG_LAST_SCANNED_ID)")
+        local last_id
+        last_id=$(get_BKG BKG_LAST_SCANNED_ID)
+        users_more=$(query_api "users?per_page=100&page=$1&since=$last_id")
+        orgs_more=$(query_api "organizations?per_page=100&page=$1&since=$last_id")
         owners_more=$(jq --argjson users "$users_more" --argjson orgs "$orgs_more" -n '$users + $orgs | unique_by(.login)')
     fi
 

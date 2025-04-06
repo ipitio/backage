@@ -160,15 +160,6 @@ main() {
                     awk -F'|' '{print $2}' packages_to_update
                 )" | sort -u >all_owners_tu
 
-                grep -Fxf all_owners_tu "$connections" >connections_tu
-
-                if [ ! -s connections_tu ]; then
-                    set_BKG BKG_BATCH_FIRST_STARTED "$today"
-                    rm -f packages_to_update
-                    \cp packages_all packages_to_update
-                    : >packages_already_updated
-                fi
-
                 echo "$(
                     echo "0/$GITHUB_OWNER"
 
@@ -176,13 +167,13 @@ main() {
                     cat "$temp_connections"
 
                     # connections that have to be updated
-                    cat connections_tu
+                    grep -Fxf all_owners_tu "$connections"
 
                     # requests
                     cat "$BKG_OWNERS"
                 )" >"$BKG_OWNERS"
 
-                rm -f all_owners_in_db all_owners_tu connections_tu
+                rm -f all_owners_in_db all_owners_tu
                 clean_owners "$BKG_OWNERS"
                 head -n $(($(wc -l <"$connections") + 2)) "$BKG_OWNERS" | env_parallel --lb save_owner
                 awk -F'|' '{print $1"/"$2}' packages_to_update | sort -uR 2>/dev/null | head -n1000 | env_parallel --lb save_owner
