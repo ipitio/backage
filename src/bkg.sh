@@ -104,7 +104,7 @@ main() {
 
     if [ "$BKG_MODE" -ne 2 ]; then
         if [ "$BKG_MODE" -eq 0 ] || [ "$BKG_MODE" -eq 3 ]; then
-            if [ -n "$opted_out_before" ] && (( opted_out_before < opted_out )); then
+            if [ "$GITHUB_OWNER" = "ipitio" ] && [ -n "$opted_out_before" ] && (( opted_out_before < opted_out )); then
                 grep -oP '^[^\/]+' "$BKG_OPTOUT" | env_parallel --lb save_owner
                 return_code=1
             else
