@@ -110,7 +110,7 @@ update_package() {
                 return
             fi
         done
-    elif [ -n "$opted_out_before" ] && ((opted_out_before < opted_out)); then
+    elif $fast_out; then
         return
     fi
 

@@ -23,6 +23,8 @@ main() {
     local db_size_prev
     local connections
     local return_code=0
+    local opted_out
+    local opted_out_before
     connections=$(mktemp) || exit 1
     temp_connections=$(mktemp) || exit 1
 
@@ -101,10 +103,11 @@ main() {
     clean_owners "$BKG_OPTOUT"
     opted_out=$(wc -l <"$BKG_OPTOUT")
     opted_out_before=$(get_BKG BKG_OUT)
+    fast_out=$([ "$GITHUB_OWNER" = "ipitio" ] && [ -n "$opted_out_before" ] && (( opted_out_before < opted_out )) && echo "true" || echo "false")
 
     if [ "$BKG_MODE" -ne 2 ]; then
         if [ "$BKG_MODE" -eq 0 ] || [ "$BKG_MODE" -eq 3 ]; then
-            if [ "$GITHUB_OWNER" = "ipitio" ] && [ -n "$opted_out_before" ] && (( opted_out_before < opted_out )); then
+            if $fast_out; then
                 grep -oP '^[^\/]+' "$BKG_OPTOUT" | env_parallel --lb save_owner
                 return_code=1
             else
