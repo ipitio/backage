@@ -1,5 +1,0 @@
-airtower-luna/hello-ghcr/hello-ghcr-meow
-hugomods/docker
-nuxratx
-pkgforge
-pkgforge-dev
