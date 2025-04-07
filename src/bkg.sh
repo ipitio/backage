@@ -198,7 +198,7 @@ main() {
             run_parallel update_owner "$(get_BKG_set BKG_OWNERS_QUEUE)"
         fi
 
-        set_BKG BKG_OUT "$opted_out"
+        set_BKG BKG_OUT "$(wc -l <"$BKG_OPTOUT")"
         sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, repo, package from '$BKG_INDEX_TBL_PKG';" | sort -u >packages_all
         echo "Compressing the database..."
         sqlite3 "$BKG_INDEX_DB" ".dump" | zstd -22 --ultra --long -T0 -o "$BKG_INDEX_SQL".new.zst
