@@ -39,7 +39,7 @@ save_version() {
 
         version_tags=$(perl -pe 's/(?<!\\)"/\\"/g' <<<"$version_tags")
         [[ "$version_tags" != "[]" && "$version_tags" != '"[]"' ]] || version_tags=""
-        [[ -z "$version_tags" || "$version_tags" =~ ^\".*\"$ ]] || version_tags=\"$version_tags\"
+        [[ "$version_tags" =~ ^\".*\"$ ]] || version_tags=\"$version_tags\"
         echo "{
             \"id\": $version_id,
             \"name\": \"$version_name\",
