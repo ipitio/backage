@@ -33,10 +33,17 @@ page_package() {
     packages_lines=${packages_lines//href=/\\nhref=}
     packages_lines=${packages_lines//\\n/$'\n'} # replace \n with newline
     run_parallel save_package "$packages_lines"
-    (( $1 > 1)) || grep -q href <<<"$packages_lines" || sed -i '/^\(.*\/\)*'"$owner"'$/d' "$BKG_OWNERS"
+    (($1 > 1)) || grep -q href <<<"$packages_lines" || sed -i '/^\(.*\/\)*'"$owner"'$/d' "$BKG_OWNERS"
     (($? != 3)) || return 3
     echo "Started $owner page $1"
     [ "$(wc -l <<<"$packages_lines")" -gt 1 ] || return 2
+}
+
+optout_package() {
+    echo "$2/$4 was opted out!"
+    rm -rf "$BKG_INDEX_DIR/$2/$3/$4".*
+    sqlite3 "$BKG_INDEX_DB" "delete from '$BKG_INDEX_TBL_PKG' where owner_id='$1' and package='$4';"
+    sqlite3 "$BKG_INDEX_DB" "drop table if exists '$5';"
 }
 
 update_package() {
@@ -65,13 +72,45 @@ update_package() {
     json_file="$BKG_INDEX_DIR/$owner/$repo/$package.json"
     table_version_name="${BKG_INDEX_TBL_VER}_${owner_type}_${package_type}_${owner}_${repo}_${package}"
 
-    if grep -q "^$owner$" "$BKG_OPTOUT" || grep -q "^$owner/$repo$" "$BKG_OPTOUT" || grep -q "^$owner/$repo/$package$" "$BKG_OPTOUT"; then
-        echo "$owner/$package was opted out!"
-        rm -rf "$BKG_INDEX_DIR/$owner/$repo/$package".*
-        sqlite3 "$BKG_INDEX_DB" "delete from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and package='$package';"
-        sqlite3 "$BKG_INDEX_DB" "drop table if exists '$table_version_name';"
+    if grep -qP "^$owner(?=/$repo(?=/$package$|$)|$)" "$BKG_OPTOUT"; then
+        optout_package "$owner_id" "$owner" "$repo" "$package" "$table_version_name"
         return
-    elif [ -n "$opted_out_before" ] && (( opted_out_before < opted_out )); then
+    elif grep -q "$owner" "$BKG_OPTOUT"; then
+        grep "$owner" "$BKG_OPTOUT" | while IFS= read -r match; do
+            local match_a
+            local owner_out=false
+            local repo_out=false
+            local package_out=false
+            mapfile -t match_a < <(perl -pe 's,\/(?=\/),\n,g' <<<"$match")
+
+            if [[ "${match_a[0]}" =~ ^/ && "$owner" =~ $(sed 's/^\/\(.*\)/\1/' <<<"${match_a[0]}") ]]; then
+                owner_out=true
+            else
+                [[ "$owner" != "${match_a[0]}" ]] || owner_out=true
+            fi
+
+            if [[ "${match_a[1]}" =~ ^/ && "$repo" =~ $(sed 's/^\/\(.*\)/\1/' <<<"${match_a[1]}") ]]; then
+                repo_out=true
+            else
+                [[ "$repo" != "${match_a[1]}" ]] || repo_out=true
+            fi
+
+            if [[ "${match_a[2]}" =~ ^/ && "$package" =~ $(sed 's/^\/\(.*\)/\1/' <<<"${match_a[2]}") ]]; then
+                package_out=true
+            else
+                [[ "$package" != "${match_a[2]}" ]] || package_out=true
+            fi
+
+            if ((${#match_a[@]} == 1)) && $owner_out || {
+                ((${#match_a[@]} == 2)) && $owner_out && $repo_out || {
+                    ((${#match_a[@]} == 3)) && $owner_out && $repo_out && $package_out
+                }
+            }; then
+                optout_package "$owner_id" "$owner" "$repo" "$package" "$table_version_name"
+                return
+            fi
+        done
+    elif [ -n "$opted_out_before" ] && ((opted_out_before < opted_out)); then
         return
     fi
 
