@@ -123,11 +123,11 @@ main() {
                     [[ "$(wc -l <"$BKG_OWNERS")" -ge $(($(sort -u "$connections" | wc -l) + 100)) ]] || seq 1 2 | env_parallel --lb --halt soon,fail=1 page_owner
                 else
                     get_membership "$GITHUB_OWNER" >"$connections"
-
-                    if grep -q '/' "$BKG_OWNERS"; then
-                        : >"$BKG_OWNERS"
-                        : >"$BKG_OPTOUT"
-                    fi
+                    curl "https://raw.githubusercontent.com/ipitio/backage/refs/heads/$GITHUB_BRANCH/optout.txt" > base_out
+                    curl "https://raw.githubusercontent.com/ipitio/backage/refs/heads/$GITHUB_BRANCH/owners.txt" > base_own
+                    ! diff -q "$BKG_OWNERS" base_own || : > "$BKG_OWNERS"
+                    ! diff -q "$BKG_OPTOUT" base_out || : > "$BKG_OPTOUT"
+                    rm -f base_out base_own
                 fi
 
                 sort "$connections" | uniq -c | sort -nr | awk '{print $2}' >"$connections".bak

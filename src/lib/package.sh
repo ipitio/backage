@@ -78,34 +78,15 @@ update_package() {
     elif grep -q "$owner" "$BKG_OPTOUT"; then
         grep "$owner" "$BKG_OPTOUT" | while IFS= read -r match; do
             local match_a
-            local owner_out=false
-            local repo_out=false
-            local package_out=false
+            local owner_out
+            local repo_out
+            local package_out
             mapfile -t match_a < <(perl -pe 's,\/(?=\/),\n,g' <<<"$match")
+            owner_out=$([[ "$owner" == "${match_a[0]}" ]] || [[ "${match_a[0]}" =~ ^/ && "$owner" =~ $(sed 's/^\/\(.*\)/\1/' <<<"${match_a[0]}") ]] && echo true || echo false)
+            repo_out=$( ((${#match_a[@]} < 2)) || [[ "$repo" == "${match_a[1]}" ]] || [[ "${match_a[1]}" =~ ^/ && "$repo" =~ $(sed 's/^\/\(.*\)/\1/' <<<"${match_a[1]}") ]] && echo true || echo false)
+            package_out=$( ((${#match_a[@]} < 3)) || [[ "$package" == "${match_a[2]}" ]] || [[ "${match_a[2]}" =~ ^/ && "$package" =~ $(sed 's/^\/\(.*\)/\1/' <<<"${match_a[2]}") ]] && echo true || echo false)
 
-            if [[ "${match_a[0]}" =~ ^/ && "$owner" =~ $(sed 's/^\/\(.*\)/\1/' <<<"${match_a[0]}") ]]; then
-                owner_out=true
-            else
-                [[ "$owner" != "${match_a[0]}" ]] || owner_out=true
-            fi
-
-            if [[ "${match_a[1]}" =~ ^/ && "$repo" =~ $(sed 's/^\/\(.*\)/\1/' <<<"${match_a[1]}") ]]; then
-                repo_out=true
-            else
-                [[ "$repo" != "${match_a[1]}" ]] || repo_out=true
-            fi
-
-            if [[ "${match_a[2]}" =~ ^/ && "$package" =~ $(sed 's/^\/\(.*\)/\1/' <<<"${match_a[2]}") ]]; then
-                package_out=true
-            else
-                [[ "$package" != "${match_a[2]}" ]] || package_out=true
-            fi
-
-            if ((${#match_a[@]} == 1)) && $owner_out || {
-                ((${#match_a[@]} == 2)) && $owner_out && $repo_out || {
-                    ((${#match_a[@]} == 3)) && $owner_out && $repo_out && $package_out
-                }
-            }; then
+            if $owner_out && $repo_out && $package_out; then
                 optout_package "$owner_id" "$owner" "$repo" "$package" "$table_version_name"
                 return
             fi
