@@ -123,8 +123,7 @@ main() {
 
                     if grep -q '/' "$BKG_OWNERS"; then
                         : >"$BKG_OWNERS"
-                        while read -r connection; do sed -i '\,^'"$(cut -d'/' -f2 <<<"$connection")"'\(/.*\)\?$,d' "$BKG_OPTOUT"; done <"$connections"
-                        sed -i "\,^$GITHUB_OWNER\(/.*\)\?$,d" "$BKG_OPTOUT"
+                        : >"$BKG_OPTOUT"
                     fi
                 fi
 

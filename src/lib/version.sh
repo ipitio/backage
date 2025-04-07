@@ -44,7 +44,7 @@ save_version() {
             \"id\": $version_id,
             \"name\": \"$version_name\",
             \"tags\": $version_tags
-        }" | tr -d '\n' | jq -c . >"$BKG_INDEX_DIR/$owner/$repo/$package.$version_id.json" || echo "Failed to save $owner/$repo/$package/$version_id"
+        }" | tr -d '\n' | jq -c . >"$BKG_INDEX_DIR/$owner/$repo/$package.$version_id.json" || echo "Failed to save $owner/$repo/$package/$version_id with tags: $version_tags"
     else
         local version_size
         local version_dl
