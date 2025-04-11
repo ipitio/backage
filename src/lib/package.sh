@@ -85,7 +85,7 @@ update_package() {
             owner_out=$([[ "$owner" == "${match_a[0]}" ]] || [[ "${match_a[0]}" =~ ^/ && "$owner" =~ $(sed 's/^\/\(.*\)/\1/' <<<"${match_a[0]}") ]] && echo true || echo false)
             repo_out=$( ((${#match_a[@]} < 2)) || [[ "$repo" == "${match_a[1]}" ]] || [[ "${match_a[1]}" =~ ^/ && "$repo" =~ $(sed 's/^\/\(.*\)/\1/' <<<"${match_a[1]}") ]] && echo true || echo false)
             package_out=$( ((${#match_a[@]} < 3)) || [[ "$package" == "${match_a[2]}" ]] || [[ "${match_a[2]}" =~ ^/ && "$package" =~ $(sed 's/^\/\(.*\)/\1/' <<<"${match_a[2]}") ]] && echo true || echo false)
-            echo -e "match: ${match_a[*]}\nowner: $owner_out\nrepo: $repo_out\npkg: $package_out\n"
+            echo -e "match: ${match_a[*]}\nowner: $owner_out\nrepo: $repo_out\npkg: $package_out (${match_a[2]} | $package | $([[ "${match_a[2]}" =~ ^/ && "$package" =~ $(sed 's/^\/\(.*\)/\1/' <<<"${match_a[2]}") ]] && echo true || echo false))\n"
             if $owner_out && $repo_out && $package_out; then
                 optout_package "$owner_id" "$owner" "$repo" "$package" "$table_version_name"
                 return
