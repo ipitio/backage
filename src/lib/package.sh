@@ -72,13 +72,10 @@ update_package() {
     json_file="$BKG_INDEX_DIR/$owner/$repo/$package.json"
     table_version_name="${BKG_INDEX_TBL_VER}_${owner_type}_${package_type}_${owner}_${repo}_${package}"
 
-    echo "$owner: $(grep "$owner" "$BKG_OPTOUT")"
-
     if grep -qP "^$owner(?=/$repo(?=/$package$|$)|$)" "$BKG_OPTOUT"; then
         optout_package "$owner_id" "$owner" "$repo" "$package" "$table_version_name"
         return
     elif grep -q "$owner" "$BKG_OPTOUT"; then
-        echo "in if for $package"
         grep "$owner" "$BKG_OPTOUT" | while IFS= read -r match; do
             local match_a
             local owner_out
@@ -88,7 +85,7 @@ update_package() {
             owner_out=$([[ "$owner" == "${match_a[0]}" ]] || [[ "${match_a[0]}" =~ ^/ && "$owner" =~ $(sed 's/^\/\(.*\)/\1/' <<<"${match_a[0]}") ]] && echo true || echo false)
             repo_out=$( ((${#match_a[@]} < 2)) || [[ "$repo" == "${match_a[1]}" ]] || [[ "${match_a[1]}" =~ ^/ && "$repo" =~ $(sed 's/^\/\(.*\)/\1/' <<<"${match_a[1]}") ]] && echo true || echo false)
             package_out=$( ((${#match_a[@]} < 3)) || [[ "$package" == "${match_a[2]}" ]] || [[ "${match_a[2]}" =~ ^/ && "$package" =~ $(sed 's/^\/\(.*\)/\1/' <<<"${match_a[2]}") ]] && echo true || echo false)
-            echo -e "match: ${match_a[*]}\nowner: $owner_out\nrepo: $repo_out\npkg: $package_out (${match_a[2]} | $package | $([[ "${match_a[2]}" =~ ^/ && "$package" =~ $(sed 's/^\/\(.*\)/\1/' <<<"${match_a[2]}") ]] && echo true || echo false))\n"
+
             if $owner_out && $repo_out && $package_out; then
                 optout_package "$owner_id" "$owner" "$repo" "$package" "$table_version_name"
                 return
