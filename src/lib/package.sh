@@ -72,10 +72,13 @@ update_package() {
     json_file="$BKG_INDEX_DIR/$owner/$repo/$package.json"
     table_version_name="${BKG_INDEX_TBL_VER}_${owner_type}_${package_type}_${owner}_${repo}_${package}"
 
+    echo "$owner: $(grep "$owner" "$BKG_OPTOUT")"
+
     if grep -qP "^$owner(?=/$repo(?=/$package$|$)|$)" "$BKG_OPTOUT"; then
         optout_package "$owner_id" "$owner" "$repo" "$package" "$table_version_name"
         return
     elif grep -q "$owner" "$BKG_OPTOUT"; then
+        echo "in if for $package"
         grep "$owner" "$BKG_OPTOUT" | while IFS= read -r match; do
             local match_a
             local owner_out
