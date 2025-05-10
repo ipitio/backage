@@ -5,6 +5,10 @@
 393500/rickymcalister
 394112/muzhiyanjian
 393494/jdolitsky
+394125/stupidbashtricks
+396565/telestrekoza
+393493/stefan991
+396877/newcru
 393483/dramasailor
 393522/oniciuc
 396763/pygraz
