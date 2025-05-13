@@ -57,7 +57,6 @@
 408186/miracle-as
 401817/kuriamartin
 402842/KDAB
-401886/myriam
 405840/openparty
 401839/dipeshc
 401918/aergus
