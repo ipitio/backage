@@ -34,6 +34,9 @@ jobs:
       - name: Tune dpkg
         uses: abbbi/github-actions-tune@v1
 
+      - name: Set dpkg
+        run: sudo rm -f /usr/local/bin/dpkg
+
       - name: Tune apt
         uses: firebuild/apt-eatmydata-action@v1
 
