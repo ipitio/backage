@@ -39,6 +39,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Tune dpkg
+        uses: abbbi/github-actions-tune@v1
+
+      - name: Tune apt
+        uses: firebuild/apt-eatmydata-action@v1
+
       - name: Check for release
         id: release
         continue-on-error: true
