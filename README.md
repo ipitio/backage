@@ -16,7 +16,7 @@ Ever wish you could show npm, gem, mvn, Gradle, NuGet, or GHCR badges for GitHub
 
 ## Getting Started
 
-If this is [`ipitio/backage`](https://github.com/ipitio/backage), all you have to do is **star the repo to get your current and future public packages added!** The service's circular priority queue will update the [closed-loop system](https://github.com/ipitio/backage/releases/latest) with them within the next few hours. Additionally watching and forking the repo, and following the owner, are ways to increase their priority. Yes, I know, but these are the graphs GitHub has available.
+If this is [`ipitio/backage`](https://github.com/ipitio/backage), all you have to do is **star the repo to get your public packages added!** The service's circular priority queue will update the [closed-loop system](https://github.com/ipitio/backage/releases/latest) with them within the next few hours. Additionally watching and forking the repo, and following the owner, are ways to increase their priority. Yes, I know, but these are the graphs GitHub has available.
 
 Otherwise, if this is a fork, you'd prefer an alternative method, or your packages weren't added to the [index](https://github.com/ipitio/backage/tree/index) after a day, enter the case-sensitive name of each missing user or organization on a new line at the top of `owners.txt` [here](https://github.com/ipitio/backage/edit/master/owners.txt) and make a pull request. Please submit just the name(s) -- ids, repos, and packages will be found automatically!
 
