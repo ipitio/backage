@@ -1,14 +1,14 @@
 <div align="center">
 
-[![logo](src/img/logo-b.webp)](https://github.com/ipitio/)
+[![logo](src/img/logo-b.webp)](https://github.com/ipitio/backage)
 
-# [](https://github.com/ipitio/)
+# [backage](https://github.com/ipitio/backage)
 
 **It's all part and parcel**
 
 ---
 
-[![packages](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fgithub.com%2Fipitio%2F%2Fraw%2Findex%2F.json&query=%24.packages&logo=github&logoColor=959da5&label=packages&labelColor=333a41&color=grey)](https://github.com/ipitio//tree/index) [![build](https://github.com/ipitio//actions/workflows/publish.yml/badge.svg)](https://github.com/ipitio//pkgs/container/) [![built](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fgithub.com%2Fipitio%2F%2Fraw%2Findex%2F.json&query=%24.date&logo=github&logoColor=959da5&label=built&labelColor=333a41&color=purple)](https://github.com/ipitio//releases/latest)
+[![packages](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fgithub.com%2Fipitio%2Fbackage%2Fraw%2Findex%2F.json&query=%24.packages&logo=github&logoColor=959da5&label=packages&labelColor=333a41&color=grey)](https://github.com/ipitio/backage/tree/index) [![build](https://github.com/ipitio/backage/actions/workflows/publish.yml/badge.svg)](https://github.com/ipitio/backage/pkgs/container/backage) [![built](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fgithub.com%2Fipitio%2Fbackage%2Fraw%2Findex%2F.json&query=%24.date&logo=github&logoColor=959da5&label=built&labelColor=333a41&color=purple)](https://github.com/ipitio/backage/releases/latest)
 
 </div>
 
@@ -16,9 +16,9 @@ Ever wish you could show npm, gem, mvn, Gradle, NuGet, or GHCR badges for GitHub
 
 ## Getting Started
 
-If this is [`ipitio/backage`](https://github.com/ipitio/backage), all you have to do is **star the repo to get your public packages added!** The service's circular priority queue will update the [closed-loop system](https://github.com/ipitio//releases/latest) with them within the next few hours. Additionally watching and forking the repo, and following the owner, are ways to increase their priority. Yes, I know, but these are the graphs GitHub has available.
+If this is [`ipitio/backage`](https://github.com/ipitio/backage), all you have to do is **star the repo to get your public packages added!** The service's circular priority queue will update the [closed-loop system](https://github.com/ipitio/backage/releases/latest) with them within the next few hours. Additionally watching and forking the repo, and following the owner, are ways to increase their priority. Yes, I know, but these are the graphs GitHub has available.
 
-Otherwise, if this is a fork, you'd prefer an alternative method, or your packages weren't added to the [index](https://github.com/ipitio//tree/index) after a day, enter the case-sensitive name of each missing user or organization on a new line at the top of `owners.txt` [here](https://github.com/ipitio//edit/master/owners.txt) and make a pull request. Please submit just the name(s) -- ids, repos, and packages will be found automatically!
+Otherwise, if this is a fork, you'd prefer an alternative method, or your packages weren't added to the [index](https://github.com/ipitio/backage/tree/index) after a day, enter the case-sensitive name of each missing user or organization on a new line at the top of `owners.txt` [here](https://github.com/ipitio/backage/edit/master/owners.txt) and make a pull request. Please submit just the name(s) -- ids, repos, and packages will be found automatically!
 
 New packages won't be added until *all* existing ones are refreshed; you should also create an independent instance that'll update faster and more frequently, up to hourly. Simply fork just the `master` branch, enable Actions from its tab and all disabled workflows, and use the [Alternative URL](#alternative-url) when it changes. Your own packages will be picked up automatically! If you need to edit `owners.txt`, do so after the first run. This centralized repo will then serve as a backup for all subsets of packages not in `optout.txt`.
 
@@ -161,7 +161,7 @@ As can packages in `owner[/repo]/.xml` files:
 ### Alternative URL
 
 ```py
-https://github.com/ipitio//raw/index/OWNER/[REPO/[PACKAGE]].FORMAT
+https://github.com/ipitio/backage/raw/index/OWNER/[REPO/[PACKAGE]].FORMAT
 ```
 
 The endpoint is also available here!
@@ -174,4 +174,4 @@ https://ipitio.github.io/backage?json=https://URL/ENCODED/JSON
 
 Use your own external JSON with this proxy to convert it into XML. This doesn't currently work with Shields. Try it out in your browser:
 
-**<https://ipitio.github.io/backage?json=https://raw.githubusercontent.com/ipitio//index/.json>**
+**<https://ipitio.github.io/backage?json=https://raw.githubusercontent.com/ipitio/backage/index/.json>**
