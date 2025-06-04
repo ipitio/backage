@@ -1,17 +1,4 @@
-442713/ContinuityControl
-442600/ElasticRacetrack
-445746/CityLifeStyle
-443345/0ad
-442676/PoKu
-443297/MMRambotics
-444608/Code-House
-442643/Muppet
-442921/Hyberia
-442637/Jaliborc
-442690/Mephistofeles
 444956/HealthExpense
-442674/JacobJust
-442691/ZoKK
 442615/YasserMousa
 444325/TiPayPal
 443124/androidjs
