@@ -120,7 +120,7 @@ main() {
                     cat "$temp_connections" >>"$connections"
 
                     sed -i 's/^[[:space:]]*//;s/[[:space:]]*$//; /^$/d; /^0\/$/d' "$connections"
-                    [[ "$(wc -l <"$BKG_OWNERS")" -ge $(($(sort -u "$connections" | wc -l) + 100)) ]] || seq 1 2 | env_parallel --lb --halt soon,fail=1 page_owner
+                    [[ "$(wc -l <"$BKG_OWNERS")" -ge $(($(sort -u "$connections" | wc -l) + 100)) ]] || seq 1 3 | env_parallel --lb --halt soon,fail=1 page_owner
                 else
                     get_membership "$GITHUB_OWNER" >"$connections"
                     curl "https://raw.githubusercontent.com/ipitio/backage/refs/heads/$GITHUB_BRANCH/optout.txt" > base_out
@@ -177,7 +177,7 @@ main() {
 
                 rm -f all_owners_in_db all_owners_tu
                 clean_owners "$BKG_OWNERS"
-                head -n $(($(wc -l <"$connections") + 2)) "$BKG_OWNERS" | env_parallel --lb save_owner
+                head -n $(($(wc -l <"$connections") * 3 / 2)) "$BKG_OWNERS" | env_parallel --lb save_owner
                 awk -F'|' '{print $1"/"$2}' packages_to_update | sort -uR 2>/dev/null | head -n1000 | env_parallel --lb save_owner
                 parallel "sed -i '\,^{}$,d' $BKG_OWNERS" <"$connections"
                 sed -i '/^0\//d' "$BKG_OWNERS"
