@@ -44,6 +44,7 @@ fi
 
 git worktree remove -f index 2>/dev/null
 git worktree add -f index index
+[[ -d index || ! -d index.bak ]] || git worktree move index.bak index
 pushd index || exit 1
 git reset --hard origin/index
 popd || exit 1
@@ -88,6 +89,7 @@ if git worktree list | grep -q index; then
     git commit -m "$(date -u +%Y-%m-%d)"
     git push
     popd || exit 1
+    [ ! -d index.bak ] || git worktree remove -f index.bak &>/dev/null
 fi
 
 (git pull --rebase --autostash 2>/dev/null)
