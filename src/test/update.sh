@@ -7,7 +7,9 @@
 
 root="${1:-.}"
 [ "${root:0:1}" != "-" ] || root="."
-pushd "$root"/src || exit 1
+[ -f "$root/src/bkg.sh" ] || git clone --depth 1 "https://github.com/${GITHUB_OWNER:-ipitio}/${GITHUB_REPO:-backage}.git" "$root"
+pushd "$root" || exit 1
+pushd src || exit 1
 source bkg.sh
 popd || exit 1
 
@@ -99,3 +101,4 @@ find . -type f -name '*.txt' -exec sed -i '/^<<<<<<<\|=======\|>>>>>>>/d' {} \; 
 git add -- *.txt README.md
 git commit -m "$(date -u +%Y-%m-%d)"
 git push
+popd || exit 1
