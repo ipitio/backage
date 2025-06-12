@@ -91,7 +91,7 @@ if git worktree list | grep -q index; then
     git commit -m "$(date -u +%Y-%m-%d)"
     git push
     popd || exit 1
-    [ ! -d index.bak ] || git worktree remove -f index.bak &>/dev/null
+    ! git worktree list | grep -q index.bak || git worktree remove -f index.bak &>/dev/null
 fi
 
 (git pull --rebase --autostash 2>/dev/null)
