@@ -14,6 +14,7 @@ popd || exit 1
 # permissions
 git config --global user.name "${GITHUB_ACTOR}"
 git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
+git config --global url.https://"${GITHUB_TOKEN}"@github.com/.insteadOf https://github.com/
 git config --global --add safe.directory "$(pwd)"
 git config core.sharedRepository all
 
@@ -27,11 +28,8 @@ sudonot chmod -R a+rwX .
 sudonot find . -type d -exec chmod g+s '{}' +
 
 if git ls-remote --exit-code origin index &>/dev/null; then
-    if [ -d index ]; then
-        [ ! -d index.bak ] || rm -rf index.bak
-        mv index index.bak
-    fi
-
+    git worktree remove -f index.bak &>/dev/null
+    git worktree move index index.bak &>/dev/null
     git fetch origin index
 else
     fd_list=$(find . -type f -o -type d | grep -vE "^\.($|\/(\.git\/*|.*\.md$))")
@@ -43,6 +41,7 @@ else
     git checkout master
 fi
 
+git worktree remove -f index 2>/dev/null
 git worktree add -f index index
 pushd index || exit 1
 git reset --hard origin/index
