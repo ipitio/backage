@@ -29,6 +29,7 @@ sudonot find . -type d -exec chmod g+s '{}' +
 
 if git ls-remote --exit-code origin index &>/dev/null; then
     git worktree remove -f index.bak &>/dev/null
+    [ -d index.bak ] || rm -rf index.bak
     git worktree move index index.bak &>/dev/null
     git fetch origin index
 else
