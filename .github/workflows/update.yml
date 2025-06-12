@@ -17,6 +17,7 @@ defaults:
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   GITHUB_OWNER: ${{ github.repository_owner }}
+  GITHUB_ACTOR: ${{ github.repository_owner }}
   GITHUB_REPO: ${{ github.event.repository.name }}
   GITHUB_BRANCH: ${{ github.head_ref || github.ref_name }}
 

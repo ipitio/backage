@@ -43,7 +43,7 @@ else
     git checkout master
 fi
 
-git worktree add index index
+git worktree add -f index index
 pushd index || exit 1
 git reset --hard origin/index
 popd || exit 1
