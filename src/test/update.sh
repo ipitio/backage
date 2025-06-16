@@ -14,6 +14,7 @@ source bkg.sh
 popd || exit 1
 
 # permissions
+[ -n "$GITHUB_ACTOR" ] || GITHUB_ACTOR="${GITHUB_OWNER:-ipitio}"
 git config --global user.name "${GITHUB_ACTOR}"
 git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
 git config --global url.https://"${GITHUB_TOKEN}"@github.com/.insteadOf https://github.com/
