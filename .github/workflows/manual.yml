@@ -57,6 +57,7 @@ jobs:
 
       - name: Fetch all data
         if: ${{ steps.release.outcome == 'success' }}
+        continue-on-error: true
         uses: robinraju/release-downloader@v1
         with:
           latest: true
