@@ -1,4 +1,3 @@
-542287/koaqiu
 545641/isotope11
 542484/atpy
 542260/Midgetman
@@ -10,7 +9,6 @@
 542274/qingping
 544510/scalagwt
 545278/lichtflut
-542272/arjo129
 542244/joe4524
 542293/GiantThinkwell
 542284/madgadjt
