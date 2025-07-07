@@ -25,6 +25,7 @@ main() {
     local return_code=0
     local opted_out
     local opted_out_before
+    local lenConn
     connections=$(mktemp) || exit 1
     temp_connections=$(mktemp) || exit 1
 
@@ -125,8 +126,8 @@ main() {
                     get_membership "$GITHUB_OWNER" >"$connections"
                     curl "https://raw.githubusercontent.com/ipitio/backage/refs/heads/$GITHUB_BRANCH/optout.txt" > base_out
                     curl "https://raw.githubusercontent.com/ipitio/backage/refs/heads/$GITHUB_BRANCH/owners.txt" > base_own
-                    ! diff -q "$BKG_OWNERS" base_own || : > "$BKG_OWNERS"
-                    ! diff -q "$BKG_OPTOUT" base_out || : > "$BKG_OPTOUT"
+                    ! diff -q "$BKG_OWNERS" base_own &>/dev/null || : > "$BKG_OWNERS"
+                    ! diff -q "$BKG_OPTOUT" base_out &>/dev/null || : > "$BKG_OPTOUT"
                     rm -f base_out base_own
                 fi
 
@@ -177,7 +178,8 @@ main() {
 
                 rm -f all_owners_in_db all_owners_tu
                 clean_owners "$BKG_OWNERS"
-                head -n $(($(wc -l <"$connections") * 3 / 2)) "$BKG_OWNERS" | env_parallel --lb save_owner
+                lenConn=$(wc -l <"$connections")
+                head -n $(( lenConn < 100 ? lenConn + 100 : lenConn * 3 / 2 )) "$BKG_OWNERS" | env_parallel --lb save_owner
                 awk -F'|' '{print $1"/"$2}' packages_to_update | sort -uR 2>/dev/null | head -n1000 | env_parallel --lb save_owner
                 parallel "sed -i '\,^{}$,d' $BKG_OWNERS" <"$connections"
                 sed -i '/^0\//d' "$BKG_OWNERS"

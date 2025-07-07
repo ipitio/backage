@@ -82,7 +82,7 @@ check_files() {
 # db should not be empty, error if it is
 [ "$(stat -c %s "$BKG_INDEX_SQL".zst)" -ge 100 ] || exit 1
 # files should be valid, warn if not, unless only opted out owners
-(( return_code == 1 )) || find .. -type f -name '*.json' -o -name '*.xml' | env_parallel check_files
+(( return_code == 1 )) || find .. -type f -name '*.json' -o -name '*.xml' | parallel check_files
 popd || exit 1
 \cp src/env.env index/.env
 
