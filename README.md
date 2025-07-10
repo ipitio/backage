@@ -26,7 +26,7 @@ Otherwise, if this is a fork, you'd prefer an alternative method, or your packag
 > [!TIP]
 > You only need to add the name(s), IDs are fetched as needed.
 
-New packages won't be added until *all* existing ones are refreshed; you should also create an independent instance that'll update faster and more frequently. This centralized repo will then serve as a backup for all subsets of packages not in `optout.txt`. Simply fork just the `master` branch, choose one of the following options, and use the [Alternative URL](#alternative-url) when it changes.
+New packages won't be added until *all* existing ones are refreshed; you should also create an independent instance that'll update faster and more frequently. Simply fork just the `master` branch, choose one of the following options, and use the [Alternative URL](#alternative-url) when it changes. This centralized repo will then serve as a backup for all subsets of packages not in `optout.txt`.
 
 > [!IMPORTANT]
 > Your own packages will be picked up automatically! If you need to edit `owners.txt`, do so after the first run.
@@ -62,11 +62,11 @@ StartLimitIntervalSec=0
 Type=simple
 Restart=always
 RestartSec=5
-ExecStart=/usr/bin/sh -c '       \
-  GITHUB_TOKEN=<your PAT>       ;\
-  GITHUB_OWNER=<your username>  ;\
-  GITHUB_REPO=backage           ;\
-  GITHUB_BRANCH=master         ;\
+ExecStart=/usr/bin/sh -c '       \\
+  GITHUB_TOKEN=<your PAT>       ;\\
+  GITHUB_OWNER=<your username>  ;\\
+  GITHUB_REPO=backage           ;\\
+  GITHUB_BRANCH=master          ;\\
   docker run -v \$\${PWD}:/app --env-file <(env | grep GITHUB) ghcr.io/ipitio/backage:master bash src/test/update.sh backage -m 0 -d -1'
 
 [Install]
@@ -233,4 +233,4 @@ https://ipitio.github.io/backage?json=https://URL/ENCODED/JSON
 
 Use your own external JSON with this proxy to convert it into XML. This doesn't currently work with Shields. Try it out in your browser:
 
-**<https://ipitio.github.io/backage?json=https://raw.githubusercontent.com/ipitio/backage/index/.json>**
+**<<https://ipitio.github.io/backage?json=https://raw.githubusercontent.com/>ipitio/backage/index/.json>**
