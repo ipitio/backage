@@ -68,22 +68,18 @@ fi
 
 main "$@"
 return_code=$?
-
-check_files() {
-    if [ ! -s "$1" ]; then
-        echo "Empty file: $1"
-        rm -f "$1"
-    elif [[ "$1" == *.json ]]; then
-        jq -e . "$1" &>/dev/null || echo "Invalid json: $1"
-    else
-        xmllint --noout "$1" &>/dev/null || echo "Invalid xml: $1"
-    fi
-}
-
 # db should not be empty, error if it is
 [ "$(stat -c %s "$BKG_INDEX_SQL".zst)" -ge 100 ] || exit 1
 # files should be valid, warn if not, unless only opted out owners
-(( return_code == 1 )) || find .. -type f -name '*.json' -o -name '*.xml' | parallel check_files
+(( return_code == 1 )) || find .. -type f -name '*.json' -o -name '*.xml' | parallel --lb /bin/bash -c '\
+    if [ ! -s "{}" ]; then                                         \
+        echo "Empty file: {}"                                      \
+        rm -f "{}"                                                 \
+    elif [[ "{}" == *.json ]]; then                                \
+        jq -e . "{}" &>/dev/null || echo "Invalid json: {}"        \
+    else                                                           \
+        xmllint --noout "{}" &>/dev/null || echo "Invalid xml: {}" \
+    fi'
 popd || exit 1
 \cp src/env.env index/.env
 

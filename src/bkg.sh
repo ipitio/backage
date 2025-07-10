@@ -186,12 +186,9 @@ main() {
                 rm -f all_owners_in_db all_owners_tu
                 clean_owners "$BKG_OWNERS"
                 len_conn=$(wc -l <"$connections")
-                echo "requested owners: $(cat "$BKG_OWNERS")"
                 head -n $(( len_conn < 100 ? len_conn + 100 : len_conn * 3 / 2 )) "$BKG_OWNERS" | env_parallel --lb save_owner
                 awk -F'|' '{print $1"/"$2}' packages_to_update | sort -uR 2>/dev/null | head -n1000 | env_parallel --lb save_owner
-                echo "deleting conn from owners"
                 parallel "sed -i '\,^{}$,d' $BKG_OWNERS" <"$connections"
-                echo "deleting 0/ from owners"
                 sed -i '/^0\//d' "$BKG_OWNERS"
                 set_BKG BKG_DIFF "$db_size_curr"
             fi
