@@ -1,15 +1,19 @@
 #!/bin/bash
-# shellcheck disable=SC1091,SC2015
+# shellcheck disable=SC1091,SC2015,SC2034
 #
 # Modes:
-# 0 - Update all public (default)
-# 1 - Update own public
-# 2 - Just clean up
-# 3 - Update all public and own private
-# 4 - Update own public and private
-# 5 - Update own private
+# 0 - Update all public pkgs (default)
+# 1 - Update own public pkgs
+# 2 - Just clean the dir
+# 3 - Update all public and own private pkgs
+# 4 - Update own public and private pkgs
+# 5 - Update own private pkgs
 #
-# Usage: source bkg.sh && main [-m <mode>]
+# Duration:
+#  < 0 - Unlimited
+# >= 0 - Run for this many seconds
+#
+# Usage: source bkg.sh && main [-d <duration>] [-m <mode>]
 
 source lib/owner.sh
 
@@ -25,12 +29,15 @@ main() {
     local return_code=0
     local opted_out
     local opted_out_before
-    local lenConn
+    local len_conn
     connections=$(mktemp) || exit 1
     temp_connections=$(mktemp) || exit 1
 
-    while getopts "m:" flag; do
+    while getopts "d:m:" flag; do
         case ${flag} in
+        d)
+            BKG_MAX_LEN=$((OPTARG))
+            ;;
         m)
             BKG_MODE=$((OPTARG))
             ;;
@@ -178,9 +185,9 @@ main() {
 
                 rm -f all_owners_in_db all_owners_tu
                 clean_owners "$BKG_OWNERS"
-                lenConn=$(wc -l <"$connections")
+                len_conn=$(wc -l <"$connections")
                 echo "requested owners: $(cat "$BKG_OWNERS")"
-                head -n $(( lenConn < 100 ? lenConn + 100 : lenConn * 3 / 2 )) "$BKG_OWNERS" | env_parallel --lb save_owner
+                head -n $(( len_conn < 100 ? len_conn + 100 : len_conn * 3 / 2 )) "$BKG_OWNERS" | env_parallel --lb save_owner
                 awk -F'|' '{print $1"/"$2}' packages_to_update | sort -uR 2>/dev/null | head -n1000 | env_parallel --lb save_owner
                 echo "deleting conn from owners"
                 parallel "sed -i '\,^{}$,d' $BKG_OWNERS" <"$connections"

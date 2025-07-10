@@ -5,15 +5,16 @@
 #
 # shellcheck disable=SC1090,SC1091,SC2015
 
-root="${1:-.}"
-[ "${root:0:1}" != "-" ] || root="."
-[ -f "$root/src/bkg.sh" ] || git clone --depth 1 "https://github.com/${GITHUB_OWNER:-ipitio}/${GITHUB_REPO:-backage}.git" "$root"
+root="$1"
+[[ -n "$root" && ! "${root:0:3}" =~ -(m|d)' ' ]] && shift || root="."
+[ -d "$root" ] || git clone --depth 1 "https://github.com/${GITHUB_OWNER:-ipitio}/${GITHUB_REPO:-backage}.git" "$root"
 pushd "$root" || exit 1
 pushd src || exit 1
 source bkg.sh
 popd || exit 1
 
 # permissions
+[ -n "$GITHUB_TOKEN" ] || ! gh auth status &>/dev/null || GITHUB_TOKEN=$(gh auth token)
 [ -n "$GITHUB_ACTOR" ] || GITHUB_ACTOR="${GITHUB_OWNER:-ipitio}"
 git config --global user.name "${GITHUB_ACTOR}"
 git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
@@ -65,7 +66,7 @@ if [ "$GITHUB_OWNER" = "ipitio" ] && ((num_owner_db < num_owner_index/2)) && ((d
     exit 1
 fi
 
-main "${@:2}"
+main "$@"
 return_code=$?
 
 check_files() {
