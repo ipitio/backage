@@ -49,7 +49,7 @@ This is an example for `systemd`; adapt it to your needs. Please note:
 - If you're already logged in with `gh`, you can set the token to `$(gh auth token)`
 - `-m 0` ensures only the public packages of the owners you've added are updated (default)
   - You'll need the proper permissions to update private packages
-- `-d -1` allows everything to be updated in one go
+- `-d 0` allows everything to be updated in one go
   - A graceful restart is initiated every 4 hours by default
 
 ```bash
@@ -67,7 +67,8 @@ ExecStart=/usr/bin/sh -c '       \\
   GITHUB_OWNER=<your username>  ;\\
   GITHUB_REPO=backage           ;\\
   GITHUB_BRANCH=master          ;\\
-  docker run -v \$\${PWD}:/app --env-file <(env | grep GITHUB) ghcr.io/ipitio/backage:master bash src/test/update.sh backage -m 0 -d -1'
+  mkdir -p /opt/\$GITHUB_REPO/\$GITHUB_BRANCH ;\\
+  docker run -v /opt/\$GITHUB_REPO/\$GITHUB_BRANCH:/app --env-file <(env | grep GITHUB) ghcr.io/ipitio/backage:master bash src/test/update.sh -m 0 -d -0'
 
 [Install]
 WantedBy=multi-user.target
