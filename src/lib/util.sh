@@ -141,6 +141,7 @@ del_BKG() {
 }
 
 save_and_exit() {
+    ((BKG_MAX_LEN > 0)) || return
     local to
     to=$(get_BKG BKG_TIMEOUT)
 
@@ -170,7 +171,7 @@ check_limit() {
         [ -n "$rate_limit_start" ] || echo "BKG_SCRIPT_START empty!"
     }
     script_limit_diff=$((rate_limit_end - rate_limit_start))
-    ((BKG_MAX_LEN < 0)) || ((script_limit_diff < BKG_MAX_LEN)) || save_and_exit
+    ((script_limit_diff < BKG_MAX_LEN)) || save_and_exit
     (($? != 3)) || return 3
     total_calls=$(get_BKG BKG_CALLS_TO_API)
     rate_limit_start=$(get_BKG BKG_RATE_LIMIT_START)

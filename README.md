@@ -46,7 +46,7 @@ This will use a lot of minutes on GitHub-hosted runners!
 
 This is an example for `systemd`; adapt it to your needs. Please note:
 
-- The token is optional if you're already logged in with `gh`
+- If you're already logged in with `gh`, you can set the token to `$(gh auth token)`
 - `-m 0` ensures only the public packages of the owners you've added are updated (default)
   - You'll need the proper permissions to update private packages
 - `-d -1` allows everything to be updated in one go
