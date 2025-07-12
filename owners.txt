@@ -1,8 +1,3 @@
-583712/csun-student-affairs
-584233/softzeal
-583077/andrewjennings
-583130/midaff
-583135/namfireninja
 584864/unweary
 584563/clearctvm
 584803/netglue
