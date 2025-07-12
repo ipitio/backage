@@ -63,15 +63,16 @@ StartLimitIntervalSec=0
 Type=simple
 Restart=always
 RestartSec=5
-ExecStart=/usr/bin/sh -c '                               \\
-  GITHUB_TOKEN=<your PAT>                               ;\\
-  GITHUB_OWNER=<your username>                          ;\\
-  GITHUB_REPO=backage                                   ;\\
-  GITHUB_BRANCH=master                                  ;\\
-  mkdir -p /opt/\$GITHUB_REPO/\$GITHUB_BRANCH           ;\\
-  docker run -v /opt/\$GITHUB_REPO/\$GITHUB_BRANCH:/app  \\
-    --env-file <(env | grep GITHUB)                      \\
-    ghcr.io/\$GITHUB_OWNER/\$GITHUB_REPO:\$GITHUB_BRANCH \\
+ExecStart=/usr/bin/sh -c '                   \\
+  GITHUB_TOKEN=<your PAT>                   ;\\
+  GITHUB_OWNER=<your username>              ;\\
+  GITHUB_REPO=backage                       ;\\
+  GITHUB_BRANCH=master                      ;\\
+  BKG_PATH=\$GITHUB_REPO/\$GITHUB_BRANCH    ;\\
+  mkdir -p /opt/\$BKG_PATH                  ;\\
+  docker run -v /opt/\$BKG_PATH:/app         \\
+    --env-file <(env | grep GITHUB)          \\
+    ghcr.io/\$GITHUB_OWNER/\${BKG_PATH////:} \\
     bash src/test/update.sh -m 0 -d 0'
 
 [Install]
