@@ -46,6 +46,7 @@ This will use a lot of minutes on GitHub-hosted runners!
 
 This is an example for `systemd`; adapt it to your needs. Please note:
 
+- Docker needs to be installed
 - If you're already logged in with `gh`, you can set the token to `$(gh auth token)`
 - `-m 0` ensures only the public packages of the owners you've added are updated (default)
   - You'll need the proper permissions to update private packages
@@ -62,14 +63,14 @@ StartLimitIntervalSec=0
 Type=simple
 Restart=always
 RestartSec=5
-ExecStart=/usr/bin/sh -c '                            \\
-  GITHUB_TOKEN=<your PAT>                            ;\\
-  GITHUB_OWNER=<your username>                       ;\\
-  GITHUB_REPO=backage                                ;\\
-  GITHUB_BRANCH=master                               ;\\
-  mkdir -p /opt/\$GITHUB_REPO/\$GITHUB_BRANCH          ;\\
-  docker run -v /opt/\$GITHUB_REPO/\$GITHUB_BRANCH:/app \\
-    --env-file <(env | grep GITHUB)                   \\
+ExecStart=/usr/bin/sh -c '                               \\
+  GITHUB_TOKEN=<your PAT>                               ;\\
+  GITHUB_OWNER=<your username>                          ;\\
+  GITHUB_REPO=backage                                   ;\\
+  GITHUB_BRANCH=master                                  ;\\
+  mkdir -p /opt/\$GITHUB_REPO/\$GITHUB_BRANCH           ;\\
+  docker run -v /opt/\$GITHUB_REPO/\$GITHUB_BRANCH:/app  \\
+    --env-file <(env | grep GITHUB)                      \\
     ghcr.io/\$GITHUB_OWNER/\$GITHUB_REPO:\$GITHUB_BRANCH \\
     bash src/test/update.sh -m 0 -d 0'
 
@@ -90,7 +91,7 @@ https://ipitio.github.io/backage/OWNER/[REPO/[PACKAGE]].FORMAT
 
 Once the packages you're interested in have been added, replace the parameters with their respective values, scoping to your parsing needs, then access the latest data however you want. The format can be either `json` or `xml`.
 
-> [!TIP]
+> [!NOTE]
 > Use something like [shields.io/json](https://shields.io/badges/dynamic-json-badge) or [shields.io/xml](https://shields.io/badges/dynamic-xml-badge) to make badges like [this one](https://github.com/badges/shields/issues/5594#issuecomment-2157626147). You'll need the latter to evaluate expressions, like filters ([issue](https://github.com/ipitio/backage/issues/23)).
 
 ### Available Properties
@@ -237,4 +238,4 @@ https://ipitio.github.io/backage?json=https://URL/ENCODED/JSON
 
 Use your own external JSON with this proxy to convert it into XML. This doesn't currently work with Shields. Try it out in your browser:
 
-**<<https://ipitio.github.io/backage?json=https://raw.githubusercontent.com/>ipitio/backage/index/.json>**
+**<https://ipitio.github.io/backage?json=https://raw.githubusercontent.com/ipitio/backage/index/.json>**
