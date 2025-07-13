@@ -3,7 +3,7 @@
 # Usage: ./update.sh
 # Copyright (c) ipitio
 #
-# shellcheck disable=SC1090,SC1091,SC2015
+# shellcheck disable=SC1090,SC1091,SC2015,SC2034
 
 root="$1"
 [[ -n "$root" && ! "${root:0:3}" =~ -(m|d)' ' ]] && shift || root="."
