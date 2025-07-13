@@ -220,7 +220,7 @@ curl() {
     local result
 
     while [ "$i" -lt "$max_attempts" ]; do
-        result=$(command curl -sSLNZ --connect-timeout 60 -m 120 "$@" 2>/dev/null)
+        result=$(command curl -sSLNZ --connect-timeout 60 -m 120 --retry 5 --retry-delay 1 --retry-all-errors "$@" 2>/dev/null)
         [ -n "$result" ] && echo "$result" && return 0
         check_limit || return $?
         sleep "$wait_time"
