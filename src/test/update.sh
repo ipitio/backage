@@ -36,6 +36,7 @@ if git ls-remote --exit-code origin index &>/dev/null; then
     [ -d index.bak ] || rm -rf index.bak
     git worktree move index index.bak &>/dev/null
     git fetch origin index
+    BKG_IS_FIRST=true
 else
     fd_list=$(find . -type f -o -type d | grep -vE "^\.($|\/(\.git\/*|.*\.md$))")
     git switch --orphan index
