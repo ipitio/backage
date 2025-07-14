@@ -72,15 +72,7 @@ return_code=$?
 # db should not be empty, error if it is
 [ "$(stat -c %s "$BKG_INDEX_SQL".zst)" -ge 100 ] || exit 1
 # files should be valid, warn if not, unless only opted out owners
-(( return_code == 1 )) || find .. -type f -name '*.json' -o -name '*.xml' | parallel --lb /bin/bash -c '\
-    if [ ! -s "{}" ]; then                                         \
-        echo "Empty file: {}"                                      \
-        rm -f "{}"                                                 \
-    elif [[ "{}" == *.json ]]; then                                \
-        jq -e . "{}" &>/dev/null || echo "Invalid json: {}"        \
-    else                                                           \
-        xmllint --noout "{}" &>/dev/null || echo "Invalid xml: {}" \
-    fi'
+(( return_code == 1 )) || find .. -type f -name '*.json' -o -name '*.xml' | parallel --lb test/index.sh {}
 popd || exit 1
 \cp src/env.env index/.env
 
