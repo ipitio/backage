@@ -34,7 +34,7 @@ New packages won't be added until *all* existing ones are refreshed; you should 
 <details>
 <summary>With Actions</summary>
 
-This will use a lot of minutes on GitHub-hosted runners!
+This will use a lot of minutes on GitHub-hosted runners, so you may want to use your own.
 
 1. Enable Actions from its tab
 2. Enable all disabled workflows
@@ -73,7 +73,7 @@ ExecStart=/usr/bin/sh -c '                   \\
   docker run -v /opt/\$BKG_PATH:/app         \\
     --env-file <(env | grep GITHUB)          \\
     ghcr.io/\$GITHUB_OWNER/\${BKG_PATH////:} \\
-    bash src/test/update.sh -m 0 -d 0'
+    src/test/update.sh -m 0 -d 0'
 
 [Install]
 WantedBy=multi-user.target
