@@ -18,7 +18,7 @@ sudonot() {
 }
 
 apt_install() {
-    if ! dpkg -l "$@" >/dev/null 2>&1; then
+    if ! dpkg -s "$@" &>/dev/null; then
         apt-get update
         sudonot apt-get install -yqq "$@"
     fi
