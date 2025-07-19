@@ -7,13 +7,14 @@
 
 root="$1"
 [[ -n "$root" && ! "${root:0:3}" =~ -(m|d)' ' ]] && shift || root="."
-[ -d "$root" ] || git clone --depth 1 "https://github.com/${GITHUB_OWNER:-ipitio}/${GITHUB_REPO:-backage}.git" "$root"
+[ -d "$root" ] || { gh auth status &>/dev/null && gh repo clone "${GITHUB_OWNER:-ipitio}/${GITHUB_REPO:-backage}" "$root"  -- --depth=1 -b "$GITHUB_BRANCH" --single-branch || git clone --depth=1 -b "$GITHUB_BRANCH" --single-branch "https://$([ -n "$GITHUB_TOKEN" ] && echo "$GITHUB_TOKEN@" || echo "")github.com/${GITHUB_OWNER:-ipitio}/${GITHUB_REPO:-backage}.git" "$root"; }
 pushd "$root" || exit 1
 pushd src || exit 1
 source bkg.sh
 popd || exit 1
 
 # permissions
+[ -n "$GITHUB_TOKEN" ] || GITHUB_TOKEN=$(git config --get remote.origin.url | grep -oP '(?<=://)[^@]+')
 [ -n "$GITHUB_TOKEN" ] || ! gh auth status &>/dev/null || GITHUB_TOKEN=$(gh auth token)
 [ -n "$GITHUB_ACTOR" ] || GITHUB_ACTOR="${GITHUB_OWNER:-ipitio}"
 git config --global user.name "${GITHUB_ACTOR}"
