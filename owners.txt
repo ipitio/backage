@@ -67,8 +67,6 @@
 595088/israelnoe
 595164/mkalk
 595102/xiyulangzi
-598560/discoverygarden
-596977/alphagov
 598800/flisoldf
 596876/meridian5
 595154/fuzzyhunter0608
