@@ -47,7 +47,12 @@ This will use a lot of minutes on GitHub-hosted runners, so you may want to use 
 This is an example for `systemd`; adapt it to your needs. Please note:
 
 - Docker needs to be installed
-- If you're already logged in with `gh`, you can set the token to `$(gh auth token)`
+- You don't need to set `GITHUB_TOKEN` if you're logged in with `gh` or you'll first use your PAT to run (replace `*` with `https` or `ssh`):
+
+```bash
+git clone --depth=1 -b master --single-branch *://<PAT>@github.com/ipitio/backage /opt/backage/master
+```
+
 - `-m 0` ensures only the public packages of the owners you've added are updated (default)
   - You'll need the proper permissions to update private packages
 - `-d 0` allows everything to be updated in one go
@@ -64,8 +69,8 @@ Type=simple
 Restart=always
 RestartSec=5
 ExecStart=/usr/bin/sh -c '                   \\
-  GITHUB_TOKEN=<your PAT>                   ;\\
-  GITHUB_OWNER=<your username>              ;\\
+  GITHUB_TOKEN=<PAT>                        ;\\
+  GITHUB_OWNER=<username>                   ;\\
   GITHUB_REPO=backage                       ;\\
   GITHUB_BRANCH=master                      ;\\
   BKG_PATH=\$GITHUB_REPO/\$GITHUB_BRANCH    ;\\
