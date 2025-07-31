@@ -266,6 +266,7 @@ _jq() {
 dldb() {
     local latest=${1:-$(curl "https://github.com/${GITHUB_OWNER:-ipitio}/${GITHUB_REPO:-backage}/releases/latest" | grep -oP "href=\"/${GITHUB_OWNER:-ipitio}/${GITHUB_REPO:-backage}/releases/tag/[^\"]+" | cut -d'/' -f6)}
     [[ "$(curl -o /dev/null --silent -Iw '%{http_code}' "https://github.com/${GITHUB_OWNER:-ipitio}/${GITHUB_REPO:-backage}/releases/download/$latest/index.sql.zst")" != "404" ]] || return 1
+    [ -z "$2" ] || return 0
     echo "Downloading the latest database..."
     # `cd src ; source bkg.sh && dldb` to dl the latest db
     [ ! -f "$BKG_INDEX_DB" ] || mv "$BKG_INDEX_DB" "$BKG_INDEX_DB".bak
@@ -302,13 +303,13 @@ query_api() {
     echo "$res"
 }
 
-get_db() {
+check_db() {
     local release
     local latest
     release=$(query_api "repos/${GITHUB_OWNER:-ipitio}/${GITHUB_REPO:-backage}/releases/latest")
     latest=$(jq -r '.tag_name' <<<"$release")
 
-    until dldb "$latest"; do
+    until dldb "$latest" 1; do
         echo "Deleting the latest release..."
         curl_gh -X DELETE "https://api.github.com/repos/${GITHUB_OWNER:-ipitio}/${GITHUB_REPO:-backage}/releases/$(jq -r '.id' <<<"$release")"
         release=$(query_api "repos/${GITHUB_OWNER:-ipitio}/${GITHUB_REPO:-backage}/releases/latest")
