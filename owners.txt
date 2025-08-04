@@ -1,14 +1,4 @@
-606280/warclab
-603705/calis
-604986/share-sleuth
-603652/gaxx
-606087/sonomawireworks
-603693/bonzalza
-603841/silverstripe-themes
 603700/hariharan-c
-606763/os3sec
-603646/samxyouxwell
-605593/phti-team
 603754/Joe-JR
 603752/markmarch
 604301/wikeo
