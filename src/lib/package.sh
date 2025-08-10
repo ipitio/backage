@@ -144,7 +144,7 @@ update_package() {
     fi
 
     # calculate the overall downloads and size
-    size=$(sqlite3 "$BKG_INDEX_DB" "select size from '$table_version_name' where id in (select id from '$table_version_name' order by id desc limit 1) order by date desc limit 1;")
+    size=$(sqlite3 "$BKG_INDEX_DB" "select size from '$table_version_name' where size > 1 order by id desc, date desc limit 1;")
     raw_all=$(sqlite3 "$BKG_INDEX_DB" "select sum(downloads), sum(downloads_month), sum(downloads_week), sum(downloads_day) from '$table_version_name' where date in (select date from '$table_version_name' order by date desc limit 1);")
     summed_raw_downloads=$(cut -d'|' -f1 <<<"$raw_all")
     raw_downloads_month=$(cut -d'|' -f2 <<<"$raw_all")
