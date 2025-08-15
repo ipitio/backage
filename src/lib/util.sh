@@ -48,7 +48,7 @@ BKG_INDEX_TBL_OWN=owners
 BKG_INDEX_TBL_PKG=packages
 BKG_INDEX_TBL_VER=versions
 BKG_MODE=0
-BKG_MAX_LEN=10800
+BKG_MAX_LEN=16200
 BKG_IS_FIRST=false
 
 # format numbers like 1000 to 1k
