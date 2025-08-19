@@ -50,6 +50,7 @@ BKG_INDEX_TBL_VER=versions
 BKG_MODE=0
 BKG_MAX_LEN=16200
 BKG_IS_FIRST=false
+BKG_PAGE_ALL=1
 
 # format numbers like 1000 to 1k
 numfmt() {
