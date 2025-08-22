@@ -1,4 +1,3 @@
-623819/openSUSE
 622153/KIRAT00
 622143/jairog19
 624213/angelsmith
@@ -2031,3 +2030,4 @@
 661265/uncarbonatedsoftware
 661264/ne0d1n
 663080/spiralstorm
+664682/ARYANDYKA
