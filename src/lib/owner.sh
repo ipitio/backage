@@ -62,7 +62,7 @@ page_owner() {
     jq -e '.[].login' <<<"$owners_more" &>/dev/null || return 2
     local owners_lines
     owners_lines=$(jq -r '.[] | @base64' <<<"$owners_more")
-    [ "$BKG_PAGE_ALL" = "1" ] && request_owner "$(echo "$owners_lines" | head -n1)" || run_parallel request_owner "$owners_lines"
+    (( BKG_PAGE_ALL > 0 )) && request_owner "$(echo "$owners_lines" | head -n1)" || run_parallel request_owner "$owners_lines"
     echo "Checked owners page $1"
     [ "$(wc -l <<<"$owners_lines")" -gt 1 ] || return 2
 }

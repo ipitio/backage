@@ -129,7 +129,7 @@ main() {
 
                     sed -i 's/^[[:space:]]*//;s/[[:space:]]*$//; /^$/d; /^0\/$/d' "$connections"
                     # shellcheck disable=SC2319
-                    BKG_PAGE_ALL=$([[ "$(wc -l <"$BKG_OWNERS")" -ge $(($(sort -u "$connections" | wc -l) + 100)) ]]; echo "$?")
+                    BKG_PAGE_ALL=$( (($(wc -l <"$BKG_OWNERS") < $(($(sort -u "$connections" | wc -l) + 100)))); echo "$?")
                     seq 1 2 | env_parallel --lb --halt soon,fail=1 page_owner
                 else
                     get_membership "$GITHUB_OWNER" >"$connections"
