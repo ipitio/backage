@@ -239,12 +239,23 @@ run_parallel() {
     exit_code=$(mktemp)
 
     if [ "$(wc -l <<<"$2")" -gt 1 ]; then
-        ( # parallel --lb --halt soon,fail=1
+        ( # parallel --lb --halt soon,fail=1 -j "$max_jobs"
+            local active=0
+            local max_jobs
+            max_jobs=$(nproc --all)
+
             for i in $2; do
                 code=$(cat "$exit_code")
                 ! grep -q "3" <<<"$code" || exit
                 ! grep -q "2" <<<"$code" || break
+
+                while [ "$active" -ge "$max_jobs" ]; do
+                    wait -n
+                    ((active--))
+                done
+
                 ("$1" "$i" || echo "$?" >>"$exit_code") &
+                ((active++))
             done
 
             wait
@@ -431,7 +442,7 @@ ytoy() {
     yq -oy "$1" | sed 's/"/\\"/g' >"${1%.*}.yml"
 }
 
-clean_owners(){
+clean_owners() {
     local temp_file
     temp_file=$(mktemp)
     echo >>"$1"
