@@ -187,8 +187,7 @@ main() {
                 len_conn=$(wc -l <"$connections")
                 head -n $(( len_conn < 100 ? len_conn + 100 : len_conn * 3 / 2 )) "$BKG_OWNERS" | env_parallel --lb save_owner
                 awk -F'|' '{print $1"/"$2}' packages_to_update | sort -uR 2>/dev/null | head -n1000 | env_parallel --lb save_owner
-                set -x
-                parallel "sed -i '\,^{}$,d' $BKG_OWNERS" <"$connections"
+                parallel "sed -i '\,^{}$,d' $BKG_OWNERS" ::: "$(sed 's/"/\\"/g' "$connections")"
                 sed -i '/^0\//d' "$BKG_OWNERS"
                 set_BKG BKG_DIFF "$db_size_curr"
             fi
@@ -204,7 +203,6 @@ main() {
         [ -d "$BKG_INDEX_DIR" ] || mkdir "$BKG_INDEX_DIR"
 
         if [ "$GITHUB_OWNER" = "ipitio" ]; then
-            set +x
             get_BKG_set BKG_OWNERS_QUEUE | env_parallel --lb update_owner
         else # typically fewer owners
             run_parallel update_owner "$(get_BKG_set BKG_OWNERS_QUEUE)"

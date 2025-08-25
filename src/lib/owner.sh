@@ -68,7 +68,6 @@ page_owner() {
 }
 
 update_owner() {
-    set -x
     check_limit || return $?
     [ -n "$1" ] || return
     owner_id=$(cut -d'/' -f1 <<<"$1")
@@ -85,7 +84,6 @@ update_owner() {
     fi
 
     echo "Updating $owner..."
-    set +x
 
     # decode percent-encoded characters and make lowercase (eg. for docker manifest)
     # shellcheck disable=SC2034
