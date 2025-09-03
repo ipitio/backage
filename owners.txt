@@ -1,3 +1,5 @@
+694349/finalsin
+694351/flexibits
 694399/getpixel-zz
 694408/furq
 694352/goingkilo
@@ -485,3 +487,4 @@
 709795/ziada
 711116/zumbox
 707945/zuudo
+713500/3xHelixNet
