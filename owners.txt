@@ -1,3 +1,14 @@
+729186/mcellier
+731490/media-explorer
+729303/mediait
+729663/meta42labs
+729089/modivos
+731466/modusoperandi
+729111/msk723
+729095/nam-dh
+732551/myplanetdigital
+730122/ncsulug
+729103/nickdb
 729092/noel-ykt
 732346/nonolith
 729135/noxidsoft
@@ -246,3 +257,4 @@
 743194/3DI70R
 746652/59DAYSOFCODE
 748049/23ninja
+751896/1009design
