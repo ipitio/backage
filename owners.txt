@@ -1,3 +1,6 @@
+796629/sholton311
+798871/simplifyMD
+799162/skylightui
 796628/smith153
 798393/solderpad
 798954/spadefoot
@@ -410,3 +413,4 @@
 813733/42BV
 815900/2bit-creative-collective
 818603/Autochartist
+818643/ASMarques2011
