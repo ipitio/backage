@@ -1,3 +1,7 @@
+800428/rbertora
+800412/rosscturner
+801693/rsdn
+801792/saramin
 803942/seplogic
 800323/softlink
 800314/staf111
@@ -231,3 +235,4 @@
 822608/5V715
 822715/11163003
 822795/0rt
+826250/3VR-Intellivision
