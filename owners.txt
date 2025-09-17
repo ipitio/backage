@@ -1,3 +1,7 @@
+847962/OmniLogic
+847053/Nyvra
+846705/Paddock
+844441/Persheid
 845283/Progressbar
 844411/Rakura
 848269/Puggli
@@ -151,3 +155,4 @@
 852083/3deepthi
 852394/AESConnect
 853117/AGCTTech
+856694/8180
