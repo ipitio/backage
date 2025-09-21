@@ -1,18 +1,4 @@
-878924/KRosIT
-878925/JorgeABC
-881838/MESSAGEBROADCAST
-879673/Launchmetrics
-881933/MongoHQ
-882292/OfficeSpace
-879326/OhmzTech
-880057/OpenNetworkingFoundation
-879917/PRact
-878869/PennStateRockandSedimentMechanics
-878927/PeterHoeche
-879397/PortailPro
 880341/ProjectSkyfire
-878914/Reicr
-878867/Sheepylodge
 878896/Shnizlon
 882053/Singular
 879625/SintelTI
@@ -565,3 +551,4 @@
 888649/zmqmessage
 887539/zvelo
 893236/15below
+895229/Acnestudios
