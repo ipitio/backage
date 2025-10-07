@@ -186,7 +186,9 @@ check_limit() {
         remaining_time=$((3600 * (hours_passed + 1) - rate_limit_diff))
         ((remaining_time < BKG_MAX_LEN - script_limit_diff)) || save_and_exit
         (($? != 3)) || return 3
-        echo "Sleeping for $remaining_time seconds..."
+        start=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+        end=$(date -u -d "+${remaining_time} seconds" +'%Y-%m-%dT%H:%M:%SZ')
+        echo "Sleeping for $remaining_time seconds from $start to $end..."
         sleep $remaining_time
         echo "Resuming!"
         set_BKG BKG_RATE_LIMIT_START "$(date -u +%s)"
@@ -205,7 +207,9 @@ check_limit() {
         remaining_time=$((60 * (min_passed + 1) - sec_limit_diff))
         ((remaining_time < BKG_MAX_LEN - script_limit_diff)) || save_and_exit
         (($? != 3)) || return 3
-        echo "Sleeping for $remaining_time seconds..."
+        start=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+        end=$(date -u -d "+${remaining_time} seconds" +'%Y-%m-%dT%H:%M:%SZ')
+        echo "Sleeping for $remaining_time seconds from $start to $end..."
         sleep $remaining_time
         echo "Resuming!"
         set_BKG BKG_MIN_RATE_LIMIT_START "$(date -u +%s)"
@@ -442,36 +446,58 @@ ytox() {
 ytoxt() {
     # ytox + trim if the json or xml is over 50MB, remove oldest versions
     while [ -f "$1" ] && [[ "$(ytox "$1")" -ge 50000000 || "$(stat -c %s "$1")" -ge 50000000 ]]; do
-        jq -e '
-            if type == "array" then
-                reduce .[] as $pkg (false; . or (($pkg.version // []) | length > 0))
-            else
-                (.version // []) | length > 0
-            end
-        ' "$1" || break
-        jq -c '
-            def trim_versions:
-                if (.version // []) | length > 0 then
-                    .version |= (
-                        sort_by(
-                            .id | (if type == "string" and test("^-?[0-9]+$") then tonumber else . end)
-                        )
-                        | del(.[0])
-                    )
-                else
-                    .
-                end;
-            def version_count:
-                (if has("raw_versions") then .raw_versions else (.versions // 0) end)
-                | (if type == "string" then (if test("^-?[0-9]+$") then tonumber else 0 end) else . end);
-            if type == "array" then
-                sort_by(version_count) | reverse
-                | map(select((.version // []) | length > 0))
-                | map(trim_versions)
-            else
-                trim_versions
-            end
-        ' "$1" >"$1".tmp
+        if jq -e '
+			if type == "array" then
+			any(.[]; (.version // []) | length > 0)
+			else
+			(.version // []) | length > 0
+			end
+		' "$1" >/dev/null; then
+            jq -c '
+				def trim_versions:
+					if (.version // []) | length > 0 then
+						.version |= (
+							sort_by(.id | (if type == "string" and test("^-?[0-9]+$") then tonumber else . end))
+							| del(.[0])
+						)
+					else
+						.
+					end;
+				if type == "array" then
+					(to_entries
+					| (max_by((.value.version // []) | length) // empty) as $max
+					| map(
+						if .key == $max.key and ((.value.version // []) | length > 0)
+						then (.value |= trim_versions)
+						else .
+						end
+					)
+					| map(.value))
+				else
+					trim_versions
+				end
+			' "$1" >"$1".tmp
+		else
+			jq -c '
+				if type == "array" then
+					(
+						def to_num:
+							if type == "number" then .
+							elif type == "string" then tonumber? // 0
+							else 0 end;
+						to_entries
+						| (min_by([ (.value.raw_downloads // 0 | to_num), (.value.date // "") ]) // null) as $target
+						| if $target == null then
+							map(.value)
+						else
+							[ .[] | select(.key != $target.key) | .value ]
+						end
+					)
+				else
+					.
+				end
+				' "$1" >"$1".tmp
+        fi
         mv "$1".tmp "$1"
     done
 }
