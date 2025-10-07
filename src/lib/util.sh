@@ -435,7 +435,45 @@ get_membership() {
 }
 
 ytox() {
-    echo "<?xml version=\"1.0\" encoding=\"UTF-8\"?><xml>$(yq -ox -I0 "$1" | sed 's/"/\\"/g')</xml>" >"${1%.*}.xml"
+    echo "<?xml version=\"1.0\" encoding=\"UTF-8\"?><xml>$(yq -ox -I0 "$1" | sed 's/"/\\"/g')</xml>" >"${1%.*}.xml" 2>/dev/null
+    stat -c %s "${1%.*}.xml" || echo -1
+}
+
+ytoxt() {
+    # ytox + trim if the json or xml is over 50MB, remove oldest versions
+    while [ -f "$1" ] && [[ "$(ytox "$1")" -ge 50000000 || "$(stat -c %s "$1")" -ge 50000000 ]]; do
+        jq -e '
+            if type == "array" then
+                reduce .[] as $pkg (false; . or (($pkg.version // []) | length > 0))
+            else
+                (.version // []) | length > 0
+            end
+        ' "$1" || break
+        jq -c '
+            def trim_versions:
+                if (.version // []) | length > 0 then
+                    .version |= (
+                        sort_by(
+                            .id | (if type == "string" and test("^-?[0-9]+$") then tonumber else . end)
+                        )
+                        | del(.[0])
+                    )
+                else
+                    .
+                end;
+            def version_count:
+                (if has("raw_versions") then .raw_versions else (.versions // 0) end)
+                | (if type == "string" then (if test("^-?[0-9]+$") then tonumber else 0 end) else . end);
+            if type == "array" then
+                sort_by(version_count) | reverse
+                | map(select((.version // []) | length > 0))
+                | map(trim_versions)
+            else
+                trim_versions
+            end
+        ' "$1" >"$1".tmp
+        mv "$1".tmp "$1"
+    done
 }
 
 ytoy() {

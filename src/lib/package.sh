@@ -230,15 +230,7 @@ update_package() {
     [[ ! -f "$json_file".abs || ! -s "$json_file".abs ]] || jq -c --arg newest "$version_newest_id" --arg latest "$latest_version" '.version |= map(if .id == ($newest | tonumber) then .newest = true else . end | if .id == ($latest | tonumber) then .latest = true else . end)' "$json_file".abs >"$json_file".rel
     [[ ! -f "$json_file".rel || ! -s "$json_file".rel ]] || mv "$json_file".rel "$json_file".abs
     [[ ! -f "$json_file".abs || ! -s "$json_file".abs ]] || mv "$json_file".abs "$json_file"
-
-    # if the json is over 50MB, remove oldest versions from the packages with the most versions
-    while [ -f "$json_file" ] && [ "$(stat -c %s "$json_file")" -ge 50000000 ]; do
-        jq -e 'map(.version | length > 0) | any' "$json_file" || break
-        jq -c 'sort_by(.versions | tonumber) | reverse | map(select(.versions > 0)) | map(.version |= sort_by(.id | tonumber) | del(.version[0]))' "$json_file" >"$json_file".tmp
-        mv "$json_file".tmp "$json_file"
-    done
-
-    ytox "$json_file"
+	ytoxt "$json_file"
     rm -rf "$BKG_INDEX_DIR/$owner/$repo/$package.d"
     echo "Refreshed $owner/$package"
 }
