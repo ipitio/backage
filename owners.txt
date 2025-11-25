@@ -4,8 +4,6 @@
 1389751/designbook
 1391951/dhu-cs
 1390024/doubledutch
-1390693/drikict
-1389759/eXoTiK255
 1391736/edu-cs-helsinki-fi
 1390403/ekohe
 1389839/elmerfud
@@ -525,3 +523,4 @@
 1434882/xelat
 1436648/ytstenut
 1438047/100Plus
+1438087/0x0101x0
