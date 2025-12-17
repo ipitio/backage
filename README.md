@@ -21,12 +21,12 @@ Ever wish you could show npm, gem, mvn, Gradle, NuGet, or GHCR badges for GitHub
 If this is [`ipitio/backage`](https://github.com/ipitio/backage), all you have to do is **star the repo to get your public packages added!** The service's circular priority queue will update the [closed-loop system](https://github.com/ipitio/backage/releases/latest) with them within the next few hours. Additionally watching and forking the repo, and following the owner, are ways to increase their priority. Yes, I know, but these are the graphs GitHub has available.
 
 > [!WARNING]
-> For this to work, your profile must be set to [public](https://github.com/ipitio/backage/issues/34#issuecomment-2968850773).
+> Ensure your profile is [public](https://github.com/ipitio/backage/issues/34#issuecomment-2968850773) so that this repo can see your packages.
 
-Otherwise, if this is a fork, you'd prefer an alternative method, or your packages weren't added to the [index](https://github.com/ipitio/backage/tree/index) after a day, enter the case-sensitive name of each missing user or organization on a new line at the top of `owners.txt` [here](https://github.com/ipitio/backage/edit/master/owners.txt) and make a pull request. Don't worry -- while my Contribution Graph is an uptime monitor of sorts, yours won't be. See the top of `bkg.sh` for details about available options, which must come last when passed to `update.sh`, as shown in `Self-Host`.
+Otherwise, if this is a fork, you'd prefer an alternative method, or your packages weren't added to the [index](https://github.com/ipitio/backage/tree/index) after a day, enter the case-sensitive name of each missing user or organization on a new line at the top of the queue, `owners.txt`, [here](https://github.com/ipitio/backage/edit/master/owners.txt) and make a pull request. Don't worry -- while my Contribution Graph is an uptime monitor of sorts, yours won't be. See the top of `bkg.sh` for details about available options, which must come last when passed to `update.sh`, as shown in `Self-Host` below.
 
 > [!TIP]
-> You only need to add the name(s), IDs are fetched as needed.
+> You only need to add names to the queue; IDs are fetched as needed and entries are removed once processed.
 
 New packages won't be added until *all* existing ones are refreshed; you should also create an independent instance that'll update faster and more frequently. Simply fork just the `master` branch, choose one of the following options, and use the [Alternative URL](#alternative-url) when it changes. This centralized repo will then serve as a backup for all subsets of packages not in `optout.txt`.
 
@@ -49,10 +49,10 @@ This will use a lot of minutes on GitHub-hosted runners, so you may want to use 
 This is an example for `systemd`; adapt it to your needs. Please note:
 
 - Docker needs to be installed
-- You don't need to set `GITHUB_TOKEN` if you're logged in with `gh` or you'll first use your PAT to run (replace `*` with `https` or `ssh`):
+- You don't need to set `GITHUB_TOKEN` if you first log in with `gh` or use your PAT to run:
 
 ```bash
-git clone --depth=1 -b master --single-branch *://<PAT>@github.com/ipitio/backage /opt/backage/master
+git clone --depth=1 -b master --single-branch [https|ssh]://<PAT>@github.com/ipitio/backage /opt/backage/master
 ```
 
 - `-m 0` ensures only the public packages of the owners you've added are updated (default)
@@ -205,27 +205,27 @@ $.[FILTER].PROPERTY
 You can query a package for its properties, like size or version:
 
 ```py
-/xml/PROPERTY
+//PROPERTY
 ```
 
 ```py
-/xml/size
+//size
 ```
 
 Versions can be filtered in and tags out:
 
 ```py
-/xml/version[FILTER]/PROPERTY
+//version[FILTER]/PROPERTY
 ```
 
 ```py
-/xml/version[./latest[.="true"]]/tags[.!="latest"]
+//version[./latest[.="true"]]/tags[.!="latest"]
 ```
 
 As can packages in `owner[/repo]/.xml` files:
 
 ```py
-/xml/package[FILTER]/PROPERTY
+//package[FILTER]/PROPERTY
 ```
 
 </details>
@@ -238,12 +238,12 @@ https://github.com/ipitio/backage/raw/index/OWNER/[REPO/[PACKAGE]].FORMAT
 
 The endpoint is also available here! This will change to your fork once it updates.
 
-## JSON2XML Proxy
+## Bring Your Own JSON
 
 ```py
 https://ipitio.github.io/backage?json=https://URL/ENCODED/JSON
 ```
 
-Use your own external JSON with this proxy to convert it into XML. This doesn't currently work with Shields. Try it out in your browser:
+While this doesn't directly work with Shields, you can BYOJ to convert into XML.  Try it out in your browser:
 
 **<https://ipitio.github.io/backage?json=https://raw.githubusercontent.com/ipitio/backage/index/.json>**
