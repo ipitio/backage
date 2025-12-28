@@ -7,10 +7,6 @@ on:
     workflows: ["build-dev"]
     types: [completed]
 
-  pull_request:
-    types:
-      - closed
-
 concurrency:
   group: ${{ github.ref }}
   cancel-in-progress: true
