@@ -19,7 +19,7 @@ sudonot() {
 
 apt_install() {
     if ! dpkg -s "$@" &>/dev/null; then
-        apt-get update
+        sudonot apt-get update
         sudonot apt-get install -yqq "$@"
     fi
 }
@@ -401,6 +401,8 @@ curl_orgs() {
 
 explore() {
     local node=$1
+	local is_user=false
+	local got_orgs=false
     [[ "$node" =~ .*\/.* ]] && local graph=("stargazers" "watchers" "forks") || local graph=("followers" "following" "people")
     [ -z "$2" ] || graph=("$2")
 
@@ -412,12 +414,19 @@ explore() {
             if [[ "$node" =~ .*\/.* ]]; then
                 nodes=$(curl_users "$node/$edge?page=$page") # repo
             else
-                nodes=$(curl_users "orgs/$node/$edge?page=$page") # org
+				if [ "$is_user" = false ]; then
+                	nodes=$(curl_users "orgs/$node/$edge?page=$page") # org
+					[ -n "$nodes" ] || is_user=true
+				fi
 
-                if [ -z "$nodes" ]; then
-                    nodes=$(curl_users "$node?tab=$edge&page=$page") # user
-                    curl_orgs "$1"
-                fi
+				if [ "$is_user" = true ]; then
+					nodes=$(curl_users "$node?tab=$edge&page=$page") # user
+
+					if [ "$got_orgs" = false ]; then
+						curl_orgs "$node"
+						got_orgs=true
+					fi
+				fi
             fi
 
             grep -v "$(cut -d'/' -f1 <<<"$node")" <<<"$nodes"
@@ -444,62 +453,200 @@ ytox() {
 }
 
 ytoxt() {
-    # ytox + trim if the json or xml is over 50MB, remove oldest versions
-    while [ -f "$1" ] && [[ "$(ytox "$1")" -ge 50000000 || "$(stat -c %s "$1")" -ge 50000000 ]]; do
-        if jq -e '
-			if type == "array" then
-			any(.[]; (.version // []) | length > 0)
-			else
-			(.version // []) | length > 0
-			end
-		' "$1" >/dev/null; then
-            jq -c '
-				def trim_versions:
-					if (.version // []) | length > 0 then
-						.version |= (
-							sort_by(.id | (if type == "string" and test("^-?[0-9]+$") then tonumber else . end))
-							| del(.[0])
-						)
-					else
-						.
-					end;
-				if type == "array" then
-					(to_entries
-					| (max_by((.value.version // []) | length) // empty) as $max
-					| map(
-						if .key == $max.key and ((.value.version // []) | length > 0)
-						then (.value |= trim_versions)
-						else .
-						end
-					)
-					| map(.value))
-				else
-					trim_versions
-				end
-			' "$1" >"$1".tmp
-		else
-			jq -c '
-				if type == "array" then
-					(
-						def to_num:
-							if type == "number" then .
-							elif type == "string" then tonumber? // 0
-							else 0 end;
-						to_entries
-						| (min_by([ (.value.raw_downloads // 0 | to_num), (.value.date // "") ]) // null) as $target
-						| if $target == null then
-							map(.value)
-						else
-							[ .[] | select(.key != $target.key) | .value ]
-						end
-					)
-				else
-					.
-				end
-				' "$1" >"$1".tmp
+    # ytox + trim: if the json or xml is over 50MB, remove oldest versions
+    local f="$1"
+    local tmp
+    local del_n=1
+    local last_xml_size=-1
+
+    [ -f "$f" ] || return 1
+
+    tmp=$(mktemp "${f}.XXXXXX") || return 1
+    trap 'rm -f "$tmp"' RETURN
+
+    while [ -f "$f" ]; do
+        local json_size
+        local xml_size
+        local tmp_size
+
+        json_size=$(stat -c %s "$f" 2>/dev/null || echo -1)
+
+        if [ "$json_size" -lt 50000000 ]; then
+            # Only generate/check XML if JSON is already under limit.
+            xml_size=$(ytox "$f" 2>/dev/null || echo -1)
+            # If XML size can't be determined, treat it as oversized so we keep trimming.
+            [ "$xml_size" -ge 0 ] || xml_size=50000000
+
+            if [ "$xml_size" -lt 50000000 ]; then
+                break
+            fi
+
+            # If XML is still too large, keep trimming, but avoid redoing work forever.
+            if [ "$xml_size" -eq "$last_xml_size" ] && [ "$last_xml_size" -ge 0 ]; then
+                break
+            fi
+            last_xml_size="$xml_size"
+
+            # XML still too large: increase trimming aggressiveness as well.
+            if [ "$del_n" -lt 65536 ]; then
+                del_n=$((del_n * 2))
+            fi
+        else
+            # JSON is still too large: increase trimming aggressiveness.
+            if [ "$json_size" -ge 50000000 ]; then
+                if [ "$del_n" -lt 65536 ]; then
+                    del_n=$((del_n * 2))
+                fi
+            fi
         fi
-        mv "$1".tmp "$1"
+
+        if jq -e '
+            if (type == "array") or (type == "object") then
+                any(.[]; ((.version // []) | type == "array") and ((.version // []) | length > 0))
+            else
+                ((.version // []) | type == "array") and ((.version // []) | length > 0)
+            end
+        ' "$f" >/dev/null; then
+            jq -c '
+                def id_to_num:
+                    if type == "number" then .
+                    elif type == "string" then tonumber? // 0
+                    else 0 end;
+                def vlen:
+                    (.version // []) | if type == "array" then length else 0 end;
+                def trim_versions($n):
+                    if ((.version // []) | type == "array") and ((.version // []) | length > 0) then
+                        (
+                            .version
+                            | sort_by(.id | id_to_num)
+                            | .[$n:]
+                        ) as $v
+                        | .version = $v
+                    else
+                        .
+                    end;
+                if type == "array" then
+                    (to_entries
+                    | (max_by(.value | vlen) // empty) as $max
+                    | map(
+                        if .key == $max.key and ((.value | vlen) > 0)
+                        then (.value |= trim_versions($n))
+                        else .
+                        end
+                    )
+                    | map(.value))
+                elif type == "object" then
+                    (to_entries
+                    | (max_by(.value | vlen) // empty) as $max
+                    | map(
+                        if .key == $max.key and ((.value | vlen) > 0)
+                        then (.value |= trim_versions($n))
+                        else .
+                        end
+                    )
+                    | from_entries)
+                else
+                    trim_versions($n)
+                end
+            ' --argjson n "$del_n" "$f" >"$tmp"
+        else
+            jq -c '
+                if type == "array" then
+                    (
+                        def to_num:
+                            if type == "number" then .
+                            elif type == "string" then tonumber? // 0
+                            else 0 end;
+                        to_entries
+                        | (min_by([ (.value.raw_downloads // 0 | to_num), (.value.date // "") ]) // null) as $target
+                        | if $target == null then
+                            map(.value)
+                        else
+                            [ .[] | select(.key != $target.key) | .value ]
+                        end
+                    )
+                elif type == "object" then
+                    (
+                        def to_num:
+                            if type == "number" then .
+                            elif type == "string" then tonumber? // 0
+                            else 0 end;
+                        to_entries
+                        | (min_by([ (.value.raw_downloads // 0 | to_num), (.value.date // "") ]) // null) as $target
+                        | if $target == null then
+                            from_entries
+                        else
+                            ([ .[] | select(.key != $target.key) ] | from_entries)
+                        end
+                    )
+                else
+                    .
+                end
+                ' "$f" >"$tmp"
+        fi
+
+        tmp_size=$(stat -c %s "$tmp" 2>/dev/null || echo -1)
+
+        # If trimming didn't reduce size, retry with more aggressive deletion instead of stalling.
+        if [ "$json_size" -ge 0 ] && [ "$tmp_size" -ge 0 ] && [ "$tmp_size" -ge "$json_size" ]; then
+            rm -f "$tmp"
+
+            if [ "$del_n" -lt 65536 ]; then
+                del_n=$((del_n * 2))
+                continue
+            fi
+
+            # If we're already at max aggressiveness, fall back to trimming whole packages once.
+            jq -c '
+                if type == "array" then
+                    (
+                        def to_num:
+                            if type == "number" then .
+                            elif type == "string" then tonumber? // 0
+                            else 0 end;
+                        to_entries
+                        | (min_by([ (.value.raw_downloads // 0 | to_num), (.value.date // "") ]) // null) as $target
+                        | if $target == null then
+                            map(.value)
+                        else
+                            [ .[] | select(.key != $target.key) | .value ]
+                        end
+                    )
+                elif type == "object" then
+                    (
+                        def to_num:
+                            if type == "number" then .
+                            elif type == "string" then tonumber? // 0
+                            else 0 end;
+                        to_entries
+                        | (min_by([ (.value.raw_downloads // 0 | to_num), (.value.date // "") ]) // null) as $target
+                        | if $target == null then
+                            from_entries
+                        else
+                            ([ .[] | select(.key != $target.key) ] | from_entries)
+                        end
+                    )
+                else
+                    .
+                end
+            ' "$f" >"$tmp"
+
+            tmp_size=$(stat -c %s "$tmp" 2>/dev/null || echo -1)
+            if [ "$json_size" -ge 0 ] && [ "$tmp_size" -ge 0 ] && [ "$tmp_size" -ge "$json_size" ]; then
+                rm -f "$tmp"
+                break
+            fi
+        fi
+
+        mv "$tmp" "$f"
     done
+
+    # Ensure the XML output corresponds to the final JSON.
+    ytox "$f" >/dev/null 2>&1
+
+	# If either JSON or XML is > 100MB, delete each one that is too large.
+	[ "$(stat -c %s "$f" 2>/dev/null || echo -1)" -lt 100000000 ] || rm -f "$f"
+	[ "$(stat -c %s "${f%.*}.xml" 2>/dev/null || echo -1)" -lt 100000000 ] || rm -f "${f%.*}.xml"
 }
 
 ytoy() {

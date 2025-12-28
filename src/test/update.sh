@@ -6,7 +6,7 @@
 # shellcheck disable=SC1090,SC1091,SC2015,SC2034
 
 root="$1"
-[[ -n "$root" && ! "${root:0:3}" =~ -(m|d)' ' ]] && shift || root="."
+[[ -n "$root" && ! "${root:0:2}" =~ -(m|d) ]] && shift || root="."
 [ -d "$root" ] || { gh auth status &>/dev/null && gh repo clone "${GITHUB_OWNER:-ipitio}/${GITHUB_REPO:-backage}" "$root"  -- --depth=1 -b "$GITHUB_BRANCH" --single-branch || git clone --depth=1 -b "$GITHUB_BRANCH" --single-branch "https://$([ -n "$GITHUB_TOKEN" ] && echo "$GITHUB_TOKEN@" || echo "")github.com/${GITHUB_OWNER:-ipitio}/${GITHUB_REPO:-backage}.git" "$root"; }
 pushd "$root" || exit 1
 pushd src || exit 1
@@ -14,13 +14,14 @@ source bkg.sh
 popd || exit 1
 
 # permissions
-[ -n "$GITHUB_TOKEN" ] || GITHUB_TOKEN=$(git config --get remote.origin.url | grep -oP '(?<=://)[^@]+')
+[ -n "$GITHUB_TOKEN" ] || GITHUB_TOKEN=$(if git config --get remote.origin.url | grep -q '@'; then grep -oP '(?<=://)[^@]+'; else echo ""; fi)
 [ -n "$GITHUB_TOKEN" ] || ! gh auth status &>/dev/null || GITHUB_TOKEN=$(gh auth token)
 [ -n "$GITHUB_ACTOR" ] || GITHUB_ACTOR="${GITHUB_OWNER:-ipitio}"
-git config --global user.name "${GITHUB_ACTOR}"
-git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
-git config --global url.https://"${GITHUB_TOKEN}"@github.com/.insteadOf https://github.com/
-git config --global --add safe.directory "$(pwd)"
+git config user.name "${GITHUB_ACTOR}"
+git config user.email "${GITHUB_ACTOR}@users.noreply.github.com"
+git config --get-regexp --name-only '^url\.https://.+\.insteadof' | xargs -n1 git config --unset-all 2>/dev/null
+git config url.https://"${GITHUB_TOKEN}"@github.com/.insteadOf https://github.com/
+git config --add safe.directory "$(pwd)"
 git config core.sharedRepository all
 
 # performance
