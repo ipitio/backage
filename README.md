@@ -1,16 +1,16 @@
 <div align="center">
 
-[![logo](src/img/logo-b.webp)](https://github.com/ipitio/backage)
+[![logo](src/img/logo-b.webp)](https://github.com//)
 
-# [backage](https://github.com/ipitio/backage)
+# [](https://github.com//)
 
 **It's all part and parcel**
 
 ---
 
-[![packages](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fgithub.com%2Fipitio%2Fbackage%2Fraw%2Findex%2F.json&query=%24.packages&logo=github&logoColor=959da5&label=packages&labelColor=333a41&color=grey)](https://github.com/ipitio/backage/tree/index) [![updated](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fgithub.com%2Fipitio%2Fbackage%2Fraw%2Findex%2F.json&query=%24.date&logo=github&logoColor=959da5&label=updated&labelColor=333a41&color=indigo)](https://github.com/ipitio/backage/releases/latest)
+[![packages](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fgithub.com%2F%2F%2Fraw%2Findex%2F.json&query=%24.packages&logo=github&logoColor=959da5&label=packages&labelColor=333a41&color=grey)](https://github.com///tree/index) [![updated](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fgithub.com%2F%2F%2Fraw%2Findex%2F.json&query=%24.date&logo=github&logoColor=959da5&label=updated&labelColor=333a41&color=indigo)](https://github.com///releases/latest)
 
-[![tag](https://img.shields.io/badge/dynamic/xml?url=https%3A%2F%2Fgithub.com%2Fipitio%2Fbackage%2Fraw%2Findex%2Fipitio%2Fbackage%2Fbackage.xml&query=%2Fxml%2Fversion%5B.%2Flatest%5B.%3D%22true%22%5D%5D%2Ftags%5B.!%3D%22latest%22%5D&logo=github&logoColor=959da5&label=tag&labelColor=333a41&color=black)](https://github.com/ipitio/backage/pkgs/container/backage) [![build](https://github.com/ipitio/backage/actions/workflows/publish.yml/badge.svg)](https://github.com/ipitio/backage/pkgs/container/backage) [![size](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fgithub.com%2Fipitio%2Fbackage%2Fraw%2Findex%2Fipitio%2Fbackage%2Fbackage.json&query=%24.size&logo=github&logoColor=959da5&label=size&labelColor=333a41&color=sienna)](https://github.com/ipitio/backage/pkgs/container/backage) [![runs](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fgithub.com%2Fipitio%2Fbackage%2Fraw%2Findex%2Fipitio%2Fbackage%2Fbackage.json&query=%24.downloads&logo=github&logoColor=959da5&label=runs&labelColor=333a41)](https://github.com/ipitio/backage/pkgs/container/backage)
+[![tag](https://img.shields.io/badge/dynamic/xml?url=https%3A%2F%2Fgithub.com%2F%2F%2Fraw%2Findex%2F%2F%2F.xml&query=%2Fxml%2Fversion%5B.%2Flatest%5B.%3D%22true%22%5D%5D%2Ftags%5B.!%3D%22latest%22%5D&logo=github&logoColor=959da5&label=tag&labelColor=333a41&color=black)](https://github.com///pkgs/container/backage) [![build](https://github.com///actions/workflows/publish.yml/badge.svg)](https://github.com///pkgs/container/) [![size](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fgithub.com%2F%2F%2Fraw%2Findex%2F%2F%2F.json&query=%24.size&logo=github&logoColor=959da5&label=size&labelColor=333a41&color=sienna)](https://github.com///pkgs/container/backage) [![runs](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fgithub.com%2F%2F%2Fraw%2Findex%2F%2F%2F.json&query=%24.downloads&logo=github&logoColor=959da5&label=runs&labelColor=333a41)](https://github.com///pkgs/container/backage)
 
 </div>
 
@@ -18,12 +18,12 @@ Ever wish you could show npm, gem, mvn, Gradle, NuGet, or GHCR badges for GitHub
 
 ## Getting Started
 
-If this is [`ipitio/backage`](https://github.com/ipitio/backage), all you have to do is **star the repo to get your public packages added!** The service's circular priority queue will update the [closed-loop system](https://github.com/ipitio/backage/releases/latest) with them within the next few hours. Additionally watching and forking the repo, and following the owner, are ways to increase their priority. Yes, I know, but these are the graphs GitHub has available.
+If this is [`ipitio/backage`](https://github.com/ipitio/backage), all you have to do is **star the repo to get your public packages added!** The service's circular priority queue will update the [closed-loop system](https://github.com///releases/latest) with them within the next few hours. Additionally watching and forking the repo, and following the owner, are ways to increase their priority. Yes, I know, but these are the graphs GitHub has available.
 
 > [!WARNING]
 > Ensure your profile is [public](https://github.com/ipitio/backage/issues/34#issuecomment-2968850773) so that this repo can see your packages.
 
-Otherwise, if this is a fork, you'd prefer an alternative method, or your packages weren't added to the [index](https://github.com/ipitio/backage/tree/index) after a day, enter the case-sensitive name of each missing user or organization on a new line at the top of the queue, `owners.txt`, [here](https://github.com/ipitio/backage/edit/master/owners.txt) and make a pull request. Don't worry -- while my Contribution Graph is an uptime monitor of sorts, yours won't be. See the top of `bkg.sh` for details about available options, which must come last when passed to `update.sh`, as shown in `Self-Host` below.
+Otherwise, if this is a fork, you'd prefer an alternative method, or your packages weren't added to the [index](https://github.com///tree/index) after a day, enter the case-sensitive name of each missing user or organization on a new line at the top of the queue, `owners.txt`, [here](https://github.com///edit/master/owners.txt) and make a pull request. Don't worry -- while my Contribution Graph is an uptime monitor of sorts, yours won't be. See the top of `bkg.sh` for details about available options, which must come last when passed to `update.sh`, as shown in `Self-Host` below.
 
 > [!TIP]
 > You only need to add names to the queue; IDs are fetched as needed and entries are removed once processed.
@@ -52,7 +52,7 @@ This is an example for `systemd`; adapt it to your needs. Please note:
 - You don't need to set `GITHUB_TOKEN` if you first log in with `gh` or use your PAT to run:
 
 ```bash
-git clone --depth=1 -b  --single-branch [https|ssh]://<PAT>@github.com/ipitio/backage /opt/backage/
+git clone --depth=1 -b  --single-branch [https|ssh]://<PAT>@github.com// /opt//
 ```
 
 - `-m 0` ensures only the public packages of the owners you've added are updated (default)
@@ -73,7 +73,7 @@ RestartSec=5
 ExecStart=/usr/bin/sh -c '                   \\
   GITHUB_TOKEN=<PAT>                        ;\\
   GITHUB_OWNER=<username>                   ;\\
-  GITHUB_REPO=backage                       ;\\
+  GITHUB_REPO=                       ;\\
   GITHUB_BRANCH=                      ;\\
   BKG_PATH=\$GITHUB_REPO/\$GITHUB_BRANCH    ;\\
   mkdir -p /opt/\$BKG_PATH                  ;\\
@@ -233,7 +233,7 @@ As can packages in `owner[/repo]/.xml` files:
 ### Alternative URL
 
 ```py
-https://github.com/ipitio/backage/raw/index/OWNER/[REPO/[PACKAGE]].FORMAT
+https://github.com///raw/index/OWNER/[REPO/[PACKAGE]].FORMAT
 ```
 
 The endpoint is also available here! This will change to your fork once it updates.
@@ -246,4 +246,4 @@ https://ipitio.github.io/backage?json=https://URL/ENCODED/JSON
 
 While this doesn't directly work with Shields, you can BYOJ to convert into XML.  Try it out in your browser:
 
-**<https://ipitio.github.io/backage?json=https://raw.githubusercontent.com/ipitio/backage/index/.json>**
+**<https://ipitio.github.io/backage?json=https://raw.githubusercontent.com///index/.json>**
