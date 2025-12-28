@@ -37,6 +37,8 @@ echo "Dependencies verified!"
 # shellcheck disable=SC2046
 source $(which env_parallel.bash)
 env_parallel --session
+GITHUB_OWNER=${GITHUB_OWNER:-ipitio}
+GITHUB_REPO=${GITHUB_REPO:-backage}
 BKG_ROOT=..
 BKG_ENV=env.env
 BKG_OWNERS=$BKG_ROOT/owners.txt
@@ -280,13 +282,13 @@ _jq() {
 }
 
 dldb() {
-    local latest=${1:-$(curl "https://github.com/${GITHUB_OWNER:-ipitio}/${GITHUB_REPO:-backage}/releases/latest" | grep -oP "href=\"/${GITHUB_OWNER:-ipitio}/${GITHUB_REPO:-backage}/releases/tag/[^\"]+" | cut -d'/' -f6)}
-    [[ "$(curl -o /dev/null --silent -Iw '%{http_code}' "https://github.com/${GITHUB_OWNER:-ipitio}/${GITHUB_REPO:-backage}/releases/download/$latest/index.sql.zst")" != "404" ]] || return 1
+    local latest=${1:-$(curl "https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest" | grep -oP "href=\"/${GITHUB_OWNER}/${GITHUB_REPO}/releases/tag/[^\"]+" | cut -d'/' -f6)}
+    [[ "$(curl -o /dev/null --silent -Iw '%{http_code}' "https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/download/$latest/index.sql.zst")" != "404" ]] || return 1
     [ -z "$2" ] || return 0
     echo "Downloading the latest database..."
     # `cd src ; source bkg.sh && dldb` to dl the latest db
     [ ! -f "$BKG_INDEX_DB" ] || mv "$BKG_INDEX_DB" "$BKG_INDEX_DB".bak
-    command curl -sSLNZ "https://github.com/${GITHUB_OWNER:-ipitio}/${GITHUB_REPO:-backage}/releases/download/$latest/index.sql.zst" | unzstd -v -c | sqlite3 "$BKG_INDEX_DB"
+    command curl -sSLNZ "https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/download/$latest/index.sql.zst" | unzstd -v -c | sqlite3 "$BKG_INDEX_DB"
 
     if [ -f "$BKG_INDEX_DB" ]; then
         [ ! -f "$BKG_INDEX_DB".bak ] || rm -f "$BKG_INDEX_DB".bak
@@ -322,13 +324,13 @@ query_api() {
 check_db() {
     local release
     local latest
-    release=$(query_api "repos/${GITHUB_OWNER:-ipitio}/${GITHUB_REPO:-backage}/releases/latest")
+    release=$(query_api "repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest")
     latest=$(jq -r '.tag_name' <<<"$release")
 
     until dldb "$latest" 1; do
         echo "Deleting the latest release..."
-        curl_gh -X DELETE "https://api.github.com/repos/${GITHUB_OWNER:-ipitio}/${GITHUB_REPO:-backage}/releases/$(jq -r '.id' <<<"$release")"
-        release=$(query_api "repos/${GITHUB_OWNER:-ipitio}/${GITHUB_REPO:-backage}/releases/latest")
+        curl_gh -X DELETE "https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases/$(jq -r '.id' <<<"$release")"
+        release=$(query_api "repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest")
         latest=$(jq -r '.tag_name' <<<"$release")
     done
 }

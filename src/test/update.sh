@@ -33,29 +33,37 @@ git update-index --index-version 4
 sudonot chmod -R a+rwX .
 sudonot find . -type d -exec chmod g+s '{}' +
 
-if git ls-remote --exit-code origin index &>/dev/null; then
-    git worktree remove -f index.bak &>/dev/null
-    [ -d index.bak ] || rm -rf index.bak
-    git worktree move index index.bak &>/dev/null
-    git fetch origin index
+curr=$(git branch --show-current 2>/dev/null)
+index="index$([ "$GITHUB_BRANCH" = "master" ] && echo "" || echo "-${curr:-master}")"
+BKG_INDEX_DB=$BKG_ROOT/"$index".db
+BKG_INDEX_SQL=$BKG_ROOT/"$index".sql
+BKG_INDEX_DIR=$BKG_ROOT/"$index"
+
+if git ls-remote --exit-code origin "$index" &>/dev/null; then
+    git worktree remove -f "$index".bak &>/dev/null
+    [ -d "$index".bak ] || rm -rf "$index".bak
+    git worktree move "$index" "$index".bak &>/dev/null
+    git fetch origin "$index"
     BKG_IS_FIRST=true
 else
     fd_list=$(find . -type f -o -type d | grep -vE "^\.($|\/(\.git\/*|.*\.md$))")
-    git switch --orphan index
+	git stash
+    git switch --orphan "$index"
     xargs rm -rf <<<"$fd_list"
     git add .
     git commit --allow-empty -m "init index"
-    git push -u origin index
-    git checkout master
+    git push -u origin "$index"
+    git checkout "$([ -n "$GITHUB_BRANCH" ] && echo "$GITHUB_BRANCH" || echo "$curr")"
+	git stash pop || true
 fi
 
-git worktree remove -f index 2>/dev/null
-git worktree add -f index index
-[[ -d index || ! -d index.bak ]] || git worktree move index.bak index
-pushd index || exit 1
-git reset --hard origin/index
+git worktree remove -f "$index" 2>/dev/null
+git worktree add -f "$index" "$index"
+[[ -d "$index" || ! -d "$index".bak ]] || git worktree move "$index".bak "$index"
+pushd "$index" || exit 1
+git reset --hard origin/"$index"
 popd || exit 1
-[ -f index/.env ] && \cp index/.env src/env.env || touch src/env.env
+[ -f "$index"/.env ] && \cp "$index"/.env src/env.env || touch src/env.env
 pushd src || exit 1
 
 db_size=$(stat -c %s "$BKG_INDEX_SQL".zst)
@@ -76,15 +84,15 @@ return_code=$?
 # files should be valid, warn if not, unless only opted out owners
 #(( return_code == 1 )) || find .. -type f -name '*.json' -o -name '*.xml' | parallel --lb test/index.sh {}
 popd || exit 1
-\cp src/env.env index/.env
+\cp src/env.env "$index"/.env
 
-if git worktree list | grep -q index; then
-    pushd index || exit 1
+if git worktree list | grep -q "$index"; then
+    pushd "$index" || exit 1
     git add .
     git commit -m "$(date -u +%Y-%m-%d)"
     git push
     popd || exit 1
-    ! git worktree list | grep -q index.bak || git worktree remove -f index.bak &>/dev/null
+    ! git worktree list | grep -q "$index".bak || git worktree remove -f "$index".bak &>/dev/null
 fi
 
 (git pull --rebase --autostash 2>/dev/null)

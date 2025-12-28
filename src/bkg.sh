@@ -194,7 +194,9 @@ main() {
         else
             save_owner "$GITHUB_OWNER"
             get_membership "$GITHUB_OWNER" >"$connections"
-            [ ! -s "$connections" ] || env_parallel --lb save_owner <"$connections"
+            if [ -s "$connections" ]; then
+				env_parallel --lb save_owner <"$connections" || while read -r connection; do save_owner "$connection"; done <"$connections"
+			fi
         fi
 
         rm -f "$connections"
@@ -202,7 +204,7 @@ main() {
         BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
         [ -d "$BKG_INDEX_DIR" ] || mkdir "$BKG_INDEX_DIR"
 
-        if [ "$GITHUB_OWNER" = "ipitio" ]; then
+        if [[ "$GITHUB_OWNER" = "ipitio" && "$(git branch --show-current)" = "master" ]]; then
             get_BKG_set BKG_OWNERS_QUEUE | env_parallel --lb update_owner
         else # typically fewer owners
             run_parallel update_owner "$(get_BKG_set BKG_OWNERS_QUEUE)"
