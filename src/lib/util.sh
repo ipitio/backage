@@ -646,9 +646,9 @@ ytoxt() {
     # Ensure the XML output corresponds to the final JSON.
     ytox "$f" >/dev/null 2>&1
 
-	# If either JSON or XML is > 100MB, delete each one that is too large.
-	[ "$(stat -c %s "$f" 2>/dev/null || echo -1)" -lt 100000000 ] || rm -f "$f"
-	[ "$(stat -c %s "${f%.*}.xml" 2>/dev/null || echo -1)" -lt 100000000 ] || rm -f "${f%.*}.xml"
+	# If either JSON or XML is > 100MB, empty each one that is too large:
+	[ "$(stat -c %s "$f" 2>/dev/null || echo -1)" -lt 100000000 ] || echo "{}" >"$f"
+	[ "$(stat -c %s "${f%.*}.xml" 2>/dev/null || echo -1)" -lt 100000000 ] || echo "<?xml version=\"1.0\" encoding=\"UTF-8\"?><xml></xml>" >"${f%.*}.xml"
 }
 
 ytoy() {

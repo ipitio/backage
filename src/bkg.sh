@@ -155,7 +155,7 @@ main() {
                 mv owners.tmp "$BKG_OWNERS"
                 grep -vFxf all_owners_in_db "$connections" >"$temp_connections"
 
-                if [[ "$pkg_left" == "0" || "${db_size_curr::-5}" == "${db_size_prev::-5}" ]]; then
+                if [[ "$pkg_left" == "0" || "${db_size_curr::-4}" == "${db_size_prev::-4}" ]]; then
                     set_BKG BKG_BATCH_FIRST_STARTED "$today"
                     rm -f packages_to_update
                     \cp packages_all packages_to_update
