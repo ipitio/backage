@@ -43,12 +43,6 @@ BKG_ROOT=..
 BKG_ENV=env.env
 BKG_OWNERS=$BKG_ROOT/owners.txt
 BKG_OPTOUT=$BKG_ROOT/optout.txt
-BKG_BRANCH=$(git branch --show-current 2>/dev/null)
-[ -n "$GITHUB_BRANCH" ] || GITHUB_BRANCH="$BKG_BRANCH"
-BKG_INDEX="index$([ "$GITHUB_BRANCH" = "master" ] && echo "" || echo "-${BKG_BRANCH:-}")"
-BKG_INDEX_DB=$BKG_ROOT/"$BKG_INDEX".db
-BKG_INDEX_SQL=$BKG_ROOT/"$BKG_INDEX".sql
-BKG_INDEX_DIR=$BKG_ROOT/"$BKG_INDEX"
 BKG_INDEX_TBL_OWN=owners
 BKG_INDEX_TBL_PKG=packages
 BKG_INDEX_TBL_VER=versions

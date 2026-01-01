@@ -33,6 +33,15 @@ git update-index --index-version 4
 sudonot chmod -R a+rwX .
 sudonot find . -type d -exec chmod g+s '{}' +
 
+set -o allexport
+BKG_BRANCH=$(git branch --show-current 2>/dev/null)
+[ -n "$GITHUB_BRANCH" ] || GITHUB_BRANCH="$BKG_BRANCH"
+BKG_INDEX="index$([ "$GITHUB_BRANCH" = "master" ] && echo "" || echo "-${BKG_BRANCH:-}")"
+BKG_INDEX_DB=$BKG_ROOT/"$BKG_INDEX".db
+BKG_INDEX_SQL=$BKG_ROOT/"$BKG_INDEX".sql
+BKG_INDEX_DIR=$BKG_ROOT/"$BKG_INDEX"
+set +o allexport
+
 if git ls-remote --exit-code origin "$BKG_INDEX" &>/dev/null; then
     git worktree remove -f "$BKG_INDEX".bak &>/dev/null
     [ -d "$BKG_INDEX".bak ] || rm -rf "$BKG_INDEX".bak
