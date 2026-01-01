@@ -48,7 +48,8 @@ if git ls-remote --exit-code origin "$BKG_INDEX" &>/dev/null; then
     [ -d "$BKG_INDEX".bak ] || rm -rf "$BKG_INDEX".bak
     git worktree move "$BKG_INDEX" "$BKG_INDEX".bak &>/dev/null
     git fetch --depth=1 origin "$BKG_INDEX"
-	git branch --track -f "$BKG_INDEX" "origin/$BKG_INDEX" 2>/dev/null || git branch -f "$BKG_INDEX" "origin/$BKG_INDEX"
+    git show-ref --verify --quiet "refs/remotes/origin/$BKG_INDEX" || git fetch origin "$BKG_INDEX:refs/remotes/origin/$BKG_INDEX"
+    git branch --track -f "$BKG_INDEX" "origin/$BKG_INDEX" 2>/dev/null || git branch -f "$BKG_INDEX" "origin/$BKG_INDEX"
     BKG_IS_FIRST=true
 else
     fd_list=$(find . -type f -o -type d | grep -vE "^\.($|\/(\.git\/*|.*\.md$))")
