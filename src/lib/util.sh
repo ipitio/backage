@@ -324,7 +324,7 @@ check_db() {
     release=$(query_api "repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest")
     latest=$(jq -r '.tag_name' <<<"$release")
 
-    until dldb "$latest" 1; do
+    until dldb "$latest" "1"; do
         echo "Deleting the latest release..."
         curl_gh -X DELETE "https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases/$(jq -r '.id' <<<"$release")"
         release=$(query_api "repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest")
