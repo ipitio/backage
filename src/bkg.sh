@@ -141,14 +141,6 @@ main() {
                 mv "$connections".bak "$connections"
 
                 echo "$(
-					if pushd "$BKG_INDEX_DIR" >/dev/null 2>&1; then
-						git ls-tree -r --name-only "$BKG_INDEX" ./ \
-						| xargs -r -I filename git log -1 --format='%cs filename' filename \
-						| awk -v cutoff="$(get_BKG BKG_BATCH_FIRST_STARTED)" 'cutoff != "" && $1 < cutoff {print}' \
-						| sort | grep -oP '(?<= )[^/]+(?=/)' | uniq | awk '{print "0/"$1}'
-						popd >/dev/null 2>&1 || return
-					fi
-
                     cat "$BKG_OWNERS"
                 )" >"$BKG_OWNERS"
 
