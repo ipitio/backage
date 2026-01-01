@@ -141,6 +141,7 @@ main() {
                 mv "$connections".bak "$connections"
 
                 echo "$(
+					bash get.sh "$BKG_INDEX_DIR" "$BKG_INDEX" "$BKG_BATCH_FIRST_STARTED" 2>/dev/null
                     cat "$BKG_OWNERS"
                 )" >"$BKG_OWNERS"
 
