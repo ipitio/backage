@@ -41,6 +41,7 @@ BKG_INDEX_DB=$BKG_ROOT/"$BKG_INDEX".db
 BKG_INDEX_SQL=$BKG_ROOT/"$BKG_INDEX".sql
 BKG_INDEX_DIR=$BKG_ROOT/"$BKG_INDEX"
 set +o allexport
+set -x
 
 if git ls-remote --exit-code origin "$BKG_INDEX" &>/dev/null; then
     git worktree remove -f "$BKG_INDEX".bak &>/dev/null
