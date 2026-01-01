@@ -141,8 +141,8 @@ main() {
                 mv "$connections".bak "$connections"
 
                 echo "$(
+					missed_owners
                     cat "$BKG_OWNERS"
-                    find "$BKG_INDEX_DIR" -mindepth 1 -maxdepth 1 -type d -exec basename {} \; 2>/dev/null | sort -u | awk '{print "0/"$1}'
                 )" >"$BKG_OWNERS"
 
                 : >all_owners_in_db
@@ -155,7 +155,7 @@ main() {
                 mv owners.tmp "$BKG_OWNERS"
                 grep -vFxf all_owners_in_db "$connections" >"$temp_connections"
 
-                if [[ "$pkg_left" == "0" || "${db_size_curr::-5}" == "${db_size_prev::-5}" ]]; then
+                if [[ "$pkg_left" == "0" || "${db_size_curr::-4}" == "${db_size_prev::-4}" ]]; then
                     set_BKG BKG_BATCH_FIRST_STARTED "$today"
                     rm -f packages_to_update
                     \cp packages_all packages_to_update
@@ -194,7 +194,9 @@ main() {
         else
             save_owner "$GITHUB_OWNER"
             get_membership "$GITHUB_OWNER" >"$connections"
-            [ ! -s "$connections" ] || env_parallel --lb save_owner <"$connections"
+            if [ -s "$connections" ]; then
+				env_parallel --lb save_owner <"$connections" || while read -r connection; do save_owner "$connection"; done <"$connections"
+			fi
         fi
 
         rm -f "$connections"
@@ -202,7 +204,7 @@ main() {
         BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
         [ -d "$BKG_INDEX_DIR" ] || mkdir "$BKG_INDEX_DIR"
 
-        if [ "$GITHUB_OWNER" = "ipitio" ]; then
+        if [[ "$GITHUB_OWNER" = "ipitio" && "$(git branch --show-current)" = "master" ]]; then
             get_BKG_set BKG_OWNERS_QUEUE | env_parallel --lb update_owner
         else # typically fewer owners
             run_parallel update_owner "$(get_BKG_set BKG_OWNERS_QUEUE)"

@@ -124,13 +124,15 @@ update_owner() {
         find "$BKG_INDEX_DIR/$owner" -type f -name '*.json' ! -name '.*' -print0 | xargs -0 jq -cs '[.] | add' >"$BKG_INDEX_DIR/$owner/.json.tmp"
         jq -cs '{ ("package"): . }' "$BKG_INDEX_DIR/$owner/.json.tmp" >"$BKG_INDEX_DIR/$owner/.json"
         ytoxt "$BKG_INDEX_DIR/$owner/.json"
-        mv -f "$BKG_INDEX_DIR/$owner/.json.tmp" "$BKG_INDEX_DIR/$owner/.json"
+		jq -c '.package[]' "$BKG_INDEX_DIR/$owner/.json" >"$BKG_INDEX_DIR/$owner/.json.tmp" 2>/dev/null
+        mv -f "$BKG_INDEX_DIR/$owner/.json.tmp" "$BKG_INDEX_DIR/$owner/.json" 2>/dev/null
 
         echo "Creating $owner repo arrays..."
         parallel "jq -c --arg repo {} '[.[] | select(.repo == \$repo)]' \"$BKG_INDEX_DIR/$owner/.json\" > \"$BKG_INDEX_DIR/$owner/{}/.json.tmp\"" <<<"$owner_repos"
         xargs -I {} bash -c "jq -cs '{ (\"package\"): . }' \"$BKG_INDEX_DIR/$owner/{}/.json.tmp\" > \"$BKG_INDEX_DIR/$owner/{}/.json\"" <<<"$owner_repos"
         xargs -I {} bash -c "ytoxt \"$BKG_INDEX_DIR/$owner/{}/.json\"" <<<"$owner_repos"
-        xargs -I {} mv -f "$BKG_INDEX_DIR/$owner/{}/.json.tmp" "$BKG_INDEX_DIR/$owner/{}/.json" <<<"$owner_repos"
+		xargs -I {} bash -c "jq -c '.package[]' \"$BKG_INDEX_DIR/$owner/{}/.json\" > \"$BKG_INDEX_DIR/$owner/{}/.json.tmp\"" 2>/dev/null <<<"$owner_repos"
+        xargs -I {} mv -f "$BKG_INDEX_DIR/$owner/{}/.json.tmp" "$BKG_INDEX_DIR/$owner/{}/.json" 2>/dev/null <<<"$owner_repos"
     fi
 
     sed -i '/^\(.*\/\)*'"$owner"'$/d' "$BKG_OWNERS"

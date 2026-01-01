@@ -121,7 +121,7 @@ update_package() {
         sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name' where date >= '$BKG_BATCH_FIRST_STARTED';" | sort -u >"${table_version_name}"_already_updated
         local break_now=false
 
-        for page in $(seq 0 5); do
+        for page in $(seq 0 1); do
             ((page > 0)) || continue
             local pages_left=0
             page_version "$page"

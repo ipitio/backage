@@ -58,7 +58,7 @@ git clone --depth=1 -b master --single-branch [https|ssh]://<PAT>@github.com/ipi
 - `-m 0` ensures only the public packages of the owners you've added are updated (default)
   - You'll need the proper permissions to update private packages
 - `-d 0` allows everything to be updated in one go
-  - A graceful restart is initiated every 4.5 hours by default
+  - A graceful restart is initiated every 4 hours by default
 
 ```bash
 echo "[Unit]
@@ -74,7 +74,7 @@ ExecStart=/usr/bin/sh -c '                   \\
   GITHUB_TOKEN=<PAT>                        ;\\
   GITHUB_OWNER=<username>                   ;\\
   GITHUB_REPO=backage                       ;\\
-  GITHUB_BRANCH=master                      ;\\
+  GITHUB_BRANCH=                      ;\\
   BKG_PATH=\$GITHUB_REPO/\$GITHUB_BRANCH    ;\\
   mkdir -p /opt/\$BKG_PATH                  ;\\
   docker run -v /opt/\$BKG_PATH:/app         \\
