@@ -141,8 +141,8 @@ main() {
                 mv "$connections".bak "$connections"
 
                 echo "$(
+					missed_owners
                     cat "$BKG_OWNERS"
-                    find "$BKG_INDEX_DIR" -mindepth 1 -maxdepth 1 -type d -exec basename {} \; 2>/dev/null | sort -u | awk '{print "0/"$1}'
                 )" >"$BKG_OWNERS"
 
                 : >all_owners_in_db

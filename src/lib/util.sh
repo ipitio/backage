@@ -43,14 +43,16 @@ BKG_ROOT=..
 BKG_ENV=env.env
 BKG_OWNERS=$BKG_ROOT/owners.txt
 BKG_OPTOUT=$BKG_ROOT/optout.txt
-BKG_INDEX_DB=$BKG_ROOT/index.db
-BKG_INDEX_SQL=$BKG_ROOT/index.sql
-BKG_INDEX_DIR=$BKG_ROOT/index
+BKG_BRANCH=$(git branch --show-current 2>/dev/null)
+BKG_INDEX="index$([ "$GITHUB_BRANCH" = "master" ] && echo "" || echo "-${BKG_BRANCH:-}")"
+BKG_INDEX_DB=$BKG_ROOT/"$BKG_INDEX".db
+BKG_INDEX_SQL=$BKG_ROOT/"$BKG_INDEX".sql
+BKG_INDEX_DIR=$BKG_ROOT/"$BKG_INDEX"
 BKG_INDEX_TBL_OWN=owners
 BKG_INDEX_TBL_PKG=packages
 BKG_INDEX_TBL_VER=versions
 BKG_MODE=0
-BKG_MAX_LEN=16200
+BKG_MAX_LEN=14400
 BKG_IS_FIRST=false
 BKG_PAGE_ALL=1
 
@@ -662,6 +664,16 @@ clean_owners() {
     awk 'NF' "$1" >"$temp_file" && cp -f "$temp_file" "$1"
     sed -i 's/"//g; s/^[[:space:]]*//;s/[[:space:]]*$//; /^$/d; /^0\/$/d; /^null\/.*/d; /^\(.*\/\)*\(solutions\|sponsors\|enterprise\|premium-support\)$/d' "$1"
     awk '!seen[$0]++' "$1" >"$temp_file" && cp -f "$temp_file" "$1"
+}
+
+missed_owners() {
+	pushd "$BKG_INDEX_DIR" >/dev/null 2>&1 || echo ""
+	cutoff=$(get_BKG BKG_BATCH_FIRST_STARTED)
+	git ls-tree -r --name-only "$BKG_INDEX" ./ \
+		| xargs -r -I filename git log -1 --format='%cs filename' filename \
+		| awk -v cutoff="$cutoff" 'cutoff != "" && $1 < cutoff {print}' \
+		| sort | grep -oP '(?<= )[^/]+(?=/)' | uniq | awk '{print "0/"$1}'
+	popd >/dev/null 2>&1 || echo ""
 }
 
 set +o allexport
