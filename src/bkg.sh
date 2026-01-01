@@ -112,7 +112,7 @@ main() {
     opted_out=$(wc -l <"$BKG_OPTOUT")
     opted_out_before=$(get_BKG BKG_OUT)
     fast_out=$([ "$GITHUB_OWNER" = "ipitio" ] && [ -n "$opted_out_before" ] && (( opted_out_before < opted_out )) && echo "true" || echo "false")
-
+set -x
     if [ "$BKG_MODE" -ne 2 ]; then
         if [ "$BKG_MODE" -eq 0 ] || [ "$BKG_MODE" -eq 3 ]; then
             if $fast_out; then
