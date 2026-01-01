@@ -162,6 +162,9 @@ main() {
                     : >packages_already_updated
                 fi
 
+				# owners that have to be updated
+				bash get.sh "$BKG_INDEX_DIR" "$BKG_INDEX" "$BKG_BATCH_FIRST_STARTED" 2>/dev/null >>"$temp_connections"
+
                 : >all_owners_tu
                 [ ! -s packages_to_update ] || echo "$(
                     awk -F'|' '{print "0/"$2}' packages_to_update
@@ -174,9 +177,6 @@ main() {
 
                     # new connections
                     cat "$temp_connections"
-
-					# owners that have to be updated
-					bash get.sh "$BKG_INDEX_DIR" "$BKG_INDEX" "$BKG_BATCH_FIRST_STARTED" 2>/dev/null
 
                     # connections that have to be updated
                     grep -Fxf all_owners_tu "$connections"
