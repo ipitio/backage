@@ -64,6 +64,7 @@ jobs:
           fileName: "*.zst"
           tarBall: false
           zipBall: false
+          out-file-path: "bkg"
 
       - name: Dry run
         id: update
@@ -80,7 +81,7 @@ jobs:
         if: ${{ steps.update.outputs.updated == '0' }}
         uses: ncipollo/release-action@v1
         with:
-          artifacts: "*.zst"
+          artifacts: "bkg/*.zst"
           bodyFile: "CHANGELOG.md"
           tag: "v${{ steps.date.outputs.tag }}"
           commit: "master"
