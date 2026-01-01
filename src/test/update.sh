@@ -46,7 +46,7 @@ if git ls-remote --exit-code origin "$BKG_INDEX" &>/dev/null; then
     git worktree remove -f "$BKG_INDEX".bak &>/dev/null
     [ -d "$BKG_INDEX".bak ] || rm -rf "$BKG_INDEX".bak
     git worktree move "$BKG_INDEX" "$BKG_INDEX".bak &>/dev/null
-    git fetch origin "$BKG_INDEX"
+    git fetch --depth=1 origin "$BKG_INDEX"
     BKG_IS_FIRST=true
 else
     fd_list=$(find . -type f -o -type d | grep -vE "^\.($|\/(\.git\/*|.*\.md$))")
@@ -54,7 +54,7 @@ else
     git switch --orphan "$BKG_INDEX"
     xargs rm -rf <<<"$fd_list"
     git add .
-    git commit --allow-empty -m "init index"
+    git commit --allow-empty -m "init $BKG_INDEX"
     git push -u origin "$BKG_INDEX"
     git checkout "$([ -n "$GITHUB_BRANCH" ] && echo "$GITHUB_BRANCH" || echo "$BKG_BRANCH")"
 	git stash pop || true
