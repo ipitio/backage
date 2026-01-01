@@ -140,11 +140,6 @@ main() {
                 sort "$connections" | uniq -c | sort -nr | awk '{print $2}' >"$connections".bak
                 mv "$connections".bak "$connections"
 
-				echo "$(
-                    cat "$BKG_OWNERS"
-                    find "$BKG_INDEX_DIR" -mindepth 1 -maxdepth 1 -type d -exec basename {} \; 2>/dev/null | sort -u | awk '{print "0/"$1}'
-                )" >"$BKG_OWNERS"
-
                 : >all_owners_in_db
                 [ ! -s packages_all ] || echo "$(
                     awk -F'|' '{print "0/"$2}' packages_all
