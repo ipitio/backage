@@ -112,7 +112,7 @@ main() {
     opted_out=$(wc -l <"$BKG_OPTOUT")
     opted_out_before=$(get_BKG BKG_OUT)
     fast_out=$([ "$GITHUB_OWNER" = "ipitio" ] && [ -n "$opted_out_before" ] && (( opted_out_before < opted_out )) && echo "true" || echo "false")
-set -x
+
     if [ "$BKG_MODE" -ne 2 ]; then
         if [ "$BKG_MODE" -eq 0 ] || [ "$BKG_MODE" -eq 3 ]; then
             if $fast_out; then
@@ -141,7 +141,14 @@ set -x
                 mv "$connections".bak "$connections"
 
                 echo "$(
-					missed_owners
+					if pushd "$BKG_INDEX_DIR" >/dev/null 2>&1; then
+						git ls-tree -r --name-only "$BKG_INDEX" ./ \
+						| xargs -r -I filename git log -1 --format='%cs filename' filename \
+						| awk -v cutoff="$(get_BKG BKG_BATCH_FIRST_STARTED)" 'cutoff != "" && $1 < cutoff {print}' \
+						| sort | grep -oP '(?<= )[^/]+(?=/)' | uniq | awk '{print "0/"$1}'
+						popd >/dev/null 2>&1 || return
+					fi
+
                     cat "$BKG_OWNERS"
                 )" >"$BKG_OWNERS"
 
