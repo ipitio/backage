@@ -62,7 +62,7 @@ else
 fi
 
 git worktree remove -f "$BKG_INDEX" 2>/dev/null
-git worktree add -f "$BKG_INDEX" "$BKG_INDEX"
+git worktree add --track -f -B "$BKG_INDEX" "$BKG_INDEX" "origin/$BKG_INDEX"
 [[ -d "$BKG_INDEX" || ! -d "$BKG_INDEX".bak ]] || git worktree move "$BKG_INDEX".bak "$BKG_INDEX"
 pushd "$BKG_INDEX" || exit 1
 git reset --hard origin/"$BKG_INDEX"
