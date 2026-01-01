@@ -56,7 +56,7 @@ jobs:
           fileName: "*.zst"
           tarBall: false
           zipBall: false
-          out-file-path: "bkg"
+          out-file-path: ".bkg"
 
       - name: Dry run
         id: update

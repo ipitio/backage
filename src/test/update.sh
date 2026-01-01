@@ -8,20 +8,14 @@
 root="$1"
 [[ -n "$root" && ! "${root:0:2}" =~ -(m|d) ]] && shift || root="."
 [ -d "$root" ] || mkdir -p "$root"
+[ -d "$root/.git" ] || { gh auth status &>/dev/null && gh repo clone "${GITHUB_OWNER:-ipitio}/${GITHUB_REPO:-backage}" "$root"  -- --depth=1 -b "$GITHUB_BRANCH" --single-branch || git clone --depth=1 -b "$GITHUB_BRANCH" --single-branch "https://$([ -n "$GITHUB_TOKEN" ] && echo "$GITHUB_TOKEN@" || echo "")github.com/${GITHUB_OWNER:-ipitio}/${GITHUB_REPO:-backage}.git" "$root"; }
+
+# actions: move db into root
+shopt -s dotglob
+[ ! -d .bkg ] || mv .bkg/* "$root"/
+shopt -u dotglob
+
 pushd "$root" || exit 1
-root="."
-
-if [ ! -d .git ]; then
-	mkdir -p .bkg
-	pushd .bkg || exit 1
-	gh auth status &>/dev/null && gh repo clone "${GITHUB_OWNER:-ipitio}/${GITHUB_REPO:-backage}" "."  -- --depth=1 -b "$GITHUB_BRANCH" --single-branch || git clone --depth=1 -b "$GITHUB_BRANCH" --single-branch "https://$([ -n "$GITHUB_TOKEN" ] && echo "$GITHUB_TOKEN@" || echo "")github.com/${GITHUB_OWNER:-ipitio}/${GITHUB_REPO:-backage}.git" "."
-	popd || exit 1
-	shopt -s dotglob
-	mv .bkg/* .
-	rm -rf .bkg
-	shopt -u dotglob
-fi
-
 pushd src || exit 1
 source bkg.sh
 popd || exit 1
@@ -54,6 +48,7 @@ BKG_INDEX_DB=$BKG_ROOT/"$BKG_INDEX".db
 BKG_INDEX_SQL=$BKG_ROOT/"$BKG_INDEX".sql
 BKG_INDEX_DIR=$BKG_ROOT/"$BKG_INDEX"
 set +o allexport
+set -x
 
 if git ls-remote --exit-code origin "$BKG_INDEX" &>/dev/null; then
     git worktree remove -f "$BKG_INDEX".bak &>/dev/null
