@@ -102,7 +102,7 @@ if git worktree list | grep -q "$BKG_INDEX"; then
     pushd "$BKG_INDEX" || exit 1
     git add .
     git commit -m "$(date -u +%Y-%m-%d)"
-    git push
+    git push --set-upstream origin index
     popd || exit 1
     ! git worktree list | grep -q "$BKG_INDEX".bak || git worktree remove -f "$BKG_INDEX".bak &>/dev/null
 fi
