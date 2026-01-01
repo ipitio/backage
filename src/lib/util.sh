@@ -661,14 +661,4 @@ clean_owners() {
     awk '!seen[$0]++' "$1" >"$temp_file" && cp -f "$temp_file" "$1"
 }
 
-missed_owners() {
-	pushd "$BKG_INDEX_DIR" >/dev/null 2>&1 || echo ""
-	cutoff=$(get_BKG BKG_BATCH_FIRST_STARTED)
-	git ls-tree -r --name-only "$BKG_INDEX" ./ \
-		| xargs -r -I filename git log -1 --format='%cs filename' filename \
-		| awk -v cutoff="$cutoff" 'cutoff != "" && $1 < cutoff {print}' \
-		| sort | grep -oP '(?<= )[^/]+(?=/)' | uniq | awk '{print "0/"$1}'
-	popd >/dev/null 2>&1 || echo ""
-}
-
 set +o allexport
