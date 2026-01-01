@@ -140,9 +140,9 @@ main() {
                 sort "$connections" | uniq -c | sort -nr | awk '{print $2}' >"$connections".bak
                 mv "$connections".bak "$connections"
 
-                echo "$(
-					bash get.sh "$BKG_INDEX_DIR" "$BKG_INDEX" "$BKG_BATCH_FIRST_STARTED" 2>/dev/null
+				echo "$(
                     cat "$BKG_OWNERS"
+                    find "$BKG_INDEX_DIR" -mindepth 1 -maxdepth 1 -type d -exec basename {} \; 2>/dev/null | sort -u | awk '{print "0/"$1}'
                 )" >"$BKG_OWNERS"
 
                 : >all_owners_in_db
@@ -174,6 +174,9 @@ main() {
 
                     # new connections
                     cat "$temp_connections"
+
+					# owners that have to be updated
+					bash get.sh "$BKG_INDEX_DIR" "$BKG_INDEX" "$BKG_BATCH_FIRST_STARTED" 2>/dev/null
 
                     # connections that have to be updated
                     grep -Fxf all_owners_tu "$connections"
