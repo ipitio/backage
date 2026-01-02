@@ -148,17 +148,14 @@ main() {
                 )" | sort -u >all_owners_in_db
                 grep -vFxf all_owners_in_db "$BKG_OWNERS" >owners.tmp
                 mv owners.tmp "$BKG_OWNERS"
-                grep -vFxf all_owners_in_db "$connections" >"$temp_connections"
 
                 if [[ "$pkg_left" == "0" || "${db_size_curr::-4}" == "${db_size_prev::-4}" ]]; then
+					BKG_BATCH_FIRST_STARTED=$today
                     set_BKG BKG_BATCH_FIRST_STARTED "$today"
                     rm -f packages_to_update
                     \cp packages_all packages_to_update
                     : >packages_already_updated
                 fi
-
-				# owners that have to be updated
-				bash get.sh "$BKG_INDEX_DIR" "$BKG_INDEX" "$BKG_BATCH_FIRST_STARTED" 2>/dev/null >>"$temp_connections"
 
                 : >all_owners_tu
                 [ ! -s packages_to_update ] || echo "$(
@@ -167,26 +164,19 @@ main() {
                     awk -F'|' '{print $2}' packages_to_update
                 )" | sort -u >all_owners_tu
 
-                echo "$(
-                    echo "0/$GITHUB_OWNER"
-
-                    # new connections
-                    cat "$temp_connections"
-
-                    # connections that have to be updated
-                    grep -Fxf all_owners_tu "$connections"
-
-                    # requests
-                    cat "$BKG_OWNERS"
-                )" >"$BKG_OWNERS"
+				{
+					! grep -qP "\b$GITHUB_OWNER\b" all_owners_tu || echo "0/$GITHUB_OWNER"
+					grep -vFxf all_owners_in_db "$connections"
+					grep -Fxf all_owners_tu "$connections"
+				} >"$temp_connections"
 
                 rm -f all_owners_in_db all_owners_tu
+				clean_owners "$temp_connections"
                 clean_owners "$BKG_OWNERS"
-                len_conn=$(wc -l <"$connections")
-                head -n $(( len_conn < 1000 ? len_conn + 1000 : len_conn * 3 / 2 )) "$BKG_OWNERS" | env_parallel --lb save_owner
-                awk -F'|' '{print $1"/"$2}' packages_to_update | sort -uR 2>/dev/null | head -n1000 | env_parallel --lb save_owner
-                parallel "sed -i '\,^{}$,d' $BKG_OWNERS" ::: "$(sed 's/"/\\"/g' "$connections")"
-                sed -i '/^0\//d' "$BKG_OWNERS"
+				# self > stars > 1000 submitted > stale
+				cat "$temp_connections" | env_parallel --lb save_owner
+                head -n 1000 "$BKG_OWNERS" | env_parallel --lb save_owner
+                bash get.sh "$BKG_INDEX_DIR" "$BKG_INDEX" "$BKG_BATCH_FIRST_STARTED" 2>/dev/null | env_parallel --lb save_owner
                 set_BKG BKG_DIFF "$db_size_curr"
             fi
         else
