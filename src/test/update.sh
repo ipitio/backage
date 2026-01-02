@@ -8,7 +8,7 @@
 root="$1"
 [[ -n "$root" && ! "${root:0:2}" =~ -(m|d) ]] && shift || root="."
 [ -d "$root" ] || mkdir -p "$root"
-[ -d "$root/.git" ] || { gh auth status &>/dev/null && gh repo clone "${GITHUB_OWNER:-ipitio}/${GITHUB_REPO:-backage}" "$root"  -- --depth=1 -b "$GITHUB_BRANCH" --single-branch || git clone --depth=1 -b "$GITHUB_BRANCH" --single-branch "https://$([ -n "$GITHUB_TOKEN" ] && echo "$GITHUB_TOKEN@" || echo "")github.com/${GITHUB_OWNER:-ipitio}/${GITHUB_REPO:-backage}.git" "$root"; }
+[ -d "$root/.git" ] || { gh auth status &>/dev/null && gh repo clone "${GITHUB_OWNER:-ipitio}/${GITHUB_REPO:-backage}" "$root"  -- --depth=1 -b "$GITHUB_BRANCH" --single-branch || git clone --depth=1 -b "$GITHUB_BRANCH" --single-branch "https://github.com/${GITHUB_OWNER:-ipitio}/${GITHUB_REPO:-backage}.git" "$root"; }
 
 # actions: move db into root
 shopt -s dotglob
@@ -24,17 +24,16 @@ popd || exit 1
 [ -n "$GITHUB_TOKEN" ] || GITHUB_TOKEN=$(if git config --get remote.origin.url | grep -q '@'; then grep -oP '(?<=://)[^@]+'; else echo ""; fi)
 [ -n "$GITHUB_TOKEN" ] || ! gh auth status &>/dev/null || GITHUB_TOKEN=$(gh auth token)
 [ -n "$GITHUB_ACTOR" ] || GITHUB_ACTOR="${GITHUB_OWNER:-ipitio}"
-git config --global user.name "${GITHUB_ACTOR}"
-git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
-git config --global --get-regexp --name-only '^url\.https://.+\.insteadof' | xargs -n1 git config --unset-all 2>/dev/null
-git config --global url.https://"${GITHUB_TOKEN}"@github.com/.insteadOf https://github.com/
-git config --global --add safe.directory "$(pwd)"
-git config --global core.sharedRepository all
+git config user.name "${GITHUB_ACTOR}"
+git config user.email "${GITHUB_ACTOR}@users.noreply.github.com"
+git config credential.helper "!f() { echo username=${GITHUB_ACTOR}; echo password=${GITHUB_TOKEN}; }; f"
+git config --add safe.directory "$(pwd)"
+git config core.sharedRepository all
 
 # performance
-git config --global core.fsmonitor true
-git config --global core.untrackedcache true
-git config --global feature.manyFiles true
+git config core.fsmonitor true
+git config core.untrackedcache true
+git config feature.manyFiles true
 git update-index --index-version 4
 
 sudonot chmod -R a+rwX .
