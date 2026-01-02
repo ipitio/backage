@@ -29,7 +29,6 @@ main() {
     local return_code=0
     local opted_out
     local opted_out_before
-    local len_conn
     connections=$(mktemp) || exit 1
     temp_connections=$(mktemp) || exit 1
 
@@ -146,6 +145,7 @@ main() {
                     awk -F'|' '{print $1"/"$2}' packages_all
                     awk -F'|' '{print $2}' packages_all
                 )" | sort -u >all_owners_in_db
+				clean_owners "$BKG_OWNERS"
                 grep -vFxf all_owners_in_db "$BKG_OWNERS" >owners.tmp
                 mv owners.tmp "$BKG_OWNERS"
 
@@ -164,20 +164,16 @@ main() {
                     awk -F'|' '{print $2}' packages_to_update
                 )" | sort -u >all_owners_tu
 
-				{
+				{ # self > stars > some submitted > stale
 					! grep -qP "\b$GITHUB_OWNER\b" all_owners_tu || echo "0/$GITHUB_OWNER"
 					grep -vFxf all_owners_in_db "$connections"
 					grep -Fxf all_owners_tu "$connections"
-				} >"$temp_connections"
+					head -n 1000 "$BKG_OWNERS"
+					bash get.sh "$BKG_INDEX_DIR" "$BKG_INDEX" "$BKG_BATCH_FIRST_STARTED" 2>/dev/null
+				} | env_parallel --lb -k save_owner
 
-                rm -f all_owners_in_db all_owners_tu
-				clean_owners "$temp_connections"
-                clean_owners "$BKG_OWNERS"
-				# self > stars > 1000 submitted > stale
-				cat "$temp_connections" | env_parallel --lb save_owner
-                head -n 1000 "$BKG_OWNERS" | env_parallel --lb save_owner
-                bash get.sh "$BKG_INDEX_DIR" "$BKG_INDEX" "$BKG_BATCH_FIRST_STARTED" 2>/dev/null | env_parallel --lb save_owner
-                set_BKG BKG_DIFF "$db_size_curr"
+				rm -f all_owners_in_db all_owners_tu
+				set_BKG BKG_DIFF "$db_size_curr"
             fi
         else
             save_owner "$GITHUB_OWNER"
