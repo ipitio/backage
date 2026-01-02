@@ -189,7 +189,7 @@ main() {
         [ -d "$BKG_INDEX_DIR" ] || mkdir "$BKG_INDEX_DIR"
 
         if [[ "$GITHUB_OWNER" = "ipitio" && "$(git branch --show-current)" = "master" ]]; then
-            get_BKG_set BKG_OWNERS_QUEUE | env_parallel --lb update_owner
+            get_BKG_set BKG_OWNERS_QUEUE | env_parallel --lb -k update_owner
         else # typically fewer owners
             run_parallel update_owner "$(get_BKG_set BKG_OWNERS_QUEUE)"
         fi
