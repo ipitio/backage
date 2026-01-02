@@ -164,6 +164,13 @@ main() {
                     awk -F'|' '{print $2}' packages_to_update
                 )" | sort -u >all_owners_tu
 
+				echo "new conn"
+				grep -vFxf all_owners_in_db "$connections"
+				echo "stale conn"
+				grep -Fxf all_owners_tu "$connections"
+				echo "stale all"
+				bash get.sh "$BKG_INDEX_DIR" "$BKG_INDEX" "$BKG_BATCH_FIRST_STARTED"
+
 				{ # self > stars > some submitted > stale
 					! grep -qP "\b$GITHUB_OWNER\b" all_owners_tu || echo "0/$GITHUB_OWNER"
 					grep -vFxf all_owners_in_db "$connections"
