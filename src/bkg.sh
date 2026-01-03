@@ -152,26 +152,30 @@ main() {
                     : >packages_already_updated
                 fi
 
-                awk -F'|' '{print $2}' packages_to_update | awk '!seen[$0]++' >all_owners_tu
-				find "$BKG_INDEX_DIR" -mindepth 1 -maxdepth 1 -type d -exec basename {} \; 2>/dev/null | sort -u >complete_owners
-				echo "new conn"
-				grep -vFxf all_owners_in_db "$connections"
-				echo "missing all"
-				grep -vFxf all_owners_in_db complete_owners
-				echo "stale conn"
-				grep -Fxf all_owners_tu "$connections"
-				echo "stale all"
-				grep -vFxf "$connections" all_owners_tu
+                awk -F'|' '{print $2}' packages_to_update | awk '!seen[$0]++' >all_owners_tu.tmp
+				find "$BKG_INDEX_DIR" -mindepth 1 -maxdepth 1 -type d -exec basename {} \; 2>/dev/null | sort -u >complete_owners.tmp
+				grep -vFxf "$connections" all_owners_tu.tmp >all_owners_tu
+				grep -vFxf "$connections" complete_owners.tmp >complete_owners
 
-				{ # self > stars > some submitted > stale
+				{ # self > new stars > missing > stale stars > rest shuffled
 					! grep -qP "\b$GITHUB_OWNER\b" all_owners_tu || echo "0/$GITHUB_OWNER"
 					grep -vFxf all_owners_in_db "$connections"
+					grep -vFxf all_owners_in_db complete_owners
 					grep -Fxf all_owners_tu "$connections"
-					head -n 1000 "$BKG_OWNERS"
-					bash get.sh "$BKG_INDEX_DIR" "$BKG_INDEX" "$BKG_BATCH_FIRST_STARTED" 2>/dev/null
+					awk 'BEGIN { srand() }
+						NR==FNR { base[++n] = $0; next }
+						{ slot = int(rand() * (n + 1))
+						  ins[slot] = (ins[slot] ? ins[slot] ORS $0 : $0)
+						}
+						END {
+							for (i = 0; i <= n; i++) {
+								if (ins[i] != "") print ins[i]
+								if (i < n) print base[i + 1]
+							}
+						}' all_owners_tu <(head -n 1000 "$BKG_OWNERS")
 				} | env_parallel --lb save_owner
 
-				rm -f all_owners_in_db all_owners_tu
+				rm -f all_owners_in_db all_owners_tu complete_owners
 				set_BKG BKG_DIFF "$db_size_curr"
             fi
         else
