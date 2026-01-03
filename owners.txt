@@ -1,4 +1,3 @@
-1396746/tamu-vscl
 1396605/terranb
 1396702/tonny-zhang
 1396651/tonywongk
@@ -37,8 +36,6 @@
 1423659/Alex-ZI
 1425390/Ayushorg
 1428461/ABAgile
-1430388/AP-CS
-1430484/14100
 1430498/8pm-be
 1432914/AMC-TUT
 1434732/3EBC
@@ -141,7 +138,6 @@
 1434872/daniel-wilson
 1434835/danpollard
 1436639/datadrivenjournalism
-1435830/davinciez
 1434807/dbakha
 1434799/delta666
 1434798/derboehsevincent
@@ -187,7 +183,6 @@
 1435972/mpdmal
 1434881/mrki
 1434806/mxtbcca
-1436790/nanoblocks
 1437068/nerdhive
 1434878/ninu-deploy
 1434858/njenia
@@ -202,7 +197,6 @@
 1434868/ppourmand
 1437092/praisefm
 1436051/pyngo
-1434804/raymond-isaac
 1434795/realeuo
 1435349/religionnews
 1434822/rguedes
@@ -228,7 +222,6 @@
 1436648/ytstenut
 1438047/100Plus
 1438087/0x0101x0
-1439977/3EdgeTechnologies
 1440029/282708579
 1441096/31337-team
 1441423/ASU-CompSci
@@ -295,7 +288,6 @@
 1507526/2011413125
 1507528/AllenYao
 1507607/Alxgor
-1507775/AdrianNabereit
 1507800/AlexLovP
 1510013/AugustFourth
 1511395/54North
@@ -306,7 +298,6 @@
 1510080/Aliaman76
 1512072/AntennaInternational
 1510074/AtifChaudhry
-1512594/BEST-FLAN-EVER
 1511166/BelectricITS
 1511960/Buckeyecocoa
 1511554/Calpano
@@ -327,7 +318,6 @@
 1510941/LesPoneys
 1510032/LesignButure
 1510634/LimeSoda
-1510116/McTingler
 1513176/Melati
 1512881/Microsoft-Web
 1510107/MichaelMunchin
@@ -426,7 +416,6 @@
 1510883/millenoki
 1510060/mkelleyjr
 1510539/momoim
-1511160/mozillahispano
 1510078/mpeutz
 1510045/muneebpv
 1510017/nadeemkhan
@@ -442,14 +431,12 @@
 1511325/playgen
 1512031/pragmapool
 1513215/psget
-1513376/psu-oit-cis-unixteam
 1510112/pwm1234
 1511339/railsarena
 1510052/rodrow
 1510095/s8ndyleung
 1510024/seemasjustin
 1512944/simplicityio
-1510085/sinergy
 1510093/skepfish
 1510064/smbcomputers
 1510035/smbocmputers
@@ -474,7 +461,6 @@
 1510597/verticallife
 1512782/voidlinux
 1510065/vrushank-snippets
-1510086/vrushankpb
 1510050/wenjian
 1510016/whoever81
 1510015/willian12345
@@ -525,7 +511,6 @@
 1537539/FundingOptions
 1537696/Fleming-College
 1537625/Gensler
-1537617/GuimieSoft
 1536768/HackCoMO
 1536100/HanzGeeratz
 1536856/IFAEDI
@@ -570,7 +555,6 @@
 1536091/ashagi
 1536123/ayaniv
 1536078/bakkmyr
-1536060/baturdem
 1536089/be2z
 1536088/bhupendra27
 1536069/bigthorzj
@@ -618,7 +602,6 @@
 1536059/guoyuanzhen321
 1536132/gvogets
 1536087/hansso90
-1536103/hasanajsh
 1536105/hpetersen
 1538309/hsbp
 1536155/jaeho-kim
@@ -630,7 +613,6 @@
 1536098/kjersva
 1539155/knovce
 1536111/konri1990
-1538478/koradomi
 1536148/krishnabanala
 1536393/londonwebstandards
 1536122/mankeyl
@@ -764,7 +746,6 @@
 1555259/arcadiy
 1555246/ares05
 1555992/bdkdev
-1555810/baixing
 1555235/armani77
 1556288/belsouthsoccer
 1557284/bertramdev
@@ -837,7 +818,6 @@
 1555270/mosessaur
 1555201/moyashiparty
 1555220/mrk3767
-1555300/mrladeia
 1555214/mvybz
 1555215/nattsw
 1555211/ncordin
@@ -849,7 +829,6 @@
 1557458/paiscript
 1555281/parshu
 1557277/passively
-1557665/payutc
 1555210/phezeronix
 1555223/pistruiatul
 1557102/pixelbit
@@ -902,13 +881,11 @@
 1563682/AbhishekSB
 1563790/55444
 1563823/Aretove
-1567164/BaiduQA
 1568205/AntizKinvey
 1568216/0-1
 1570419/AliasLLC
 1573747/89grad
 1575516/Agil-AZ
-1575544/Avance
 1575651/AllanEngland
 1575683/21seba11
 1575760/AnselmG
@@ -922,7 +899,6 @@
 1582784/AMHOL
 1582865/Atata69
 1582956/12msw-thw
-1583023/AlKult
 1583044/AlphaZed
 1585755/Beatrobo
 1588570/42northgroup
@@ -941,8 +917,6 @@
 1588584/CodePinata
 1588422/Comp315-group
 1585761/CrazyJvm
-1587393/DarkmistGaming
-1587429/DolemLabs
 1585824/ElegantCloud
 1587986/EncoreHollywood
 1586807/FINsauna
@@ -957,7 +931,6 @@
 1585760/IgnitionInt
 1586483/IndianECommerceDevelopers
 1585775/JLagares11
-1585795/Kaschman
 1587324/Laowai
 1587400/KestrelCluster
 1588126/LiftProjects
@@ -966,8 +939,6 @@
 1586289/Memolife
 1585802/Marathonman123
 1585846/Million-Miles
-1585763/MrCharlieJ
-1585847/Nakrull
 1587864/NewtonRunning
 1585829/Nr4ein
 1585822/Persistent
@@ -996,7 +967,6 @@
 1587078/bitrig
 1587511/boston-digital
 1585813/bradiqm
-1588292/bromleyeng
 1585803/briverac
 1587357/brooklyncentral
 1585799/brooklet
