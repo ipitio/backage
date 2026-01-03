@@ -96,9 +96,9 @@ main() {
         date text not null,
         primary key (owner_id, package, date)
     ); pragma auto_vacuum = full;"
-    sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, repo, package from '$BKG_INDEX_TBL_PKG' where date >= '$BKG_BATCH_FIRST_STARTED';" | sort -u >packages_already_updated
+    sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, repo, package from '$BKG_INDEX_TBL_PKG' where date < '$BKG_BATCH_FIRST_STARTED' order by date asc;" | sort -u >packages_to_update
+	sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, repo, package from '$BKG_INDEX_TBL_PKG' where date >= '$BKG_BATCH_FIRST_STARTED';" | sort -u >packages_already_updated
     sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, repo, package from '$BKG_INDEX_TBL_PKG';" | sort -u >packages_all
-    comm -13 packages_already_updated packages_all >packages_to_update
     pkg_left=$(wc -l <packages_to_update)
     echo "all: $(wc -l <packages_all)"
     echo "done: $(wc -l <packages_already_updated)"
@@ -139,12 +139,7 @@ main() {
                 sort "$connections" | uniq -c | sort -nr | awk '{print $2}' >"$connections".bak
                 mv "$connections".bak "$connections"
 
-                : >all_owners_in_db
-                [ ! -s packages_all ] || echo "$(
-                    awk -F'|' '{print "0/"$2}' packages_all
-                    awk -F'|' '{print $1"/"$2}' packages_all
-                    awk -F'|' '{print $2}' packages_all
-                )" | sort -u >all_owners_in_db
+                awk -F'|' '{print $2}' packages_all >all_owners_in_db
 				clean_owners "$BKG_OWNERS"
                 grep -vFxf all_owners_in_db "$BKG_OWNERS" >owners.tmp
                 mv owners.tmp "$BKG_OWNERS"
@@ -157,19 +152,13 @@ main() {
                     : >packages_already_updated
                 fi
 
-                : >all_owners_tu
-                [ ! -s packages_to_update ] || echo "$(
-                    awk -F'|' '{print "0/"$2}' packages_to_update
-                    awk -F'|' '{print $1"/"$2}' packages_to_update
-                    awk -F'|' '{print $2}' packages_to_update
-                )" | sort -u >all_owners_tu
-
+                awk -F'|' '{print $2}' packages_to_update >all_owners_tu
 				echo "new conn"
 				grep -vFxf all_owners_in_db "$connections"
 				echo "stale conn"
 				grep -Fxf all_owners_tu "$connections"
 				echo "stale all"
-				bash get.sh "$BKG_INDEX_DIR" "$BKG_INDEX" "$BKG_BATCH_FIRST_STARTED"
+				grep -vFxf "$connections" all_owners_tu
 
 				{ # self > stars > some submitted > stale
 					! grep -qP "\b$GITHUB_OWNER\b" all_owners_tu || echo "0/$GITHUB_OWNER"
