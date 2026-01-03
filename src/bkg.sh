@@ -97,8 +97,8 @@ main() {
         primary key (owner_id, package, date)
     ); pragma auto_vacuum = full;"
 	sqlite3 "$BKG_INDEX_DB" "select distinct owner_id, owner, repo, package from '$BKG_INDEX_TBL_PKG' where date >= '$BKG_BATCH_FIRST_STARTED';" >packages_already_updated
-	sqlite3 "$BKG_INDEX_DB" "select distinct owner_id, owner, repo, package from '$BKG_INDEX_TBL_PKG';" >packages_all
-	comm -13 packages_already_updated packages_all >packages_to_update
+	sqlite3 "$BKG_INDEX_DB" "select distinct owner_id, owner, repo, package from '$BKG_INDEX_TBL_PKG' order by date asc;" >packages_all
+	grep -vFxf packages_already_updated packages_all >packages_to_update
 	pkg_left=$(wc -l <packages_to_update)
 	echo "all: $(wc -l <packages_all)"
 	echo "done: $(wc -l <packages_already_updated)"
