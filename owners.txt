@@ -1,4 +1,3 @@
-1396684/takahara
 1396746/tamu-vscl
 1396605/terranb
 1396702/tonny-zhang
@@ -29,9 +28,7 @@
 1410514/ACMCMU
 1413128/3DGTL
 1414484/0xC3
-1414517/10kwa
 1417435/ABRHS-Video-Game-Development-Club
-1418513/AURIN
 1420540/100yrs
 1422710/22seeds
 1422719/Abhay90
@@ -39,13 +36,11 @@
 1423580/81-50-3631-0637-TO-TALK
 1423659/Alex-ZI
 1425390/Ayushorg
-1426568/3111H-Focus
 1428461/ABAgile
 1430388/AP-CS
 1430484/14100
 1430498/8pm-be
 1432914/AMC-TUT
-1434670/8pen
 1434732/3EBC
 1434765/6thstreet1
 1434782/AllenHalsted
@@ -54,7 +49,6 @@
 1436952/BrokenGravity
 1434821/BPGRobot
 1436086/CapCaval
-1436358/Compassion
 1434877/Cindygo
 1435053/Dinamundo
 1434800/Distie
@@ -95,7 +89,6 @@
 1435255/RSquaredSoftware
 1434786/RandomFeatures
 1434972/Rational-Interaction
-1435083/Savings
 1436844/SchillerConsulting
 1435738/SoftwareDevelopmentCentre
 1435731/StudentsDomainRegistry
@@ -115,7 +108,6 @@
 1436571/almende
 1434857/andrearipamonti
 1434837/applied-abstraction
-1434831/arl1nd
 1434817/asherswing
 1434815/audiaganovic
 1435647/axomi
@@ -143,7 +135,6 @@
 1434847/craiggephart
 1434880/cswoyer
 1434887/cwang-sugar
-1437096/cxdotxss
 1434852/cyuseff
 1435650/danbroadley
 1434859/dandymich
@@ -189,7 +180,6 @@
 1435184/mcedit
 1434853/mcpelletier
 1434866/miguelisucorp
-1434842/misteroo
 1434827/mint7
 1434789/moneyconcepts
 1434934/moq
@@ -211,7 +201,6 @@
 1434856/pixable-deploy
 1434868/ppourmand
 1437092/praisefm
-1434838/prostohz
 1436051/pyngo
 1434804/raymond-isaac
 1434795/realeuo
@@ -265,7 +254,6 @@
 1457403/ASNS
 1458658/AXIS2012
 1458678/23kstudios
-1461346/42qu
 1463606/1800postcards
 1463677/4Liamk
 1463705/AfraidOfScaryBats
@@ -323,7 +311,6 @@
 1511960/Buckeyecocoa
 1511554/Calpano
 1510057/Chubbylilbuddy
-1511031/Cinode-Labs
 1512870/CirrusMio
 1510601/CodeSick
 1512668/CodeSimples
@@ -353,7 +340,6 @@
 1510088/RMelnikas
 1511178/RidiculousPower
 1511948/Supintel2012
-1510069/Thor127
 1510992/Toppsolutions
 1512096/Tripitch-Mediacreatives
 1510111/WTFUSAY909
@@ -384,7 +370,6 @@
 1511467/brnkly
 1512417/chrprtest
 1512323/cloudarena
-1510021/clzzclzz
 1510618/colama
 1510033/conkey33
 1510102/cosmogreco
@@ -402,7 +387,6 @@
 1513029/disekt
 1510051/dritterman
 1510025/dwi001
-1510029/eddieschneider
 1510576/elfeon
 1510110/ethan-th
 1510469/euruko
@@ -437,7 +421,6 @@
 1512985/lansing-makers-network
 1510091/katafr
 1511838/linux-test-project
-1510087/leemh5544
 1510115/lyj289
 1512630/linuxmuster
 1510883/millenoki
@@ -462,7 +445,6 @@
 1513376/psu-oit-cis-unixteam
 1510112/pwm1234
 1511339/railsarena
-1510082/rhalas
 1510052/rodrow
 1510095/s8ndyleung
 1510024/seemasjustin
@@ -499,7 +481,6 @@
 1511686/xiaomen
 1512387/zaizi
 1510063/zanchu
-1510099/zhfally520
 1514874/AMDISX
 1514943/2dotsInc
 1515025/AAXIS
@@ -521,7 +502,6 @@
 1523706/123zar
 1523738/619ist
 1524834/BaliAutomation
-1524922/23-Crandall
 1527502/ArtworkCloud
 1530272/1stEdge
 1532307/14islands
@@ -541,7 +521,6 @@
 1537101/CirclesPeople
 1536830/Cierant
 1536125/CroixANI
-1536290/Deckmatt
 1536115/DimaN-RuSlan
 1537539/FundingOptions
 1537696/Fleming-College
@@ -564,7 +543,6 @@
 1536064/Nemanja100
 1538769/NextClimate
 1537496/NexusResearchGroup
-1536734/NorwegianBusinessSchool
 1536973/RackTables
 1538350/RogueGenius
 1536067/SOGI-Ubuntu
@@ -629,7 +607,6 @@
 1537651/edu4
 1536159/enanvad
 1536062/endstern
-1536097/eonyoung
 1536158/epplerc
 1536162/estingala
 1539306/firadio
@@ -665,7 +642,6 @@
 1536096/misha-at-genestack
 1536131/mklunker
 1537561/mobiManagellc
-1536144/mosibasad
 1538317/netmarkllc
 1536523/ngs-doo
 1536063/oinkgms
@@ -703,13 +679,11 @@
 1538081/tdw-grupo-yfb
 1536134/teemuroos
 1536640/telldus
-1537872/tool2team
 1538058/tradenetservicessrl
 1538676/tuftandneedle
 1537483/twakooltd
 1538578/ubhacking
 1536093/udzhou
-1536152/vasdev04
 1536143/venki58
 1536061/vfuente
 1536133/void-phoenix
@@ -832,7 +806,6 @@
 1556189/healthonnet
 1556821/innovatiasoftware
 1555269/imkr
-1555244/jaclarke83
 1555234/jack-gift
 1555280/jeagudelo
 1555286/jeshapir
@@ -878,7 +851,6 @@
 1557277/passively
 1557665/payutc
 1555210/phezeronix
-1555763/phpne
 1555223/pistruiatul
 1557102/pixelbit
 1558138/plus3
@@ -886,7 +858,6 @@
 1557169/quattor
 1555205/qwertyas
 1555265/raju08
-1557119/rbtech
 1557620/ridluser1
 1557724/rundavoo
 1555515/s4k
@@ -917,7 +888,6 @@
 1555249/vossler
 1555197/webgenie
 1555230/wthothw
-1555229/wudan
 1555292/yongyic
 1558148/zaah
 1556194/zencart-ja
@@ -984,7 +954,6 @@
 1585756/Gadwynllas
 1585791/Hendricks266
 1585854/HelixoidLLC
-1587636/Henlie
 1585760/IgnitionInt
 1586483/IndianECommerceDevelopers
 1585775/JLagares11
