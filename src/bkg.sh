@@ -96,9 +96,9 @@ main() {
         date text not null,
         primary key (owner_id, package, date)
     ); pragma auto_vacuum = full;"
-    sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, repo, package from '$BKG_INDEX_TBL_PKG' where date < '$BKG_BATCH_FIRST_STARTED' order by date asc;" | sort -u >packages_to_update
-	sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, repo, package from '$BKG_INDEX_TBL_PKG' where date >= '$BKG_BATCH_FIRST_STARTED';" | sort -u >packages_already_updated
-    sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, repo, package from '$BKG_INDEX_TBL_PKG';" | sort -u >packages_all
+    sqlite3 "$BKG_INDEX_DB" "select distinct owner_id, owner, repo, package from '$BKG_INDEX_TBL_PKG' where date < '$BKG_BATCH_FIRST_STARTED' order by date asc;" >packages_to_update
+	sqlite3 "$BKG_INDEX_DB" "select distinct owner_id, owner, repo, package from '$BKG_INDEX_TBL_PKG' where date >= '$BKG_BATCH_FIRST_STARTED';" >packages_already_updated
+    sqlite3 "$BKG_INDEX_DB" "select distinct owner_id, owner, repo, package from '$BKG_INDEX_TBL_PKG';" >packages_all
     pkg_left=$(wc -l <packages_to_update)
     echo "all: $(wc -l <packages_all)"
     echo "done: $(wc -l <packages_already_updated)"
@@ -152,9 +152,12 @@ main() {
                     : >packages_already_updated
                 fi
 
-                awk -F'|' '{print $2}' packages_to_update >all_owners_tu
+                awk -F'|' '{print $2}' packages_to_update | awk '!seen[$0]++' >all_owners_tu
+				find "$BKG_INDEX_DIR" -mindepth 1 -maxdepth 1 -type d -exec basename {} \; 2>/dev/null | sort -u >complete_owners
 				echo "new conn"
 				grep -vFxf all_owners_in_db "$connections"
+				echo "missing all"
+				grep -vFxf all_owners_in_db complete_owners
 				echo "stale conn"
 				grep -Fxf all_owners_tu "$connections"
 				echo "stale all"
