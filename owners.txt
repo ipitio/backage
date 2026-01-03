@@ -1,8 +1,6 @@
-1396634/taikoo
 1396684/takahara
 1396746/tamu-vscl
 1396605/terranb
-1398167/thecodeag
 1396702/tonny-zhang
 1396651/tonywongk
 1397571/trilbymail
@@ -89,7 +87,6 @@
 1435711/Nike-Inc
 1435381/OOKB
 1434912/OpenFlock
-1435216/ParkingLotB
 1434820/Pepper5
 1435141/ProjectC
 1434796/PuNkYBoY
@@ -162,7 +159,6 @@
 1434802/drdelambre
 1434810/efox2001
 1434791/ekstinehickory
-1436044/eneongroup
 1436657/epartment
 1436557/essentialkaos
 1435667/estilowebnet
@@ -171,7 +167,6 @@
 1434825/hjschaeffer
 1437063/hyenaDev
 1436025/ideacreation
-1437028/itcgames
 1434833/jamesdemello
 1434808/jeremysmith1
 1434849/jettenrules
@@ -186,7 +181,6 @@
 1434844/khmaies
 1435313/kinishi
 1434840/klape
-1434819/kparthiban
 1436630/lounaspaikka
 1434846/lexmosolov
 1434813/luism20
@@ -224,7 +218,6 @@
 1435349/religionnews
 1434822/rguedes
 1434826/rpolasek
-1434886/sega1601
 1437074/senseworldwide
 1434998/shao-zhu7069
 1434829/shelakel
@@ -242,7 +235,6 @@
 1434845/ukrorion
 1436990/uspublicsafety
 1434843/wrecck
-1435601/wwvx13
 1434882/xelat
 1436648/ytstenut
 1438047/100Plus
@@ -315,7 +307,6 @@
 1507526/2011413125
 1507528/AllenYao
 1507607/Alxgor
-1507712/87borja
 1507775/AdrianNabereit
 1507800/AlexLovP
 1510013/AugustFourth
@@ -324,7 +315,6 @@
 1512024/AGILAD
 1512907/ASYLUMSERVE-COMMUNICATIONS
 1510104/Aaronaught
-1512378/AmericanMediaInc
 1510080/Aliaman76
 1512072/AntennaInternational
 1510074/AtifChaudhry
@@ -363,7 +353,6 @@
 1510088/RMelnikas
 1511178/RidiculousPower
 1511948/Supintel2012
-1512676/TeleSign
 1510069/Thor127
 1510992/Toppsolutions
 1512096/Tripitch-Mediacreatives
@@ -443,7 +432,6 @@
 1510041/jmechler
 1510022/jonto24
 1510047/jrtracing
-1510113/jrupert
 1510067/karnick
 1510159/karrainc
 1512985/lansing-makers-network
@@ -474,7 +462,6 @@
 1513376/psu-oit-cis-unixteam
 1510112/pwm1234
 1511339/railsarena
-1510070/ranahammad
 1510082/rhalas
 1510052/rodrow
 1510095/s8ndyleung
@@ -546,7 +533,6 @@
 1537639/ActionSprout
 1536606/AkzoNobel
 1536161/AlexMunro
-1537813/Armada-Azteca
 1538511/AskUbuntu
 1538986/BTP400
 1536092/BorisFR
@@ -601,7 +587,6 @@
 1536076/agent1987
 1536160/aglioeolio
 1536066/ajstiefermann
-1537757/amsrb
 1536101/apandays
 1537097/assettv
 1536091/ashagi
@@ -633,7 +618,6 @@
 1538495/dayton-dynamic
 1536163/ddsmes
 1536081/debonatis
-1536075/dhruvbhatz
 1539555/dianping
 1536073/diecastheroes
 1538894/digitalworkbox
@@ -753,7 +737,6 @@
 1555193/1bh
 1555247/ALEXTHENINJA007
 1558004/Ardroid
-1556509/BeatsonLab-MicrobialGenomics
 1557018/AgenciaHive
 1555231/BentleyThomas
 1556932/CaoPeng
@@ -851,7 +834,6 @@
 1555269/imkr
 1555244/jaclarke83
 1555234/jack-gift
-1555278/jatin012
 1555280/jeagudelo
 1555286/jeshapir
 1555216/josevale
@@ -867,7 +849,6 @@
 1555204/langcazhe
 1555922/luxoomcn
 1555293/lzxlk
-1555252/mag0716
 1555203/maplewi
 1555239/masterit3000
 1555241/mattPeloquin
@@ -908,7 +889,6 @@
 1557119/rbtech
 1557620/ridluser1
 1557724/rundavoo
-1555218/rxbit
 1555515/s4k
 1555285/sachinpachori
 1555277/sahitya2109
@@ -965,7 +945,6 @@
 1575838/AlSkubiy
 1575875/Abottz
 1575961/ArieDeelen
-1579011/ConnectMedia
 1580055/13bits
 1580105/Adrian-S
 1582685/AgileReasoning
