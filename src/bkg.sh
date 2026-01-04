@@ -156,11 +156,17 @@ main() {
 				fi
 
 				awk -F'|' '{print $2}' packages_to_update | awk '!seen[$0]++' >all_owners_tu.tmp
-				find "$BKG_INDEX_DIR" -mindepth 1 -maxdepth 1 -type d -exec basename {} \; 2>/dev/null | sort -u >complete_owners.tmp
+				git -C "$BKG_INDEX_DIR" log --name-only --pretty=format:%ct -- . | awk '
+					/^[0-9]+$/ { ts=$0; next }     # commit timestamp line
+					NF==0 { next }                 # skip blanks
+					index($0,"/")==0 { next }      # skip root-level files
+					{ split($0,a,"/"); d=a[1]; if(!(d in seen)) seen[d]=ts }
+					END { for(d in seen) printf "%s %s\n", seen[d], d }
+				' | sort -n | cut -d' ' -f2- >complete_owners.tmp
 				grep -vFxf "$connections" all_owners_tu.tmp >all_owners_tu
 				grep -vFxf "$connections" complete_owners.tmp >complete_owners
 
-				{ # self > new stars > missing > stale stars > rest shuffled
+				{ # self > stars (new) > missing > stars (stale) > request > rest (new+stale shuffled)
 					! grep -qP "\b$GITHUB_OWNER\b" all_owners_tu || echo "0/$GITHUB_OWNER"
 					grep -vFxf all_owners_in_db "$connections"
 					grep -vFxf all_owners_in_db complete_owners
@@ -179,7 +185,7 @@ main() {
 								if (ins[i] != "") print ins[i]
 								if (i < n) print base[i + 1]
 							}
-						}' all_owners_tu <(head -n 1000 "$BKG_OWNERS")
+					}' all_owners_tu <(head -n 1000 "$BKG_OWNERS")
 				} | env_parallel --lb save_owner
 
 				rm -f all_owners_in_db all_owners_tu complete_owners
