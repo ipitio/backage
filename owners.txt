@@ -1,4 +1,3 @@
-1397679/uniplaces
 1397698/upfrontsoftware
 1396653/vinhto
 1396659/viscerah
@@ -23,7 +22,6 @@
 1417435/ABRHS-Video-Game-Development-Club
 1420540/100yrs
 1422710/22seeds
-1422719/Abhay90
 1423543/ActiveStep
 1423580/81-50-3631-0637-TO-TALK
 1423659/Alex-ZI
@@ -60,7 +58,6 @@
 1435077/KartingCoach
 1434797/Krishnab
 1436050/LangExt
-1434876/Kuraokami
 1436035/MLSDev
 1436848/Manacou
 1434906/McMillinConstruction
@@ -121,7 +118,6 @@
 1436129/coub
 1434855/cpalkar
 1434847/craiggephart
-1434880/cswoyer
 1434887/cwang-sugar
 1434852/cyuseff
 1435650/danbroadley
@@ -183,7 +179,6 @@
 1434868/ppourmand
 1437092/praisefm
 1436051/pyngo
-1434795/realeuo
 1435349/religionnews
 1434822/rguedes
 1434826/rpolasek
@@ -401,7 +396,6 @@
 1510089/nynyn
 1512771/origocms
 1510493/ourTrue
-1513343/paperkite
 1510957/pixeltricks
 1511325/playgen
 1512031/pragmapool
@@ -668,7 +662,6 @@
 1555232/PolHuman
 1555290/PicThatWord
 1558110/PracticingOpenScience
-1556171/RelishCreative
 1557895/RagingPixel
 1556529/RobinWilson
 1557775/Sigimera
@@ -684,7 +677,6 @@
 1555266/Zacaust
 1557799/algosoft
 1555259/arcadiy
-1555246/ares05
 1555235/armani77
 1556288/belsouthsoccer
 1557284/bertramdev
@@ -819,7 +811,6 @@
 1575961/ArieDeelen
 1580055/13bits
 1580105/Adrian-S
-1582685/AgileReasoning
 1582694/3LOK
 1582784/AMHOL
 1582865/Atata69
@@ -872,7 +863,6 @@
 1588070/SokoonAlQamar
 1586346/StarMerxLLC
 1586718/TENSQUARE
-1585784/TurbineCSS
 1588270/WooMojo
 1586097/Wrecked-Distro
 1586929/Youniwemi
@@ -882,7 +872,6 @@
 1586685/aussieaddons
 1587441/avidity
 1585770/bagussaja
-1587078/bitrig
 1587511/boston-digital
 1585813/bradiqm
 1585803/briverac
