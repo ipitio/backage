@@ -1,4 +1,3 @@
-1397571/trilbymail
 1396643/trpowell
 1397679/uniplaces
 1397698/upfrontsoftware
@@ -19,7 +18,6 @@
 1403226/2mxdev
 1406201/2ndrategeniuses
 1406734/ACUHO-I
-1408783/ACM-UConn
 1410514/ACMCMU
 1413128/3DGTL
 1414484/0xC3
@@ -292,7 +290,6 @@
 1510057/Chubbylilbuddy
 1512870/CirrusMio
 1510601/CodeSick
-1512668/CodeSimples
 1510053/Comunidadphp
 1511282/Cuprium
 1512810/DanDotOrg
@@ -535,7 +532,6 @@
 1536116/chilfiger
 1536058/chris-hmmr
 1538725/clachic
-1536179/code0
 1536825/combell
 1536164/cosminonnet
 1539603/cubbihouse
@@ -565,7 +561,6 @@
 1536119/ghummer
 1537917/greeenstarhub
 1536059/guoyuanzhen321
-1536132/gvogets
 1536087/hansso90
 1536105/hpetersen
 1538309/hsbp
@@ -748,7 +743,6 @@
 1555202/kus199
 1555204/langcazhe
 1555922/luxoomcn
-1555293/lzxlk
 1555203/maplewi
 1555239/masterit3000
 1555241/mattPeloquin
@@ -822,7 +816,6 @@
 1563790/55444
 1563823/Aretove
 1568205/AntizKinvey
-1568216/0-1
 1570419/AliasLLC
 1573747/89grad
 1575516/Agil-AZ
@@ -915,7 +908,6 @@
 1585825/deepthiw
 1587325/developersociety
 1588622/docmate
-1585814/dongyahui
 1585798/dpham1991
 1588267/drawbridge
 1587016/ekita
@@ -948,7 +940,6 @@
 1588092/jdqi
 1585857/joaolago35
 1585844/joehsieh99
-1585778/johannapierre
 1585781/joshuatants-zz
 1585792/jostr66
 1586711/jsonauts
