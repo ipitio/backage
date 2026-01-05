@@ -148,6 +148,7 @@ main() {
 					: >packages_already_updated
 				fi
 
+				awk -F'|' '{print $2}' packages_already_updated | awk '!seen[$0]++' >owners_partially_updated
 				awk -F'|' '{print $2}' packages_to_update | awk '!seen[$0]++' >all_owners_tu.tmp
 				git -C "$BKG_INDEX_DIR" log --name-only --pretty=format:%ct -- . | awk '
 					/^[0-9]+$/ { ts=$0; next }     # commit timestamp line
@@ -155,11 +156,9 @@ main() {
 					index($0,"/")==0 { next }      # skip root-level files
 					{ split($0,a,"/"); d=a[1]; if(!(d in seen)) seen[d]=ts }
 					END { for(d in seen) printf "%s %s\n", seen[d], d }
-				' | sort -n | cut -d' ' -f2- >complete_owners.tmp
+				' | sort -n | cut -d' ' -f2- >complete_owners
 				sort "$connections" | uniq -c | sort -nr | awk '{print $2}' >"$connections".bak
 				mv "$connections".bak "$connections"
-				grep -vFxf "$connections" all_owners_tu.tmp >all_owners_tu
-				grep -vFxf "$connections" complete_owners.tmp >complete_owners
 				clean_owners "$BKG_OWNERS"
 				grep -vFxf all_owners_in_db "$BKG_OWNERS" >owners.tmp
 				mv owners.tmp "$BKG_OWNERS"
@@ -167,26 +166,16 @@ main() {
 				{ # self > stars (new) > missing > stars (stale) > request > rest (new+stale shuffled)
 					! grep -qP "\b$GITHUB_OWNER\b" all_owners_tu || echo "0/$GITHUB_OWNER"
 					grep -vFxf all_owners_in_db "$connections"
-					grep -vFxf all_owners_in_db complete_owners
-					grep -Fxf all_owners_tu "$connections"
+					grep -vFxf "$connections" complete_owners | grep -vFxf all_owners_in_db -
+					grep -Fxf all_owners_tu "$connections" | grep -vFxf owners_partially_updated -
 					(
 						head -n1
 						tail -n1
 					) <"$BKG_OWNERS"
-					awk 'BEGIN { srand() }
-						NR==FNR { base[++n] = $0; next }
-						{ slot = int(rand() * (n + 1))
-						  ins[slot] = (ins[slot] ? ins[slot] ORS $0 : $0)
-						}
-						END {
-							for (i = 0; i <= n; i++) {
-								if (ins[i] != "") print ins[i]
-								if (i < n) print base[i + 1]
-							}
-					}' all_owners_tu <(head -n 1000 "$BKG_OWNERS")
+					insert_randomly all_owner_tu <(insert_randomly <(grep -Fxf all_owners_tu "$connections" | grep -Fxf owners_partially_updated -) <(head -n 1000 "$BKG_OWNERS"))
 				} | env_parallel --lb save_owner
 
-				rm -f all_owners_in_db all_owners_tu complete_owners
+				rm -f all_owners_in_db all_owners_tu complete_owners owners_partially_updated
 				set_BKG BKG_DIFF "$db_size_curr"
 			fi
 		else
