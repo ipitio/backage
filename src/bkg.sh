@@ -149,7 +149,7 @@ main() {
 				fi
 
 				awk -F'|' '{print $2}' packages_already_updated | awk '!seen[$0]++' >owners_partially_updated
-				awk -F'|' '{print $2}' packages_to_update | awk '!seen[$0]++' >all_owners_tu.tmp
+				awk -F'|' '{print $2}' packages_to_update | awk '!seen[$0]++' >all_owners_tu
 				git -C "$BKG_INDEX_DIR" log --name-only --pretty=format:%ct -- . | awk '
 					/^[0-9]+$/ { ts=$0; next }     # commit timestamp line
 					NF==0 { next }                 # skip blanks
