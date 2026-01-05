@@ -1,4 +1,3 @@
-1397698/upfrontsoftware
 1396653/vinhto
 1396659/viscerah
 1396606/wangpeng468
@@ -13,7 +12,6 @@
 1396668/ypupo2002
 1397206/yujinrobot
 1401138/01022012
-1403226/2mxdev
 1406201/2ndrategeniuses
 1406734/ACUHO-I
 1410514/ACMCMU
@@ -71,7 +69,6 @@
 1435141/ProjectC
 1434796/PuNkYBoY
 1434839/Qilver
-1435559/RMS-TEAM
 1435255/RSquaredSoftware
 1434786/RandomFeatures
 1434972/Rational-Interaction
@@ -88,12 +85,10 @@
 1434785/ZacharySwanson
 1434864/abclements
 1434803/ajax333221
-1434805/alexandru-manea
 1436814/alittlemarket
 1436571/almende
 1434857/andrearipamonti
 1434837/applied-abstraction
-1434817/asherswing
 1434815/audiaganovic
 1435647/axomi
 1436406/axxxxs2011
@@ -102,7 +97,6 @@
 1434816/benquarmby
 1434861/bfavrel
 1436168/blogsport
-1434824/bobbyobrien
 1434874/bossal
 1434885/cameronbrister
 1436052/carawhite
@@ -204,7 +198,6 @@
 1438087/0x0101x0
 1440029/282708579
 1441096/31337-team
-1441423/ASU-CompSci
 1441800/AWitness
 1441804/7gano2
 1443938/AITHO
@@ -454,7 +447,6 @@
 1535928/12things
 1535970/15902977457
 1536057/44gi
-1537361/907pine
 1537639/ActionSprout
 1536606/AkzoNobel
 1536161/AlexMunro
@@ -494,7 +486,6 @@
 1536157/Smilev
 1539068/SunEdison
 1536139/StSch
-1539332/TDEW-SAK
 1536176/Telefonica
 1538236/Toys-Games
 1536795/ULCAMP
@@ -536,7 +527,6 @@
 1536142/directionalpad
 1536113/djengo-git
 1536126/domage
-1536978/domusvi
 1537346/ebillett
 1537651/edu4
 1536159/enanvad
@@ -693,9 +683,7 @@
 1555968/cortona
 1555212/danieladriano
 1555296/danieltuck
-1555248/deepaksinghvi
 1555227/dfslkjljklk
-1555195/discoverbest205
 1558001/devsol
 1555816/dotunitedab
 1557098/dsafdsaf
@@ -995,7 +983,6 @@
 1608803/10xEngineer
 1610097/11WiseMonkeys
 1612034/65Gb
-1614554/BlackGinger
 1614609/201113
 1614660/20120504
 1614720/3B00D
