@@ -172,7 +172,7 @@ main() {
 						head -n1
 						tail -n1
 					) <"$BKG_OWNERS"
-					awk ins.awk all_owners_tu <(awk ins.awk <(grep -Fxf all_owners_tu "$connections" | grep -Fxf owners_partially_updated -) <(head -n 1000 "$BKG_OWNERS"))
+					bash ins.sh all_owners_tu <(bash ins.sh <(grep -Fxf all_owners_tu "$connections" | grep -Fxf owners_partially_updated -) <(head -n 1000 "$BKG_OWNERS"))
 				} | env_parallel --lb save_owner
 
 				rm -f all_owners_in_db all_owners_tu complete_owners owners_partially_updated
