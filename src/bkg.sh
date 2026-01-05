@@ -97,15 +97,8 @@ main() {
         primary key (owner_id, package, date)
     ); pragma auto_vacuum = full;"
 	sqlite3 "$BKG_INDEX_DB" "select distinct owner_id, owner, repo, package from '$BKG_INDEX_TBL_PKG' where date >= '$BKG_BATCH_FIRST_STARTED';" >packages_already_updated
-	sqlite3 "$BKG_INDEX_DB" "with latest as (
-		select owner_id, owner, max(date) as max_date
-		from '$BKG_INDEX_TBL_PKG'
-		group by owner_id, owner
-	)
-	select distinct p.owner_id, p.owner, p.repo, p.package
-	from '$BKG_INDEX_TBL_PKG' p
-	join latest l on l.owner_id = p.owner_id and l.owner = p.owner and l.max_date = p.date
-	order by p.date asc;" >packages_all
+	sqlite3 "$BKG_INDEX_DB" "select distinct owner_id, owner, repo, package from '$BKG_INDEX_TBL_PKG' order by date asc;" >packages_all
+	sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, max(date) as max_date from '$BKG_INDEX_TBL_PKG' group by owner_id, owner order by max_date asc;" | awk -F'|' '{print $2}' >all_owners_in_db
 	grep -vFxf packages_already_updated packages_all >packages_to_update
 	pkg_left=$(wc -l <packages_to_update)
 	echo "all: $(wc -l <packages_all)"
@@ -147,14 +140,6 @@ main() {
 					[ "$BKG_IS_FIRST" = "false" ] || : >"$BKG_OPTOUT"
 				fi
 
-				sort "$connections" | uniq -c | sort -nr | awk '{print $2}' >"$connections".bak
-				mv "$connections".bak "$connections"
-
-				awk -F'|' '{print $2}' packages_all >all_owners_in_db
-				clean_owners "$BKG_OWNERS"
-				grep -vFxf all_owners_in_db "$BKG_OWNERS" >owners.tmp
-				mv owners.tmp "$BKG_OWNERS"
-
 				if [[ "$pkg_left" == "0" || "${db_size_curr::-4}" == "${db_size_prev::-4}" ]]; then
 					BKG_BATCH_FIRST_STARTED=$today
 					set_BKG BKG_BATCH_FIRST_STARTED "$today"
@@ -171,8 +156,13 @@ main() {
 					{ split($0,a,"/"); d=a[1]; if(!(d in seen)) seen[d]=ts }
 					END { for(d in seen) printf "%s %s\n", seen[d], d }
 				' | sort -n | cut -d' ' -f2- >complete_owners.tmp
+				sort "$connections" | uniq -c | sort -nr | awk '{print $2}' >"$connections".bak
+				mv "$connections".bak "$connections"
 				grep -vFxf "$connections" all_owners_tu.tmp >all_owners_tu
 				grep -vFxf "$connections" complete_owners.tmp >complete_owners
+				clean_owners "$BKG_OWNERS"
+				grep -vFxf all_owners_in_db "$BKG_OWNERS" >owners.tmp
+				mv owners.tmp "$BKG_OWNERS"
 
 				{ # self > stars (new) > missing > stars (stale) > request > rest (new+stale shuffled)
 					! grep -qP "\b$GITHUB_OWNER\b" all_owners_tu || echo "0/$GITHUB_OWNER"
