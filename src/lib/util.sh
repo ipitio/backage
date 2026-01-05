@@ -661,20 +661,4 @@ clean_owners() {
     awk '!seen[$0]++' "$1" >"$temp_file" && cp -f "$temp_file" "$1"
 }
 
-insert_randomly() {
-	local base=$1
-	local inserts=$2
-
-	awk 'BEGIN { srand() }
-		NR==FNR { if (!seen_base[$0]++) base[++n] = $0; next }
-		{ if (!seen_ins[$0]++) { slot = int(rand() * (n + 1)); ins[slot] = (ins[slot] ? ins[slot] ORS $0 : $0) } }
-		END {
-			for (i = 0; i <= n; i++) {
-				if (ins[i] != "") print ins[i]
-				if (i < n) print base[i + 1]
-			}
-		}
-	' "$base" "$inserts"
-}
-
 set +o allexport
