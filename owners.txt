@@ -1,4 +1,3 @@
-1396653/vinhto
 1396659/viscerah
 1396606/wangpeng468
 1397911/warthog-logic
@@ -60,7 +59,6 @@
 1436848/Manacou
 1434906/McMillinConstruction
 1435598/MelianLabs
-1434946/NextFaze
 1434895/NTP
 1435711/Nike-Inc
 1435381/OOKB
@@ -221,7 +219,6 @@
 1458678/23kstudios
 1463606/1800postcards
 1463677/4Liamk
-1463705/AfraidOfScaryBats
 1466264/AmazingWorks
 1468534/ASFINAG
 1468552/3thanZ
@@ -376,7 +373,6 @@
 1511838/linux-test-project
 1510115/lyj289
 1512630/linuxmuster
-1510883/millenoki
 1510060/mkelleyjr
 1510539/momoim
 1510078/mpeutz
@@ -391,7 +387,6 @@
 1510493/ourTrue
 1510957/pixeltricks
 1511325/playgen
-1512031/pragmapool
 1513215/psget
 1510112/pwm1234
 1511339/railsarena
@@ -422,7 +417,6 @@
 1510016/whoever81
 1510015/willian12345
 1511686/xiaomen
-1512387/zaizi
 1510063/zanchu
 1514874/AMDISX
 1514943/2dotsInc
@@ -452,7 +446,6 @@
 1536161/AlexMunro
 1538511/AskUbuntu
 1538986/BTP400
-1536092/BorisFR
 1537474/CS-IP
 1537542/CS345
 1537101/CirclesPeople
@@ -573,7 +566,6 @@
 1536121/piyalib
 1536184/presemt-ntnu
 1537562/rdmapps
-1537935/redtruck
 1536367/rentify
 1539476/reseau-loops
 1536136/sarita-veeramalla
@@ -598,7 +590,6 @@
 1538058/tradenetservicessrl
 1538676/tuftandneedle
 1537483/twakooltd
-1538578/ubhacking
 1536093/udzhou
 1536143/venki58
 1536061/vfuente
@@ -637,7 +628,6 @@
 1556568/ExigenPractice
 1555288/GarthJT
 1556197/ISDepartment-UMA
-1557611/Inkling-Habitat-Resources
 1555298/JacqylFrost
 1555228/JoKhoo
 1556026/Kandidatgrupp17
@@ -918,7 +908,6 @@
 1585859/leoyer
 1586337/likelions
 1585837/lyoe
-1588483/madebychalk
 1586526/magento-hackathon
 1586275/meteogrid
 1585810/mhriess
