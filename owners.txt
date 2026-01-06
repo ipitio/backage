@@ -1,7 +1,5 @@
-1396659/viscerah
 1396606/wangpeng468
 1397911/warthog-logic
-1398444/weareid
 1398743/webelectric
 1396609/wenjiezhou
 1397478/www2012
@@ -42,7 +40,6 @@
 1436864/FinforeOrg
 1436302/FoxyNinjaStudios
 1436678/Flashtalking
-1435470/G04
 1434933/FunSocketsGames
 1436827/GlobalAndroidDevCamp
 1435954/GizmoProjects
@@ -231,14 +228,12 @@
 1474413/Appwerks
 1474498/1679tjapril
 1474629/2hertz
-1478478/AblosMedia
 1480113/360PSG
 1480194/112358D
 1482134/17flying
 1482248/11399371
 1483689/256Design
 1483857/42069
-1485491/4commerce-technologies-AG
 1486026/ANCL
 1487607/ANSTO
 1487679/Agerran
@@ -273,7 +268,6 @@
 1510601/CodeSick
 1510053/Comunidadphp
 1511282/Cuprium
-1512810/DanDotOrg
 1510943/E-GENIUS
 1512189/GVDistributed
 1510073/E-Yoshimoto
@@ -611,7 +605,6 @@
 1544598/AirDroid
 1547499/AppsOfSteel
 1553136/8balldesign
-1555115/3dcart
 1555193/1bh
 1555247/ALEXTHENINJA007
 1558004/Ardroid
@@ -660,7 +653,6 @@
 1555235/armani77
 1556288/belsouthsoccer
 1557284/bertramdev
-1555224/birdwall
 1555274/benoitgaudou
 1555206/bluehaze92
 1558141/brightsoltech
@@ -695,7 +687,6 @@
 1556189/healthonnet
 1556821/innovatiasoftware
 1555269/imkr
-1555234/jack-gift
 1555280/jeagudelo
 1555286/jeshapir
 1555993/katlex
@@ -723,7 +714,6 @@
 1555214/mvybz
 1555215/nattsw
 1555194/ne0beat
-1556845/nestrix
 1557459/nova-labs
 1556545/nuclos
 1557458/paiscript
@@ -766,7 +756,6 @@
 1555230/wthothw
 1555292/yongyic
 1558148/zaah
-1556194/zencart-ja
 1555221/zhazhc
 1555219/zjuzhanghui
 1556080/zonear
