@@ -1,4 +1,3 @@
-1398743/webelectric
 1396609/wenjiezhou
 1397478/www2012
 1396629/xiaocoder
@@ -51,7 +50,6 @@
 1436848/Manacou
 1434906/McMillinConstruction
 1435598/MelianLabs
-1434895/NTP
 1435711/Nike-Inc
 1435381/OOKB
 1434912/OpenFlock
@@ -126,7 +124,6 @@
 1434849/jettenrules
 1434884/joaquin666
 1436371/jolicode
-1434830/jordan-chaput
 1434793/jordandong
 1436680/jugchennai
 1434967/jvcreate
@@ -216,7 +213,6 @@
 1472511/4194projext
 1472584/209104768
 1474271/AU-COMP6360-2012Spring-Team2
-1474318/Andorion
 1474413/Appwerks
 1474498/1679tjapril
 1474629/2hertz
@@ -244,7 +240,6 @@
 1507607/Alxgor
 1507800/AlexLovP
 1510013/AugustFourth
-1511395/54North
 1512786/4Apps
 1512024/AGILAD
 1512907/ASYLUMSERVE-COMMUNICATIONS
@@ -278,7 +273,6 @@
 1510090/SpecterB
 1511178/RidiculousPower
 1511948/Supintel2012
-1510992/Toppsolutions
 1510111/WTFUSAY909
 1513271/Videodock
 1510640/Workgroup
@@ -345,7 +339,6 @@
 1510077/jenpan
 1510020/jji7skyline
 1510041/jmechler
-1510022/jonto24
 1510067/karnick
 1510159/karrainc
 1512985/lansing-makers-network
@@ -359,7 +352,6 @@
 1510017/nadeemkhan
 1510014/nareg
 1510515/netsolutionsindia
-1512026/nizam5948
 1510066/notKBF
 1510089/nynyn
 1512771/origocms
@@ -383,7 +375,6 @@
 1510046/tanhq
 1510100/tavoav
 1512081/threemonkeyslab
-1512631/tripode
 1510076/ubidave
 1510096/uofr
 1510108/van-hai-ho
@@ -400,7 +391,6 @@
 1516249/B2melo
 1516350/12pixels
 1519519/Activateme
-1521176/1stdibs
 1523105/A639
 1523183/AndroidGadgetCyprus
 1523277/Alfred-Cai
@@ -427,7 +417,6 @@
 1536830/Cierant
 1536115/DimaN-RuSlan
 1537539/FundingOptions
-1537625/Gensler
 1536768/HackCoMO
 1536856/IFAEDI
 1536893/InVisionApp
@@ -504,7 +493,6 @@
 1538415/fulfillo
 1536090/gagsy
 1536065/gerhard-tinned
-1536119/ghummer
 1537917/greeenstarhub
 1536059/guoyuanzhen321
 1536087/hansso90
@@ -542,7 +530,6 @@
 1537562/rdmapps
 1536367/rentify
 1539476/reseau-loops
-1536136/sarita-veeramalla
 1536085/sayuriyajima
 1536149/sealand210
 1536070/sheeta
@@ -588,7 +575,6 @@
 1558004/Ardroid
 1557018/AgenciaHive
 1555231/BentleyThomas
-1556932/CaoPeng
 1557506/Clubzone
 1555431/DE-IBH
 1555407/DubaiMedia
@@ -601,7 +587,6 @@
 1555228/JoKhoo
 1556026/Kandidatgrupp17
 1557485/LearnZillion
-1556319/Localphone
 1557074/MRSG
 1555213/MarkFeng
 1555980/MinskLab2012
@@ -657,7 +642,6 @@
 1555279/gershon-d
 1556201/gerrisnet
 1556284/getco
-1555287/ghbn15
 1556375/gsuAE-Doc
 1556189/healthonnet
 1556821/innovatiasoftware
@@ -726,11 +710,9 @@
 1555268/wartec
 1555197/webgenie
 1555230/wthothw
-1555292/yongyic
 1558148/zaah
 1555221/zhazhc
 1555219/zjuzhanghui
-1556080/zonear
 1559315/41monkeys
 1561628/1up4developers
 1563605/ACN1987
@@ -815,7 +797,6 @@
 1585799/brooklet
 1585840/browrp
 1585764/ca0v
-1585843/canyuji
 1588348/costaricajs
 1588275/criticalhitstudios
 1585858/danweinerdev
@@ -823,7 +804,6 @@
 1587325/developersociety
 1588622/docmate
 1585798/dpham1991
-1588267/drawbridge
 1587016/ekita
 1587836/epfldata
 1585821/erikschmitz
@@ -854,7 +834,6 @@
 1585781/joshuatants-zz
 1585792/jostr66
 1586711/jsonauts
-1588469/juanar-Organization
 1585812/kawaji
 1585818/kdallen
 1585904/klixor
@@ -901,7 +880,6 @@
 1585815/soulshake
 1585806/springzhang
 1585819/ssenapati
-1585826/thinkerer8
 1585794/trailsuender
 1586296/trewys
 1585828/tsetiaji
