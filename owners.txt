@@ -1,4 +1,3 @@
-1397911/warthog-logic
 1398743/webelectric
 1396609/wenjiezhou
 1397478/www2012
@@ -8,7 +7,6 @@
 1396668/ypupo2002
 1397206/yujinrobot
 1401138/01022012
-1406201/2ndrategeniuses
 1406734/ACUHO-I
 1410514/ACMCMU
 1413128/3DGTL
@@ -33,7 +31,6 @@
 1435053/Dinamundo
 1434800/Distie
 1434809/Ekhrikhor
-1436877/Engage
 1436788/Exove
 1436864/FinforeOrg
 1436302/FoxyNinjaStudios
@@ -279,7 +276,6 @@
 1510049/OliviaXu
 1512984/ProjektAugustiner
 1510090/SpecterB
-1510088/RMelnikas
 1511178/RidiculousPower
 1511948/Supintel2012
 1510992/Toppsolutions
@@ -324,7 +320,6 @@
 1510040/dijacobs
 1510103/discoverbest808
 1513029/disekt
-1510051/dritterman
 1510025/dwi001
 1510576/elfeon
 1510110/ethan-th
@@ -337,7 +332,6 @@
 1510039/gabsoftware
 1510097/gdiocarez
 1510537/hacolive
-1510037/hash3
 1510019/haventownsend
 1510062/hmtan1
 1513097/holonym
@@ -371,7 +365,6 @@
 1512771/origocms
 1510493/ourTrue
 1510957/pixeltricks
-1511325/playgen
 1513215/psget
 1510112/pwm1234
 1511339/railsarena
@@ -383,14 +376,12 @@
 1510064/smbcomputers
 1510035/smbocmputers
 1510092/suebatchelor
-1510031/summersoulmate
 1512971/sunnytechnologies
 1512368/swiftmobile
 1510044/sylvon
 1510079/taitertot89
 1510046/tanhq
 1510100/tavoav
-1510058/themaker
 1512081/threemonkeyslab
 1512631/tripode
 1510076/ubidave
@@ -568,7 +559,6 @@
 1536128/tapthat25
 1539715/tdt4258-somagisk
 1538081/tdw-grupo-yfb
-1536134/teemuroos
 1536640/telldus
 1538058/tradenetservicessrl
 1538676/tuftandneedle
@@ -589,7 +579,6 @@
 1543717/123clb
 1543789/1090310715
 1543850/5app
-1543855/Aita09P
 1544486/Alchemy14
 1544598/AirDroid
 1547499/AppsOfSteel
@@ -601,10 +590,8 @@
 1555231/BentleyThomas
 1556932/CaoPeng
 1557506/Clubzone
-1555973/ComicSound
 1555431/DE-IBH
 1555407/DubaiMedia
-1555847/Emergen
 1555295/EnderWig
 1557928/EnyukaStudio
 1556568/ExigenPractice
@@ -656,7 +643,6 @@
 1555296/danieltuck
 1555227/dfslkjljklk
 1558001/devsol
-1555816/dotunitedab
 1557098/dsafdsaf
 1556909/eGlobalTech
 1555217/elegato
@@ -738,7 +724,6 @@
 1555689/vertica-as
 1555238/viveksinha
 1555268/wartec
-1555249/vossler
 1555197/webgenie
 1555230/wthothw
 1555292/yongyic
@@ -816,11 +801,9 @@
 1588070/SokoonAlQamar
 1586346/StarMerxLLC
 1586718/TENSQUARE
-1588270/WooMojo
 1586097/Wrecked-Distro
 1586929/Youniwemi
 1585827/abroweb
-1585804/akhilesh1
 1585780/arirasekh
 1586685/aussieaddons
 1587441/avidity
@@ -882,16 +865,13 @@
 1585859/leoyer
 1586337/likelions
 1585837/lyoe
-1586526/magento-hackathon
 1586275/meteogrid
-1585810/mhriess
 1585774/mikerollins
 1586870/minimaldevelop
 1586535/mobeelizer
 1585809/moosilauke18
 1585801/neerajv
 1588580/netlandish
-1586253/nttlabs
 1586356/oandz
 1586819/oepsChapter
 1585839/olegkovtun
@@ -914,7 +894,6 @@
 1587287/safewithme
 1586600/sbsdev
 1588311/scalaua
-1585758/scckite
 1585771/sdsol-test
 1585793/shoryuken
 1585783/smartf0x
