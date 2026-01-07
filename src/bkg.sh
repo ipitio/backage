@@ -140,7 +140,7 @@ main() {
 					[ "$BKG_IS_FIRST" = "false" ] || : >"$BKG_OPTOUT"
 				fi
 
-				if [[ "$pkg_left" == "0" || "${db_size_curr::-4}" == "${db_size_prev::-4}" ]]; then
+				if [[ "$pkg_left" == "0" || "${db_size_curr::-1}" == "${db_size_prev::-1}" ]]; then
 					BKG_BATCH_FIRST_STARTED=$today
 					set_BKG BKG_BATCH_FIRST_STARTED "$today"
 					rm -f packages_to_update
@@ -162,15 +162,6 @@ main() {
 				clean_owners "$BKG_OWNERS"
 				grep -vFxf all_owners_in_db "$BKG_OWNERS" >owners.tmp
 				mv owners.tmp "$BKG_OWNERS"
-
-				echo "Missing Connections:"
-				grep -vFxf all_owners_in_db "$connections"
-				echo "Missing Others:"
-				grep -vFxf "$connections" complete_owners | grep -vFxf all_owners_in_db -
-				echo "Stale Connections:"
-				grep -Fxf all_owners_tu "$connections" | grep -vFxf owners_partially_updated -
-				echo "Stale Others:"
-				bash ins.sh all_owners_tu <(bash ins.sh <(grep -Fxf all_owners_tu "$connections" | grep -Fxf owners_partially_updated -) <(head -n 1000 "$BKG_OWNERS"))
 
 				{ # self > stars (new) > missing > stars (stale) > request > rest (new+stale shuffled)
 					! grep -qP "\b$GITHUB_OWNER\b" all_owners_tu || echo "0/$GITHUB_OWNER"
