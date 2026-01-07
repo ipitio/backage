@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>backage</title>
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/prolog.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/jboss-cli.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="./fxp.min.js"></script>
+    <style>
+        body {
+            font-family: Inter, sans-serif;
+            margin: auto;
+            line-height: 1.6;
+            background: linear-gradient(135deg, rgb(59, 54, 60) 0%, rgb(69, 64, 60) 100%);
+            color: #f4fff4;
+            max-width: 750px;
+            padding: 1em;
+            overflow: hidden auto;
+        }
+
+        h1 {
+            font-size: 2.5em;
+        }
+
+        h2 {
+            font-size: 2em;
+        }
+
+        h3 {
+            font-size: 1.5em;
+        }
+
+        h4 {
+            font-size: 1.2em;
+        }
+
+        h5,
+        p {
+            font-size: 1em;
+        }
+
+        a {
+            color: #0ff;
+        }
+
+        img {
+            max-height: 15vh;
+            max-width: 100%;
+        }
+
+        pre {
+            overflow-x: auto;
+        }
+
+        code {
+            border-radius: 5px;
+            font-family: monospace;
+            color: rgb(255, 144, 144)
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1em 0;
+            overflow: hidden;
+            border-radius: 5px;
+            border-spacing: 0;
+            border: 1px solid #333;
+        }
+
+        thead {
+            background-color: #333;
+            color: #ddd;
+        }
+
+        th,
+        td {
+            padding: 0.5em 1em;
+            border: 1px solid #333;
+        }
+
+        tbody tr:nth-child(odd) {
+            background-color: #444;
+        }
+
+        tbody tr:hover {
+            background-color: #555;
+        }
+
+        details {
+            background-color: #333;
+            color: #ddd;
+            padding: 0.5em;
+            border-radius: 5px;
+            margin: 1em 0;
+        }
+
+        summary {
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        #content {
+            margin-top: 20px;
+        }
+
+        #loading {
+            text-align: center;
+            color: #888;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 20px;
+            color: #888;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="loading">Loading...</div>
+    <div id="content" style="display: none;"></div>
+
+    <footer>
+        &copy;
+        <script>document.write(new Date().getFullYear())</script> ipitio
+    </footer>
+
+    <script>
+        (async () => {
+            const params = new URLSearchParams(window.location.search);
+            const jsonUrl = params.get('json');
+
+            if (jsonUrl) {
+                const response = await fetch(decodeURIComponent(jsonUrl));
+
+                if (response.ok) {
+                    try {
+                        const builder = new fxp.XMLBuilder();
+                        const blob = new Blob([`<?xml version="1.0" encoding="UTF-8"?><xml>${builder.build(await response.json())}</xml>`], { type: 'text/xml' });
+                        window.location.href = URL.createObjectURL(blob);
+                    } catch (error) {
+                        console.error('Error fetching JSON:', error);
+                    }
+                } else {
+                    console.error('Error fetching JSON:', response.status);
+                }
+            } else {
+                document.addEventListener("DOMContentLoaded", function () {
+                    // Render the README.md file
+                    fetch('README.md')
+                        .then(response => {
+                            if (!response.ok) {
+                                throw new Error(`HTTP error! Status: ${response.status}`);
+                            }
+                            return response.text();
+                        })
+                        .then(text => {
+                            const contentDiv = document.getElementById('content');
+                            contentDiv.innerHTML = marked.parse(text);
+                            document.getElementById('loading').style.display = 'none';
+                            contentDiv.style.display = 'block';
+                            hljs.highlightAll();
+                        })
+                        .catch(error => {
+                            console.error('Error fetching README:', error);
+                            document.getElementById('loading').textContent = 'Failed to load README.md';
+                        });
+                });
+            }
+        })();
+    </script>
+</body>
+
+</html>
