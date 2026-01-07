@@ -96,8 +96,8 @@ main() {
         date text not null,
         primary key (owner_id, package, date)
     ); pragma auto_vacuum = full;"
-	sqlite3 "$BKG_INDEX_DB" "select distinct owner_id, owner, repo, package from '$BKG_INDEX_TBL_PKG' where date >= '$BKG_BATCH_FIRST_STARTED';" >packages_already_updated
-	sqlite3 "$BKG_INDEX_DB" "select distinct owner_id, owner, repo, package from '$BKG_INDEX_TBL_PKG' order by date asc;" >packages_all
+	sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, repo, package, max(date) as max_date from '$BKG_INDEX_TBL_PKG' group by owner_id, owner, repo, package where max_date >= '$BKG_BATCH_FIRST_STARTED';" >packages_already_updated
+	sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, repo, package, max(date) as max_date from '$BKG_INDEX_TBL_PKG' group by owner_id, owner, repo, package order by date asc;" >packages_all
 	sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, max(date) as max_date from '$BKG_INDEX_TBL_PKG' group by owner_id, owner order by max_date asc;" | awk -F'|' '{print $2}' >all_owners_in_db
 	grep -vFxf packages_already_updated packages_all >packages_to_update
 	pkg_left=$(wc -l <packages_to_update)
