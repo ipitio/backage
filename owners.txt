@@ -38,7 +38,6 @@
 1435276/InGamer
 1435032/Jetpack-fr
 1436745/KRMAssociatesInc
-1435077/KartingCoach
 1434797/Krishnab
 1436050/LangExt
 1436035/MLSDev
@@ -218,7 +217,6 @@
 1487778/Allins
 1490220/AnalyticalGraphicsInc
 1490248/2cbarata
-1493200/3Streams
 1493210/123Aa
 1496977/Acrowit
 1497467/0bytesoftware
@@ -339,7 +337,6 @@
 1512771/origocms
 1510493/ourTrue
 1510957/pixeltricks
-1513215/psget
 1510112/pwm1234
 1511339/railsarena
 1510052/rodrow
@@ -595,7 +592,6 @@
 1556894/bureaublank
 1558243/buckutt
 1555243/c100bit
-1557183/cm9-vivow
 1555282/coa00
 1555289/condie
 1555968/cortona
@@ -1488,3 +1484,4 @@
 1679887/3yz
 1681934/ARAKAZA
 1684364/1byte
+1685301/ALTRAN-RA
