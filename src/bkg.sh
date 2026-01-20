@@ -26,6 +26,8 @@ main() {
 	local db_size_curr
 	local db_size_prev
 	local connections
+	local rest_queue
+	local rest_first
 	local return_code=0
 	local opted_out
 	local opted_out_before
@@ -56,6 +58,7 @@ main() {
 	[ -n "$(get_BKG BKG_MIN_CALLS_TO_API)" ] || set_BKG BKG_MIN_CALLS_TO_API "0"
 	[ -n "$(get_BKG BKG_LAST_SCANNED_ID)" ] || set_BKG BKG_LAST_SCANNED_ID "0"
 	[ -n "$(get_BKG BKG_DIFF)" ] || set_BKG BKG_DIFF "0"
+	[ -n "$(get_BKG BKG_REST_TO_TOP)" ] || set_BKG BKG_REST_TO_TOP "0"
 	BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
 	set_BKG BKG_OWNERS_QUEUE ""
 	set_BKG BKG_TIMEOUT "0"
@@ -163,7 +166,18 @@ main() {
 				grep -vFxf all_owners_in_db "$BKG_OWNERS" >owners.tmp
 				mv owners.tmp "$BKG_OWNERS"
 
-				{ # self > stars (new) > missing > stars (stale) > request > rest (new+stale shuffled)
+				rest_queue=$(mktemp) || exit 1
+				rest_first=$(get_BKG BKG_REST_TO_TOP)
+				[ -n "$rest_first" ] || rest_first=0
+				if [ "$rest_first" = "1" ]; then
+					set_BKG BKG_REST_TO_TOP "0"
+				else
+					set_BKG BKG_REST_TO_TOP "1"
+				fi
+				bash ins.sh all_owners_tu <(bash ins.sh <(grep -Fxf all_owners_tu "$connections" | grep -Fxf owners_partially_updated -) <(head -n 1000 "$BKG_OWNERS")) >"$rest_queue"
+
+				{ # self > stars (new) > missing > stars (stale) > request > rest (new+stale shuffled; rotated)
+					[ "$rest_first" != "1" ] || cat "$rest_queue"
 					! grep -qP "\b$GITHUB_OWNER\b" all_owners_tu || echo "0/$GITHUB_OWNER"
 					grep -vFxf all_owners_in_db "$connections"
 					grep -vFxf "$connections" complete_owners | grep -vFxf all_owners_in_db -
@@ -172,8 +186,9 @@ main() {
 						head -n1
 						tail -n1
 					) <"$BKG_OWNERS"
-					bash ins.sh all_owners_tu <(bash ins.sh <(grep -Fxf all_owners_tu "$connections" | grep -Fxf owners_partially_updated -) <(head -n 1000 "$BKG_OWNERS"))
+					[ "$rest_first" = "1" ] || cat "$rest_queue"
 				} | env_parallel --lb save_owner
+				rm -f "$rest_queue"
 
 				rm -f all_owners_in_db all_owners_tu complete_owners owners_partially_updated
 				set_BKG BKG_DIFF "$db_size_curr"
