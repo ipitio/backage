@@ -177,7 +177,7 @@ main() {
 				bash ins.sh all_owners_tu <(bash ins.sh <(grep -Fxf all_owners_tu "$connections" | grep -Fxf owners_partially_updated -) <(head -n 1000 "$BKG_OWNERS")) >"$rest_queue"
 
 				{ # self > stars (new) > missing > stars (stale) > request > rest (new+stale shuffled; rotated)
-					[ "$rest_first" != "1" ] || cat "$rest_queue"
+					#[ "$rest_first" != "1" ] || cat "$rest_queue"
 					! grep -qP "\b$GITHUB_OWNER\b" all_owners_tu || echo "0/$GITHUB_OWNER"
 					grep -vFxf all_owners_in_db "$connections"
 					grep -vFxf "$connections" complete_owners | grep -vFxf all_owners_in_db -
@@ -186,7 +186,7 @@ main() {
 						head -n1
 						tail -n1
 					) <"$BKG_OWNERS"
-					[ "$rest_first" = "1" ] || cat "$rest_queue"
+					#[ "$rest_first" = "1" ] || cat "$rest_queue"
 				} | env_parallel --lb save_owner
 				rm -f "$rest_queue"
 
