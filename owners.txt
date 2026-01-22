@@ -46,7 +46,6 @@
 1435598/MelianLabs
 1435711/Nike-Inc
 1435381/OOKB
-1434912/OpenFlock
 1434820/Pepper5
 1435141/ProjectC
 1434796/PuNkYBoY
@@ -182,7 +181,6 @@
 1449096/AOS2012
 1451686/2Exist
 1451715/0xPhilMill
-1451721/0xbgr
 1451828/8slater
 1452049/AndersonWillDo
 1454981/ArcLight-Game-Studios
@@ -217,8 +215,6 @@
 1490248/2cbarata
 1493210/123Aa
 1496977/Acrowit
-1497467/0bytesoftware
-1500284/2dgreePublic
 1501953/1701Dev
 1504456/21tag
 1507526/2011413125
@@ -230,7 +226,6 @@
 1512024/AGILAD
 1512907/ASYLUMSERVE-COMMUNICATIONS
 1510104/Aaronaught
-1512072/AntennaInternational
 1510074/AtifChaudhry
 1511166/BelectricITS
 1511960/Buckeyecocoa
@@ -258,10 +253,8 @@
 1511948/Supintel2012
 1510111/WTFUSAY909
 1513271/Videodock
-1510640/Workgroup
 1511025/Xactium
 1510775/YAYA-CSII2
-1512420/actmobile
 1510054/ahashmi
 1510072/alan1982br
 1510071/alauria
@@ -408,13 +401,11 @@
 1538769/NextClimate
 1537496/NexusResearchGroup
 1536973/RackTables
-1538350/RogueGenius
 1536067/SOGI-Ubuntu
 1537685/SaintRock
 1536720/ScienceMag
 1536068/Scottimoto
 1539762/ShareMyWorld
-1537728/SilexConsulting
 1536157/Smilev
 1539068/SunEdison
 1536139/StSch
@@ -1909,3 +1900,4 @@
 1720543/ChartMLDeveloperAlliance
 1724363/9thcirclegames
 1726310/24me
+1727378/504Connect
