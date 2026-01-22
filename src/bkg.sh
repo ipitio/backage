@@ -26,10 +26,10 @@ main() {
 	local db_size_curr
 	local db_size_prev
 	local connections
-	local rest_first
 	local return_code=0
 	local opted_out
 	local opted_out_before
+	local rest_first
 	connections=$(mktemp) || exit 1
 	temp_connections=$(mktemp) || exit 1
 
@@ -152,34 +152,33 @@ main() {
 
 				awk -F'|' '{print $2}' packages_already_updated | awk '!seen[$0]++' >owners_partially_updated
 				awk -F'|' '{print $2}' packages_to_update | awk '!seen[$0]++' >all_owners_tu
-				git -C "$BKG_INDEX_DIR" log --name-only --pretty=format:%ct -- . | awk '
-					/^[0-9]+$/ { ts=$0; next }     # commit timestamp line
-					NF==0 { next }                 # skip blanks
-					index($0,"/")==0 { next }      # skip root-level files
-					{ split($0,a,"/"); d=a[1]; if(!(d in seen)) seen[d]=ts }
-					END { for(d in seen) printf "%s %s\n", seen[d], d }
-				' | sort -n | cut -d' ' -f2- >complete_owners
+				bash all.sh "$BKG_INDEX_DIR"
 				sort "$connections" | uniq -c | sort -nr | awk '{print $2}' >"$connections".bak
 				mv "$connections".bak "$connections"
 				clean_owners "$BKG_OWNERS"
 				grep -vFxf all_owners_in_db "$BKG_OWNERS" >owners.tmp
 				mv owners.tmp "$BKG_OWNERS"
+				rest_first=$(get_BKG BKG_REST_TO_TOP)
 
 				# self > stars (new) > missing > stars (stale) > request > rest (new+stale shuffled; rotated)
-				[ "$(get_BKG BKG_REST_TO_TOP)" = "1" ] && {
-					! grep -qP "\b$GITHUB_OWNER\b" all_owners_tu || echo "0/$GITHUB_OWNER"
-					grep -vFxf all_owners_in_db "$connections"
-					grep -vFxf "$connections" complete_owners | grep -vFxf all_owners_in_db -
-					grep -Fxf all_owners_tu "$connections" | grep -vFxf owners_partially_updated -
-					(
-						head -n1
-						tail -n1
-					) <"$BKG_OWNERS"
-				} | env_parallel --lb save_owner || bash ins.sh all_owners_tu <(bash ins.sh <(grep -Fxf all_owners_tu "$connections" | grep -Fxf owners_partially_updated -) <(head -n 500 "$BKG_OWNERS")) | env_parallel --lb save_owner
+				if [ "$rest_first" = "1" ]; then
+					{
+						! grep -qP "\b$GITHUB_OWNER\b" all_owners_tu || echo "0/$GITHUB_OWNER"
+						grep -vFxf all_owners_in_db "$connections"
+						grep -vFxf "$connections" complete_owners | grep -vFxf all_owners_in_db -
+						grep -Fxf all_owners_tu "$connections" | grep -vFxf owners_partially_updated -
+						(
+							head -n1
+							tail -n1
+						) <"$BKG_OWNERS"
+					} | env_parallel --lb save_owner
+				else
+					bash ins.sh all_owners_tu <(bash ins.sh <(grep -Fxf all_owners_tu "$connections" | grep -Fxf owners_partially_updated -) <(head -n 500 "$BKG_OWNERS")) | env_parallel --lb save_owner
+				fi
 
 				rm -f all_owners_in_db all_owners_tu complete_owners owners_partially_updated
 				set_BKG BKG_DIFF "$db_size_curr"
-				set_BKG BKG_REST_TO_TOP "$((1 - $(get_BKG BKG_REST_TO_TOP)))"
+				set_BKG BKG_REST_TO_TOP "$((1 - rest_first))"
 			fi
 		else
 			save_owner "$GITHUB_OWNER"
