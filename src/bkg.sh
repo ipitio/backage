@@ -166,7 +166,7 @@ main() {
 				mv owners.tmp "$BKG_OWNERS"
 
 				rest_queue() {
-					bash ins.sh all_owners_tu <(bash ins.sh <(grep -Fxf all_owners_tu "$connections" | grep -Fxf owners_partially_updated -) <(head -n 500 "$BKG_OWNERS"))
+					bash ins.sh all_owners_tu <(bash ins.sh <(grep -Fxf all_owners_tu "$connections" | grep -Fxf owners_partially_updated -) <(head -n 500 "$BKG_OWNERS")) | env_parallel --lb save_owner
 				}
 				rest_first=$(get_BKG BKG_REST_TO_TOP)
 				[ -n "$rest_first" ] || rest_first=0
@@ -176,8 +176,9 @@ main() {
 					set_BKG BKG_REST_TO_TOP "1"
 				fi
 
-				{ # self > stars (new) > missing > stars (stale) > request > rest (new+stale shuffled; rotated)
-					[ "$rest_first" != "1" ] || rest_queue
+				# self > stars (new) > missing > stars (stale) > request > rest (new+stale shuffled; rotated)
+				[ "$rest_first" != "1" ] || rest_queue
+				{
 					! grep -qP "\b$GITHUB_OWNER\b" all_owners_tu || echo "0/$GITHUB_OWNER"
 					grep -vFxf all_owners_in_db "$connections"
 					grep -vFxf "$connections" complete_owners | grep -vFxf all_owners_in_db -
@@ -186,8 +187,8 @@ main() {
 						head -n1
 						tail -n1
 					) <"$BKG_OWNERS"
-					[ "$rest_first" = "1" ] || rest_queue
 				} | env_parallel --lb save_owner
+				[ "$rest_first" = "1" ] || rest_queue
 
 				rm -f all_owners_in_db all_owners_tu complete_owners owners_partially_updated
 				set_BKG BKG_DIFF "$db_size_curr"
