@@ -166,7 +166,7 @@ main() {
 				mv owners.tmp "$BKG_OWNERS"
 
 				rest_queue() {
-					bash ins.sh all_owners_tu <(bash ins.sh <(grep -Fxf all_owners_tu "$connections" | grep -Fxf owners_partially_updated -) <(head -n 1000 "$BKG_OWNERS"))
+					bash ins.sh all_owners_tu <(bash ins.sh <(grep -Fxf all_owners_tu "$connections" | grep -Fxf owners_partially_updated -) <(head -n 500 "$BKG_OWNERS"))
 				}
 				rest_first=$(get_BKG BKG_REST_TO_TOP)
 				[ -n "$rest_first" ] || rest_first=0
