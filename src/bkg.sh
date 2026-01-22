@@ -165,16 +165,8 @@ main() {
 				grep -vFxf all_owners_in_db "$BKG_OWNERS" >owners.tmp
 				mv owners.tmp "$BKG_OWNERS"
 
-				rest_first=$(get_BKG BKG_REST_TO_TOP)
-				[ -n "$rest_first" ] || rest_first=0
-				if [ "$rest_first" = "1" ]; then
-					set_BKG BKG_REST_TO_TOP "0"
-				else
-					set_BKG BKG_REST_TO_TOP "1"
-				fi
-
 				# self > stars (new) > missing > stars (stale) > request > rest (new+stale shuffled; rotated)
-				[ "$rest_first" = "1" ] && {
+				[ "$(get_BKG BKG_REST_TO_TOP)" = "1" ] && {
 					! grep -qP "\b$GITHUB_OWNER\b" all_owners_tu || echo "0/$GITHUB_OWNER"
 					grep -vFxf all_owners_in_db "$connections"
 					grep -vFxf "$connections" complete_owners | grep -vFxf all_owners_in_db -
@@ -187,6 +179,7 @@ main() {
 
 				rm -f all_owners_in_db all_owners_tu complete_owners owners_partially_updated
 				set_BKG BKG_DIFF "$db_size_curr"
+				set_BKG BKG_REST_TO_TOP "$((1 - $(get_BKG BKG_REST_TO_TOP)))"
 			fi
 		else
 			save_owner "$GITHUB_OWNER"
