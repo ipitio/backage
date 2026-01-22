@@ -135,7 +135,6 @@
 1434934/moq
 1434814/moreone
 1435972/mpdmal
-1434881/mrki
 1434806/mxtbcca
 1437068/nerdhive
 1434878/ninu-deploy
@@ -178,7 +177,6 @@
 1443938/AITHO
 1445628/7Geese
 1445634/0708jun
-1445667/4T-Shirt
 1446147/ADPSystems
 1448136/350dotorg
 1449096/AOS2012
@@ -1909,3 +1907,4 @@
 1716870/Azmael
 1716935/Balsvik
 1720543/ChartMLDeveloperAlliance
+1724363/9thcirclegames
