@@ -30,6 +30,7 @@ main() {
 	local opted_out
 	local opted_out_before
 	local rest_first
+	local request_limit=500
 	connections=$(mktemp) || exit 1
 	temp_connections=$(mktemp) || exit 1
 
@@ -150,8 +151,10 @@ main() {
 					: >packages_already_updated
 				fi
 
-				awk -F'|' '{print $2}' packages_already_updated | awk '!seen[$0]++' >owners_partially_updated
+				awk -F'|' '{print $2}' packages_already_updated | awk '!seen[$0]++' >owners_updated
 				awk -F'|' '{print $2}' packages_to_update | awk '!seen[$0]++' >all_owners_tu
+				grep -Fxf all_owners_tu owners_updated >owners_partially_updated
+				grep -vFxf owners_updated all_owners_tu >owners_stale
 				bash all.sh "$BKG_INDEX_DIR"
 				sort "$connections" | uniq -c | sort -nr | awk '{print $2}' >"$connections".bak
 				mv "$connections".bak "$connections"
@@ -161,22 +164,14 @@ main() {
 				rest_first=$(get_BKG BKG_REST_TO_TOP)
 
 				# self > stars (new) > missing > stars (stale) > request > rest (new+stale shuffled; rotated)
-				if [ "$rest_first" = "1" ]; then
-					{
-						! grep -qP "\b$GITHUB_OWNER\b" all_owners_tu || echo "0/$GITHUB_OWNER"
-						grep -vFxf all_owners_in_db "$connections"
-						grep -vFxf "$connections" complete_owners | grep -vFxf all_owners_in_db -
-						grep -Fxf all_owners_tu "$connections" | grep -vFxf owners_partially_updated -
-						(
-							head -n1
-							tail -n1
-						) <"$BKG_OWNERS"
-					} | env_parallel --lb save_owner
-				else
-					bash ins.sh all_owners_tu <(bash ins.sh <(grep -Fxf all_owners_tu "$connections" | grep -Fxf owners_partially_updated -) <(head -n 500 "$BKG_OWNERS")) | env_parallel --lb save_owner
-				fi
+				{
+					get_remaining complete_owners "$connections" | grep -vFxf all_owners_in_db -
+					[ "$rest_first" = "0" ] || get_remaining owners_stale "$connections" $request_limit
+					get_remaining owners_partially_updated "$connections" $((request_limit * (1 - rest_first)))
+					get_remaining owners_stale "$connections"
+				} | awk '!seen[$0]++' | env_parallel --lb save_owner
 
-				rm -f all_owners_in_db all_owners_tu complete_owners owners_partially_updated
+				rm -f complete_owners all_owners_in_db all_owners_tu owners_updated owners_partially_updated owners_stale
 				set_BKG BKG_DIFF "$db_size_curr"
 				set_BKG BKG_REST_TO_TOP "$((1 - rest_first))"
 			fi

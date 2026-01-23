@@ -661,4 +661,18 @@ clean_owners() {
     awk '!seen[$0]++' "$1" >"$temp_file" && cp -f "$temp_file" "$1"
 }
 
+get_requests() {
+	(
+		head -n "${1:-1}"
+		tail -n "${1:-1}"
+	) <"$BKG_OWNERS"
+}
+
+get_remaining() {
+	get_requests
+	! grep -qP "\b$GITHUB_OWNER\b" "$1" || echo "0/$GITHUB_OWNER"
+	bash ins.sh "$1" <(bash ins.sh <(grep -Fxf "$1" "$2") <(get_requests "${3:-0}"))
+	grep -Fxf "$1" "$2"
+}
+
 set +o allexport
