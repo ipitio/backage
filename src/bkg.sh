@@ -30,7 +30,7 @@ main() {
 	local opted_out
 	local opted_out_before
 	local rest_first
-	local request_limit=500
+	local request_limit=250
 	connections=$(mktemp) || exit 1
 	temp_connections=$(mktemp) || exit 1
 
@@ -167,9 +167,9 @@ main() {
 				{
 					get_remaining complete_owners "$connections" | grep -vFxf all_owners_in_db -
 					[ "$rest_first" = "0" ] || get_remaining owners_stale "$connections" $request_limit
-					get_remaining owners_partially_updated "$connections" $((request_limit * (1 - rest_first)))
-					get_remaining owners_stale "$connections"
-				} | awk '!seen[$0]++' | env_parallel --lb save_owner
+					get_remaining owners_partially_updated "$connections" $(((1 + rest_first) * request_limit))
+					[ "$rest_first" = "1" ] || get_remaining owners_stale "$connections" $((2 * request_limit))
+				} | awk '!seen[$0]++' | head -n $((4 * request_limit)) | env_parallel --lb save_owner
 
 				rm -f complete_owners all_owners_in_db all_owners_tu owners_updated owners_partially_updated owners_stale
 				set_BKG BKG_DIFF "$db_size_curr"
