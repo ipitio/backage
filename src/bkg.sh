@@ -30,7 +30,7 @@ main() {
 	local opted_out
 	local opted_out_before
 	local rest_first
-	local request_limit=250
+	local request_limit=200
 	connections=$(mktemp) || exit 1
 	temp_connections=$(mktemp) || exit 1
 
@@ -162,8 +162,8 @@ main() {
 				grep -vFxf all_owners_in_db "$BKG_OWNERS" >owners.tmp
 				mv owners.tmp "$BKG_OWNERS"
 				rest_first=$(get_BKG BKG_REST_TO_TOP)
-				bash get.sh "$rest_first" "$connections" $request_limit "$GITHUB_OWNER" "$BKG_OWNERS" | env_parallel --lb save_owner
-				rm -f complete_owners all_owners_in_db all_owners_tu owners_updated owners_partially_updated owners_stale
+				bash lib/get.sh "$rest_first" "$connections" $request_limit "$GITHUB_OWNER" "$BKG_OWNERS" | env_parallel --lb save_owner
+				rm -f all_owners_in_db all_owners_tu owners_updated owners_partially_updated owners_stale
 				set_BKG BKG_DIFF "$db_size_curr"
 				set_BKG BKG_REST_TO_TOP "$((1 - rest_first))"
 			fi
