@@ -162,15 +162,7 @@ main() {
 				grep -vFxf all_owners_in_db "$BKG_OWNERS" >owners.tmp
 				mv owners.tmp "$BKG_OWNERS"
 				rest_first=$(get_BKG BKG_REST_TO_TOP)
-
-				# self > stars (new) > missing > stars (stale) > request > rest (new+stale shuffled; rotated)
-				{
-					get_remaining complete_owners "$connections" | grep -vFxf all_owners_in_db -
-					[ "$rest_first" = "0" ] || get_remaining owners_stale "$connections" $request_limit
-					get_remaining owners_partially_updated "$connections" $(((1 + rest_first) * request_limit))
-					[ "$rest_first" = "1" ] || get_remaining owners_stale "$connections" $((2 * request_limit))
-				} | awk '!seen[$0]++' | head -n $((4 * request_limit)) | env_parallel --lb save_owner
-
+				bash get.sh "$rest_first" "$connections" $request_limit "$GITHUB_OWNER" "$BKG_OWNERS" | env_parallel --lb save_owner
 				rm -f complete_owners all_owners_in_db all_owners_tu owners_updated owners_partially_updated owners_stale
 				set_BKG BKG_DIFF "$db_size_curr"
 				set_BKG BKG_REST_TO_TOP "$((1 - rest_first))"
