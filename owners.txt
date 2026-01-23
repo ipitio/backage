@@ -1,4 +1,3 @@
-1436657/epartment
 1474629/2hertz
 1480113/360PSG
 1480194/112358D
@@ -183,7 +182,6 @@
 1537539/FundingOptions
 1536768/HackCoMO
 1536856/IFAEDI
-1536893/InVisionApp
 1537177/IngloriousCoders
 1536071/Isengua
 1536876/JLGBHQ
@@ -1299,7 +1297,6 @@
 1696538/FCSE
 1694896/HPSI
 1694661/HackerOUT
-1694067/IanButterworth
 1694808/Inversiones
 1694567/JustFingDoit
 1695367/LibertyFund
@@ -1346,7 +1343,6 @@
 1694037/ZeldaBoo
 1694506/actualtechnology
 1694087/adlima
-1694062/almightynassar
 1694114/aleatoria
 1694010/alrunner4
 1694065/ancantus
@@ -1420,7 +1416,6 @@
 1696696/myowncloud
 1694047/nc-jenkins
 1694006/networkingyuppy
-1695262/ngux
 1694061/nickendle
 1696037/nightstomp
 1694927/nominar
@@ -1490,7 +1485,6 @@
 1701662/Aleph72
 1701701/AlisonShang
 1701657/Anteras
-1703999/Arnafee
 1702241/AurorumTeam1
 1704544/Bootyard
 1703959/CloudWareChile
