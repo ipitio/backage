@@ -146,7 +146,6 @@
 1434873/phollome
 1434868/ppourmand
 1437092/praisefm
-1436051/pyngo
 1435349/religionnews
 1434822/rguedes
 1434826/rpolasek
@@ -180,7 +179,6 @@
 1448136/350dotorg
 1449096/AOS2012
 1451686/2Exist
-1451715/0xPhilMill
 1451828/8slater
 1452049/AndersonWillDo
 1454981/ArcLight-Game-Studios
@@ -240,7 +238,6 @@
 1510109/Geistyp
 1512715/Invariance
 1510036/KrithikaV
-1510941/LesPoneys
 1510032/LesignButure
 1510634/LimeSoda
 1513176/Melati
@@ -258,7 +255,6 @@
 1510054/ahashmi
 1510072/alan1982br
 1510071/alauria
-1510038/aleinegreen
 1510106/alexendersuperbyte
 1510329/allwinnertech
 1513245/ameronix
@@ -284,7 +280,6 @@
 1510042/ctdeux
 1510028/damonsmith
 1510061/darkDemon78
-1510018/dhana12
 1510749/dignio
 1510040/dijacobs
 1510103/discoverbest808
@@ -399,7 +394,6 @@
 1536107/Manishhemnani
 1536064/Nemanja100
 1538769/NextClimate
-1537496/NexusResearchGroup
 1536973/RackTables
 1536067/SOGI-Ubuntu
 1537685/SaintRock
@@ -1902,3 +1896,4 @@
 1726310/24me
 1727378/504Connect
 1727414/412andrewmortimer
+1727470/732kbmmd
