@@ -1,5 +1,3 @@
-1536157/Smilev
-1539068/SunEdison
 1536139/StSch
 1536176/Telefonica
 1538236/Toys-Games
@@ -53,7 +51,6 @@
 1536065/gerhard-tinned
 1537917/greeenstarhub
 1536059/guoyuanzhen321
-1536087/hansso90
 1536105/hpetersen
 1538309/hsbp
 1536155/jaeho-kim
@@ -105,7 +102,6 @@
 1538676/tuftandneedle
 1537483/twakooltd
 1536093/udzhou
-1536143/venki58
 1536061/vfuente
 1536133/void-phoenix
 1536102/wakusei-meron-
@@ -936,7 +932,6 @@
 1675477/abvitro
 1675505/actionverb
 1676332/adSalsa
-1676205/aerodynes
 1674254/agentscript
 1674208/ajinkya-bhosale
 1674200/alhep100
@@ -1052,7 +1047,6 @@
 1674250/websarang
 1676797/wildstang
 1674248/winnersye
-1676497/xaminfoundation
 1676851/xignus
 1674270/xxxsenkuxxx
 1674199/yakooza23
