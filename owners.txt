@@ -1,4 +1,3 @@
-1555263/mflatt23
 1585802/Marathonman123
 1586710/provu
 1588658/prueba1234
@@ -18,7 +17,6 @@
 1587593/smartnsoft
 1585815/soulshake
 1585806/springzhang
-1585819/ssenapati
 1585794/trailsuender
 1586296/trewys
 1588119/uppercase
@@ -86,7 +84,6 @@
 1653317/JhoniixP
 1653301/JerilynFranz
 1653673/Insvrance
-1655356/JuliaSoft
 1653343/Kaiven
 1655385/KhNU
 1653311/Korovin
@@ -106,14 +103,12 @@
 1653371/OscarGonzalezCamacho
 1655161/Oslandia
 1653330/PKOneTwo
-1655662/PSR-hunt
 1653294/PeterOsinski
 1655583/RetailTribe
 1654887/SaxoCom
 1655715/Setonica
 1655638/SheffieldML
 1653574/SilverThorax
-1653350/SirSkeld
 1653377/SpeciesFileGroup
 1653713/SteamList
 1653272/TheCash
@@ -187,7 +182,6 @@
 1654286/jinshuju
 1653360/jonathandaniel
 1653327/kallovsky
-1654148/kandoo
 1653293/kurteichstadt
 1653300/ldvader
 1656279/libopencm3
