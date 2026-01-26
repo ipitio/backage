@@ -99,7 +99,7 @@ main() {
         date text not null,
         primary key (owner_id, package, date)
     ); pragma auto_vacuum = full;"
-	sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, repo, package, max(date) as max_date from '$BKG_INDEX_TBL_PKG' group by owner_id, owner, repo, package where max_date >= '$BKG_BATCH_FIRST_STARTED';" >packages_already_updated
+	sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, repo, package, max(date) as max_date from '$BKG_INDEX_TBL_PKG' group by owner_id, owner, repo, package where max_date >= '$BKG_BATCH_FIRST_STARTED' order by max_date asc;" >packages_already_updated
 	sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, repo, package, max(date) as max_date from '$BKG_INDEX_TBL_PKG' group by owner_id, owner, repo, package order by date asc;" >packages_all
 	sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, max(date) as max_date from '$BKG_INDEX_TBL_PKG' group by owner_id, owner order by max_date asc;" | awk -F'|' '{print $2}' >all_owners_in_db
 	grep -vFxf packages_already_updated packages_all >packages_to_update
@@ -153,9 +153,8 @@ main() {
 
 				awk -F'|' '{print $2}' packages_already_updated | awk '!seen[$0]++' >owners_updated
 				awk -F'|' '{print $2}' packages_to_update | awk '!seen[$0]++' >all_owners_tu
-				grep -Fxf all_owners_tu owners_updated >owners_partially_updated
+				grep -Fxf owners_updated all_owners_tu >owners_partially_updated
 				grep -vFxf owners_updated all_owners_tu >owners_stale
-				bash all.sh "$BKG_INDEX_DIR"
 				sort "$connections" | uniq -c | sort -nr | awk '{print $2}' >"$connections".bak
 				mv "$connections".bak "$connections"
 				clean_owners "$BKG_OWNERS"
