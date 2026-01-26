@@ -149,6 +149,7 @@ main() {
 					rm -f packages_to_update
 					\cp packages_all packages_to_update
 					: >packages_already_updated
+					[ "${db_size_curr::-1}" != "${db_size_prev::-1}" ] || echo "Database size unchanged! Previous: $db_size_prev; Current: $db_size_curr"
 				fi
 
 				awk -F'|' '{print $2}' packages_already_updated | awk '!seen[$0]++' >owners_updated
