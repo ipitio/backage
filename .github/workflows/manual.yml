@@ -7,9 +7,9 @@ on:
     workflows: ["build"]
     types: [completed]
 
-  pull_request:
-    types:
-      - closed
+  push:
+    branches:
+      - master
 
 concurrency:
   group: ${{ github.ref }}
