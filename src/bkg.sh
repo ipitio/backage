@@ -143,7 +143,7 @@ main() {
 					[ "$BKG_IS_FIRST" = "false" ] || : >"$BKG_OPTOUT"
 				fi
 
-				if [[ "$pkg_left" == "0" || "${db_size_curr::-1}" == "${db_size_prev::-1}" ]]; then
+				if [[ "$pkg_left" == "0" || "${db_size_curr::-4}" == "${db_size_prev::-4}" ]]; then
 					BKG_BATCH_FIRST_STARTED=$today
 					set_BKG BKG_BATCH_FIRST_STARTED "$today"
 					rm -f packages_to_update

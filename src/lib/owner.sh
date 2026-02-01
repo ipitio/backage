@@ -1,6 +1,8 @@
 #!/bin/bash
 # shellcheck disable=SC1091,SC2015
 
+source lib/package.sh
+
 request_owner() {
 	[ -n "$1" ] || return
 	local owner=""
