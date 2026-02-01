@@ -15,7 +15,7 @@ save_version() {
 
     if [ -f "${table_version_name}"_already_updated ]; then
         check_limit || return $?
-        grep -q "$version_id" "${table_version_name}"_already_updated && [ "$BKG_MODE" -eq 0 ] && return || :
+        ! grep -q "$version_id" "${table_version_name}"_already_updated || return
         version_tags=$(_jq "$1" '.. | try .tags | select(. != null and . != "") | join(",")')
         version_tags=$(perl -pe 's/(?<!\\)"/\\"/g' <<<"$version_tags")
         [[ -n "$version_tags" && "$version_tags" != "[]" ]] || version_tags=$(_jq "$1" '.. | try .tags | select(. != null and . != "")')

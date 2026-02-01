@@ -18,6 +18,7 @@ save_package() {
     package_type=${package_type%/}
     repo=${repo%/}
     [ -n "$repo" ] || return
+	! grep -q "^$owner_id|$owner|$repo|$package_new$" packages_already_updated || return
     ! set_BKG_set BKG_PACKAGES_"$owner" "$package_type/$repo/$package_new" || echo "Queued $owner/$package_new"
 }
 
@@ -112,7 +113,7 @@ update_package() {
         primary key (id, date)
     );"
 
-    if ! grep -q "^$owner_id|$owner|$repo|$package$" packages_already_updated || [ "$BKG_MODE" -eq 1 ]; then
+    if ! grep -q "^$owner_id|$owner|$repo|$package$" packages_already_updated; then
         html=$(curl "https://github.com/$owner/$repo/pkgs/$package_type/$package")
         (($? != 3)) || return 3
         [ -n "$(grep -Pzo 'Total downloads' <<<"$html" | tr -d '\0')" ] || return
