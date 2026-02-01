@@ -96,8 +96,8 @@ update_owner() {
 	start_page=$(get_BKG BKG_PAGE_"$owner_id")
 
 	if grep -q "^$owner_id|$owner|" packages_already_updated && [ -z "$start_page" ]; then
-		bash lib/get_pkgs.sh sqlite3 "$BKG_INDEX_DB" "$BKG_INDEX_TBL_PKG" "$owner_id" "$BKG_BATCH_FIRST_STARTED" >BKG_DB_PKGS_"$owner"
-		run_parallel save_package "$(cat BKG_DB_PKGS_"$owner")"
+		local get_pkgs_cmd="sqlite3 \"$BKG_INDEX_DB\" \"select package_type, package, max(date) as max_date from '$BKG_INDEX_TBL_PKG' where owner_id = '$owner_id' group by package_type, package having max(date) < '$BKG_BATCH_FIRST_STARTED' order by max_date asc;\" | awk -F'|' '{print \"////\"$1\"//\"$2}')"
+		run_parallel save_package "$(eval "$get_pkgs_cmd")"
 		(($? != 3)) || return 3
 		run_parallel update_package "$(get_BKG_set BKG_PACKAGES_"$owner")"
 		(($? != 3)) || return 3
