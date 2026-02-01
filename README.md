@@ -28,7 +28,7 @@ Otherwise, if this is a fork, you'd prefer an alternative method, or your packag
 > [!TIP]
 > You only need to add names to the queue; IDs are fetched as needed and entries are removed once processed.
 
-New packages won't be added until *all* existing ones are refreshed; you should also create an independent instance that'll update faster and more frequently. Simply fork just the `master` branch, choose one of the following options, and use the [Alternative URL](#alternative-url) when it changes. This centralized repo will then serve as a backup for all subsets of packages not in `optout.txt`.
+New packages may not be added until *all* existing ones are refreshed; you should also create an independent instance that'll update faster and more frequently. Simply fork just the `master` branch, choose one of the following options, and use the [Alternative URL](#alternative-url) when it changes. This centralized repo will then serve as a backup for all subsets of packages not in `optout.txt`.
 
 > [!IMPORTANT]
 > Your own packages will be picked up automatically! If you need to edit `owners.txt`, do so after the first run.
@@ -241,4 +241,4 @@ https://ipitio.github.io/backage?json=https://URL/ENCODED/JSON
 
 While this doesn't directly work with Shields, you can BYOJ to convert into XML.  Try it out in your browser:
 
-**<https://ipitio.github.io/backage?json=https://raw.githubusercontent.com/ipitio/backage/index/.json>**
+**<<https://ipitio.github.io/backage?json=https://raw.githubusercontent.com/>ipitio/backage/index/.json>**
