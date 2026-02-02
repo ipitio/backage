@@ -241,4 +241,4 @@ https://ipitio.github.io/backage?json=https://URL/ENCODED/JSON
 
 While this doesn't directly work with Shields, you can BYOJ to convert into XML.  Try it out in your browser:
 
-**<<https://ipitio.github.io/backage?json=https://raw.githubusercontent.com/>ipitio/backage/index/.json>**
+**<https://ipitio.github.io/backage?json=https://raw.githubusercontent.com/ipitio/backage/index/.json>**
