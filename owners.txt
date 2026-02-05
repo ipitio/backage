@@ -1,12 +1,7 @@
-1843393/RoswellStudios
-1844284/S-proyect
-1843078/Sportdub
 1843072/WolfFlight
 1843039/ackermcc
 1842992/aikizoku
-1843180/carthago
 1843064/finnerbinner
-1844571/foodity
 1843070/mccarthym
 1844716/mcorp
 1843058/mnrusimh
@@ -15,7 +10,6 @@
 1843037/testPLK
 1843028/wdrews
 1851414/AmpThis
-1848224/FacundoMorenoB
 1849157/KrugerHeavyIndustries
 1848814/T42
 1848203/TheBrohoodStudios
@@ -28,7 +22,6 @@
 1864969/91siknezz
 1865279/Arellia
 1864967/BishKor
-1866921/Ciber-Norge
 1867792/DailyFeats
 1865068/DimitarTachev
 1865017/Enearon
@@ -40,13 +33,9 @@
 1865010/allisongravely
 1865011/bigrobot
 1865046/bluREgalia
-1864954/brightneighbor
-1865056/campbellking
 1864951/cbunderson
 1864955/chitowncrispy
 1864966/clbiggs
-1865079/crcasadonte
-1867629/fntestcompany
 1866551/gathercontent
 1865057/georgewneto
 1865020/guha1
@@ -54,7 +43,6 @@
 1864952/ionblotterart
 1865043/jamesteer-dln
 1864987/jmslick
-1865007/justin-motionnexus
 1867760/karunagaran
 1865027/lommon1
 1868480/mediaclan
@@ -63,7 +51,6 @@
 1867247/osdomotics
 1865065/rewca
 1865042/rgloria
-1866483/softcom-QTI
 1867083/testalliance
 1865021/tylernorthcutt
 1864984/wagnermashima
@@ -89,7 +76,6 @@
 1881078/adaptivelab
 1878858/androrm
 1878846/baloun11
-1878873/bobbylough
 1878868/brunojesus
 1878928/cavejohnsonlemons
 1878839/convectionlabs
@@ -104,7 +90,6 @@
 1878947/gismo141
 1881061/giun
 1878840/gmemstr
-1879147/gradientx
 1878950/grehan
 1879504/gudangapi
 1878863/guneyguven
@@ -116,7 +101,6 @@
 1878912/laureneross
 1878870/leizzle
 1878899/lordtidus
-1878906/marcelribeiro
 1878894/menglun
 1878890/minecraft13
 1878929/mmadrid
@@ -145,23 +129,17 @@
 1879446/synergylabs
 1878921/tabare
 1881572/unixgroup
-1878889/veresch
 1882170/vilage
 1878908/wae55
-1886737/Alexey-
 1890266/Amistar
 1888985/AvashSoft
 1886756/Avifeld
 1889563/Binah-Project
-1886728/BoxxyMC
 1889161/ClearingHouseApothekers
-1886713/Cyberwizzard
-1890492/CollaborationWrlgpd
 1889863/Discovery-Mobile
 1886703/DougMunford
 1886726/ElfeXu
 1890328/Elive
-1890342/Engaginglab
 1887298/Explee
 1889945/Fuzetto
 1886762/GasMyCar
@@ -178,7 +156,6 @@
 1888964/LERNARDO
 1888956/LeanAgileGlasgow
 1888905/LeeNCompanyInc
-1890612/LesOreillesBleues
 1887269/NewPi
 1886706/Ollie17
 1888896/Pictode
@@ -187,7 +164,6 @@
 1887107/RedPontis
 1886803/Rellik51
 1886769/Scamandspam
-1886797/Siorchim
 1888475/Spectrum3847
 1890333/TeamJ19ROADEF2012
 1889754/WePredict
@@ -238,7 +214,6 @@
 1886798/jhnpck
 1886796/kamikami1945
 1886785/kctb
-1886812/klangan
 1886694/kojihiratsuka
 1886744/krenzland
 1887591/labcodes
@@ -248,7 +223,6 @@
 1886719/luoxizhi
 1890031/manyhatsdesign
 1887094/mehrafarinprojects
-1886764/myfunction
 1886725/nadagon
 1888894/netster
 1889289/null2
@@ -261,7 +235,6 @@
 1888378/project-genesis
 1886734/pychuang
 1890629/qippo
-1886808/rhavlick
 1886776/riazur
 1886775/rs-mozilla
 1886783/sglavatchi
@@ -289,7 +262,6 @@
 1889396/yeyz
 1889725/youzee
 1886807/zachattack33
-1886730/zahdehk
 1891477/AMECAFE
 1891436/AmandaGaube
 1894620/Ambrosys
@@ -331,7 +303,6 @@
 1891508/PoslinskiNet
 1891580/SkidoSoft
 1891414/Studio-XP
-1894321/TinfoilWizards
 1891466/UVicGameDev
 1894911/UniSurreyIoT
 1891445/XTGiox
@@ -344,8 +315,6 @@
 1891404/anazer
 1891469/anpak1
 1893466/athenalabs
-1894497/bajioonrails
-1891411/atomar94
 1891606/betterdoctor
 1894637/bigspring
 1891505/binarypain
@@ -371,7 +340,6 @@
 1891409/grzechulodz
 1892126/hoytus
 1894684/hypermatix
-1893614/iazi
 1891540/iterateco
 1891451/ivyxenaxxe
 1891408/jas02
@@ -381,7 +349,6 @@
 1891515/judsonbsilva
 1891428/kaol
 1891457/kripaks
-1891463/lathio
 1891504/limratana
 1893883/lindorff
 1891486/lit81
@@ -410,13 +377,10 @@
 1893057/schultzdk
 1891458/scottloney
 1891487/shawnhayden
-1891420/sigitbn
 1892682/sinaptico
 1891444/slakkur
-1892477/spacesmetaverse
 1892354/stimulant
 1891439/stroopwafel
-1891418/talumbau
 1891422/tanawiati
 1892660/thepixelage
 1892635/thewholesaler
