@@ -1,4 +1,3 @@
-1849721/simmetria
 1848205/susanjrobertson
 1848274/timoteos-zz
 1865279/Arellia
@@ -20,7 +19,6 @@
 1865027/lommon1
 1868480/mediaclan
 1867385/millrnd
-1867850/mirana-technologies
 1867247/osdomotics
 1865065/rewca
 1865021/tylernorthcutt
@@ -60,7 +58,6 @@
 1878887/rgiles
 1878939/skwtayler
 1879318/stbarnabas
-1878921/tabare
 1886756/Avifeld
 1889161/ClearingHouseApothekers
 1886703/DougMunford
@@ -118,7 +115,6 @@
 1889325/spitbol
 1889519/takyons
 1886720/tyox
-1889068/wakkey001
 1886738/xiaomaguoguo
 1886705/xorcus
 1886801/xsdhx
@@ -140,7 +136,6 @@
 1893119/OneWebSQL
 1894193/Opensoftware
 1891434/PSzypryt
-1891781/PLOS
 1893277/Pixsys
 1892195/RivalMe
 1891647/Sanstreak
@@ -175,7 +170,6 @@
 1891438/jjensen03
 1891483/jkee
 1892595/joeexotic
-1891504/limratana
 1893883/lindorff
 1891486/lit81
 1891459/lokevin
@@ -279,7 +273,6 @@
 1905457/bigraph
 1905132/binaryjs
 1904053/bobalazek
-1904063/biscuitWizard
 1904110/btejani
 1906307/castletwo
 1904031/chen-ye
@@ -362,7 +355,6 @@
 1906256/solairplm
 1904192/sourceryjs
 1904114/srajaram
-1904089/steve1medix
 1904097/subodhkolhe
 1904120/suelencarvalho
 1904350/swish-climate-impact-assessment
@@ -375,7 +367,6 @@
 1905043/ucsd-vision
 1904391/unnamedcrm
 1904477/usercrunch
-1906828/vculibraries
 1905282/verticlabs
 1904090/vigilax
 1904023/wagnerads
