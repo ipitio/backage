@@ -1,9 +1,7 @@
-1848274/timoteos-zz
 1865279/Arellia
 1864967/BishKor
 1865068/DimitarTachev
 1865017/Enearon
-1867546/PyKudos
 1868324/Saltwaves
 1865878/TrueCloud
 1865010/allisongravely
@@ -18,7 +16,6 @@
 1865027/lommon1
 1868480/mediaclan
 1867385/millrnd
-1867247/osdomotics
 1865065/rewca
 1865021/tylernorthcutt
 1864984/wagnermashima
@@ -31,7 +28,6 @@
 1879799/MeatballIndustries
 1882106/MoxiSoftworks
 1881653/NearbyNow
-1882127/Paxata
 1880881/PunchmeLLC
 1881461/PropertyBrands
 1878948/StevenVongsay
@@ -80,15 +76,12 @@
 1890202/alges
 1887712/axDev-toolchain
 1886765/baredigital
-1890501/bodarkcamp
 1888770/buttinsky
 1886710/chegoon
 1890566/churchillnavigation
 1887632/codebit
 1886723/colceagus
 1886700/dharmeshgadhiya
-1886736/elmorte
-1886781/falaky
 1886759/fredricktoy
 1886696/h-amirjanyan
 1886805/huafei
@@ -125,7 +118,6 @@
 1891476/EricChenTEA
 1891413/EslamHosney
 1891916/FeralAgency
-1892232/Geocaching
 1891850/GirlsGuideTo
 1893937/Home01
 1894393/MSHG2
@@ -157,7 +149,6 @@
 1891497/dRusinek
 1893876/datagovuk
 1893492/denivip
-1892725/deforay
 1891474/donatasbacius
 1891953/dotnetdevelopmentfoundationscourse
 1894699/elechouse
@@ -182,17 +173,14 @@
 1893276/neurobureau
 1891403/nguyen-tim
 1891424/nsmdev
-1892954/nukeviet
 1893995/oiiku
 1891494/pai1ie
 1891453/parandeh
 1891511/paulsalem
 1891452/pavelraspaev
 1893602/pmsoftware
-1894739/robotoworks
 1894671/sampaweb
 1892682/sinaptico
-1891422/tanawiati
 1892660/thepixelage
 1892635/thewholesaler
 1891425/tremaine
@@ -268,10 +256,8 @@
 1904082/awilsonLodo
 1904075/benh1
 1904115/bcbwilla
-1906060/benner-cloudsdk
 1905457/bigraph
 1905132/binaryjs
-1904053/bobalazek
 1904110/btejani
 1906307/castletwo
 1904031/chen-ye
@@ -283,7 +269,6 @@
 1904043/ddonathan
 1904051/devjack-zz
 1904085/dhharala
-1904021/dhomme
 1904095/dmng825
 1904024/doSoftware
 1904038/dodonovan
@@ -316,7 +301,6 @@
 1904116/kph1516
 1904119/lgrandinetti
 1906110/lililulu
-1906124/lingoking
 1904939/livestyles
 1904057/lphooge
 1905694/lucidcode
@@ -339,7 +323,6 @@
 1904687/openwrt-zipit
 1905229/pabiki-studio
 1905358/pailin
-1904993/phantomtype
 1904026/photons
 1905782/pyroven
 1904039/rac00nza
@@ -349,7 +332,6 @@
 1904072/sapien2
 1904065/schlangster
 1904112/scopefragger
-1904733/selfdependent
 1904575/soapdev
 1906256/solairplm
 1904192/sourceryjs
@@ -363,8 +345,6 @@
 1904033/thisisyoon
 1904052/tommy421
 1904018/tsokol
-1905043/ucsd-vision
-1904391/unnamedcrm
 1904477/usercrunch
 1905282/verticlabs
 1904090/vigilax
