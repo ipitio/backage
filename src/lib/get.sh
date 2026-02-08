@@ -48,8 +48,7 @@ END { for(d in seen) printf "%s %s\n", seen[d], d }
 	get_remaining complete_owners "$2" "$4" "$5" | grep -vFxf all_owners_in_db -
 	rm -f complete_owners
 	[ "$1" = "0" ] || get_remaining owners_stale "$2" "$4" "$5"
-	get_remaining owners_partially_updated "$2" "$4" "$5" "$3"
-	[ "$1" = "1" ] || get_remaining owners_stale "$2" "$4" "$5"
+	insert_into <(get_remaining owners_partially_updated "$2" "$4" "$5" "$3") <(get_remaining owners_stale "$2" "$4" "$5")
 }
 
 get_owners "$1" "$2" "$3" "$4" "$5" 2>/dev/null | awk '!seen[$0]++' | head -n $((3 * $3))
