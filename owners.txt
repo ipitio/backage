@@ -1,4 +1,3 @@
-1865878/TrueCloud
 1865010/allisongravely
 1865046/bluREgalia
 1864951/cbunderson
@@ -6,8 +5,6 @@
 1864952/ionblotterart
 1865043/jamesteer-dln
 1864987/jmslick
-1867760/karunagaran
-1865027/lommon1
 1868480/mediaclan
 1867385/millrnd
 1865065/rewca
@@ -15,7 +12,6 @@
 1864984/wagnermashima
 1878862/20cents
 1881099/BLTGV
-1882252/CORE-POS
 1879006/COZmedics
 1878875/DavianRobinson
 1880578/Goobit
@@ -35,13 +31,11 @@
 1878918/ghostdriver-zz
 1881061/giun
 1878950/grehan
-1878909/jimrigby
 1878894/menglun
 1878890/minecraft13
 1878847/mooot
 1879198/nko3
 1879623/pbvokent1
-1878831/pionl
 1881223/plocs
 1878887/rgiles
 1878939/skwtayler
@@ -91,7 +85,6 @@
 1888378/project-genesis
 1890629/qippo
 1886776/riazur
-1886775/rs-mozilla
 1886783/sglavatchi
 1889288/shoptet
 1886811/slamdunkinoreo
@@ -125,7 +118,6 @@
 1894911/UniSurreyIoT
 1891445/XTGiox
 1893028/Webstep
-1891480/achyan
 1891441/adityac07
 1891404/anazer
 1891469/anpak1
@@ -133,11 +125,9 @@
 1891505/binarypain
 1891449/btopol
 1891491/cchock
-1891513/christwsy-zz
 1892404/cnolle
 1893876/datagovuk
 1893492/denivip
-1891474/donatasbacius
 1891953/dotnetdevelopmentfoundationscourse
 1894699/elechouse
 1891492/forestalive
@@ -147,7 +137,6 @@
 1891438/jjensen03
 1891483/jkee
 1892595/joeexotic
-1893883/lindorff
 1891486/lit81
 1891459/lokevin
 1894891/lyncode
@@ -174,7 +163,6 @@
 1894157/wi-hska
 1892821/xelavalley
 1904080/515mowens
-1904028/Abidebol
 1904106/Abe666
 1906395/Atmosfear
 1904030/AnonymousGitHubUser
@@ -192,7 +180,6 @@
 1905141/Envyforandroid
 1904102/EpsilonOrigins
 1904071/FabricioMillaguir
-1905858/FreedomEmu
 1904060/Freespacer
 1904101/GregDaughtry
 1904665/HighwayFramework
@@ -203,14 +190,11 @@
 1904107/JhonM
 1904044/JollyJunior
 1905744/Joyintermedia
-1904014/KenBobPDX
 1904047/LucasCavOgilvy
 1904056/Lojowa
 1905781/MiamiNice
 1904187/Mobeezio
 1906800/NatLabRockies
-1904289/NerdRocket
-1904058/NLawhead
 1905407/NetboosterStudio
 1904474/RazorfishHealth
 1905916/ReedBear
@@ -218,7 +202,6 @@
 1904729/Sincere
 1904109/SimonVarvaressos
 1906470/SmartFaune
-1906604/SoftArtisans
 1904117/SteveHiner
 1904061/SteveUlin
 1906455/TI-LPRF-Software
@@ -227,7 +210,6 @@
 1904092/TommyC81
 1904710/UQcsse2003
 1904022/VesterT
-1906152/WingsEmulation
 1904046/adisacraig
 1905789/X509DevTeam
 1904083/akiniemi
@@ -260,14 +242,12 @@
 1905846/enpit
 1904027/epaseka
 1904078/eransamo
-1906131/fbn-dd
 1904054/fallenPineapple
 1906420/filmow
 1904050/hackcyprus
 1904830/hobonichi
 1905702/haydendigital
 1904098/hopandjaunt
-1904909/htc-msm8960
 1904019/imelt
 1904035/infra-doit
 1906177/ixorbe
@@ -279,7 +259,6 @@
 1904032/kristib
 1904116/kph1516
 1904119/lgrandinetti
-1906110/lililulu
 1904939/livestyles
 1904057/lphooge
 1905694/lucidcode
