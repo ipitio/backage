@@ -1,4 +1,3 @@
-1864967/BishKor
 1865068/DimitarTachev
 1865017/Enearon
 1868324/Saltwaves
@@ -43,7 +42,6 @@
 1878909/jimrigby
 1878894/menglun
 1878890/minecraft13
-1882515/mobileshanti
 1878847/mooot
 1879198/nko3
 1879623/pbvokent1
@@ -113,7 +111,6 @@
 1894620/Ambrosys
 1891973/ConnectCorp
 1891795/Deshlerlanes
-1893509/Dikutal
 1891476/EricChenTEA
 1891413/EslamHosney
 1891916/FeralAgency
@@ -145,7 +142,6 @@
 1891491/cchock
 1891513/christwsy-zz
 1892404/cnolle
-1891497/dRusinek
 1893876/datagovuk
 1893492/denivip
 1891474/donatasbacius
@@ -153,7 +149,6 @@
 1894699/elechouse
 1891492/forestalive
 1891419/grandvizier
-1892126/hoytus
 1891540/iterateco
 1891451/ivyxenaxxe
 1891438/jjensen03
@@ -173,7 +168,6 @@
 1891403/nguyen-tim
 1891424/nsmdev
 1893995/oiiku
-1891494/pai1ie
 1891453/parandeh
 1891511/paulsalem
 1891452/pavelraspaev
@@ -265,7 +259,6 @@
 1904726/codingeverybody
 1904108/csyvenky
 1904042/dariimd
-1904043/ddonathan
 1904051/devjack-zz
 1904085/dhharala
 1904095/dmng825
@@ -282,7 +275,6 @@
 1906131/fbn-dd
 1904054/fallenPineapple
 1906420/filmow
-1906421/ferocia
 1904050/hackcyprus
 1904830/hobonichi
 1905702/haydendigital
@@ -341,13 +333,10 @@
 1904070/tanus
 1904219/tehninja
 1904436/textlab
-1904033/thisisyoon
-1904052/tommy421
 1904018/tsokol
 1904477/usercrunch
 1905282/verticlabs
 1904090/vigilax
 1904023/wagnerads
-1904444/wearesocial
 1905708/webcomponents
 1904015/wonkawoo
