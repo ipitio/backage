@@ -1,10 +1,8 @@
-1865017/Enearon
 1868324/Saltwaves
 1865878/TrueCloud
 1865010/allisongravely
 1865046/bluREgalia
 1864951/cbunderson
-1865057/georgewneto
 1865047/halfsharkhalfdolphin
 1864952/ionblotterart
 1865043/jamesteer-dln
@@ -86,7 +84,6 @@
 1886694/kojihiratsuka
 1886744/krenzland
 1887591/labcodes
-1886716/lilei5678
 1888458/looplab
 1887094/mehrafarinprojects
 1886725/nadagon
@@ -102,7 +99,6 @@
 1886733/spinaker5055
 1889325/spitbol
 1889519/takyons
-1886720/tyox
 1886738/xiaomaguoguo
 1886705/xorcus
 1886801/xsdhx
@@ -132,7 +128,6 @@
 1893028/Webstep
 1891480/achyan
 1891441/adityac07
-1891736/alacer
 1891404/anazer
 1891469/anpak1
 1893466/athenalabs
@@ -163,8 +158,6 @@
 1891442/mertensu
 1894511/multiplicausa
 1894300/mventures
-1893276/neurobureau
-1891403/nguyen-tim
 1891424/nsmdev
 1893995/oiiku
 1891453/parandeh
@@ -202,7 +195,6 @@
 1904071/FabricioMillaguir
 1905858/FreedomEmu
 1904060/Freespacer
-1904347/FreshMuseDesign
 1904101/GregDaughtry
 1904665/HighwayFramework
 1906553/IESAmultimedia
@@ -222,7 +214,6 @@
 1904058/NLawhead
 1905407/NetboosterStudio
 1904474/RazorfishHealth
-1904036/RickDev
 1905916/ReedBear
 1905263/SHUWebArchitectures
 1904729/Sincere
@@ -262,7 +253,6 @@
 1904085/dhharala
 1904095/dmng825
 1904024/doSoftware
-1904038/dodonovan
 1904113/donbaker
 1904105/ecrissman
 1904096/ekupelian
