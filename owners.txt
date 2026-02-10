@@ -1,4 +1,3 @@
-1865047/halfsharkhalfdolphin
 1864952/ionblotterart
 1865043/jamesteer-dln
 1864987/jmslick
@@ -8,7 +7,6 @@
 1865021/tylernorthcutt
 1864984/wagnermashima
 1878862/20cents
-1881099/BLTGV
 1879006/COZmedics
 1878875/DavianRobinson
 1880578/Goobit
@@ -21,7 +19,6 @@
 1881078/adaptivelab
 1878858/androrm
 1878846/baloun11
-1878928/cavejohnsonlemons
 1878839/convectionlabs
 1878869/ericminikel
 1879452/flipside5
@@ -112,7 +109,6 @@
 1891466/UVicGameDev
 1891445/XTGiox
 1893028/Webstep
-1891441/adityac07
 1891404/anazer
 1891469/anpak1
 1893466/athenalabs
@@ -138,7 +134,6 @@
 1891479/manuelen
 1891421/margaretrowden
 1891442/mertensu
-1894511/multiplicausa
 1894300/mventures
 1891424/nsmdev
 1893995/oiiku
@@ -176,7 +171,6 @@
 1904101/GregDaughtry
 1904665/HighwayFramework
 1906553/IESAmultimedia
-1906383/Hoektronics
 1904064/Infin1ty
 1906205/InterResolve
 1904107/JhonM
@@ -215,7 +209,6 @@
 1905457/bigraph
 1905132/binaryjs
 1904110/btejani
-1906307/castletwo
 1904031/chen-ye
 1905427/clarify-no
 1906802/csrg-utfsm
@@ -274,7 +267,6 @@
 1905229/pabiki-studio
 1905358/pailin
 1904026/photons
-1905782/pyroven
 1904039/rac00nza
 1904099/raflik
 1904081/ranav
