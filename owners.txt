@@ -1,4 +1,3 @@
-1865043/jamesteer-dln
 1864987/jmslick
 1868480/mediaclan
 1867385/millrnd
@@ -156,7 +155,6 @@
 1904066/CartThrob
 1904103/Christopher-R-Perkins
 1906475/CloudBroker
-1904797/CodeMaps
 1905373/CornwallCollege
 1905551/Creare
 1904545/DubberSoftware
@@ -167,7 +165,6 @@
 1904102/EpsilonOrigins
 1904071/FabricioMillaguir
 1904060/Freespacer
-1904101/GregDaughtry
 1904665/HighwayFramework
 1906553/IESAmultimedia
 1904064/Infin1ty
@@ -202,7 +199,6 @@
 1906708/appjs
 1906384/articode
 1904086/artisansGroup
-1904082/awilsonLodo
 1904075/benh1
 1904115/bcbwilla
 1905457/bigraph
