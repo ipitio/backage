@@ -1,4 +1,3 @@
-1865046/bluREgalia
 1864951/cbunderson
 1865047/halfsharkhalfdolphin
 1864952/ionblotterart
@@ -69,7 +68,6 @@
 1886723/colceagus
 1886700/dharmeshgadhiya
 1886759/fredricktoy
-1886696/h-amirjanyan
 1886805/huafei
 1886779/jayarathina
 1886785/kctb
@@ -102,7 +100,6 @@
 1891916/FeralAgency
 1891850/GirlsGuideTo
 1893937/Home01
-1894393/MSHG2
 1892997/MY-TEAM
 1894048/NebulaFlow
 1891426/NickSmudge
@@ -114,7 +111,6 @@
 1891647/Sanstreak
 1891580/SkidoSoft
 1891466/UVicGameDev
-1894911/UniSurreyIoT
 1891445/XTGiox
 1893028/Webstep
 1891441/adityac07
@@ -147,7 +143,6 @@
 1894300/mventures
 1891424/nsmdev
 1893995/oiiku
-1891453/parandeh
 1891511/paulsalem
 1891452/pavelraspaev
 1893602/pmsoftware
@@ -171,7 +166,6 @@
 1904797/CodeMaps
 1905373/CornwallCollege
 1905551/Creare
-1904794/DocMaps
 1904545/DubberSoftware
 1905794/EngageDC
 1904077/Edentecle
