@@ -1,9 +1,7 @@
-1865065/rewca
 1865021/tylernorthcutt
 1864984/wagnermashima
 1878862/20cents
 1879006/COZmedics
-1878875/DavianRobinson
 1880578/Goobit
 1879799/MeatballIndustries
 1882106/MoxiSoftworks
@@ -352,7 +350,6 @@
 1926128/crondaemon
 1926100/depaloan
 1929741/devct
-1926074/dievsky
 1929013/dioscouri
 1927009/dradio
 1926041/dtrucs
