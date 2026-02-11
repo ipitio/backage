@@ -1,4 +1,3 @@
-1868480/mediaclan
 1867385/millrnd
 1865065/rewca
 1865021/tylernorthcutt
@@ -57,7 +56,6 @@
 1888770/buttinsky
 1886710/chegoon
 1890566/churchillnavigation
-1887632/codebit
 1886723/colceagus
 1886700/dharmeshgadhiya
 1886759/fredricktoy
@@ -109,7 +107,6 @@
 1891404/anazer
 1891469/anpak1
 1893466/athenalabs
-1891505/binarypain
 1891449/btopol
 1891491/cchock
 1892404/cnolle
@@ -174,7 +171,6 @@
 1904047/LucasCavOgilvy
 1904056/Lojowa
 1905781/MiamiNice
-1904187/Mobeezio
 1906800/NatLabRockies
 1905407/NetboosterStudio
 1904474/RazorfishHealth
@@ -280,7 +276,6 @@
 1904436/textlab
 1904018/tsokol
 1904477/usercrunch
-1905282/verticlabs
 1904090/vigilax
 1904023/wagnerads
 1905708/webcomponents
@@ -313,11 +308,9 @@
 1926066/JacobMillward
 1926106/Holgero147
 1926099/JanBam
-1926134/JoachimIsau
 1926144/JohanKahrstrom
 1926088/JoshMarley
 1929329/KingsCollegeHospital
-1927792/Krush-inc
 1926097/Lynndell
 1927509/Magazen
 1926052/Magikarcher
@@ -409,7 +402,6 @@
 1926240/letranhuytestorg
 1926769/lightops
 1926063/lukmaniwan
-1926124/m-labazov
 1926091/majestico
 1929873/managemywordpress
 1926040/mangey33
@@ -444,7 +436,6 @@
 1926086/rockiecxh
 1928333/sanchobbdo
 1930735/savveo
-1926101/shizonic
 1928956/softvelopment
 1926044/soluemanhussain
 1927827/spaceapegames
