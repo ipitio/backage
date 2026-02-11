@@ -1,4 +1,3 @@
-1864984/wagnermashima
 1878862/20cents
 1879006/COZmedics
 1880578/Goobit
@@ -9,7 +8,6 @@
 1881461/PropertyBrands
 1878948/StevenVongsay
 1881078/adaptivelab
-1878858/androrm
 1878846/baloun11
 1878839/convectionlabs
 1878869/ericminikel
@@ -153,7 +151,6 @@
 1905794/EngageDC
 1904077/Edentecle
 1904806/EmberDev
-1905141/Envyforandroid
 1904102/EpsilonOrigins
 1904071/FabricioMillaguir
 1904060/Freespacer
@@ -333,7 +330,6 @@
 1926126/addnab
 1926046/ainfdata
 1926140/albertoprad
-1926127/andl76
 1926050/assafbahat
 1928136/bitstadium
 1926082/bjames
@@ -373,7 +369,6 @@
 1926962/gomedia
 1926042/hadiliu
 1930250/hatchee
-1926145/heryfrancois
 1926043/hindmarch
 1926121/horia-filimonescu
 1926113/hxtomprice
@@ -434,7 +429,6 @@
 1928956/softvelopment
 1926044/soluemanhussain
 1927827/spaceapegames
-1926067/spotifaj
 1926117/stevefarrugia
 1926087/stormsurfer
 1926105/sumathi-atex
@@ -454,7 +448,6 @@
 1927865/tooringanalytics
 1929565/tpkg
 1927647/trender
-1926068/tsachy
 1926064/tysland
 1928551/ucsb-cs-education
 1926104/unaiberna
