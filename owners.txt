@@ -1,7 +1,5 @@
-1881653/NearbyNow
 1880881/PunchmeLLC
 1881461/PropertyBrands
-1878948/StevenVongsay
 1881078/adaptivelab
 1878846/baloun11
 1878869/ericminikel
@@ -76,7 +74,6 @@
 1891850/GirlsGuideTo
 1893937/Home01
 1892997/MY-TEAM
-1894048/NebulaFlow
 1891426/NickSmudge
 1893119/OneWebSQL
 1894193/Opensoftware
@@ -121,7 +118,6 @@
 1894051/vanderbilt
 1891493/wakingmoments
 1894157/wi-hska
-1892821/xelavalley
 1904080/515mowens
 1904106/Abe666
 1906395/Atmosfear
@@ -154,7 +150,6 @@
 1905916/ReedBear
 1905263/SHUWebArchitectures
 1904729/Sincere
-1904109/SimonVarvaressos
 1906470/SmartFaune
 1904117/SteveHiner
 1904061/SteveUlin
@@ -446,7 +441,6 @@
 1940836/Allan597
 1945780/AmateurTraveler
 1942571/AppMaintainers
-1941134/BRAVEMOUNTITSOLUTIONSPVTLTD
 1945721/Bertholf
 1943837/Bricco
 1945130/CinePantin
@@ -505,7 +499,6 @@
 1940770/ansh123
 1944457/artiomix
 1942680/astafhaachen
-1940809/baileywinste922
 1940828/barry-pafers
 1942273/basex-gmbh
 1940802/bergkampsliew
@@ -532,7 +525,6 @@
 1940771/developer1biztech
 1941470/difio
 1943528/easi6
-1943089/drc-devs
 1943542/electric-feel
 1941671/eligosource
 1945271/erpguru
@@ -583,7 +575,6 @@
 1940762/ollieschou923
 1941807/onigiri-kingdom
 1940751/oosidat
-1944050/opencloudbrokers
 1941987/packnetmetis
 1942050/pancentric
 1940812/pawangambhir
@@ -593,7 +584,6 @@
 1940850/postailan
 1940814/prestoncrosb49
 1940768/r0j3r
-1940811/rainbowblue
 1940799/rajiv123
 1940750/randamo3599
 1940831/rbooyens
@@ -609,9 +599,7 @@
 1943397/sjvtech
 1940759/sk2u
 1940767/slotab
-1944519/soartech
 1940782/sreenathmenon
-1940818/surrencyuiegdana
 1943071/strozfriedberg
 1940772/tariksedlarevic
 1943739/teamnora
