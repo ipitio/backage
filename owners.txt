@@ -1,4 +1,3 @@
-1879006/COZmedics
 1880578/Goobit
 1879799/MeatballIndustries
 1882106/MoxiSoftworks
@@ -8,7 +7,6 @@
 1878948/StevenVongsay
 1881078/adaptivelab
 1878846/baloun11
-1878839/convectionlabs
 1878869/ericminikel
 1879452/flipside5
 1878918/ghostdriver-zz
@@ -16,7 +14,6 @@
 1878950/grehan
 1878894/menglun
 1878890/minecraft13
-1878847/mooot
 1879198/nko3
 1879623/pbvokent1
 1881223/plocs
@@ -34,7 +31,6 @@
 1890381/Ideom
 1888504/Industree
 1889240/JetpakOnline
-1886777/KikouLooL
 1888964/LERNARDO
 1888956/LeanAgileGlasgow
 1888905/LeeNCompanyInc
@@ -103,7 +99,6 @@
 1891449/btopol
 1891491/cchock
 1892404/cnolle
-1893876/datagovuk
 1893492/denivip
 1891953/dotnetdevelopmentfoundationscourse
 1894699/elechouse
@@ -114,7 +109,6 @@
 1891438/jjensen03
 1891483/jkee
 1892595/joeexotic
-1891486/lit81
 1891459/lokevin
 1894891/lyncode
 1891503/mamgjigsaw
@@ -122,7 +116,6 @@
 1891421/margaretrowden
 1891442/mertensu
 1894300/mventures
-1891424/nsmdev
 1893995/oiiku
 1891511/paulsalem
 1891452/pavelraspaev
@@ -308,7 +301,6 @@
 1926052/Magikarcher
 1926139/MatthewWild
 1929244/NRCan
-1928542/MediaToss
 1927960/Netsprint
 1928067/Noralta
 1928856/NordicRiver
