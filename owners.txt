@@ -1,4 +1,3 @@
-1878846/baloun11
 1878869/ericminikel
 1879452/flipside5
 1878918/ghostdriver-zz
@@ -9,7 +8,6 @@
 1879198/nko3
 1879623/pbvokent1
 1881223/plocs
-1878887/rgiles
 1878939/skwtayler
 1879318/stbarnabas
 1886756/Avifeld
@@ -197,7 +195,6 @@
 1904045/kayankay
 1905845/komuneco
 1904032/kristib
-1904116/kph1516
 1904119/lgrandinetti
 1904939/livestyles
 1904057/lphooge
@@ -422,7 +419,6 @@
 1926064/tysland
 1928551/ucsb-cs-education
 1926104/unaiberna
-1926904/visionect
 1926076/visualizegem
 1928935/webmate
 1926122/williamhelme
@@ -441,7 +437,6 @@
 1940847/Dearboy
 1940846/DienNM
 1945498/Discontinuity-srl
-1940822/DiscoverIT
 1944533/DoubleTapLabs
 1940823/EdTengHR
 1941599/GSBA
@@ -475,7 +470,6 @@
 1940785/ValmikiJansi
 1942435/Wondren
 1943171/WysnanCorporation
-1942555/XETN
 1944999/YRS
 1940754/abbs
 1940763/adimeiman
@@ -502,7 +496,6 @@
 1940783/cestruch86
 1941829/cgauge
 1941975/clyxstudios
-1945327/codegags
 1941222/coderdojo-okinawa
 1940839/codyhuang38
 1944210/conexiant
@@ -560,7 +553,6 @@
 1940803/nicolaiascanius
 1945155/noshlist
 1944073/nucliux
-1940762/ollieschou923
 1941807/onigiri-kingdom
 1940751/oosidat
 1941987/packnetmetis
