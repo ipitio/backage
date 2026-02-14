@@ -1,4 +1,3 @@
-1879452/flipside5
 1878918/ghostdriver-zz
 1881061/giun
 1878950/grehan
@@ -19,8 +18,6 @@
 1890381/Ideom
 1888504/Industree
 1889240/JetpakOnline
-1888964/LERNARDO
-1888956/LeanAgileGlasgow
 1888905/LeeNCompanyInc
 1887269/NewPi
 1886706/Ollie17
@@ -42,13 +39,11 @@
 1886694/kojihiratsuka
 1886744/krenzland
 1887591/labcodes
-1888458/looplab
 1887094/mehrafarinprojects
 1886725/nadagon
 1888894/netster
 1890190/phatio
 1888378/project-genesis
-1890629/qippo
 1886776/riazur
 1886783/sglavatchi
 1889288/shoptet
@@ -81,7 +76,6 @@
 1891404/anazer
 1891469/anpak1
 1891449/btopol
-1891491/cchock
 1892404/cnolle
 1893492/denivip
 1891953/dotnetdevelopmentfoundationscourse
@@ -130,7 +124,6 @@
 1904064/Infin1ty
 1906205/InterResolve
 1904107/JhonM
-1904044/JollyJunior
 1904047/LucasCavOgilvy
 1904056/Lojowa
 1905781/MiamiNice
@@ -170,7 +163,6 @@
 1904051/devjack-zz
 1904085/dhharala
 1904095/dmng825
-1904024/doSoftware
 1904113/donbaker
 1904105/ecrissman
 1904096/ekupelian
@@ -178,7 +170,6 @@
 1904352/endlesshack
 1905846/enpit
 1904027/epaseka
-1904078/eransamo
 1904054/fallenPineapple
 1906420/filmow
 1904050/hackcyprus
@@ -411,7 +402,6 @@
 1926047/theduck101
 1928638/theforward
 1928358/thegreenhope
-1927961/tiqav
 1927865/tooringanalytics
 1929565/tpkg
 1927647/trender
@@ -433,7 +423,6 @@
 1943837/Bricco
 1945130/CinePantin
 1942383/CoffeeScript2ru
-1940847/Dearboy
 1940846/DienNM
 1945498/Discontinuity-srl
 1944533/DoubleTapLabs
@@ -588,7 +577,6 @@
 1944512/uxalytics
 1941290/uzh-rpg
 1941455/vasper
-1941045/versatica
 1942472/vicenteiglesias
 1940765/vikashms
 1940844/viper0013
