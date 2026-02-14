@@ -1,4 +1,3 @@
-1881061/giun
 1878950/grehan
 1878894/menglun
 1878890/minecraft13
@@ -23,7 +22,6 @@
 1888896/Pictode
 1886803/Rellik51
 1886769/Scamandspam
-1890202/alges
 1887712/axDev-toolchain
 1886765/baredigital
 1888770/buttinsky
@@ -38,7 +36,6 @@
 1886694/kojihiratsuka
 1886744/krenzland
 1887591/labcodes
-1887094/mehrafarinprojects
 1886725/nadagon
 1888894/netster
 1890190/phatio
@@ -111,7 +108,6 @@
 1906475/CloudBroker
 1905373/CornwallCollege
 1905551/Creare
-1904545/DubberSoftware
 1905794/EngageDC
 1904077/Edentecle
 1904806/EmberDev
@@ -158,7 +154,6 @@
 1906802/csrg-utfsm
 1904726/codingeverybody
 1904108/csyvenky
-1904042/dariimd
 1904051/devjack-zz
 1904085/dhharala
 1904095/dmng825
@@ -170,7 +165,6 @@
 1905846/enpit
 1904027/epaseka
 1904054/fallenPineapple
-1906420/filmow
 1904050/hackcyprus
 1904830/hobonichi
 1905702/haydendigital
@@ -405,7 +399,6 @@
 1929565/tpkg
 1927647/trender
 1926064/tysland
-1928551/ucsb-cs-education
 1926104/unaiberna
 1926076/visualizegem
 1928935/webmate
@@ -442,7 +435,6 @@
 1941847/MakeWebsolutions
 1942734/MacByte
 1940766/MasanoriSasaki
-1945811/NESN
 1945380/PocketCampus
 1942807/Qyotta
 1941719/ResHarmonics
@@ -454,7 +446,6 @@
 1944243/TBCAST-SAS
 1945272/TheTechDerp
 1940761/Thexder
-1940785/ValmikiJansi
 1942435/Wondren
 1943171/WysnanCorporation
 1944999/YRS
@@ -485,11 +476,9 @@
 1941975/clyxstudios
 1941222/coderdojo-okinawa
 1940839/codyhuang38
-1944210/conexiant
 1944580/cornbits
 1941519/creative-control
 1943166/cyberstride
-1940788/cyrilboesen613
 1940808/dddhany
 1941679/dejima
 1940771/developer1biztech
@@ -501,7 +490,6 @@
 1941096/f0f
 1940832/fabregass
 1940780/finisjhwfor820
-1940825/florianzacha615
 1945605/fofix
 1942931/fourth-lab
 1940752/gardnerdicki24
@@ -515,7 +503,6 @@
 1941007/humaan
 1940778/iamnick
 1940848/jaredrobbins614
-1940787/jayine1127
 1940804/jeffryhurley24
 1940837/jitendra-it
 1940806/jokugao
@@ -523,7 +510,6 @@
 1940805/keku87
 1940769/kkmayur
 1940827/klyavin
-1940789/ksdesigner2011
 1940794/lck0775
 1941491/liquidlight
 1940795/ljb-2000
@@ -584,7 +570,6 @@
 1942720/wesam80
 1940760/wiltonshaffe410
 1940790/winlin
-1944289/worksdesign
 1940843/yzyanchao
 1940849/zcbeach
 1940800/zhangroc
