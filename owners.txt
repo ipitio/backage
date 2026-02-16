@@ -1,4 +1,3 @@
-1890328/Elive
 1886762/GasMyCar
 1886740/HAREEM
 1886827/IceColdAOKP
@@ -54,10 +53,8 @@
 1892404/cnolle
 1893492/denivip
 1894699/elechouse
-1891419/grandvizier
 1891451/ivyxenaxxe
 1891483/jkee
-1892595/joeexotic
 1891459/lokevin
 1894891/lyncode
 1891503/mamgjigsaw
@@ -85,7 +82,6 @@
 1905373/CornwallCollege
 1905551/Creare
 1905794/EngageDC
-1904077/Edentecle
 1904806/EmberDev
 1904102/EpsilonOrigins
 1904071/FabricioMillaguir
@@ -108,7 +104,6 @@
 1906120/TodoSync
 1904092/TommyC81
 1904710/UQcsse2003
-1904022/VesterT
 1904046/adisacraig
 1905789/X509DevTeam
 1904083/akiniemi
@@ -125,10 +120,8 @@
 1904726/codingeverybody
 1904108/csyvenky
 1904051/devjack-zz
-1904095/dmng825
 1904113/donbaker
 1904105/ecrissman
-1904361/endeavr
 1904352/endlesshack
 1905846/enpit
 1904027/epaseka
@@ -142,7 +135,6 @@
 1904062/jayjwylie
 1904100/kalyannistala
 1904045/kayankay
-1904032/kristib
 1904119/lgrandinetti
 1904939/livestyles
 1905694/lucidcode
@@ -192,7 +184,6 @@
 1929943/Altiweb
 1929400/BarkleyREI
 1928623/Apptom
-1927387/BertelsmannStiftung
 1926488/Bonnyprints-GmbH
 1928717/Cmsworks
 1926723/CloudDialogs
@@ -329,10 +320,8 @@
 1926089/pishatron
 1928764/plasmiq
 1926806/playbe
-1926054/qingo
 1926136/rblin
 1928631/rcode-git
-1926114/reagboy
 1926075/rifaei
 1928333/sanchobbdo
 1928956/softvelopment
@@ -348,7 +337,6 @@
 1926090/tenmilyards
 1930679/test5
 1926133/thedubs
-1926047/theduck101
 1928358/thegreenhope
 1929565/tpkg
 1927647/trender
@@ -380,7 +368,6 @@
 1941318/Lionizers
 1943260/MSU-IBC
 1942734/MacByte
-1940766/MasanoriSasaki
 1945380/PocketCampus
 1942807/Qyotta
 1941719/ResHarmonics
@@ -388,7 +375,6 @@
 1942232/Shopello
 1940764/SneManden
 1943170/Synchrotron-SOLEIL
-1944243/TBCAST-SAS
 1945272/TheTechDerp
 1942435/Wondren
 1943171/WysnanCorporation
@@ -429,7 +415,6 @@
 1941096/f0f
 1940832/fabregass
 1940780/finisjhwfor820
-1945605/fofix
 1942931/fourth-lab
 1940752/gardnerdicki24
 1942475/genevarb
@@ -441,7 +426,6 @@
 1940778/iamnick
 1940848/jaredrobbins614
 1940804/jeffryhurley24
-1940837/jitendra-it
 1940806/jokugao
 1940820/jonasbenson716
 1940769/kkmayur
@@ -465,7 +449,6 @@
 1942050/pancentric
 1940812/pawangambhir
 1940773/percyfarley25
-1945761/pirateradio
 1940850/postailan
 1940814/prestoncrosb49
 1940799/rajiv123
