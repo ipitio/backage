@@ -1,4 +1,3 @@
-1879318/stbarnabas
 1886756/Avifeld
 1889161/ClearingHouseApothekers
 1886726/ElfeXu
@@ -31,7 +30,6 @@
 1888894/netster
 1890190/phatio
 1888378/project-genesis
-1886776/riazur
 1886783/sglavatchi
 1889288/shoptet
 1886811/slamdunkinoreo
@@ -64,7 +62,6 @@
 1892404/cnolle
 1893492/denivip
 1894699/elechouse
-1891492/forestalive
 1891419/grandvizier
 1891451/ivyxenaxxe
 1891483/jkee
@@ -104,12 +101,10 @@
 1904060/Freespacer
 1904665/HighwayFramework
 1906553/IESAmultimedia
-1904064/Infin1ty
 1906205/InterResolve
 1904107/JhonM
 1904047/LucasCavOgilvy
 1904056/Lojowa
-1905781/MiamiNice
 1906800/NatLabRockies
 1904474/RazorfishHealth
 1905916/ReedBear
@@ -162,7 +157,6 @@
 1904032/kristib
 1904119/lgrandinetti
 1904939/livestyles
-1904057/lphooge
 1905694/lucidcode
 1904111/mediapiston-ops
 1904121/meowkel
@@ -179,7 +173,6 @@
 1905440/octarine
 1904087/omanchenko
 1905990/openelections
-1904687/openwrt-zipit
 1905229/pabiki-studio
 1905358/pailin
 1904026/photons
@@ -359,7 +352,6 @@
 1928956/softvelopment
 1926044/soluemanhussain
 1927827/spaceapegames
-1926117/stevefarrugia
 1926087/stormsurfer
 1926105/sumathi-atex
 1926253/syby
@@ -391,7 +383,6 @@
 1942383/CoffeeScript2ru
 1940846/DienNM
 1945498/Discontinuity-srl
-1944533/DoubleTapLabs
 1940823/EdTengHR
 1941599/GSBA
 1940840/HamariBoli
@@ -404,13 +395,11 @@
 1941414/MIUICzech-Slovak
 1941318/Lionizers
 1943260/MSU-IBC
-1941847/MakeWebsolutions
 1942734/MacByte
 1940766/MasanoriSasaki
 1945380/PocketCampus
 1942807/Qyotta
 1941719/ResHarmonics
-1941472/SerendipMedia
 1943855/Shattered-Colony-Unbound
 1942232/Shopello
 1940764/SneManden
@@ -435,7 +424,6 @@
 1940828/barry-pafers
 1942273/basex-gmbh
 1940802/bergkampsliew
-1943213/bliss2013
 1944955/boston-library
 1940753/brendonlange49
 1940833/calculate
@@ -454,7 +442,6 @@
 1941470/difio
 1943528/easi6
 1943542/electric-feel
-1941671/eligosource
 1945271/erpguru
 1941096/f0f
 1940832/fabregass
@@ -515,7 +502,6 @@
 1940767/slotab
 1940782/sreenathmenon
 1943071/strozfriedberg
-1940772/tariksedlarevic
 1940749/tempseasurface29
 1944284/thecityswig
 1940784/trimyannick33
