@@ -1,4 +1,3 @@
-1890381/Ideom
 1888504/Industree
 1889240/JetpakOnline
 1888905/LeeNCompanyInc
@@ -46,7 +45,6 @@
 1891449/btopol
 1892404/cnolle
 1893492/denivip
-1894699/elechouse
 1891451/ivyxenaxxe
 1891483/jkee
 1891459/lokevin
@@ -59,7 +57,6 @@
 1891452/pavelraspaev
 1893602/pmsoftware
 1894671/sampaweb
-1892682/sinaptico
 1892660/thepixelage
 1892635/thewholesaler
 1891425/tremaine
@@ -87,7 +84,6 @@
 1906800/NatLabRockies
 1904474/RazorfishHealth
 1905916/ReedBear
-1905263/SHUWebArchitectures
 1906470/SmartFaune
 1904117/SteveHiner
 1904061/SteveUlin
@@ -102,7 +98,6 @@
 1904017/animekita
 1906708/appjs
 1906384/articode
-1904086/artisansGroup
 1904075/benh1
 1905457/bigraph
 1905132/binaryjs
@@ -122,7 +117,6 @@
 1905702/haydendigital
 1904098/hopandjaunt
 1904019/imelt
-1906177/ixorbe
 1904059/jasbsam
 1904062/jayjwylie
 1904100/kalyannistala
@@ -192,7 +186,6 @@
 1926108/HHadri13
 1926093/Heliophobe
 1927801/Inlogik
-1926066/JacobMillward
 1926106/Holgero147
 1926099/JanBam
 1926144/JohanKahrstrom
@@ -270,7 +263,6 @@
 1927107/iscanonline
 1926080/isdera
 1926096/jabbawockyorg
-1926055/jankul
 1926103/jereld
 1926138/jimmywzm
 1928418/jinkanhq
@@ -279,13 +271,11 @@
 1926061/keroslee
 1929423/kg6
 1926147/kisaurel
-1929744/leakycode
 1929176/leandata
 1926092/leobuettiker
 1926240/letranhuytestorg
 1926769/lightops
 1926063/lukmaniwan
-1926091/majestico
 1929873/managemywordpress
 1926112/markkalder
 1926102/mastertorian
@@ -323,18 +313,15 @@
 1927596/tekconf
 1926111/tenger13
 1926090/tenmilyards
-1930679/test5
 1926133/thedubs
 1928358/thegreenhope
 1929565/tpkg
-1927647/trender
 1926064/tysland
 1926104/unaiberna
 1926076/visualizegem
 1928935/webmate
 1926122/williamhelme
 1926137/wolfwolker
-1926058/wylyeak
 1926062/xiaorui0328
 1942164/AdaAndTheMachine
 1944377/50dollarsweb
@@ -366,7 +353,6 @@
 1943171/WysnanCorporation
 1940754/abbs
 1940763/adimeiman
-1942423/agilaris
 1940810/akshaya99
 1940815/alexyra
 1940793/alfredkorsga923
@@ -390,7 +376,6 @@
 1943166/cyberstride
 1940808/dddhany
 1941679/dejima
-1940771/developer1biztech
 1941470/difio
 1943528/easi6
 1943542/electric-feel
@@ -407,7 +392,6 @@
 1941647/happyztsg
 1940821/heima911
 1940778/iamnick
-1940848/jaredrobbins614
 1940804/jeffryhurley24
 1940806/jokugao
 1940820/jonasbenson716
@@ -461,7 +445,6 @@
 1940760/wiltonshaffe410
 1940790/winlin
 1940843/yzyanchao
-1940849/zcbeach
 1940800/zhangroc
 1940838/zhaolin1992
 1940796/zigbaird
