@@ -1,10 +1,8 @@
-1886740/HAREEM
 1886827/IceColdAOKP
 1890381/Ideom
 1888504/Industree
 1889240/JetpakOnline
 1888905/LeeNCompanyInc
-1887269/NewPi
 1886769/Scamandspam
 1887712/axDev-toolchain
 1886765/baredigital
@@ -19,7 +17,6 @@
 1886744/krenzland
 1887591/labcodes
 1886725/nadagon
-1888894/netster
 1890190/phatio
 1888378/project-genesis
 1889288/shoptet
@@ -29,7 +26,6 @@
 1889519/takyons
 1886738/xiaomaguoguo
 1886705/xorcus
-1886801/xsdhx
 1891436/AmandaGaube
 1891973/ConnectCorp
 1891476/EricChenTEA
@@ -83,11 +79,9 @@
 1905794/EngageDC
 1904806/EmberDev
 1904102/EpsilonOrigins
-1904071/FabricioMillaguir
 1904060/Freespacer
 1904665/HighwayFramework
 1906553/IESAmultimedia
-1906205/InterResolve
 1904107/JhonM
 1904047/LucasCavOgilvy
 1904056/Lojowa
@@ -145,7 +139,6 @@
 1905119/minne
 1904091/mojoInnovation
 1906016/muehlemann-popp
-1904104/nfmemory
 1905320/nifcloud
 1904037/nonsensor
 1906520/novuso
@@ -170,7 +163,6 @@
 1904120/suelencarvalho
 1904350/swish-climate-impact-assessment
 1904070/tanus
-1904219/tehninja
 1904436/textlab
 1904018/tsokol
 1904477/usercrunch
@@ -296,7 +288,6 @@
 1926063/lukmaniwan
 1926091/majestico
 1929873/managemywordpress
-1926040/mangey33
 1926112/markkalder
 1926102/mastertorian
 1927641/maxeff
@@ -324,7 +315,6 @@
 1926075/rifaei
 1928333/sanchobbdo
 1928956/softvelopment
-1926044/soluemanhussain
 1927827/spaceapegames
 1926087/stormsurfer
 1926105/sumathi-atex
@@ -365,8 +355,6 @@
 1942842/LFKDOOOE
 1941414/MIUICzech-Slovak
 1941318/Lionizers
-1943260/MSU-IBC
-1942734/MacByte
 1945380/PocketCampus
 1942807/Qyotta
 1941719/ResHarmonics
@@ -386,7 +374,6 @@
 1941856/allaboutapps
 1940834/anirbansam
 1940817/annarose
-1940770/ansh123
 1944457/artiomix
 1942680/astafhaachen
 1940828/barry-pafers
@@ -400,8 +387,6 @@
 1940783/cestruch86
 1941829/cgauge
 1941222/coderdojo-okinawa
-1940839/codyhuang38
-1944580/cornbits
 1941519/creative-control
 1943166/cyberstride
 1940808/dddhany
@@ -446,7 +431,6 @@
 1940751/oosidat
 1941987/packnetmetis
 1942050/pancentric
-1940812/pawangambhir
 1940773/percyfarley25
 1940850/postailan
 1940814/prestoncrosb49
@@ -461,7 +445,6 @@
 1940807/shanebausch
 1940775/shermanklost12
 1940845/sijuthomas
-1943397/sjvtech
 1940767/slotab
 1940782/sreenathmenon
 1943071/strozfriedberg
