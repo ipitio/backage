@@ -1,4 +1,3 @@
-1889240/JetpakOnline
 1888905/LeeNCompanyInc
 1886769/Scamandspam
 1887712/axDev-toolchain
@@ -32,7 +31,6 @@
 1892997/MY-TEAM
 1891426/NickSmudge
 1893119/OneWebSQL
-1893277/Pixsys
 1892195/RivalMe
 1891647/Sanstreak
 1891580/SkidoSoft
@@ -61,7 +59,6 @@
 1891425/tremaine
 1894051/vanderbilt
 1891493/wakingmoments
-1894157/wi-hska
 1904080/515mowens
 1904106/Abe666
 1906395/Atmosfear
@@ -112,10 +109,8 @@
 1905846/enpit
 1904027/epaseka
 1904054/fallenPineapple
-1904050/hackcyprus
 1905702/haydendigital
 1904098/hopandjaunt
-1904019/imelt
 1904059/jasbsam
 1904062/jayjwylie
 1904100/kalyannistala
@@ -127,7 +122,6 @@
 1904121/meowkel
 1904073/meta-machine
 1904068/miken5000
-1905035/mindsharelabs
 1905119/minne
 1904091/mojoInnovation
 1906016/muehlemann-popp
@@ -155,7 +149,6 @@
 1904120/suelencarvalho
 1904350/swish-climate-impact-assessment
 1904070/tanus
-1904436/textlab
 1904018/tsokol
 1904477/usercrunch
 1904023/wagnerads
@@ -248,7 +241,6 @@
 1929290/gameolith
 1927331/getech
 1926129/gingergenius
-1929671/globoi
 1926209/glue-viz
 1930099/gnome-korea
 1926962/gomedia
@@ -264,7 +256,6 @@
 1926096/jabbawockyorg
 1926103/jereld
 1926138/jimmywzm
-1928418/jinkanhq
 1926143/joshueoconnor
 1927848/katemsu
 1926061/keroslee
@@ -320,11 +311,9 @@
 1926076/visualizegem
 1928935/webmate
 1926122/williamhelme
-1926137/wolfwolker
 1926062/xiaorui0328
 1942164/AdaAndTheMachine
 1944377/50dollarsweb
-1940836/Allan597
 1942571/AppMaintainers
 1945721/Bertholf
 1942383/CoffeeScript2ru
@@ -334,7 +323,6 @@
 1940840/HamariBoli
 1945274/HomeTouch
 1943914/Institute-Web-Science-and-Technologies
-1943930/Invesco
 1940791/Keiske
 1942384/LibLab-Development
 1942842/LFKDOOOE
@@ -388,11 +376,9 @@
 1941846/geosdi
 1940842/giribabup
 1940779/gusriber923
-1941647/happyztsg
 1940821/heima911
 1940778/iamnick
 1940804/jeffryhurley24
-1940806/jokugao
 1940820/jonasbenson716
 1940769/kkmayur
 1940794/lck0775
@@ -409,7 +395,6 @@
 1940803/nicolaiascanius
 1945155/noshlist
 1944073/nucliux
-1941807/onigiri-kingdom
 1940751/oosidat
 1941987/packnetmetis
 1942050/pancentric
@@ -433,7 +418,6 @@
 1940749/tempseasurface29
 1944284/thecityswig
 1940784/trimyannick33
-1944512/uxalytics
 1941290/uzh-rpg
 1941455/vasper
 1942472/vicenteiglesias
