@@ -1,11 +1,9 @@
-1886769/Scamandspam
 1887712/axDev-toolchain
 1886765/baredigital
 1886710/chegoon
 1890566/churchillnavigation
 1886723/colceagus
 1886700/dharmeshgadhiya
-1886759/fredricktoy
 1886805/huafei
 1886779/jayarathina
 1886785/kctb
@@ -72,7 +70,6 @@
 1904102/EpsilonOrigins
 1904060/Freespacer
 1904665/HighwayFramework
-1906553/IESAmultimedia
 1904107/JhonM
 1904047/LucasCavOgilvy
 1904056/Lojowa
@@ -89,7 +86,6 @@
 1904710/UQcsse2003
 1904046/adisacraig
 1905789/X509DevTeam
-1904083/akiniemi
 1904017/animekita
 1906708/appjs
 1906384/articode
@@ -114,7 +110,6 @@
 1904062/jayjwylie
 1904100/kalyannistala
 1904045/kayankay
-1904119/lgrandinetti
 1904939/livestyles
 1905694/lucidcode
 1904111/mediapiston-ops
@@ -139,7 +134,6 @@
 1904076/rbland
 1904072/sapien2
 1904065/schlangster
-1904112/scopefragger
 1904575/soapdev
 1906256/solairplm
 1904192/sourceryjs
@@ -170,9 +164,7 @@
 1926363/DTEC-ANSE
 1926132/Derpina
 1926135/Durz0
-1926130/ESJEWELRY
 1929630/Equenext
-1926799/Fallen-Angel
 1926116/GeorgeF72
 1926108/HHadri13
 1926093/Heliophobe
@@ -193,7 +185,6 @@
 1926059/PaulArthurPeterson
 1926056/Pixplicity
 1929505/Octopus-ITSM
-1926077/SWBen
 1926221/ShowMyCode
 1926085/Rai007
 1926107/ShusenLiu
@@ -291,7 +282,6 @@
 1926136/rblin
 1928631/rcode-git
 1926075/rifaei
-1928333/sanchobbdo
 1928956/softvelopment
 1927827/spaceapegames
 1926087/stormsurfer
@@ -306,7 +296,6 @@
 1928358/thegreenhope
 1929565/tpkg
 1926064/tysland
-1926104/unaiberna
 1926076/visualizegem
 1928935/webmate
 1926122/williamhelme
@@ -315,7 +304,6 @@
 1944377/50dollarsweb
 1942571/AppMaintainers
 1945721/Bertholf
-1942383/CoffeeScript2ru
 1940846/DienNM
 1940823/EdTengHR
 1941599/GSBA
@@ -357,7 +345,6 @@
 1940835/cennisoto614
 1940783/cestruch86
 1941829/cgauge
-1941222/coderdojo-okinawa
 1941519/creative-control
 1943166/cyberstride
 1940808/dddhany
@@ -399,7 +386,6 @@
 1942050/pancentric
 1940773/percyfarley25
 1940850/postailan
-1940814/prestoncrosb49
 1940799/rajiv123
 1940750/randamo3599
 1940831/rbooyens
@@ -424,7 +410,6 @@
 1940844/viper0013
 1940786/vishalvaishya
 1942720/wesam80
-1940760/wiltonshaffe410
 1940790/winlin
 1940843/yzyanchao
 1940800/zhangroc
