@@ -1,4 +1,3 @@
-1890566/churchillnavigation
 1886723/colceagus
 1886700/dharmeshgadhiya
 1886805/huafei
@@ -29,7 +28,6 @@
 1891580/SkidoSoft
 1891466/UVicGameDev
 1891445/XTGiox
-1893028/Webstep
 1891404/anazer
 1891469/anpak1
 1891449/btopol
@@ -42,11 +40,9 @@
 1891503/mamgjigsaw
 1891479/manuelen
 1891421/margaretrowden
-1893995/oiiku
 1891511/paulsalem
 1891452/pavelraspaev
 1893602/pmsoftware
-1894671/sampaweb
 1892660/thepixelage
 1892635/thewholesaler
 1891425/tremaine
@@ -60,7 +56,6 @@
 1904103/Christopher-R-Perkins
 1905373/CornwallCollege
 1905551/Creare
-1905794/EngageDC
 1904806/EmberDev
 1904102/EpsilonOrigins
 1904060/Freespacer
@@ -74,7 +69,6 @@
 1906470/SmartFaune
 1904117/SteveHiner
 1904061/SteveUlin
-1906455/TI-LPRF-Software
 1906767/TheRunner
 1906120/TodoSync
 1904092/TommyC81
@@ -152,7 +146,6 @@
 1926341/DFKI-IKS
 1926363/DTEC-ANSE
 1926132/Derpina
-1926135/Durz0
 1929630/Equenext
 1926116/GeorgeF72
 1926108/HHadri13
@@ -166,7 +159,6 @@
 1926052/Magikarcher
 1926139/MatthewWild
 1929244/NRCan
-1927960/Netsprint
 1928856/NordicRiver
 1926059/PaulArthurPeterson
 1926056/Pixplicity
@@ -288,7 +280,6 @@
 1942571/AppMaintainers
 1945721/Bertholf
 1940846/DienNM
-1940823/EdTengHR
 1941599/GSBA
 1940840/HamariBoli
 1945274/HomeTouch
@@ -298,7 +289,6 @@
 1942842/LFKDOOOE
 1941414/MIUICzech-Slovak
 1941318/Lionizers
-1945380/PocketCampus
 1942807/Qyotta
 1941719/ResHarmonics
 1943855/Shattered-Colony-Unbound
@@ -309,7 +299,6 @@
 1942435/Wondren
 1943171/WysnanCorporation
 1940754/abbs
-1940763/adimeiman
 1940810/akshaya99
 1940815/alexyra
 1940793/alfredkorsga923
@@ -327,14 +316,12 @@
 1940783/cestruch86
 1941829/cgauge
 1941519/creative-control
-1943166/cyberstride
 1940808/dddhany
 1941679/dejima
 1941470/difio
 1943528/easi6
 1943542/electric-feel
 1945271/erpguru
-1941096/f0f
 1940832/fabregass
 1940780/finisjhwfor820
 1942931/fourth-lab
