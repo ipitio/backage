@@ -1,4 +1,3 @@
-1886744/krenzland
 1887591/labcodes
 1886725/nadagon
 1888378/project-genesis
@@ -38,7 +37,6 @@
 1892660/thepixelage
 1892635/thewholesaler
 1891425/tremaine
-1894051/vanderbilt
 1891493/wakingmoments
 1904080/515mowens
 1904106/Abe666
@@ -59,12 +57,10 @@
 1904474/RazorfishHealth
 1905916/ReedBear
 1906470/SmartFaune
-1904117/SteveHiner
 1906767/TheRunner
 1906120/TodoSync
 1904092/TommyC81
 1904046/adisacraig
-1904017/animekita
 1906708/appjs
 1906384/articode
 1904075/benh1
@@ -76,7 +72,6 @@
 1904108/csyvenky
 1904051/devjack-zz
 1904113/donbaker
-1904105/ecrissman
 1904352/endlesshack
 1905846/enpit
 1904027/epaseka
@@ -88,7 +83,6 @@
 1904045/kayankay
 1904939/livestyles
 1905694/lucidcode
-1904111/mediapiston-ops
 1904121/meowkel
 1904073/meta-machine
 1904068/miken5000
@@ -119,7 +113,6 @@
 1904070/tanus
 1904018/tsokol
 1904477/usercrunch
-1904023/wagnerads
 1905708/webcomponents
 1904015/wonkawoo
 1930775/AlanRockhol
@@ -143,7 +136,6 @@
 1929329/KingsCollegeHospital
 1926097/Lynndell
 1927509/Magazen
-1926052/Magikarcher
 1929244/NRCan
 1928856/NordicRiver
 1926059/PaulArthurPeterson
@@ -157,14 +149,12 @@
 1926094/Tinaorrisko
 1930545/Tylerprojects
 1930605/TuTuTuPewPewPew
-1930115/abuhaadiya
 1926126/addnab
 1926046/ainfdata
 1926140/albertoprad
 1926050/assafbahat
 1928136/bitstadium
 1926120/boostme
-1926078/brad0311
 1929429/branberg
 1926070/carlbre
 1926118/cherrysierra
@@ -175,7 +165,6 @@
 1927009/dradio
 1927736/ed47
 1926142/eerrewer
-1926435/enGits
 1930136/engineapps
 1927587/escuelab
 1926131/eziebonn
@@ -213,7 +202,6 @@
 1926112/markkalder
 1926102/mastertorian
 1927641/maxeff
-1926534/mbdesign
 1926084/miguelanxo
 1926079/miyuehu
 1926374/mokoi
@@ -251,14 +239,12 @@
 1942164/AdaAndTheMachine
 1942571/AppMaintainers
 1945721/Bertholf
-1940846/DienNM
 1941599/GSBA
 1943914/Institute-Web-Science-and-Technologies
 1940791/Keiske
 1942384/LibLab-Development
 1942842/LFKDOOOE
 1941414/MIUICzech-Slovak
-1941318/Lionizers
 1942807/Qyotta
 1941719/ResHarmonics
 1943855/Shattered-Colony-Unbound
@@ -267,7 +253,6 @@
 1943170/Synchrotron-SOLEIL
 1945272/TheTechDerp
 1942435/Wondren
-1940754/abbs
 1940810/akshaya99
 1940815/alexyra
 1940793/alfredkorsga923
@@ -290,8 +275,6 @@
 1941470/difio
 1943528/easi6
 1943542/electric-feel
-1945271/erpguru
-1940832/fabregass
 1940780/finisjhwfor820
 1942931/fourth-lab
 1940752/gardnerdicki24
