@@ -1,4 +1,3 @@
-1886725/nadagon
 1888378/project-genesis
 1889288/shoptet
 1886811/slamdunkinoreo
@@ -120,7 +119,6 @@
 1929400/BarkleyREI
 1928623/Apptom
 1926488/Bonnyprints-GmbH
-1928717/Cmsworks
 1926723/CloudDialogs
 1926589/Coraza
 1926341/DFKI-IKS
@@ -140,7 +138,6 @@
 1926059/PaulArthurPeterson
 1926056/Pixplicity
 1929505/Octopus-ITSM
-1926221/ShowMyCode
 1926085/Rai007
 1926107/ShusenLiu
 1928811/Soostone
@@ -150,7 +147,6 @@
 1930605/TuTuTuPewPewPew
 1926126/addnab
 1926046/ainfdata
-1926140/albertoprad
 1926050/assafbahat
 1928136/bitstadium
 1926120/boostme
@@ -173,7 +169,6 @@
 1927785/freebsd-jp
 1929290/gameolith
 1927331/getech
-1926129/gingergenius
 1926209/glue-viz
 1930099/gnome-korea
 1926962/gomedia
@@ -183,8 +178,6 @@
 1926121/horia-filimonescu
 1926113/hxtomprice
 1926048/ichitakasan
-1926305/infoguru
-1927107/iscanonline
 1926080/isdera
 1926096/jabbawockyorg
 1926103/jereld
@@ -212,10 +205,8 @@
 1930756/notionhq
 1926071/nwhiting01
 1926053/oberhoff
-1926115/pandaprada
 1929112/pfizer
 1928764/plasmiq
-1926806/playbe
 1926136/rblin
 1928631/rcode-git
 1926075/rifaei
@@ -273,7 +264,6 @@
 1941679/dejima
 1941470/difio
 1943528/easi6
-1943542/electric-feel
 1940780/finisjhwfor820
 1942931/fourth-lab
 1940752/gardnerdicki24
@@ -296,7 +286,6 @@
 1941815/motherndaughter
 1940813/mradovan
 1942455/my-apps
-1940776/nethead65
 1940803/nicolaiascanius
 1945155/noshlist
 1944073/nucliux
@@ -313,7 +302,6 @@
 1940775/shermanklost12
 1940845/sijuthomas
 1940767/slotab
-1940782/sreenathmenon
 1943071/strozfriedberg
 1940749/tempseasurface29
 1944284/thecityswig
