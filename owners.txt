@@ -1,6 +1,4 @@
-1889288/shoptet
 1886811/slamdunkinoreo
-1886733/spinaker5055
 1889325/spitbol
 1889519/takyons
 1886738/xiaomaguoguo
@@ -15,9 +13,7 @@
 1892195/RivalMe
 1891647/Sanstreak
 1891580/SkidoSoft
-1891466/UVicGameDev
 1891404/anazer
-1891469/anpak1
 1891449/btopol
 1892404/cnolle
 1893492/denivip
@@ -31,7 +27,6 @@
 1891511/paulsalem
 1891452/pavelraspaev
 1893602/pmsoftware
-1892660/thepixelage
 1892635/thewholesaler
 1891425/tremaine
 1891493/wakingmoments
@@ -42,12 +37,9 @@
 1904066/CartThrob
 1904103/Christopher-R-Perkins
 1905373/CornwallCollege
-1905551/Creare
 1904806/EmberDev
 1904102/EpsilonOrigins
-1904060/Freespacer
 1904665/HighwayFramework
-1904107/JhonM
 1904047/LucasCavOgilvy
 1904056/Lojowa
 1906800/NatLabRockies
@@ -70,8 +62,6 @@
 1904051/devjack-zz
 1904113/donbaker
 1904352/endlesshack
-1905846/enpit
-1904027/epaseka
 1904054/fallenPineapple
 1905702/haydendigital
 1904098/hopandjaunt
@@ -94,7 +84,6 @@
 1905990/openelections
 1905229/pabiki-studio
 1905358/pailin
-1904026/photons
 1904039/rac00nza
 1904081/ranav
 1904076/rbland
@@ -108,7 +97,6 @@
 1904120/suelencarvalho
 1904350/swish-climate-impact-assessment
 1904070/tanus
-1904018/tsokol
 1904477/usercrunch
 1905708/webcomponents
 1904015/wonkawoo
@@ -125,9 +113,6 @@
 1926132/Derpina
 1929630/Equenext
 1926116/GeorgeF72
-1926108/HHadri13
-1926093/Heliophobe
-1926106/Holgero147
 1926088/JoshMarley
 1929329/KingsCollegeHospital
 1926097/Lynndell
@@ -154,7 +139,6 @@
 1926118/cherrysierra
 1927988/cnery
 1926128/crondaemon
-1926100/depaloan
 1929741/devct
 1927009/dradio
 1927736/ed47
@@ -182,7 +166,6 @@
 1926103/jereld
 1926143/joshueoconnor
 1927848/katemsu
-1926061/keroslee
 1929423/kg6
 1926147/kisaurel
 1929176/leandata
@@ -194,7 +177,6 @@
 1926102/mastertorian
 1927641/maxeff
 1926084/miguelanxo
-1926079/miyuehu
 1926374/mokoi
 1926125/more-rower
 1926049/mrjohnt
@@ -202,9 +184,7 @@
 1928327/netis-be
 1926065/nicolaihoge
 1930756/notionhq
-1926071/nwhiting01
 1926053/oberhoff
-1929112/pfizer
 1928764/plasmiq
 1926136/rblin
 1928631/rcode-git
@@ -240,7 +220,6 @@
 1942232/Shopello
 1940764/SneManden
 1943170/Synchrotron-SOLEIL
-1945272/TheTechDerp
 1942435/Wondren
 1940810/akshaya99
 1940815/alexyra
@@ -256,14 +235,12 @@
 1940833/calculate
 1940797/calebkoefoed1224
 1940835/cennisoto614
-1940783/cestruch86
 1941829/cgauge
 1941519/creative-control
 1940808/dddhany
 1941679/dejima
 1941470/difio
 1943528/easi6
-1940780/finisjhwfor820
 1942931/fourth-lab
 1940752/gardnerdicki24
 1942475/genevarb
@@ -289,7 +266,6 @@
 1945155/noshlist
 1944073/nucliux
 1940751/oosidat
-1941987/packnetmetis
 1942050/pancentric
 1940850/postailan
 1940799/rajiv123
