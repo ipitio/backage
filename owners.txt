@@ -1,9 +1,7 @@
-1889325/spitbol
 1889519/takyons
 1886738/xiaomaguoguo
 1886705/xorcus
 1891436/AmandaGaube
-1891973/ConnectCorp
 1891476/EricChenTEA
 1891413/EslamHosney
 1893937/Home01
@@ -19,7 +17,6 @@
 1891451/ivyxenaxxe
 1891483/jkee
 1891459/lokevin
-1894891/lyncode
 1891503/mamgjigsaw
 1891479/manuelen
 1891421/margaretrowden
@@ -41,14 +38,11 @@
 1904665/HighwayFramework
 1904047/LucasCavOgilvy
 1904056/Lojowa
-1906800/NatLabRockies
 1904474/RazorfishHealth
 1905916/ReedBear
 1906470/SmartFaune
-1906767/TheRunner
 1906120/TodoSync
 1904092/TommyC81
-1904046/adisacraig
 1906708/appjs
 1906384/articode
 1904075/benh1
@@ -72,7 +66,6 @@
 1904121/meowkel
 1904073/meta-machine
 1904068/miken5000
-1905119/minne
 1904091/mojoInnovation
 1906016/muehlemann-popp
 1905320/nifcloud
@@ -105,7 +98,6 @@
 1929400/BarkleyREI
 1928623/Apptom
 1926488/Bonnyprints-GmbH
-1926723/CloudDialogs
 1926589/Coraza
 1926341/DFKI-IKS
 1926363/DTEC-ANSE
@@ -145,14 +137,12 @@
 1930136/engineapps
 1927587/escuelab
 1926131/eziebonn
-1928991/flowcal
 1926648/feedbackmedia
 1926073/flyingcloude
 1927785/freebsd-jp
 1929290/gameolith
 1927331/getech
 1926209/glue-viz
-1930099/gnome-korea
 1926962/gomedia
 1926042/hadiliu
 1930250/hatchee
@@ -176,7 +166,6 @@
 1926102/mastertorian
 1927641/maxeff
 1926084/miguelanxo
-1926374/mokoi
 1926125/more-rower
 1926049/mrjohnt
 1926069/nathangriffiths
@@ -187,7 +176,6 @@
 1928764/plasmiq
 1926136/rblin
 1928631/rcode-git
-1926075/rifaei
 1928956/softvelopment
 1927827/spaceapegames
 1926087/stormsurfer
@@ -229,12 +217,10 @@
 1942680/astafhaachen
 1942273/basex-gmbh
 1940802/bergkampsliew
-1944955/boston-library
 1940753/brendonlange49
 1940833/calculate
 1940797/calebkoefoed1224
 1940835/cennisoto614
-1941829/cgauge
 1941519/creative-control
 1940808/dddhany
 1941679/dejima
@@ -244,7 +230,6 @@
 1940752/gardnerdicki24
 1942475/genevarb
 1941846/geosdi
-1940842/giribabup
 1940779/gusriber923
 1940821/heima911
 1940778/iamnick
@@ -253,7 +238,6 @@
 1940769/kkmayur
 1940794/lck0775
 1941491/liquidlight
-1940795/ljb-2000
 1940756/lukekendall
 1940758/metamoai-ruth
 1940819/miasuke
