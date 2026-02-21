@@ -1,4 +1,3 @@
-1891436/AmandaGaube
 1891476/EricChenTEA
 1891413/EslamHosney
 1893937/Home01
@@ -14,11 +13,9 @@
 1891451/ivyxenaxxe
 1891483/jkee
 1891459/lokevin
-1891503/mamgjigsaw
 1891479/manuelen
 1891421/margaretrowden
 1891511/paulsalem
-1891452/pavelraspaev
 1893602/pmsoftware
 1892635/thewholesaler
 1891425/tremaine
@@ -52,7 +49,6 @@
 1904113/donbaker
 1904352/endlesshack
 1904054/fallenPineapple
-1905702/haydendigital
 1904098/hopandjaunt
 1904059/jasbsam
 1904100/kalyannistala
@@ -93,7 +89,6 @@
 1929400/BarkleyREI
 1928623/Apptom
 1926488/Bonnyprints-GmbH
-1926589/Coraza
 1926341/DFKI-IKS
 1926363/DTEC-ANSE
 1929630/Equenext
@@ -134,7 +129,6 @@
 1926209/glue-viz
 1926962/gomedia
 1926042/hadiliu
-1930250/hatchee
 1926043/hindmarch
 1926121/horia-filimonescu
 1926113/hxtomprice
@@ -149,10 +143,7 @@
 1926092/leobuettiker
 1926240/letranhuytestorg
 1926769/lightops
-1929873/managemywordpress
 1926112/markkalder
-1926102/mastertorian
-1927641/maxeff
 1926084/miguelanxo
 1926125/more-rower
 1926049/mrjohnt
@@ -274,7 +265,6 @@
 2022574/EbVRM
 2022682/Elam-Nabler
 2027216/FastMQ
-2028846/FirePub
 2027213/FluuxIO
 2027709/Geodan
 2025794/HealthyHeroes
@@ -282,7 +272,6 @@
 2027458/Heliocentrix
 2027072/InnovateHerAfrica
 2022658/Hellbender
-2022632/John2k12
 2027814/LibertyWorks
 2025589/Mixd
 2022648/Link1994
@@ -300,7 +289,6 @@
 2022612/RoyalRainbow
 2024658/Sangkuriang
 2025863/Sazzle
-2026591/SmallTreeMedia
 2026028/SonarSync
 2022557/Subbuchids
 2025421/TJVB
@@ -336,7 +324,6 @@
 2022586/byhexojjiby836
 2022577/byrumyptamu066
 2022562/cai1996
-2022657/ccie-voice-real-
 2022595/chriswalti
 2023491/clojure-liberator
 2025834/codebrothers
@@ -355,7 +342,6 @@
 2028506/findacode
 2025283/gimso
 2025851/gl-hackem
-2022594/gradyd1974
 2027291/hallowelt
 2024296/heavenaddress
 2022637/hezekiahholc1027
@@ -363,7 +349,6 @@
 2022638/iboeckmann
 2022565/idoof
 2028056/iips-dc
-2022575/indoracer
 2028505/intelcommerce
 2025983/it-crowd
 2022624/itrcz
@@ -408,10 +393,8 @@
 2022597/rahulpurushu
 2025430/rainsome-org1
 2025904/retromeme
-2022584/richtt1974
 2022651/romanogreer819
 2022662/roseballing410
-2026885/ruby-tribe
 2026408/safan-lab
 2027723/samurai-x
 2027722/scalatest
