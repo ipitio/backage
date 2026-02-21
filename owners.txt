@@ -1,4 +1,3 @@
-1886738/xiaomaguoguo
 1886705/xorcus
 1891436/AmandaGaube
 1891476/EricChenTEA
@@ -40,7 +39,6 @@
 1904474/RazorfishHealth
 1905916/ReedBear
 1906470/SmartFaune
-1906120/TodoSync
 1904092/TommyC81
 1906708/appjs
 1906384/articode
@@ -88,7 +86,6 @@
 1904120/suelencarvalho
 1904350/swish-climate-impact-assessment
 1904070/tanus
-1904477/usercrunch
 1905708/webcomponents
 1904015/wonkawoo
 1930775/AlanRockhol
@@ -100,15 +97,11 @@
 1926589/Coraza
 1926341/DFKI-IKS
 1926363/DTEC-ANSE
-1926132/Derpina
 1929630/Equenext
 1926116/GeorgeF72
-1926088/JoshMarley
 1929329/KingsCollegeHospital
 1926097/Lynndell
 1927509/Magazen
-1929244/NRCan
-1928856/NordicRiver
 1926059/PaulArthurPeterson
 1926056/Pixplicity
 1929505/Octopus-ITSM
@@ -126,7 +119,6 @@
 1926120/boostme
 1929429/branberg
 1926070/carlbre
-1926118/cherrysierra
 1927988/cnery
 1926128/crondaemon
 1929741/devct
@@ -139,7 +131,6 @@
 1926648/feedbackmedia
 1926073/flyingcloude
 1927785/freebsd-jp
-1929290/gameolith
 1927331/getech
 1926209/glue-viz
 1926962/gomedia
@@ -154,7 +145,6 @@
 1926103/jereld
 1926143/joshueoconnor
 1927848/katemsu
-1929423/kg6
 1926147/kisaurel
 1929176/leandata
 1926092/leobuettiker
@@ -178,7 +168,6 @@
 1928956/softvelopment
 1927827/spaceapegames
 1926087/stormsurfer
-1926105/sumathi-atex
 1926253/syby
 1927870/tart-summer-camp-2011
 1926109/tedsandler
@@ -186,17 +175,14 @@
 1926111/tenger13
 1926090/tenmilyards
 1926133/thedubs
-1928358/thegreenhope
 1929565/tpkg
 1926076/visualizegem
 1928935/webmate
 1926062/xiaorui0328
 1942164/AdaAndTheMachine
 1942571/AppMaintainers
-1945721/Bertholf
 1941599/GSBA
 1943914/Institute-Web-Science-and-Technologies
-1940791/Keiske
 1942384/LibLab-Development
 1942842/LFKDOOOE
 1941414/MIUICzech-Slovak
@@ -208,7 +194,6 @@
 1943170/Synchrotron-SOLEIL
 1942435/Wondren
 1940810/akshaya99
-1940815/alexyra
 1940793/alfredkorsga923
 1941856/allaboutapps
 1940834/anirbansam
@@ -230,9 +215,7 @@
 1942475/genevarb
 1941846/geosdi
 1940779/gusriber923
-1940821/heima911
 1940778/iamnick
-1940804/jeffryhurley24
 1940820/jonasbenson716
 1940769/kkmayur
 1940794/lck0775
@@ -246,14 +229,12 @@
 1942455/my-apps
 1940803/nicolaiascanius
 1945155/noshlist
-1944073/nucliux
 1940751/oosidat
 1942050/pancentric
 1940850/postailan
 1940799/rajiv123
 1940831/rbooyens
 1944101/rebel-outpost
-1940781/renepatel820
 1943971/sai-maa
 1940807/shanebausch
 1940775/shermanklost12
@@ -272,5 +253,4 @@
 1942720/wesam80
 1940790/winlin
 1940800/zhangroc
-1940838/zhaolin1992
 1940796/zigbaird
