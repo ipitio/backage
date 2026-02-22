@@ -95,32 +95,32 @@ update_owner() {
 	local start_page
 	start_page=$(get_BKG BKG_PAGE_"$owner_id")
 
-	#if grep -q "^$owner_id|$owner|" packages_already_updated && [ -z "$start_page" ]; then
-	#	run_parallel save_package "$(sqlite3 "$BKG_INDEX_DB" "select package_type, package, max(date) as max_date from '$BKG_INDEX_TBL_PKG' where owner_id = '$owner_id' group by package_type, package having max(date) < '$BKG_BATCH_FIRST_STARTED' order by max_date asc;" | awk -F'|' '{print "////"$1"//"$2}')"
-	#	(($? != 3)) || return 3
-	#	run_parallel update_package "$(get_BKG_set BKG_PACKAGES_"$owner")"
-	#	(($? != 3)) || return 3
-	#else
-	[ -n "$start_page" ] || start_page=1
-
-	for page in $(seq "$start_page" 100000); do
-		local pages_left=0
-		((page <= start_page + 1)) || set_BKG BKG_PAGE_"$owner_id" "$page"
-		((page - start_page < 51)) || break
-		page_package "$page"
-		pages_left=$?
+	if grep -q "^$owner_id|$owner|" packages_already_updated && [ -z "$start_page" ]; then
+		run_parallel save_package "$(sqlite3 "$BKG_INDEX_DB" "select package_type, package, max(date) as max_date from '$BKG_INDEX_TBL_PKG' where owner_id = '$owner_id' group by package_type, package having max(date) < '$BKG_BATCH_FIRST_STARTED' order by max_date asc;" | awk -F'|' '{print "////"$1"//"$2}')"
+		(($? != 3)) || return 3
 		run_parallel update_package "$(get_BKG_set BKG_PACKAGES_"$owner")"
 		(($? != 3)) || return 3
+	else
+		[ -n "$start_page" ] || start_page=1
 
-		if ((pages_left == 2)); then
-			set_BKG BKG_PAGE_"$owner_id" ""
-			del_BKG BKG_PAGE_"$owner_id"
-			break
-		fi
+		for page in $(seq "$start_page" 100000); do
+			local pages_left=0
+			((page <= start_page + 1)) || set_BKG BKG_PAGE_"$owner_id" "$page"
+			((page - start_page < 51)) || break
+			page_package "$page"
+			pages_left=$?
+			run_parallel update_package "$(get_BKG_set BKG_PACKAGES_"$owner")"
+			(($? != 3)) || return 3
 
-		set_BKG BKG_PACKAGES_"$owner" ""
-	done
-	#fi
+			if ((pages_left == 2)); then
+				set_BKG BKG_PAGE_"$owner_id" ""
+				del_BKG BKG_PAGE_"$owner_id"
+				break
+			fi
+
+			set_BKG BKG_PACKAGES_"$owner" ""
+		done
+	fi
 
 	local owner_repos
 	owner_repos=$(find "$BKG_INDEX_DIR/$owner" -mindepth 1 -maxdepth 1 -type d -print0 | xargs -0 -I {} basename {})
@@ -129,14 +129,14 @@ update_owner() {
 		echo "Creating $owner array..."
 		find "$BKG_INDEX_DIR/$owner" -type f -name '*.json' ! -name '.*' -print0 | xargs -0 jq -cs '[.] | add' >"$BKG_INDEX_DIR/$owner/.json.tmp"
 		jq -cs '{ ("package"): . }' "$BKG_INDEX_DIR/$owner/.json.tmp" >"$BKG_INDEX_DIR/$owner/.json"
-		ytoxt "$BKG_INDEX_DIR/$owner/.json"
+		bash ytoxt.sh "$BKG_INDEX_DIR/$owner/.json"
 		jq -c '.package[]' "$BKG_INDEX_DIR/$owner/.json" >"$BKG_INDEX_DIR/$owner/.json.tmp" 2>/dev/null
 		mv -f "$BKG_INDEX_DIR/$owner/.json.tmp" "$BKG_INDEX_DIR/$owner/.json" 2>/dev/null
 
 		echo "Creating $owner repo arrays..."
 		parallel "jq -c --arg repo {} '[.[] | select(.repo == \$repo)]' \"$BKG_INDEX_DIR/$owner/.json\" > \"$BKG_INDEX_DIR/$owner/{}/.json.tmp\"" <<<"$owner_repos"
 		xargs -I {} bash -c "jq -cs '{ (\"package\"): . }' \"$BKG_INDEX_DIR/$owner/{}/.json.tmp\" > \"$BKG_INDEX_DIR/$owner/{}/.json\"" <<<"$owner_repos"
-		xargs -I {} bash -c "ytoxt \"$BKG_INDEX_DIR/$owner/{}/.json\"" <<<"$owner_repos"
+		xargs -I {} bash -c "bash ytoxt.sh \"$BKG_INDEX_DIR/$owner/{}/.json\"" <<<"$owner_repos"
 		xargs -I {} bash -c "jq -c '.package[]' \"$BKG_INDEX_DIR/$owner/{}/.json\" > \"$BKG_INDEX_DIR/$owner/{}/.json.tmp\"" 2>/dev/null <<<"$owner_repos"
 		xargs -I {} mv -f "$BKG_INDEX_DIR/$owner/{}/.json.tmp" "$BKG_INDEX_DIR/$owner/{}/.json" 2>/dev/null <<<"$owner_repos"
 	fi

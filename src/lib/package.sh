@@ -238,7 +238,7 @@ update_package() {
     [[ ! -f "$json_file".abs || ! -s "$json_file".abs ]] || jq -c --arg newest "$version_newest_id" --arg latest "$latest_version" '.version |= map(if .id == ($newest | tonumber) then .newest = true else . end | if .id == ($latest | tonumber) then .latest = true else . end)' "$json_file".abs >"$json_file".rel
     [[ ! -f "$json_file".rel || ! -s "$json_file".rel ]] || mv "$json_file".rel "$json_file".abs
     [[ ! -f "$json_file".abs || ! -s "$json_file".abs ]] || mv "$json_file".abs "$json_file"
-	ytoxt "$json_file"
+	bash ytoxt.sh "$json_file"
     rm -rf "$BKG_INDEX_DIR/$owner/$repo/$package.d"
     echo "Refreshed $owner/$package"
 }
