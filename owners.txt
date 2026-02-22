@@ -1,11 +1,9 @@
-1893937/Home01
 1892997/MY-TEAM
 1891426/NickSmudge
 1892195/RivalMe
 1891647/Sanstreak
 1891404/anazer
 1891449/btopol
-1892404/cnolle
 1893492/denivip
 1891451/ivyxenaxxe
 1891483/jkee
@@ -47,7 +45,6 @@
 1904054/fallenPineapple
 1904098/hopandjaunt
 1904059/jasbsam
-1904100/kalyannistala
 1904045/kayankay
 1905694/lucidcode
 1904121/meowkel
@@ -260,7 +257,6 @@
 2027814/LibertyWorks
 2025589/Mixd
 2022648/Link1994
-2026150/ModeraFoundation
 2023988/MySkills
 2023751/NueveBit
 2028239/Number10Web
@@ -281,7 +277,6 @@
 2023898/Team-Streak
 2022576/Timestorm
 2022653/Tsuket
-2027855/Tutorsband
 2022596/Valent1n
 2025000/VueLinks
 2026570/W3PECHER
@@ -343,7 +338,6 @@
 2022610/lilgeoffy
 2022680/lisonator
 2026374/liveseyinc
-2025322/lol-org
 2025626/lucasantarelli
 2028795/lyatiss
 2026457/manbuyspresent
@@ -391,7 +385,6 @@
 2023082/theDeparted
 2022655/tj1844
 2022553/tnt2012
-2022558/tommiereese718
 2022573/vanesuxsuzi353
 2028503/vectornet
 2022561/vitohumphrie1024
