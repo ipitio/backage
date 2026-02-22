@@ -413,7 +413,7 @@ explore() {
             local nodes
 
             if [ "$is_repo" = true ]; then
-				[ "$edge" = "collaborators" ] && nodes=$(curl_api "repos/$node/collaborators?per_page=100&page=$page" | jq -r '.[] | select(.id and .login) | "\(.id)/\(.login)"' 2>/dev/null) || nodes=$(curl_users "$node/$edge?page=$page")
+				[ "$edge" = "collaborators" ] && nodes=$(query_api "repos/$node/collaborators?per_page=100&page=$page" | jq -r '.[] | select(.id and .login) | "\(.id)/\(.login)"' 2>/dev/null) || nodes=$(curl_users "$node/$edge?page=$page")
             else
 				if [ "$is_user" = false ]; then
                 	nodes=$(curl_users "orgs/$node/$edge?page=$page") # org
