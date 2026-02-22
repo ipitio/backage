@@ -22,6 +22,7 @@ main() {
 	local owners
 	local repos
 	local packages
+	local pkg_done
 	local pkg_left
 	local db_size_curr
 	local db_size_prev
@@ -103,9 +104,10 @@ main() {
 	sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, repo, package, max(date) as max_date from '$BKG_INDEX_TBL_PKG' group by owner_id, owner, repo, package order by date asc;" >packages_all
 	sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, max(date) as max_date from '$BKG_INDEX_TBL_PKG' group by owner_id, owner order by date asc;" | awk -F'|' '{print $2}' >all_owners_in_db
 	grep -vFxf packages_already_updated packages_all >packages_to_update
+	pkg_done=$(wc -l <packages_already_updated)
 	pkg_left=$(wc -l <packages_to_update)
 	echo "all: $(wc -l <packages_all)"
-	echo "done: $(wc -l <packages_already_updated)"
+	echo "done: $pkg_done"
 	echo "left: $pkg_left"
 	db_size_curr=$(stat -c %s "$BKG_INDEX_DB")
 	db_size_prev=$(get_BKG BKG_DIFF)
@@ -143,7 +145,7 @@ main() {
 					[ "$BKG_IS_FIRST" = "false" ] || : >"$BKG_OPTOUT"
 				fi
 
-				if [[ "$pkg_left" == "0" || "${db_size_curr::-4}" == "${db_size_prev::-4}" ]]; then
+				if (( pkg_left < pkg_done )) || [[ "${db_size_curr::-4}" == "${db_size_prev::-4}" ]]; then
 					BKG_BATCH_FIRST_STARTED=$today
 					set_BKG BKG_BATCH_FIRST_STARTED "$today"
 					rm -f packages_to_update

@@ -153,7 +153,7 @@ update_package() {
 
     # calculate the overall downloads and size
     size=$(sqlite3 "$BKG_INDEX_DB" "select size from '$table_version_name' where size > 1 order by id desc, date desc limit 1;")
-    raw_all=$(sqlite3 "$BKG_INDEX_DB" "select sum(downloads), sum(downloads_month), sum(downloads_week), sum(downloads_day) from '$table_version_name' where date in (select date from '$table_version_name' order by date desc limit 1);")
+    raw_all=$(sqlite3 "$BKG_INDEX_DB" "select sum(downloads), sum(downloads_month), sum(downloads_week), sum(downloads_day) from '$table_version_name' where date >= '$BKG_BATCH_FIRST_STARTED';")
     summed_raw_downloads=$(cut -d'|' -f1 <<<"$raw_all")
     raw_downloads_month=$(cut -d'|' -f2 <<<"$raw_all")
     raw_downloads_week=$(cut -d'|' -f3 <<<"$raw_all")
@@ -163,12 +163,12 @@ update_package() {
     [[ "$raw_downloads_month" =~ ^[0-9]+$ ]] || raw_downloads_month=-1
     [[ "$raw_downloads_week" =~ ^[0-9]+$ ]] || raw_downloads_week=-1
     [[ "$raw_downloads_day" =~ ^[0-9]+$ ]] || raw_downloads_day=-1
-    [[ "$raw_downloads" =~ ^[0-9]+$ ]] || raw_downloads=$(sqlite3 "$BKG_INDEX_DB" "select downloads from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and package='$package' and date in (select date from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and package='$package' order by date desc limit 1);")
+    [[ "$raw_downloads" =~ ^[0-9]+$ ]] || raw_downloads=$(sqlite3 "$BKG_INDEX_DB" "select max(downloads) from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and package='$package';")
     [[ "$raw_downloads" =~ ^[0-9]+$ || "$raw_downloads" == "-1" ]] || return
     [[ "$summed_raw_downloads" =~ ^[0-9]+$ ]] && ((summed_raw_downloads > raw_downloads)) && raw_downloads=$summed_raw_downloads || :
 
     if ! grep -q "^$owner_id|$owner|$repo|$package$" packages_already_updated || [ "$BKG_MODE" -eq 1 ]; then
-        sqlite3 "$BKG_INDEX_DB" "insert or replace into '$BKG_INDEX_TBL_PKG' (owner_id, owner_type, package_type, owner, repo, package, downloads, downloads_month, downloads_week, downloads_day, size, date) values ('$owner_id', '$owner_type', '$package_type', '$owner', '$repo', '$package', '$raw_downloads', '$raw_downloads_month', '$raw_downloads_week', '$raw_downloads_day', '$size', '$BKG_BATCH_FIRST_STARTED');"
+        sqlite3 "$BKG_INDEX_DB" "insert or replace into '$BKG_INDEX_TBL_PKG' (owner_id, owner_type, package_type, owner, repo, package, downloads, downloads_month, downloads_week, downloads_day, size, date) values ('$owner_id', '$owner_type', '$package_type', '$owner', '$repo', '$package', '$raw_downloads', '$raw_downloads_month', '$raw_downloads_week', '$raw_downloads_day', '$size', '$(date -u +%Y-%m-%d)');"
         echo "Updated $owner/$package, refreshing..."
     fi
 
