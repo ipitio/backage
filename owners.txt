@@ -1,4 +1,3 @@
-1928136/bitstadium
 1927596/tekconf
 1940835/cennisoto614
 1941519/creative-control
@@ -22,7 +21,6 @@
 2040636/ramonbojesen1230
 2042772/realaudiences
 2040694/silvarrjv
-2040679/soap9
 2041049/therush
 2040719/titovtito
 2040699/zerak
@@ -75,7 +73,6 @@
 2054604/htcondor
 2052987/jamesch
 2053042/jeffersoncam410
-2053015/lilrob
 2052970/living-creatures
 2052992/lorenzolake1024
 2056216/miyomint
@@ -163,7 +160,6 @@
 2057750/mrmiranda14
 2057773/mustafagoktas
 2057691/nguyenthanh111190
-2060569/namnam
 2057766/nishanthtgwda
 2057726/nkmrnkmr
 2057712/orvillemoser25
@@ -190,7 +186,6 @@
 2057695/zee-sh
 2063084/znetlabs
 2066685/ARTCONCEPT
-2067024/AgeVertising
 2068485/AlDigit
 2065260/AndroidFriends
 2063252/AsifShaikh21
@@ -216,7 +211,6 @@
 2066044/IQEX
 2063275/HsgZammic
 2068494/Ignia
-2067300/IndigoMarketing
 2066712/IndyPHP
 2063303/JeffryMccarthy
 2067166/KangaCoders
