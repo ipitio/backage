@@ -1,5 +1,3 @@
-1940767/slotab
-2027157/Connectcomau
 2027575/NwHub
 2022599/Psykokwak59
 2026028/SonarSync
@@ -36,7 +34,6 @@
 2046560/visanz2
 2046527/visualeelutz
 2046597/vocalnebula
-2046536/wrightdavis12
 2051175/yoolk-os
 2056919/AcademyConsult
 2056891/AdaptiveWorX
@@ -127,7 +124,6 @@
 2058330/bloomreach
 2059230/braggies
 2057761/bfcrich
-2057696/clintonclemm718
 2062743/codesignir
 2060223/coralbits
 2061356/cs3216
@@ -307,13 +303,11 @@
 2063300/m-akki
 2063302/madewidi
 2065642/mafiaportal
-2063257/marinusembor49
 2063299/markdwhitehouse
 2063326/markmonsour
 2066911/mastodonte
 2063327/matteobruce1026
 2063284/maynardsykes614
-2067344/mccleanlab
 2067784/mckayemu
 2063265/meerajwadhwa
 2065044/meetups
@@ -353,7 +347,6 @@
 2063293/seooutsourcingaustralia
 2063260/sergiobueno
 2063900/shuttlecloud
-2063306/siascazy
 2063262/sidneyhuynh716
 2063248/stefanpaduraru
 2063311/stefgammelga819
