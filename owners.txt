@@ -1,4 +1,3 @@
-2022599/Psykokwak59
 2026028/SonarSync
 2022681/joriscapps49
 2023085/sumosmash
@@ -172,7 +171,6 @@
 2057685/ticklytaco
 2057738/tintinhoking
 2060496/verilogTimeHuji
-2057775/yanissvinthe820
 2062511/yapaay
 2057695/zee-sh
 2063084/znetlabs
@@ -228,7 +226,6 @@
 2066981/StandardWorks
 2067480/TCSTech
 2067975/TartanWare
-2064613/The-Powder-Toy
 2066431/UPGames
 2063886/affinitic
 2063305/addiewichman716
@@ -239,7 +236,6 @@
 2063307/arvand
 2065697/athletics
 2063285/avidan17
-2065008/backtick-code
 2063301/bechorash
 2063321/bernhardgros718
 2066114/blazing-path
@@ -307,7 +303,6 @@
 2066911/mastodonte
 2063327/matteobruce1026
 2063284/maynardsykes614
-2067784/mckayemu
 2063265/meerajwadhwa
 2065044/meetups
 2063266/melvinmonrad25
@@ -339,14 +334,12 @@
 2063330/queennie
 2063280/reinholdbatc14
 2063331/renjusnair
-2063313/ricomonster
 2063343/ridhomaulana
 2063336/sadrul
 2065540/scim-im
 2063293/seooutsourcingaustralia
 2063260/sergiobueno
 2063900/shuttlecloud
-2063262/sidneyhuynh716
 2063248/stefanpaduraru
 2063311/stefgammelga819
 2068264/stuntrocket
