@@ -1,4 +1,3 @@
-2022681/joriscapps49
 2023085/sumosmash
 2022667/sureshpatil111
 2022579/wesleyoneill13
@@ -7,7 +6,6 @@
 2040972/Okanjo
 2044928/cccs
 2040721/ivanhendrick615
-2040692/jforks
 2046115/nekojarashi
 2044113/olx-models
 2040636/ramonbojesen1230
@@ -34,7 +32,6 @@
 2051175/yoolk-os
 2056919/AcademyConsult
 2056891/AdaptiveWorX
-2054189/Beaconfire
 2052973/Aleck11
 2054956/BlueDiamond
 2053362/Francomedia
@@ -73,7 +70,6 @@
 2054476/prorogue
 2056534/pureweber
 2053022/rollohess819
-2052964/ronaldmead
 2052984/roryoverby410
 2052954/ryanwentzel
 2054608/seevolution
@@ -126,7 +122,6 @@
 2061356/cs3216
 2058753/cyncr
 2057697/emanuelkure410
-2057764/ethelfitzpat922
 2060629/fat-robin-consulting
 2057777/gahmie69
 2057708/generalschof1127
@@ -175,7 +170,6 @@
 2063084/znetlabs
 2066685/ARTCONCEPT
 2068485/AlDigit
-2065260/AndroidFriends
 2063252/AsifShaikh21
 2066565/AuverkTechnologies
 2063354/Ballouz
@@ -190,9 +184,7 @@
 2066194/EpubJS
 2064838/FluenticLtd
 2067739/Fonemine
-2064527/Fornace
 2068109/GoPanga
-2064441/Freeformers
 2066469/Growstuff
 2063256/HsgLinmar
 2066044/IQEX
@@ -261,7 +253,6 @@
 2063269/danjham
 2063281/dimitrifinne411
 2063332/dinomcconnel511
-2063317/dirkkofod1230
 2064055/dromdary
 2066571/dwarapala
 2063308/elmorewoodwa718
@@ -304,10 +295,8 @@
 2063284/maynardsykes614
 2063265/meerajwadhwa
 2065044/meetups
-2063266/melvinmonrad25
 2068230/mightybits
 2063273/mikai21
-2063312/minofedderse513
 2063315/mohib
 2064781/moneyadviceservice
 2066409/mortarcode
@@ -318,7 +307,6 @@
 2064610/multichannelsystems
 2064872/neats
 2065500/numiko
-2066017/nuragames
 2067366/objeng
 2063295/oralcooley512
 2068459/orbisius
