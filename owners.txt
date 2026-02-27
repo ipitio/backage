@@ -1,4 +1,3 @@
-2022667/sureshpatil111
 2022579/wesleyoneill13
 2044886/IQUII
 2042702/Ontraport
@@ -64,7 +63,6 @@
 2052992/lorenzolake1024
 2056216/miyomint
 2053037/percysalling718
-2054788/piepdx
 2052996/pleasantbloc48
 2054476/prorogue
 2056534/pureweber
@@ -82,11 +80,9 @@
 2060771/Averware
 2060852/B2BOnline
 2057782/Bigteebus
-2057768/CSSGeek94
 2060209/CodingXpress
 2062011/Cumpahost
 2061516/DALTCORE
-2057763/Dorkenhimer
 2058005/ErudineFinancials
 2061093/GreyRook
 2057731/KarlIBlass
@@ -166,7 +162,6 @@
 2060496/verilogTimeHuji
 2062511/yapaay
 2057695/zee-sh
-2063084/znetlabs
 2066685/ARTCONCEPT
 2068485/AlDigit
 2063252/AsifShaikh21
@@ -216,7 +211,6 @@
 2066981/StandardWorks
 2067480/TCSTech
 2067975/TartanWare
-2066431/UPGames
 2063886/affinitic
 2063305/addiewichman716
 2063319/aldawfskqtbo
@@ -238,11 +232,9 @@
 2063337/caudi109
 2063342/ceraehse
 2063279/chenkai5733
-2063298/clydeklingen442
 2067368/codecurious-bln
 2063728/constantinides
 2063349/cosimokenney1127
-2063353/coyummy
 2063310/craigcooper25
 2063294/craigstewy
 2068003/csluni
@@ -270,7 +262,6 @@
 2063296/jeongsoon-shin
 2063333/joawang
 2063261/jorisowen718
-2063320/kaispiper1127
 2063290/kamalanathan
 2063347/kirbyottosen922
 2067443/kodeio
@@ -288,7 +279,6 @@
 2063302/madewidi
 2065642/mafiaportal
 2063299/markdwhitehouse
-2063326/markmonsour
 2066911/mastodonte
 2063327/matteobruce1026
 2063284/maynardsykes614
@@ -329,7 +319,6 @@
 2063248/stefanpaduraru
 2063311/stefgammelga819
 2068264/stuntrocket
-2066725/sunday-test-org
 2066533/sunsetmtn84
 2063286/tayloracosta1230
 2063340/teodor98
