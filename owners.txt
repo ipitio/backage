@@ -1,4 +1,3 @@
-2022579/wesleyoneill13
 2044886/IQUII
 2042702/Ontraport
 2040972/Okanjo
@@ -68,11 +67,9 @@
 2056534/pureweber
 2053022/rollohess819
 2052984/roryoverby410
-2052954/ryanwentzel
 2054608/seevolution
 2057412/spinnakr
 2052999/tristancole616
-2056133/urnama
 2054585/vangware
 2052958/warnerjonass13
 2058006/10-power
@@ -116,7 +113,6 @@
 2060223/coralbits
 2061356/cs3216
 2058753/cyncr
-2057697/emanuelkure410
 2060629/fat-robin-consulting
 2057777/gahmie69
 2057708/generalschof1127
@@ -140,7 +136,6 @@
 2057750/mrmiranda14
 2057773/mustafagoktas
 2057691/nguyenthanh111190
-2057766/nishanthtgwda
 2057726/nkmrnkmr
 2057712/orvillemoser25
 2057754/oscarhemming717
@@ -180,7 +175,6 @@
 2067739/Fonemine
 2068109/GoPanga
 2066469/Growstuff
-2063256/HsgLinmar
 2066044/IQEX
 2063275/HsgZammic
 2068494/Ignia
@@ -189,7 +183,6 @@
 2067166/KangaCoders
 2063282/JimJamTTM
 2063328/Lefuet
-2065464/LemonFramework
 2063819/LifeInNightVision
 2063254/Luciansa
 2065869/ManiaDevelopment
@@ -204,10 +197,8 @@
 2063605/PayUUA
 2066330/Penzu
 2063828/Politwoops
-2063899/Renesas-EMEV2
 2067461/RoosterTeethProductions
 2065891/SafetyBits
-2066710/SpaceTown-Developers
 2066981/StandardWorks
 2067480/TCSTech
 2067975/TartanWare
@@ -245,7 +236,6 @@
 2063281/dimitrifinne411
 2063332/dinomcconnel511
 2064055/dromdary
-2066571/dwarapala
 2063308/elmorewoodwa718
 2063278/fangjintao
 2063288/ferronroy37
@@ -301,7 +291,6 @@
 2068459/orbisius
 2063271/patcs
 2063338/petershalek
-2066492/pissedoffadmins
 2065357/plur-si
 2066612/prefeituramunicipalosorio
 2063334/pricekoefoed1025
