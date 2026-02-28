@@ -1,4 +1,3 @@
-2046115/nekojarashi
 2044113/olx-models
 2040636/ramonbojesen1230
 2042772/realaudiences
@@ -8,7 +7,6 @@
 2040699/zerak
 2046602/Chouffe
 2046549/Zeruel92
-2048738/analytical-informatics
 2046521/deanskriver1026
 2051050/elasticmodules
 2051024/enioka
@@ -23,7 +21,6 @@
 2046597/vocalnebula
 2051175/yoolk-os
 2056919/AcademyConsult
-2056891/AdaptiveWorX
 2052973/Aleck11
 2054956/BlueDiamond
 2053362/Francomedia
@@ -33,7 +30,6 @@
 2053024/SalvoVirga
 2056728/Talenthouse
 2054353/TrumanSTEP
-2054154/Unidata-SpA
 2054815/VerdigrisTech
 2053017/Vriasd08
 2053035/aditya-chaturvedi
@@ -68,7 +64,6 @@
 2061422/2brosdevelopment
 2060771/Averware
 2060852/B2BOnline
-2057782/Bigteebus
 2060209/CodingXpress
 2062011/Cumpahost
 2061516/DALTCORE
@@ -78,7 +73,6 @@
 2057727/MariaHoward898
 2058390/Massivesoft
 2057683/Monkey-D-Luffy
-2063247/NeuromanticIndustries
 2059451/PointCloudLibrary
 2057985/Short-Changed
 2058248/SemanticSoftwareLab
@@ -121,7 +115,6 @@
 2061137/makemytrip
 2057725/maqosemqogo926
 2057686/marvinrao218
-2057750/mrmiranda14
 2057773/mustafagoktas
 2057726/nkmrnkmr
 2057712/orvillemoser25
@@ -136,7 +129,6 @@
 2057776/snagroot
 2062973/sociareal
 2057769/steviemackey12
-2057685/ticklytaco
 2060496/verilogTimeHuji
 2062511/yapaay
 2057695/zee-sh
@@ -167,8 +159,6 @@
 2065869/ManiaDevelopment
 2063274/MariaGalanova
 2064819/MediaMoleculeLtd
-2067733/Microsoft-CISL
-2065465/Naatan-com
 2067323/NSCA
 2065691/Neodinamica
 2064879/OpenCSR
@@ -178,7 +168,6 @@
 2063828/Politwoops
 2067461/RoosterTeethProductions
 2065891/SafetyBits
-2066981/StandardWorks
 2067480/TCSTech
 2067975/TartanWare
 2063319/aldawfskqtbo
