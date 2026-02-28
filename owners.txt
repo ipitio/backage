@@ -1,4 +1,3 @@
-2040636/ramonbojesen1230
 2042772/realaudiences
 2040694/silvarrjv
 2041049/therush
@@ -9,7 +8,6 @@
 2046521/deanskriver1026
 2051050/elasticmodules
 2051024/enioka
-2046592/gaolei786
 2046586/israeljrs
 2048713/lucidenergy
 2050523/railsgirls-jp
@@ -76,7 +74,6 @@
 2057985/Short-Changed
 2058248/SemanticSoftwareLab
 2061226/SupaDupa12ttt
-2057756/Vinagrette
 2057785/Zorete
 2057747/ZakyPew
 2057746/akvar
@@ -103,7 +100,6 @@
 2059191/gittink69
 2057718/graziaboye513
 2060084/hai-jin
-2057699/harryhamel543
 2057721/hazelkaplan922
 2061693/healthluciddev
 2062197/html5-ia
@@ -155,7 +151,6 @@
 2063328/Lefuet
 2063819/LifeInNightVision
 2063254/Luciansa
-2065869/ManiaDevelopment
 2063274/MariaGalanova
 2064819/MediaMoleculeLtd
 2067323/NSCA
@@ -207,7 +202,6 @@
 2065688/fishtree
 2063351/freemanrafn716
 2063318/gerardvest923
-2063314/guillaumeleo719
 2063289/hariskiranatama
 2067994/haskelllive
 2068300/hwstartup
