@@ -1,4 +1,3 @@
-2046602/Chouffe
 2046549/Zeruel92
 2046521/deanskriver1026
 2051050/elasticmodules
@@ -23,7 +22,6 @@
 2056728/Talenthouse
 2054353/TrumanSTEP
 2054815/VerdigrisTech
-2053017/Vriasd08
 2053035/aditya-chaturvedi
 2052977/albertrohde411
 2056608/blackbits
@@ -47,7 +45,6 @@
 2054476/prorogue
 2056534/pureweber
 2052984/roryoverby410
-2057412/spinnakr
 2052999/tristancole616
 2052958/warnerjonass13
 2058006/10-power
@@ -55,10 +52,8 @@
 2060771/Averware
 2060852/B2BOnline
 2060209/CodingXpress
-2062011/Cumpahost
 2061516/DALTCORE
 2058005/ErudineFinancials
-2061093/GreyRook
 2057727/MariaHoward898
 2058390/Massivesoft
 2057683/Monkey-D-Luffy
@@ -79,7 +74,6 @@
 2058753/cyncr
 2060629/fat-robin-consulting
 2057777/gahmie69
-2059798/gentoo-el
 2061335/gitleaftrack
 2059191/gittink69
 2057718/graziaboye513
@@ -94,7 +88,6 @@
 2057686/marvinrao218
 2057773/mustafagoktas
 2057726/nkmrnkmr
-2057712/orvillemoser25
 2061036/pitomba
 2061834/pygrace
 2058344/pythonico
@@ -299,7 +292,6 @@
 2128971/SBS-team
 2125621/SUMOSigma
 2125509/Simonu0549
-2125464/Skiperr
 2128735/SpirentTechnologies
 2126422/SpyroDev
 2126465/TechnologyPlayground
@@ -322,7 +314,6 @@
 2125421/antskup
 2125474/apocoliptica
 2125425/asalerno
-2126159/atomicplan
 2125471/aykut721
 2125512/bboru21
 2128559/bitcellar-labs
@@ -359,7 +350,6 @@
 2125418/grnz
 2125450/gstjean
 2127859/gwt-test-utils
-2126606/innodev-au
 2125436/jalvord
 2125422/jamalriley820
 2125513/jeffreywpearson
@@ -413,7 +403,6 @@
 2125476/rosehoang
 2125467/rsbecker
 2128371/sbt-android-mill
-2128164/schlenter-simon-software
 2125486/sebhay1128
 2125507/sergeyignatov
 2125429/skaltest
