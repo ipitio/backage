@@ -10,10 +10,10 @@ f="$1"
 del_n=1
 last_xml_size=-1
 
-[ -f "$f" ] || return 1
+[ -f "$f" ] || exit 1
 
-tmp=$(mktemp "${f}.XXXXXX") || return 1
-trap 'rm -f "$tmp"' RETURN
+tmp=$(mktemp "${f}.XXXXXX") || exit 1
+trap 'rm -f "$tmp"' EXIT
 
 while [ -f "$f" ]; do
 	json_size=$(stat -c %s "$f" 2>/dev/null || echo -1)
@@ -48,21 +48,27 @@ while [ -f "$f" ]; do
 	fi
 
 	if jq -e '
-		if (type == "array") or (type == "object") then
-			any(.[]; ((.version // []) | type == "array") and ((.version // []) | length > 0))
-		else
-			((.version // []) | type == "array") and ((.version // []) | length > 0)
-		end
+		def has_versions:
+			if type == "array" then
+				any(.[]?; ((.version? // []) | type == "array") and ((.version? // []) | length > 0))
+			elif type == "object" and ((.package? // null) | type == "array") then
+				any(.package[]?; ((.version? // []) | type == "array") and ((.version? // []) | length > 0))
+			elif type == "object" then
+				((.version? // []) | type == "array") and ((.version? // []) | length > 0)
+			else
+				false
+			end;
+		has_versions
 	' "$f" >/dev/null; then
-		jq -c '
+		if ! jq -c '
 			def id_to_num:
 				if type == "number" then .
 				elif type == "string" then tonumber? // 0
 				else 0 end;
 			def vlen:
-				(.version // []) | if type == "array" then length else 0 end;
+				(.version? // []) | if type == "array" then length else 0 end;
 			def trim_versions($n):
-				if ((.version // []) | type == "array") and ((.version // []) | length > 0) then
+				if ((.version? // []) | type == "array") and ((.version? // []) | length > 0) then
 					(
 						.version
 						| sort_by(.id | id_to_num)
@@ -82,6 +88,18 @@ while [ -f "$f" ]; do
 					end
 				)
 				| map(.value))
+			elif type == "object" and ((.package? // null) | type == "array") then
+				.package |= (
+					to_entries
+					| (max_by(.value | vlen) // empty) as $max
+					| map(
+						if .key == $max.key and ((.value | vlen) > 0)
+						then (.value |= trim_versions($n))
+						else .
+						end
+					)
+					| map(.value)
+				)
 			elif type == "object" then
 				(to_entries
 				| (max_by(.value | vlen) // empty) as $max
@@ -95,31 +113,31 @@ while [ -f "$f" ]; do
 			else
 				trim_versions($n)
 			end
-		' --argjson n "$del_n" "$f" >"$tmp"
+		' --argjson n "$del_n" "$f" >"$tmp"; then
+			rm -f "$tmp"
+			break
+		fi
 	else
-		jq -c '
-			if type == "array" then
+		if ! jq -c '
+			def drop_one($arr):
 				(
-					def to_num:
-						if type == "number" then .
-						elif type == "string" then tonumber? // 0
-						else 0 end;
-					to_entries
-					| (min_by([ (.value.raw_downloads // 0 | to_num), (.value.date // "") ]) // null) as $target
+					$arr
+					| to_entries
+					| (min_by([ (.value.raw_downloads // 0 | tonumber? // 0), (.value.date // "") ]) // null) as $target
 					| if $target == null then
 						map(.value)
 					else
 						[ .[] | select(.key != $target.key) | .value ]
 					end
-				)
+				);
+			if type == "array" then
+				drop_one(.)
+			elif type == "object" and ((.package? // null) | type == "array") then
+				.package |= drop_one(.package)
 			elif type == "object" then
 				(
-					def to_num:
-						if type == "number" then .
-						elif type == "string" then tonumber? // 0
-						else 0 end;
 					to_entries
-					| (min_by([ (.value.raw_downloads // 0 | to_num), (.value.date // "") ]) // null) as $target
+					| (min_by([ (.value.raw_downloads // 0 | tonumber? // 0), (.value.date // "") ]) // null) as $target
 					| if $target == null then
 						from_entries
 					else
@@ -129,7 +147,10 @@ while [ -f "$f" ]; do
 			else
 				.
 			end
-			' "$f" >"$tmp"
+			' "$f" >"$tmp"; then
+			rm -f "$tmp"
+			break
+		fi
 	fi
 
 	tmp_size=$(stat -c %s "$tmp" 2>/dev/null || echo -1)
@@ -144,29 +165,26 @@ while [ -f "$f" ]; do
 		fi
 
 		# If we're already at max aggressiveness, fall back to trimming whole packages once.
-		jq -c '
-			if type == "array" then
+		if ! jq -c '
+			def drop_one($arr):
 				(
-					def to_num:
-						if type == "number" then .
-						elif type == "string" then tonumber? // 0
-						else 0 end;
-					to_entries
-					| (min_by([ (.value.raw_downloads // 0 | to_num), (.value.date // "") ]) // null) as $target
+					$arr
+					| to_entries
+					| (min_by([ (.value.raw_downloads // 0 | tonumber? // 0), (.value.date // "") ]) // null) as $target
 					| if $target == null then
 						map(.value)
 					else
 						[ .[] | select(.key != $target.key) | .value ]
 					end
-				)
+				);
+			if type == "array" then
+				drop_one(.)
+			elif type == "object" and ((.package? // null) | type == "array") then
+				.package |= drop_one(.package)
 			elif type == "object" then
 				(
-					def to_num:
-						if type == "number" then .
-						elif type == "string" then tonumber? // 0
-						else 0 end;
 					to_entries
-					| (min_by([ (.value.raw_downloads // 0 | to_num), (.value.date // "") ]) // null) as $target
+					| (min_by([ (.value.raw_downloads // 0 | tonumber? // 0), (.value.date // "") ]) // null) as $target
 					| if $target == null then
 						from_entries
 					else
@@ -176,7 +194,10 @@ while [ -f "$f" ]; do
 			else
 				.
 			end
-		' "$f" >"$tmp"
+		' "$f" >"$tmp"; then
+			rm -f "$tmp"
+			break
+		fi
 
 		tmp_size=$(stat -c %s "$tmp" 2>/dev/null || echo -1)
 		if [ "$json_size" -ge 0 ] && [ "$tmp_size" -ge 0 ] && [ "$tmp_size" -ge "$json_size" ]; then
@@ -191,6 +212,6 @@ done
 # Ensure the XML output corresponds to the final JSON.
 ytox "$f" >/dev/null 2>&1
 
-# If either JSON or XML is > 100MB, empty each one that is too large:
+# If either JSON or XML is > 100MB, there is a bug, but empty each one that is too large to allow others:
 [ "$(stat -c %s "$f" 2>/dev/null || echo -1)" -lt 100000000 ] || echo "{}" >"$f"
 [ "$(stat -c %s "${f%.*}.xml" 2>/dev/null || echo -1)" -lt 100000000 ] || echo "<?xml version=\"1.0\" encoding=\"UTF-8\"?><xml></xml>" >"${f%.*}.xml"

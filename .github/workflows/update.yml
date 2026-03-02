@@ -61,9 +61,13 @@ jobs:
       - name: Dry run
         id: update
         run: |
+          set +e
           docker run -v $PWD:/app --env-file <(env | grep GITHUB) \
             ghcr.io/ipitio/backage:master \
-            src/test/update.sh bkg; echo "updated=$?" >> "$GITHUB_OUTPUT"
+            src/test/update.sh bkg
+          code=$?
+          echo "updated=$code" >> "$GITHUB_OUTPUT"
+          exit "$code"
 
       - name: Get date
         id: date

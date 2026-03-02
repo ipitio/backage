@@ -32,13 +32,13 @@ END {
 
 get_remaining() {
 	get_requests "$4"
-	! grep -qP "\b$3\b" "$1" || echo "0/$3"
+    ! grep -Fxq "$3" "$1" || echo "0/$3"
 	insert_into "$1" <(insert_into <(grep -Fxf "$1" "$2") <(get_requests "$4" "${5:-0}"))
 	grep -Fxf "$1" "$2"
 }
 
 get_owners(){
-	git -C "$1" log --name-only --pretty=format:%ct -- . | awk '
+	git -C "$6" log --name-only --pretty=format:%ct -- . | awk '
 /^[0-9]+$/ { ts=$0; next }     # commit timestamp line
 NF==0 { next }                 # skip blanks
 index($0,"/")==0 { next }      # skip root-level files
@@ -51,4 +51,4 @@ END { for(d in seen) printf "%s %s\n", seen[d], d }
 	insert_into <(get_remaining owners_partially_updated "$2" "$4" "$5" "$3") <(get_remaining owners_stale "$2" "$4" "$5")
 }
 
-get_owners "$1" "$2" "$3" "$4" "$5" 2>/dev/null | awk '!seen[$0]++' | head -n $((3 * $3))
+get_owners "$1" "$2" "$3" "$4" "$5" "$6" 2>/dev/null | awk '!seen[$0]++' | head -n $((3 * $3))

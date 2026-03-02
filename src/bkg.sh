@@ -164,7 +164,7 @@ main() {
 				grep -vFxf all_owners_in_db "$BKG_OWNERS" >owners.tmp
 				mv owners.tmp "$BKG_OWNERS"
 				rest_first=$(get_BKG BKG_REST_TO_TOP)
-				bash lib/get.sh "$rest_first" "$connections" $request_limit "$GITHUB_OWNER" "$BKG_OWNERS" | env_parallel --lb save_owner
+				bash lib/get.sh "$rest_first" "$connections" $request_limit "$GITHUB_OWNER" "$BKG_OWNERS" "$BKG_INDEX_DIR" | env_parallel --lb save_owner
 				rm -f all_owners_in_db all_owners_tu owners_updated owners_partially_updated owners_stale
 				set_BKG BKG_DIFF "$db_size_curr"
 				set_BKG BKG_REST_TO_TOP "$((1 - rest_first))"

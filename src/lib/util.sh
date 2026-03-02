@@ -39,7 +39,7 @@ source $(which env_parallel.bash)
 env_parallel --session
 GITHUB_OWNER=${GITHUB_OWNER:-ipitio}
 GITHUB_REPO=${GITHUB_REPO:-backage}
-BKG_ROOT=..
+BKG_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"/../..
 BKG_ENV=env.env
 BKG_OWNERS=$BKG_ROOT/owners.txt
 BKG_OPTOUT=$BKG_ROOT/optout.txt
@@ -92,7 +92,7 @@ PRAGMA cache_size = -500000;
 
 get_BKG() {
     [ -f "$BKG_ENV" ] || return
-    while [ -f "$BKG_ENV.lock" ]; do :; done
+    while [ -f "$BKG_ENV.lock" ]; do sleep 0.05; done
     grep "^$1=" "$BKG_ENV" | cut -d'=' -f2
 }
 
@@ -102,7 +102,7 @@ set_BKG() {
     value=$(echo "$2" | perl -pe 'chomp if eof')
     tmp_file=$(mktemp)
     [ -f "$BKG_ENV" ] || return
-    until ln "$BKG_ENV" "$BKG_ENV.lock" 2>/dev/null; do :; done
+    until ln "$BKG_ENV" "$BKG_ENV.lock" 2>/dev/null; do sleep 0.05; done
 
     if ! grep -q "^$1=" "$BKG_ENV"; then
         echo "$1=$value" >>"$BKG_ENV"
@@ -123,19 +123,26 @@ get_BKG_set() {
 
 set_BKG_set() {
     local list
+    local list_escaped
     local code=0
-    until ln "$BKG_ENV" "$BKG_ENV.$1.lock" 2>/dev/null; do :; done
-    list=$(get_BKG_set "$1" | awk '!seen[$0]++' | perl -pe 's/\n/\\n/g')
-    # shellcheck disable=SC2076
-    [[ "$list" =~ "$2" ]] && code=1 || list="${list:+$list\n}$2"
-    set_BKG "$1" "$(echo "$list" | perl -pe 's/\\n/\n/g' | perl -pe 's/\n/\\n/g' | perl -pe 's/^\\n//')"
+    until ln "$BKG_ENV" "$BKG_ENV.$1.lock" 2>/dev/null; do sleep 0.05; done
+    list=$(get_BKG_set "$1" | awk '!seen[$0]++')
+
+    if awk -v item="$2" '$0 == item { found = 1; exit } END { exit !found }' <<<"$list"; then
+        code=1
+    else
+        list="${list:+$list$'\n'}$2"
+    fi
+
+    list_escaped=$(perl -pe 's/\n/\\n/g; s/^\\n//' <<<"$list")
+    set_BKG "$1" "$list_escaped"
     rm -f "$BKG_ENV.$1.lock"
     return $code
 }
 
 del_BKG() {
     [ -f "$BKG_ENV" ] || return
-    until ln "$BKG_ENV" "$BKG_ENV.lock" 2>/dev/null; do :; done
+    until ln "$BKG_ENV" "$BKG_ENV.lock" 2>/dev/null; do sleep 0.05; done
     sed -i "/^$1=/d;/^\s*$/d" "$BKG_ENV"
     echo >>"$BKG_ENV"
     rm -f "$BKG_ENV.lock"

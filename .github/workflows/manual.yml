@@ -30,7 +30,7 @@ env:
 jobs:
   update:
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request' }}
 
     permissions:
       contents: write
@@ -69,9 +69,13 @@ jobs:
       - name: Dry run
         id: update
         run: |
+          set +e
           docker run -v $PWD:/app --env-file <(env | grep GITHUB) \
             ghcr.io/$GITHUB_OWNER/$GITHUB_REPO:master \
-            src/test/update.sh bkg; echo "updated=$?" >> "$GITHUB_OUTPUT"
+            src/test/update.sh bkg
+          code=$?
+          echo "updated=$code" >> "$GITHUB_OUTPUT"
+          exit "$code"
 
       - name: Get date
         id: date

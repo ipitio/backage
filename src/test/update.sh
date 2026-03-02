@@ -21,7 +21,7 @@ source bkg.sh
 popd || exit 1
 
 # permissions
-[ -n "$GITHUB_TOKEN" ] || GITHUB_TOKEN=$(if git config --get remote.origin.url | grep -q '@'; then grep -oP '(?<=://)[^@]+'; else echo ""; fi)
+[ -n "$GITHUB_TOKEN" ] || GITHUB_TOKEN=$(remote_url=$(git config --get remote.origin.url); if grep -q '@' <<<"$remote_url"; then grep -oP '(?<=://)[^@]+' <<<"$remote_url"; else echo ""; fi)
 [ -n "$GITHUB_TOKEN" ] || ! gh auth status &>/dev/null || GITHUB_TOKEN=$(gh auth token)
 [ -n "$GITHUB_ACTOR" ] || GITHUB_ACTOR="${GITHUB_OWNER:-ipitio}"
 git config user.name "${GITHUB_ACTOR}"
@@ -110,7 +110,12 @@ fi
 (git merge --abort 2>/dev/null)
 (git pull --rebase --autostash -s ours &>/dev/null)
 find . -type f -name '*.txt' -exec sed -i '/^<<<<<<<\|=======\|>>>>>>>/d' {} \; 2>/dev/null
-git add -- *.txt README.md
-git commit -m "$(date -u +%Y-%m-%d)"
-git push
+git add -- *.txt README.md 2>/dev/null || git add README.md 2>/dev/null || true
+
+if ! git diff --cached --quiet; then
+    git commit -m "$(date -u +%Y-%m-%d)"
+    git push
+else
+    echo "No top-level txt/README changes to commit"
+fi
 popd || exit 1

@@ -18,9 +18,9 @@ request_owner() {
 		owner=$(cut -d'/' -f2 <<<"$owner")
 	fi
 
-	! grep -q "$owner" packages_all || return 1
-	until ln "$BKG_OWNERS" "$BKG_OWNERS.lock" 2>/dev/null; do :; done
-	grep -q "^(.*\/)*$owner$" "$BKG_OWNERS" || echo "$id/$owner" >>"$BKG_OWNERS"
+	! awk -F'|' -v owner_key="$owner" '$2 == owner_key { found = 1; exit } END { exit !found }' packages_all || return 1
+	until ln "$BKG_OWNERS" "$BKG_OWNERS.lock" 2>/dev/null; do sleep 0.05; done
+	awk -F'/' -v owner_key="$owner" '$NF == owner_key { found = 1; exit } END { exit !found }' "$BKG_OWNERS" || echo "$id/$owner" >>"$BKG_OWNERS"
 
 	if [ "$(stat -c %s "$BKG_OWNERS")" -ge 100000000 ]; then
 		sed -i '$d' "$BKG_OWNERS"
@@ -77,7 +77,11 @@ update_owner() {
 		echo "$owner was opted out!"
 		rm -rf "$BKG_INDEX_DIR/${owner:?}"
 		sqlite3 "$BKG_INDEX_DB" "delete from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id';"
-		sqlite3 "$BKG_INDEX_DB" "drop table if exists '$(sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name like '${BKG_INDEX_TBL_VER}_%_${owner}_%';")';"
+		sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name glob '${BKG_INDEX_TBL_VER}_*';" | while IFS= read -r table_name; do
+			[ -n "$table_name" ] || continue
+			[ "$(cut -d'_' -f4 <<<"$table_name")" = "$owner" ] || continue
+			sqlite3 "$BKG_INDEX_DB" "drop table if exists '$table_name';"
+		done
 		set_BKG BKG_PAGE_"$owner_id" ""
 		del_BKG BKG_PAGE_"$owner_id"
 		return
@@ -95,7 +99,7 @@ update_owner() {
 	local start_page
 	start_page=$(get_BKG BKG_PAGE_"$owner_id")
 
-	if grep -q "^$owner_id|$owner|" packages_already_updated && [ -z "$start_page" ]; then
+	if awk -F'|' -v owner_id_key="$owner_id" -v owner_key="$owner" '$1 == owner_id_key && $2 == owner_key { found = 1; exit } END { exit !found }' packages_already_updated && [ -z "$start_page" ]; then
 		run_parallel save_package "$(sqlite3 "$BKG_INDEX_DB" "select package_type, package, max(date) as max_date from '$BKG_INDEX_TBL_PKG' where owner_id = '$owner_id' group by package_type, package having max(date) < '$BKG_BATCH_FIRST_STARTED' order by max_date asc;" | awk -F'|' '{print "////"$1"//"$2}')"
 		(($? != 3)) || return 3
 		run_parallel update_package "$(get_BKG_set BKG_PACKAGES_"$owner")"
