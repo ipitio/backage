@@ -1,8 +1,6 @@
-2048713/lucidenergy
 2050523/railsgirls-jp
 2046616/spaceFrou
 2046585/themilldog
-2046560/visanz2
 2046527/visualeelutz
 2046597/vocalnebula
 2051175/yoolk-os
@@ -15,7 +13,6 @@
 2053452/MapReduceLibrary
 2053024/SalvoVirga
 2056728/Talenthouse
-2054353/TrumanSTEP
 2054815/VerdigrisTech
 2053035/aditya-chaturvedi
 2052977/albertrohde411
@@ -282,7 +279,6 @@
 2129170/Trinetix
 2125521/VerazNet
 2126184/Witsacco
-2127574/abriss-records
 2128020/ai-one-tech
 2125479/alanxyou
 2128216/alfredhq
@@ -301,7 +297,6 @@
 2126272/breckprog
 2125498/brinbailey615
 2125424/brunowhere
-2125481/c343
 2125580/candena
 2125449/carlossanchezp
 2126852/clubcapra
@@ -357,7 +352,6 @@
 2128983/newhaircut
 2125453/nitinroyalsharma
 2130307/okfde
-2125496/oloz
 2130198/omnifone
 2127084/opensource2day
 2125446/orderlevothroi
