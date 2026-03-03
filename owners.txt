@@ -1,4 +1,3 @@
-2051175/yoolk-os
 2056919/AcademyConsult
 2052973/Aleck11
 2054956/BlueDiamond
@@ -28,7 +27,6 @@
 2052996/pleasantbloc48
 2054476/prorogue
 2056534/pureweber
-2052984/roryoverby410
 2052999/tristancole616
 2052958/warnerjonass13
 2058006/10-power
@@ -364,7 +362,6 @@
 2125429/skaltest
 2125445/skozinsky
 2125414/soanburch1025
-2128876/somebook
 2125502/sonuunos
 2125462/spikeyrichie
 2126391/sprogsoft
