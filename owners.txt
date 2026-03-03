@@ -1,4 +1,3 @@
-2052973/Aleck11
 2054956/BlueDiamond
 2053362/Francomedia
 2057464/MTIEBI
@@ -127,7 +126,6 @@
 2063728/constantinides
 2063349/cosimokenney1127
 2063310/craigcooper25
-2063294/craigstewy
 2068003/csluni
 2067626/dailycred
 2063251/dalekuri
@@ -180,7 +178,6 @@
 2063338/petershalek
 2065357/plur-si
 2066612/prefeituramunicipalosorio
-2063329/pricekoenig410
 2063341/prosellen
 2063330/queennie
 2063280/reinholdbatc14
@@ -215,7 +212,6 @@
 2126614/Cybernostics
 2128317/Cyscorpions
 2125514/DaveQB
-2125497/Degoten
 2125434/Diego1989
 2127449/Doom-It-Yourself
 2125949/Draupner
@@ -333,7 +329,6 @@
 2130352/nbcl-WebService
 2128983/newhaircut
 2125453/nitinroyalsharma
-2130307/okfde
 2130198/omnifone
 2127084/opensource2day
 2125446/orderlevothroi
