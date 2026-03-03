@@ -1,7 +1,4 @@
-2046616/spaceFrou
 2046585/themilldog
-2046527/visualeelutz
-2046597/vocalnebula
 2051175/yoolk-os
 2056919/AcademyConsult
 2052973/Aleck11
@@ -13,7 +10,6 @@
 2053024/SalvoVirga
 2056728/Talenthouse
 2054815/VerdigrisTech
-2053035/aditya-chaturvedi
 2052977/albertrohde411
 2056608/blackbits
 2053032/bonfyreconcepts
@@ -28,7 +24,6 @@
 2054604/htcondor
 2052987/jamesch
 2053042/jeffersoncam410
-2052970/living-creatures
 2052992/lorenzolake1024
 2056216/miyomint
 2052996/pleasantbloc48
@@ -63,7 +58,6 @@
 2060629/fat-robin-consulting
 2057777/gahmie69
 2061335/gitleaftrack
-2059191/gittink69
 2057718/graziaboye513
 2060084/hai-jin
 2057721/hazelkaplan922
@@ -109,7 +103,6 @@
 2064819/MediaMoleculeLtd
 2067323/NSCA
 2065691/Neodinamica
-2064879/OpenCSR
 2066079/Outcome-Engenuity
 2063605/PayUUA
 2063828/Politwoops
@@ -120,7 +113,6 @@
 2063346/alexandrehaouzi
 2063357/altdotnetturkiye
 2067687/antipodeanlabs
-2063307/arvand
 2065697/athletics
 2063285/avidan17
 2063301/bechorash
@@ -199,7 +191,6 @@
 2063343/ridhomaulana
 2063293/seooutsourcingaustralia
 2063260/sergiobueno
-2063900/shuttlecloud
 2063248/stefanpaduraru
 2063311/stefgammelga819
 2068264/stuntrocket
@@ -236,7 +227,6 @@
 2125717/FanTravel
 2130294/Froggies
 2130782/GBCarpiArtStudio
-2126645/GrupoDR
 2127549/IBSNigeria
 2127543/IntelliBiz
 2127308/InternContest
@@ -259,7 +249,6 @@
 2128729/NETWAYS
 2130239/Nerrsoft
 2130195/OpenClinica
-2127694/OpenWatch
 2125504/Ovan87
 2126475/Piratenpartei-Rhein-Erft
 2125489/Privetikii
@@ -282,7 +271,6 @@
 2125479/alanxyou
 2128216/alfredhq
 2125465/alpacarodeo
-2125484/amacarthur
 2125480/andk2
 2126644/andreiluan
 2125475/andy327
@@ -335,7 +323,6 @@
 2125468/katiepickett
 2125415/kendo2009
 2127587/l20n
-2125483/levothroidmcg
 2125409/levothroidonli
 2125431/levothroidonlie
 2125492/lexapromg
