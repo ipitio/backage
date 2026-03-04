@@ -1,4 +1,3 @@
-2057254/Mindfolder
 2053452/MapReduceLibrary
 2053024/SalvoVirga
 2056728/Talenthouse
@@ -13,7 +12,6 @@
 2053004/giftsy-zz
 2052957/glangbroek
 2052982/hermonconrad1025
-2057649/higgsdesign
 2054604/htcondor
 2052987/jamesch
 2053042/jeffersoncam410
@@ -26,7 +24,6 @@
 2052958/warnerjonass13
 2058006/10-power
 2061422/2brosdevelopment
-2060771/Averware
 2060852/B2BOnline
 2060209/CodingXpress
 2061516/DALTCORE
@@ -99,7 +96,6 @@
 2063828/Politwoops
 2065891/SafetyBits
 2067480/TCSTech
-2067975/TartanWare
 2063319/aldawfskqtbo
 2063346/alexandrehaouzi
 2063357/altdotnetturkiye
@@ -160,7 +156,6 @@
 2063315/mohib
 2064781/moneyadviceservice
 2066409/mortarcode
-2063344/mortonlorenz620
 2064948/mozillapancake
 2063277/mskobelev
 2063258/msmdhussain
@@ -217,7 +212,6 @@
 2127308/InternContest
 2125419/InterwebsLtd
 2125411/Javata
-2126648/JoaLuiz
 2126106/KataChain
 2126607/KayoticLabs
 2125407/KirkGresham
@@ -253,11 +247,9 @@
 2125521/VerazNet
 2126184/Witsacco
 2128020/ai-one-tech
-2125479/alanxyou
 2128216/alfredhq
 2125465/alpacarodeo
 2125480/andk2
-2126644/andreiluan
 2125475/andy327
 2125420/antonio-pacheco
 2125421/antskup
