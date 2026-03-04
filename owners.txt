@@ -1,4 +1,3 @@
-2053452/MapReduceLibrary
 2053024/SalvoVirga
 2056728/Talenthouse
 2054815/VerdigrisTech
