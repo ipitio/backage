@@ -1,4 +1,3 @@
-2053024/SalvoVirga
 2056728/Talenthouse
 2054815/VerdigrisTech
 2052977/albertrohde411
@@ -22,11 +21,9 @@
 2052999/tristancole616
 2052958/warnerjonass13
 2058006/10-power
-2061422/2brosdevelopment
 2060852/B2BOnline
 2060209/CodingXpress
 2061516/DALTCORE
-2058005/ErudineFinancials
 2057727/MariaHoward898
 2058390/Massivesoft
 2057683/Monkey-D-Luffy
@@ -42,7 +39,6 @@
 2062743/codesignir
 2060223/coralbits
 2058753/cyncr
-2060629/fat-robin-consulting
 2057777/gahmie69
 2061335/gitleaftrack
 2057718/graziaboye513
@@ -181,7 +177,6 @@
 2063292/teunmcconnel821
 2068126/thirstydigital
 2063283/tropelaGithub
-2063335/unimensun
 2063263/vidya-v2
 2063297/vivekyaji
 2063255/waltonkronbo1128
@@ -211,14 +206,12 @@
 2127308/InternContest
 2125419/InterwebsLtd
 2125411/Javata
-2126106/KataChain
 2126607/KayoticLabs
 2125407/KirkGresham
 2125456/Kirpr
 2129477/LOGICSOLUTIONS
 2127157/Lang-8
 2130191/LikeASource
-2129851/MIEMedical
 2129681/MegafonWebLab
 2125448/Mellasn33
 2125726/MeyerMemorialTrust
@@ -234,7 +227,6 @@
 2129505/ROB-Seismology
 2126982/Rubberit
 2128128/Runak
-2128971/SBS-team
 2125621/SUMOSigma
 2125509/Simonu0549
 2128735/SpirentTechnologies
@@ -266,7 +258,6 @@
 2126461/compiledammit
 2128362/cyclodeo
 2125503/danalford
-2125417/dangmanhkhoi
 2125508/danteriddle819
 2125444/darkeclipz
 2126372/dashlabs
@@ -337,7 +328,6 @@
 2125429/skaltest
 2125445/skozinsky
 2125414/soanburch1025
-2125502/sonuunos
 2125462/spikeyrichie
 2126391/sprogsoft
 2129247/tagit
