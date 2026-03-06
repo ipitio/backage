@@ -1,11 +1,9 @@
-2056608/blackbits
 2053032/bonfyreconcepts
 2052966/drk1wi
 2055130/ebiblefellowship
 2053056/eddiegates615
 2053008/finleycalder717
 2053004/giftsy-zz
-2052957/glangbroek
 2052982/hermonconrad1025
 2054604/htcondor
 2052987/jamesch
@@ -108,15 +106,12 @@
 2063310/craigcooper25
 2068003/csluni
 2067626/dailycred
-2063251/dalekuri
 2063281/dimitrifinne411
 2063332/dinomcconnel511
 2063308/elmorewoodwa718
 2063288/ferronroy37
 2065688/fishtree
-2063351/freemanrafn716
 2063318/gerardvest923
-2063289/hariskiranatama
 2067994/haskelllive
 2068300/hwstartup
 2064840/icxperia
@@ -157,7 +152,6 @@
 2066612/prefeituramunicipalosorio
 2063341/prosellen
 2063330/queennie
-2063343/ridhomaulana
 2063293/seooutsourcingaustralia
 2063260/sergiobueno
 2063248/stefanpaduraru
@@ -169,7 +163,6 @@
 2068126/thirstydigital
 2063283/tropelaGithub
 2063263/vidya-v2
-2063297/vivekyaji
 2063255/waltonkronbo1128
 2067818/weareytm
 2107976/AndroidTransformers
@@ -249,7 +242,6 @@
 2125508/danteriddle819
 2125444/darkeclipz
 2126372/dashlabs
-2126266/eEcosphere
 2128831/eatwithus
 2129066/edfor
 2125461/edgmnt
@@ -262,7 +254,6 @@
 2125470/feministhackers
 2126642/fethiago
 2125427/flavienhoffm923
-2125447/fyezool
 2125450/gstjean
 2125436/jalvord
 2125422/jamalriley820
@@ -276,7 +267,6 @@
 2125468/katiepickett
 2125415/kendo2009
 2127587/l20n
-2125409/levothroidonli
 2125431/levothroidonlie
 2125492/lexapromg
 2125451/ljekidex
