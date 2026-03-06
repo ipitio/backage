@@ -1,4 +1,3 @@
-2052966/drk1wi
 2055130/ebiblefellowship
 2053056/eddiegates615
 2053008/finleycalder717
@@ -185,7 +184,6 @@
 2127549/IBSNigeria
 2127543/IntelliBiz
 2127308/InternContest
-2125419/InterwebsLtd
 2125411/Javata
 2125407/KirkGresham
 2125456/Kirpr
@@ -214,7 +212,6 @@
 2125500/TerryLansdown
 2129475/Tizaro
 2127698/TradeMe
-2129170/Trinetix
 2125521/VerazNet
 2126184/Witsacco
 2128020/ai-one-tech
@@ -226,13 +223,11 @@
 2125421/antskup
 2125474/apocoliptica
 2125425/asalerno
-2125471/aykut721
 2125512/bboru21
 2128559/bitcellar-labs
 2126272/breckprog
 2125498/brinbailey615
 2125424/brunowhere
-2125580/candena
 2125449/carlossanchezp
 2129803/codedry
 2126461/compiledammit
