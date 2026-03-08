@@ -1,4 +1,3 @@
-2053042/jeffersoncam410
 2052992/lorenzolake1024
 2056216/miyomint
 2052996/pleasantbloc48
@@ -16,7 +15,6 @@
 2061226/SupaDupa12ttt
 2057785/Zorete
 2057747/ZakyPew
-2057722/anatolevende513
 2057713/arthurwall1026
 2057789/ayoubnaciri
 2062548/beaglecode
@@ -146,7 +144,6 @@
 2125455/Arteusz
 2130469/Applied-Language-Solutions
 2126500/BarCampMelbourne
-2125433/BlackJohnny
 2130619/BloomInsuranceAgency
 2129685/BlackburnITServices
 2130767/CloudInk
@@ -155,7 +152,6 @@
 2128317/Cyscorpions
 2125514/DaveQB
 2125434/Diego1989
-2127449/Doom-It-Yourself
 2130294/Froggies
 2130782/GBCarpiArtStudio
 2127549/IBSNigeria
