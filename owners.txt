@@ -1,4 +1,3 @@
-2054476/prorogue
 2056534/pureweber
 2052999/tristancole616
 2052958/warnerjonass13
@@ -13,7 +12,6 @@
 2057785/Zorete
 2057747/ZakyPew
 2057713/arthurwall1026
-2057789/ayoubnaciri
 2062548/beaglecode
 2062743/codesignir
 2060223/coralbits
@@ -56,7 +54,6 @@
 2063303/JeffryMccarthy
 2063282/JimJamTTM
 2063819/LifeInNightVision
-2063254/Luciansa
 2064819/MediaMoleculeLtd
 2066079/Outcome-Engenuity
 2063605/PayUUA
@@ -81,10 +78,8 @@
 2067368/codecurious-bln
 2063728/constantinides
 2063349/cosimokenney1127
-2063310/craigcooper25
 2068003/csluni
 2067626/dailycred
-2063281/dimitrifinne411
 2063332/dinomcconnel511
 2063308/elmorewoodwa718
 2065688/fishtree
@@ -107,7 +102,6 @@
 2063304/louietimm718
 2068054/lux-group
 2063300/m-akki
-2065642/mafiaportal
 2063299/markdwhitehouse
 2063265/meerajwadhwa
 2065044/meetups
@@ -143,7 +137,6 @@
 2130619/BloomInsuranceAgency
 2129685/BlackburnITServices
 2130767/CloudInk
-2125435/Cybernetik
 2126614/Cybernostics
 2128317/Cyscorpions
 2125514/DaveQB
