@@ -1,4 +1,3 @@
-2058006/10-power
 2060852/B2BOnline
 2060209/CodingXpress
 2061516/DALTCORE
@@ -250,7 +249,6 @@
 2125490/talarka
 2125439/tijanthorsen923
 2125406/tronyx-85
-2125413/vasymihmuzy697
 2125488/wallacehollo24
 2128138/webgears
 2125477/whynotkeithberg
@@ -287,12 +285,10 @@
 2175134/Mostlink
 2174603/Nerva
 2174575/NerdfighterSean
-2180319/ObstkisteDevelopment
 2179466/NewcastleComputingScience
 2178828/PingPongTech
 2176552/PosJavaCesumar
 2180095/Playtasy
-2180071/RookieSystems
 2179910/Praleska
 2174651/RubinBank
 2176070/SAUGOR3333
@@ -301,8 +297,6 @@
 2178832/SmalltownAmerica
 2176635/SocialSolutions
 2176630/Sparvnastet
-2176418/SpheroShakeAway
-2178699/Socialog
 2176342/TeamGoFuckYourselves
 2175744/SuretyConnectionProjectCollaboration
 2179630/TrainingPrivateLeran
@@ -372,7 +366,6 @@
 2175624/labyrinth-team
 2176846/kiff
 2174499/karimpollard25
-2179270/littleglassdiode
 2178846/loop-connector
 2174527/lukaepstein116
 2180245/manoderecha
