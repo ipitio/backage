@@ -1,6 +1,4 @@
-2057985/Short-Changed
 2061226/SupaDupa12ttt
-2057785/Zorete
 2057747/ZakyPew
 2057713/arthurwall1026
 2062548/beaglecode
@@ -109,7 +107,6 @@
 2063330/queennie
 2063293/seooutsourcingaustralia
 2063260/sergiobueno
-2063248/stefanpaduraru
 2068264/stuntrocket
 2063286/tayloracosta1230
 2063340/teodor98
@@ -124,7 +121,6 @@
 2129685/BlackburnITServices
 2130767/CloudInk
 2126614/Cybernostics
-2128317/Cyscorpions
 2125434/Diego1989
 2130294/Froggies
 2130782/GBCarpiArtStudio
@@ -143,7 +139,6 @@
 2125437/Minothor
 2128729/NETWAYS
 2130239/Nerrsoft
-2125504/Ovan87
 2126475/Piratenpartei-Rhein-Erft
 2125489/Privetikii
 2126646/ProjetoPJS
@@ -156,7 +151,6 @@
 2129475/Tizaro
 2125521/VerazNet
 2126184/Witsacco
-2128020/ai-one-tech
 2128216/alfredhq
 2125465/alpacarodeo
 2125480/andk2
@@ -189,7 +183,6 @@
 2125450/gstjean
 2125436/jalvord
 2125422/jamalriley820
-2125416/jimhovgaard11
 2125430/jknight-va
 2125441/johnbedford3558
 2125410/jordandhill
@@ -278,7 +271,6 @@
 2176552/PosJavaCesumar
 2180095/Playtasy
 2179910/Praleska
-2174651/RubinBank
 2176070/SAUGOR3333
 2176892/SGD108
 2180305/Savile
@@ -370,11 +362,9 @@
 2174604/nohovicxike827
 2176810/noob-zz
 2177738/nodebr
-2174515/norrisshield38
 2178430/mobytz
 2178716/ob-cs-hm-edu
 2174592/ntechbr
-2179366/odoo-brazil
 2174563/orvalsong924
 2180372/phproad
 2178619/pmsolutionsca
