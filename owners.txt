@@ -1,4 +1,3 @@
-2057747/ZakyPew
 2057713/arthurwall1026
 2062548/beaglecode
 2062743/codesignir
@@ -26,7 +25,6 @@
 2062511/yapaay
 2057695/zee-sh
 2068485/AlDigit
-2063252/AsifShaikh21
 2066565/AuverkTechnologies
 2067679/BinarytoysLab
 2068399/CIDSolutions
@@ -75,7 +73,6 @@
 2063339/iliaabrosimov
 2063261/jorisowen718
 2063290/kamalanathan
-2063347/kirbyottosen922
 2067443/kodeio
 2065738/kony-solutions
 2066865/korma
@@ -97,7 +94,6 @@
 2064948/mozillapancake
 2063277/mskobelev
 2064872/neats
-2067366/objeng
 2063295/oralcooley512
 2068459/orbisius
 2063338/petershalek
@@ -114,10 +110,8 @@
 2067818/weareytm
 2107976/AndroidTransformers
 2125455/Arteusz
-2130469/Applied-Language-Solutions
 2126500/BarCampMelbourne
 2130619/BloomInsuranceAgency
-2129685/BlackburnITServices
 2130767/CloudInk
 2126614/Cybernostics
 2125434/Diego1989
@@ -160,7 +154,6 @@
 2125425/asalerno
 2125512/bboru21
 2128559/bitcellar-labs
-2126272/breckprog
 2125424/brunowhere
 2125449/carlossanchezp
 2129803/codedry
@@ -303,12 +296,10 @@
 2174551/devshaw
 2177492/dorabot
 2174550/doxhung
-2174543/ekinoshao
 2174560/draganm
 2174500/dumazy
 2177437/ekygroup
 2174569/eparaspam
-2174537/elmorecahill923
 2174623/faithon22
 2174571/dvpinform
 2174524/fireflame
@@ -346,7 +337,6 @@
 2174527/lukaepstein116
 2180245/manoderecha
 2174618/maelanpotts1026
-2174590/marcoengelhard
 2174568/marcoblom38
 2174512/masterbzbz
 2174573/maticoh24
@@ -357,7 +347,6 @@
 2174791/messstuff
 2174517/milotrex
 2175378/neko-punchi
-2180329/nippelapp
 2174604/nohovicxike827
 2176810/noob-zz
 2177738/nodebr
@@ -388,7 +377,6 @@
 2174624/silency
 2175709/smartscheduling
 2174601/speaktrainy158y5
-2174520/steadycashflow
 2176226/steamcore
 2175999/streamsense
 2174531/steve-m-hay
