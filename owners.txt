@@ -1,17 +1,14 @@
-2057718/graziaboye513
 2060084/hai-jin
 2057721/hazelkaplan922
 2057778/israelbarret1128
 2058107/khulnahost
 2057688/larkinhoyle717
-2061137/makemytrip
 2057773/mustafagoktas
 2057726/nkmrnkmr
 2061036/pitomba
 2058344/pythonico
 2057780/rgan1
 2057720/sequsaxbyby767
-2057776/snagroot
 2062973/sociareal
 2057769/steviemackey12
 2062511/yapaay
@@ -28,7 +25,6 @@
 2063275/HsgZammic
 2063303/JeffryMccarthy
 2063282/JimJamTTM
-2063819/LifeInNightVision
 2064819/MediaMoleculeLtd
 2066079/Outcome-Engenuity
 2063605/PayUUA
@@ -60,11 +56,9 @@
 2063318/gerardvest923
 2067994/haskelllive
 2068300/hwstartup
-2064840/icxperia
 2063339/iliaabrosimov
 2063261/jorisowen718
 2063290/kamalanathan
-2067443/kodeio
 2065738/kony-solutions
 2066865/korma
 2063309/kurtisbloch12
@@ -142,7 +136,6 @@
 2125512/bboru21
 2128559/bitcellar-labs
 2125424/brunowhere
-2125449/carlossanchezp
 2129803/codedry
 2126461/compiledammit
 2125503/danalford
@@ -198,7 +191,6 @@
 2128371/sbt-android-mill
 2125486/sebhay1128
 2125507/sergeyignatov
-2125429/skaltest
 2125445/skozinsky
 2125462/spikeyrichie
 2126391/sprogsoft
@@ -235,7 +227,6 @@
 2179037/MPcharge
 2176317/MokiMobility
 2179016/Mulletsoft
-2174548/N40E116
 2179498/Movil-Android
 2175134/Mostlink
 2174603/Nerva
@@ -247,7 +238,6 @@
 2176070/SAUGOR3333
 2176892/SGD108
 2180305/Savile
-2176635/SocialSolutions
 2176630/Sparvnastet
 2176342/TeamGoFuckYourselves
 2175744/SuretyConnectionProjectCollaboration
@@ -330,7 +320,6 @@
 2176810/noob-zz
 2177738/nodebr
 2178430/mobytz
-2178716/ob-cs-hm-edu
 2174592/ntechbr
 2174563/orvalsong924
 2180372/phproad
