@@ -1,4 +1,3 @@
-2058107/khulnahost
 2057688/larkinhoyle717
 2057773/mustafagoktas
 2057726/nkmrnkmr
@@ -41,7 +40,6 @@
 2063325/cashner
 2063337/caudi109
 2063342/ceraehse
-2063279/chenkai5733
 2067368/codecurious-bln
 2063728/constantinides
 2063349/cosimokenney1127
@@ -97,7 +95,6 @@
 2126614/Cybernostics
 2125434/Diego1989
 2130294/Froggies
-2130782/GBCarpiArtStudio
 2127543/IntelliBiz
 2127308/InternContest
 2125456/Kirpr
@@ -119,7 +116,6 @@
 2126465/TechnologyPlayground
 2129475/Tizaro
 2125521/VerazNet
-2126184/Witsacco
 2128216/alfredhq
 2125465/alpacarodeo
 2125480/andk2
@@ -185,7 +181,6 @@
 2125486/sebhay1128
 2125507/sergeyignatov
 2125445/skozinsky
-2125462/spikeyrichie
 2126391/sprogsoft
 2129247/tagit
 2125490/talarka
@@ -267,7 +262,6 @@
 2174571/dvpinform
 2174524/fireflame
 2174556/esterherman1127
-2174566/flyingk
 2174615/francisco-diaz-geocent
 2174505/forestbrewer24
 2180076/flatiron-school
@@ -348,7 +342,6 @@
 2174498/usnwcs9323xx
 2174508/trybox
 2178795/uxproductivity
-2177267/veewee-community
 2174643/wdms
 2174507/weedzi
 2178439/wnm-live
@@ -357,6 +350,5 @@
 2174813/xinha
 2174549/xycydeccygo906
 2174617/workerfairy
-2179393/zekome
 2174504/wxsolo
 2185750/Angello1302
