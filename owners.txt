@@ -1,8 +1,6 @@
-2057688/larkinhoyle717
 2057773/mustafagoktas
 2057726/nkmrnkmr
 2061036/pitomba
-2058344/pythonico
 2057780/rgan1
 2062973/sociareal
 2057769/steviemackey12
@@ -10,7 +8,6 @@
 2057695/zee-sh
 2068485/AlDigit
 2066565/AuverkTechnologies
-2067679/BinarytoysLab
 2068399/CIDSolutions
 2066346/CfAR
 2068492/EdruptCo
@@ -142,7 +139,6 @@
 2126642/fethiago
 2125450/gstjean
 2125436/jalvord
-2125422/jamalriley820
 2125430/jknight-va
 2125441/johnbedford3558
 2125410/jordandhill
@@ -171,10 +167,8 @@
 2128641/ponycloud
 2125412/prabaharanharidoss
 2125463/purchaselevoth
-2125426/puwixizcudu164
 2130728/puzzledevelopment
 2125511/raymondappel923
-2125457/rmtrmt
 2125476/rosehoang
 2125467/rsbecker
 2128371/sbt-android-mill
@@ -196,7 +190,6 @@
 2175501/BurbasConsulting
 2174558/CastOut
 2174612/EikePeace
-2174602/Eraflare
 2178280/Feathur
 2174628/Filetdemacro
 2175115/GDGLima
@@ -233,7 +226,6 @@
 2179285/Unicsul-Projeto
 2179025/Udla
 2178663/TryGhost
-2180009/WebScienceResearch
 2180366/Zocalo
 2178861/WhiteZebra
 2174530/ahovgaard
@@ -252,7 +244,6 @@
 2174620/chesterq68
 2174545/chimentimccu923
 2174551/devshaw
-2177492/dorabot
 2174550/doxhung
 2174560/draganm
 2174500/dumazy
@@ -276,7 +267,6 @@
 2179494/gikmx
 2176180/hoodle
 2174599/greensk
-2174547/j8jofgonaoxzd
 2174534/huperphuff
 2174613/jamesh1971
 2175290/jmdavidbwf
@@ -312,7 +302,6 @@
 2178619/pmsolutionsca
 2174588/priceboykin923
 2174564/opless
-2174591/quangcaogoogle
 2174542/palmsnipe
 2176720/reEmbedMe
 2179931/repos-html5-video
@@ -339,7 +328,6 @@
 2174572/tomazsustar
 2174587/trainstack
 2174600/tudayakumar
-2174498/usnwcs9323xx
 2174508/trybox
 2178795/uxproductivity
 2174643/wdms
