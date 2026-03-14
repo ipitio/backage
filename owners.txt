@@ -1,4 +1,3 @@
-2057726/nkmrnkmr
 2061036/pitomba
 2057780/rgan1
 2062973/sociareal
@@ -66,7 +65,6 @@
 2063315/mohib
 2064781/moneyadviceservice
 2066409/mortarcode
-2064948/mozillapancake
 2063277/mskobelev
 2064872/neats
 2063295/oralcooley512
@@ -100,7 +98,6 @@
 2129681/MegafonWebLab
 2125448/Mellasn33
 2125726/MeyerMemorialTrust
-2128436/MinePlug
 2128729/NETWAYS
 2130239/Nerrsoft
 2126475/Piratenpartei-Rhein-Erft
@@ -136,7 +133,6 @@
 2127619/fciencias
 2125470/feministhackers
 2126642/fethiago
-2125450/gstjean
 2125436/jalvord
 2125430/jknight-va
 2125441/johnbedford3558
@@ -157,7 +153,6 @@
 2130352/nbcl-WebService
 2125453/nitinroyalsharma
 2130198/omnifone
-2127084/opensource2day
 2125446/orderlevothroi
 2125473/orderlevothroisit
 2125478/oszdev
@@ -165,7 +160,6 @@
 2125460/phpmastermind
 2128641/ponycloud
 2125412/prabaharanharidoss
-2125463/purchaselevoth
 2130728/puzzledevelopment
 2125511/raymondappel923
 2125476/rosehoang
@@ -194,7 +188,6 @@
 2175115/GDGLima
 2179183/Hajfajf
 2180431/Harcourts
-2174584/HaliRyan
 2177431/HM2MC
 2175396/Hintask
 2178764/HaskinsIT
@@ -210,7 +203,6 @@
 2179498/Movil-Android
 2175134/Mostlink
 2174603/Nerva
-2174575/NerdfighterSean
 2179466/NewcastleComputingScience
 2176552/PosJavaCesumar
 2180095/Playtasy
@@ -243,7 +235,6 @@
 2174620/chesterq68
 2174545/chimentimccu923
 2174551/devshaw
-2174550/doxhung
 2174560/draganm
 2174500/dumazy
 2177437/ekygroup
