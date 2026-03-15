@@ -1,7 +1,5 @@
-2057695/zee-sh
 2068485/AlDigit
 2066565/AuverkTechnologies
-2068399/CIDSolutions
 2066346/CfAR
 2068492/EdruptCo
 2066194/EpubJS
@@ -67,7 +65,6 @@
 2065357/plur-si
 2066612/prefeituramunicipalosorio
 2063330/queennie
-2063293/seooutsourcingaustralia
 2063260/sergiobueno
 2063286/tayloracosta1230
 2063340/teodor98
@@ -120,7 +117,6 @@
 2125487/enthuseinc
 2129886/evolving
 2125469/faasmerritt48
-2125470/feministhackers
 2126642/fethiago
 2125436/jalvord
 2125430/jknight-va
@@ -153,14 +149,12 @@
 2125486/sebhay1128
 2125507/sergeyignatov
 2125445/skozinsky
-2126391/sprogsoft
 2129247/tagit
 2125490/talarka
 2125439/tijanthorsen923
 2125406/tronyx-85
 2125488/wallacehollo24
 2128138/webgears
-2125477/whynotkeithberg
 2125443/xModeste
 2178066/BinarySLU
 2179502/Bonefarm
@@ -177,7 +171,6 @@
 2175396/Hintask
 2176092/Inchalant
 2177115/InnoVenture
-2174541/JamalBinkley45
 2175190/JPII
 2176469/MITLibraries
 2179037/MPcharge
@@ -190,7 +183,6 @@
 2180095/Playtasy
 2179910/Praleska
 2176070/SAUGOR3333
-2176892/SGD108
 2180305/Savile
 2176630/Sparvnastet
 2176342/TeamGoFuckYourselves
@@ -203,7 +195,6 @@
 2178861/WhiteZebra
 2174530/ahovgaard
 2174574/alixmclean36
-2174536/at1087
 2174559/bprass
 2176479/build18
 2175562/bridgepoint-technologies
@@ -248,7 +239,6 @@
 2176846/kiff
 2174499/karimpollard25
 2178846/loop-connector
-2174527/lukaepstein116
 2180245/manoderecha
 2174618/maelanpotts1026
 2174568/marcoblom38
@@ -292,7 +282,6 @@
 2175999/streamsense
 2174531/steve-m-hay
 2175747/tabko
-2174572/tomazsustar
 2174587/trainstack
 2174600/tudayakumar
 2174508/trybox
@@ -307,4 +296,3 @@
 2174617/workerfairy
 2174504/wxsolo
 2185750/Angello1302
-2192480/Alslinet
