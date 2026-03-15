@@ -1,4 +1,3 @@
-2057769/steviemackey12
 2062511/yapaay
 2057695/zee-sh
 2068485/AlDigit
@@ -71,7 +70,6 @@
 2063330/queennie
 2063293/seooutsourcingaustralia
 2063260/sergiobueno
-2068264/stuntrocket
 2063286/tayloracosta1230
 2063340/teodor98
 2068126/thirstydigital
@@ -90,7 +88,6 @@
 2125456/Kirpr
 2129477/LOGICSOLUTIONS
 2127157/Lang-8
-2130191/LikeASource
 2129681/MegafonWebLab
 2125448/Mellasn33
 2125726/MeyerMemorialTrust
@@ -108,7 +105,6 @@
 2128216/alfredhq
 2125465/alpacarodeo
 2125480/andk2
-2125475/andy327
 2125420/antonio-pacheco
 2125474/apocoliptica
 2125425/asalerno
@@ -124,16 +120,13 @@
 2125506/emiliobrazil
 2125487/enthuseinc
 2129886/evolving
-2125432/evort
 2125469/faasmerritt48
-2127619/fciencias
 2125470/feministhackers
 2126642/fethiago
 2125436/jalvord
 2125430/jknight-va
 2125441/johnbedford3558
 2125410/jordandhill
-2129566/kanbanero
 2127535/kanchenjunga
 2125468/katiepickett
 2125415/kendo2009
@@ -144,10 +137,8 @@
 2125995/marydyerdesign
 2125485/mattpenniman
 2125458/mrmeyers99
-2125493/mud747
 2129356/navstik
 2130352/nbcl-WebService
-2125453/nitinroyalsharma
 2130198/omnifone
 2125446/orderlevothroi
 2125473/orderlevothroisit
@@ -156,7 +147,6 @@
 2125460/phpmastermind
 2128641/ponycloud
 2125412/prabaharanharidoss
-2130728/puzzledevelopment
 2125511/raymondappel923
 2125476/rosehoang
 2125467/rsbecker
@@ -195,7 +185,6 @@
 2176317/MokiMobility
 2179016/Mulletsoft
 2179498/Movil-Android
-2175134/Mostlink
 2174603/Nerva
 2179466/NewcastleComputingScience
 2176552/PosJavaCesumar
@@ -216,7 +205,6 @@
 2174530/ahovgaard
 2174574/alixmclean36
 2174536/at1087
-2174511/atake831
 2174559/bprass
 2176479/build18
 2175562/bridgepoint-technologies
