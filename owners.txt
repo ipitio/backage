@@ -1,9 +1,7 @@
-2064838/FluenticLtd
 2067739/Fonemine
 2063275/HsgZammic
 2063303/JeffryMccarthy
 2063282/JimJamTTM
-2064819/MediaMoleculeLtd
 2066079/Outcome-Engenuity
 2063605/PayUUA
 2063828/Politwoops
@@ -71,7 +69,6 @@
 2126614/Cybernostics
 2125434/Diego1989
 2130294/Froggies
-2127543/IntelliBiz
 2127308/InternContest
 2125456/Kirpr
 2129477/LOGICSOLUTIONS
@@ -82,7 +79,6 @@
 2130239/Nerrsoft
 2126475/Piratenpartei-Rhein-Erft
 2125489/Privetikii
-2126646/ProjetoPJS
 2126982/Rubberit
 2125509/Simonu0549
 2128735/SpirentTechnologies
@@ -98,7 +94,6 @@
 2125512/bboru21
 2128559/bitcellar-labs
 2125424/brunowhere
-2129803/codedry
 2126461/compiledammit
 2125503/danalford
 2125444/darkeclipz
@@ -123,7 +118,6 @@
 2129356/navstik
 2130352/nbcl-WebService
 2130198/omnifone
-2125446/orderlevothroi
 2125473/orderlevothroisit
 2125478/oszdev
 2130489/phaistos-networks
@@ -134,7 +128,6 @@
 2128371/sbt-android-mill
 2125486/sebhay1128
 2125507/sergeyignatov
-2125445/skozinsky
 2129247/tagit
 2125490/talarka
 2125439/tijanthorsen923
@@ -156,7 +149,6 @@
 2177115/InnoVenture
 2176469/MITLibraries
 2179037/MPcharge
-2176317/MokiMobility
 2179016/Mulletsoft
 2179498/Movil-Android
 2174603/Nerva
@@ -173,10 +165,8 @@
 2178663/TryGhost
 2180366/Zocalo
 2178861/WhiteZebra
-2174530/ahovgaard
 2174574/alixmclean36
 2174559/bprass
-2176479/build18
 2175562/bridgepoint-technologies
 2174593/b1scuit
 2178950/busyrack
@@ -261,7 +251,6 @@
 2174600/tudayakumar
 2174508/trybox
 2178795/uxproductivity
-2174643/wdms
 2174507/weedzi
 2178439/wnm-live
 2174580/wholebiz
