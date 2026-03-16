@@ -1,4 +1,3 @@
-2068492/EdruptCo
 2066194/EpubJS
 2064838/FluenticLtd
 2067739/Fonemine
@@ -13,7 +12,6 @@
 2067480/TCSTech
 2063357/altdotnetturkiye
 2067687/antipodeanlabs
-2065697/athletics
 2063285/avidan17
 2063301/bechorash
 2066114/blazing-path
@@ -28,7 +26,6 @@
 2067368/codecurious-bln
 2063728/constantinides
 2063349/cosimokenney1127
-2067626/dailycred
 2063332/dinomcconnel511
 2063308/elmorewoodwa718
 2065688/fishtree
@@ -121,7 +118,6 @@
 2125431/levothroidonlie
 2125492/lexapromg
 2125451/ljekidex
-2125499/lordrt21
 2125995/marydyerdesign
 2125485/mattpenniman
 2125458/mrmeyers99
@@ -148,8 +144,6 @@
 2125443/xModeste
 2178066/BinarySLU
 2179502/Bonefarm
-2174540/Bettchero77
-2175501/BurbasConsulting
 2174558/CastOut
 2174612/EikePeace
 2178280/Feathur
@@ -161,20 +155,17 @@
 2175396/Hintask
 2176092/Inchalant
 2177115/InnoVenture
-2175190/JPII
 2176469/MITLibraries
 2179037/MPcharge
 2176317/MokiMobility
 2179016/Mulletsoft
 2179498/Movil-Android
 2174603/Nerva
-2179466/NewcastleComputingScience
 2176552/PosJavaCesumar
 2180095/Playtasy
 2179910/Praleska
 2176070/SAUGOR3333
 2180305/Savile
-2176630/Sparvnastet
 2176342/TeamGoFuckYourselves
 2175744/SuretyConnectionProjectCollaboration
 2179630/TrainingPrivateLeran
@@ -191,9 +182,7 @@
 2174593/b1scuit
 2178950/busyrack
 2174621/bvaras
-2174616/byrdbeier37
 2174598/celestinopadovan
-2174545/chimentimccu923
 2174551/devshaw
 2174560/draganm
 2174500/dumazy
@@ -204,7 +193,6 @@
 2174524/fireflame
 2174556/esterherman1127
 2174615/francisco-diaz-geocent
-2174505/forestbrewer24
 2180076/flatiron-school
 2177330/ghoststreet
 2176584/giftmoto
@@ -269,7 +257,6 @@
 2174601/speaktrainy158y5
 2176226/steamcore
 2175999/streamsense
-2174531/steve-m-hay
 2175747/tabko
 2174587/trainstack
 2174600/tudayakumar
@@ -280,7 +267,6 @@
 2178439/wnm-live
 2174580/wholebiz
 2174529/wouterdidrik1129
-2174813/xinha
 2174549/xycydeccygo906
 2174617/workerfairy
 2174504/wxsolo
