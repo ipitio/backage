@@ -1,4 +1,3 @@
-2063605/PayUUA
 2063828/Politwoops
 2065891/SafetyBits
 2067480/TCSTech
@@ -21,7 +20,6 @@
 2065688/fishtree
 2063318/gerardvest923
 2067994/haskelllive
-2068300/hwstartup
 2063261/jorisowen718
 2063290/kamalanathan
 2065738/kony-solutions
@@ -48,7 +46,6 @@
 2066612/prefeituramunicipalosorio
 2063330/queennie
 2063260/sergiobueno
-2063286/tayloracosta1230
 2068126/thirstydigital
 2063283/tropelaGithub
 2067818/weareytm
@@ -66,10 +63,8 @@
 2127157/Lang-8
 2125448/Mellasn33
 2128729/NETWAYS
-2130239/Nerrsoft
 2126475/Piratenpartei-Rhein-Erft
 2125489/Privetikii
-2126982/Rubberit
 2125509/Simonu0549
 2126465/TechnologyPlayground
 2129475/Tizaro
@@ -108,7 +103,6 @@
 2125473/orderlevothroisit
 2125478/oszdev
 2130489/phaistos-networks
-2125460/phpmastermind
 2128641/ponycloud
 2125511/raymondappel923
 2128371/sbt-android-mill
@@ -127,7 +121,6 @@
 2175115/GDGLima
 2179183/Hajfajf
 2180431/Harcourts
-2177431/HM2MC
 2175396/Hintask
 2176092/Inchalant
 2177115/InnoVenture
@@ -137,7 +130,6 @@
 2174603/Nerva
 2176552/PosJavaCesumar
 2180095/Playtasy
-2179910/Praleska
 2176070/SAUGOR3333
 2180305/Savile
 2176342/TeamGoFuckYourselves
@@ -160,7 +152,6 @@
 2177437/ekygroup
 2174569/eparaspam
 2174623/faithon22
-2174571/dvpinform
 2174524/fireflame
 2174556/esterherman1127
 2174615/francisco-diaz-geocent
@@ -234,7 +225,6 @@
 2174508/trybox
 2178795/uxproductivity
 2174507/weedzi
-2178439/wnm-live
 2174580/wholebiz
 2174529/wouterdidrik1129
 2174549/xycydeccygo906
@@ -244,7 +234,6 @@
 2203783/AlessandroIBackh
 2203804/ArikitarukikaSNe
 2204471/AxiDroid
-2205745/BadCatInteractive
 2206058/Barclays-zz
 2206709/BatooOrg
 2204842/Black-Rocket
@@ -258,7 +247,6 @@
 2204130/EverestIMSTechnologies
 2205751/Equivoice
 2203792/Emil123
-2206402/FS-A-Team
 2205973/GLOptic
 2204565/GlobalMaksimum
 2206387/IDTI
@@ -266,7 +254,6 @@
 2203904/ImagiSocia0
 2203864/Hemzzz
 2203861/HemanthHemu
-2205955/Kolibri-Ink
 2207464/Kyruus
 2203824/Karpinets
 2203800/LuckerNr1
@@ -286,7 +273,6 @@
 2207174/OriginalCo
 2203882/Pantomedia
 2203793/R-Alcala
-2206867/PayGrid
 2203782/RajaramSK
 2205735/RedCaldera
 2203840/RildoSthill
@@ -312,7 +298,6 @@
 2203798/anik80
 2203743/anwarpc
 2203765/apan0608
-2205634/angelifeorg
 2203797/audriusj
 2203952/bauhaus-sistemas
 2203745/artsa
@@ -326,7 +311,6 @@
 2203752/chassidus
 2203856/daankastrup1230
 2203816/cloudreviews
-2203855/devdata
 2204463/cleverti
 2206728/develop4u
 2203821/devinmcnally727
@@ -334,11 +318,9 @@
 2203799/dyenieipa
 2203741/ellerfant
 2204706/embecosm
-2206503/editorsnotes
 2203843/franciscopal23
 2203839/francisalfanta
 2203848/frings
-2203755/freddyhaney922
 2205522/fs-test
 2205562/git-podrecznik
 2203851/gerarteaga
@@ -359,7 +341,6 @@
 2204481/koyoki
 2203841/kyhehicquhe984
 2203810/lilin1013
-2206831/kura-agency
 2203758/maeluu
 2203760/malangi
 2203828/linhmai27
@@ -387,9 +368,7 @@
 2206560/qraftlabs
 2203806/peterenemark720
 2204035/pxq
-2203834/rafamusic
 2205127/proappers
-2203822/razorbear
 2203814/rcanmedia
 2203863/rajuGT
 2206748/reliablehosting
@@ -404,7 +383,6 @@
 2203842/solondrake717
 2204588/techtopia
 2206536/theStuff
-2203772/turik49
 2203803/ukedisog
 2203775/ukeller
 2204105/uxllc
