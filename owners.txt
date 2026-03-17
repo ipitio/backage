@@ -1,4 +1,3 @@
-2063275/HsgZammic
 2063303/JeffryMccarthy
 2063282/JimJamTTM
 2066079/Outcome-Engenuity
@@ -108,7 +107,6 @@
 2125410/jordandhill
 2127535/kanchenjunga
 2125468/katiepickett
-2125431/levothroidonlie
 2125492/lexapromg
 2125451/ljekidex
 2125995/marydyerdesign
@@ -123,7 +121,6 @@
 2125460/phpmastermind
 2128641/ponycloud
 2125511/raymondappel923
-2125467/rsbecker
 2128371/sbt-android-mill
 2125486/sebhay1128
 2125507/sergeyignatov
@@ -132,7 +129,6 @@
 2125439/tijanthorsen923
 2125406/tronyx-85
 2125488/wallacehollo24
-2125443/xModeste
 2178066/BinarySLU
 2179502/Bonefarm
 2174558/CastOut
@@ -257,7 +253,6 @@
 2174549/xycydeccygo906
 2174617/workerfairy
 2174504/wxsolo
-2185750/Angello1302
 2206233/3blmedia
 2203835/4garbage
 2203783/AlessandroIBackh
@@ -281,7 +276,6 @@
 2205588/FitnessKeeper
 2206402/FS-A-Team
 2205973/GLOptic
-2205030/GDSAssociates
 2204565/GlobalMaksimum
 2206387/IDTI
 2207034/ITLABULIMA
@@ -317,7 +311,6 @@
 2206952/PileOnDevs
 2205342/SGI-Solutions
 2205870/Scanbuy-Inc
-2206848/SnorkelInteractive
 2203762/Schwenckenator
 2207321/Sporcle
 2206734/SocialCodeInc
@@ -328,9 +321,7 @@
 2204371/Swissnet
 2206797/Unity3D
 2203909/VGJKJK
-2205266/Zuki-Amy
 2203791/Tyrkysovej
-2203759/Zizou5RC3
 2203849/Zionenviro
 2203850/ailyasov
 2203757/abuiligibi
@@ -348,7 +339,6 @@
 2203807/casumarzu666
 2203748/bovyracqeja250
 2203820/asobazol
-2203846/cchydee
 2205951/chucknorriseasy
 2203853/cbkihong
 2205857/cividata
@@ -433,7 +423,6 @@
 2205640/rundeck
 2207231/sauerworld
 2203826/saeso
-2203742/searicardocampos
 2205145/selflearning
 2207536/sellry
 2204909/semantic-joomla
@@ -451,7 +440,6 @@
 2203754/vio-aster
 2203747/wattwomble616
 2207153/volition-inc
-2203785/wheelerdupon411
 2207306/wirelesscapital
 2203812/wrongagainbob
 2206815/wmgdsp
