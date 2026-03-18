@@ -1,6 +1,3 @@
-2065891/SafetyBits
-2067480/TCSTech
-2063357/altdotnetturkiye
 2067687/antipodeanlabs
 2063285/avidan17
 2063301/bechorash
