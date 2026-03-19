@@ -1,15 +1,12 @@
-2063270/careyhodge854
 2063337/caudi109
 2063342/ceraehse
 2067368/codecurious-bln
 2063728/constantinides
 2063349/cosimokenney1127
-2063332/dinomcconnel511
 2063308/elmorewoodwa718
 2065688/fishtree
 2063318/gerardvest923
 2067994/haskelllive
-2063261/jorisowen718
 2063290/kamalanathan
 2065738/kony-solutions
 2066865/korma
@@ -192,7 +189,6 @@
 2174605/ricoconway12
 2174567/renzorichard37
 2174596/rodfranck954
-2174627/rolandwalker410
 2174554/ryadjochumse49
 2176501/roboclub
 2174607/samiboyette38
@@ -293,7 +289,6 @@
 2205341/clearsightstudio
 2203752/chassidus
 2203856/daankastrup1230
-2203816/cloudreviews
 2204463/cleverti
 2206728/develop4u
 2203821/devinmcnally727
