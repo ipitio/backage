@@ -1,4 +1,3 @@
-2063308/elmorewoodwa718
 2065688/fishtree
 2063318/gerardvest923
 2067994/haskelllive
@@ -86,7 +85,6 @@
 2125507/sergeyignatov
 2129247/tagit
 2125490/talarka
-2125439/tijanthorsen923
 2125406/tronyx-85
 2125488/wallacehollo24
 2178066/BinarySLU
@@ -194,7 +192,6 @@
 2175999/streamsense
 2175747/tabko
 2174587/trainstack
-2174600/tudayakumar
 2174508/trybox
 2178795/uxproductivity
 2174507/weedzi
@@ -231,7 +228,6 @@
 2203800/LuckerNr1
 2203795/Mattistic
 2206226/MestreSEO
-2205166/LC-CSC-450-Fall-2012
 2205016/MindwayMedia
 2206725/Mantry
 2203858/Nishitha
@@ -269,7 +265,6 @@
 2203770/andr-04
 2203798/anik80
 2203743/anwarpc
-2203765/apan0608
 2203797/audriusj
 2203745/artsa
 2203796/bycojutxiwi913
