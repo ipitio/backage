@@ -1,4 +1,3 @@
-2063728/constantinides
 2063349/cosimokenney1127
 2063308/elmorewoodwa718
 2065688/fishtree
@@ -45,7 +44,6 @@
 2128729/NETWAYS
 2126475/Piratenpartei-Rhein-Erft
 2125489/Privetikii
-2125509/Simonu0549
 2126465/TechnologyPlayground
 2129475/Tizaro
 2125521/VerazNet
@@ -181,7 +179,6 @@
 2174588/priceboykin923
 2174564/opless
 2174542/palmsnipe
-2179931/repos-html5-video
 2178403/robo-code
 2174605/ricoconway12
 2174567/renzorichard37
@@ -210,7 +207,6 @@
 2203835/4garbage
 2203783/AlessandroIBackh
 2203804/ArikitarukikaSNe
-2204471/AxiDroid
 2206058/Barclays-zz
 2206709/BatooOrg
 2204842/Black-Rocket
@@ -361,7 +357,6 @@
 2204105/uxllc
 2203817/vchkim
 2203789/vincevaughn116
-2203754/vio-aster
 2203747/wattwomble616
 2207153/volition-inc
 2207306/wirelesscapital
