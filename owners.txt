@@ -1,4 +1,3 @@
-2063287/leftsided
 2063259/leopoldofinc615
 2067367/lilibe
 2063304/louietimm718
@@ -8,7 +7,6 @@
 2063265/meerajwadhwa
 2065044/meetups
 2068230/mightybits
-2064781/moneyadviceservice
 2063277/mskobelev
 2064872/neats
 2063295/oralcooley512
@@ -16,7 +14,6 @@
 2063338/petershalek
 2065357/plur-si
 2063330/queennie
-2063260/sergiobueno
 2063283/tropelaGithub
 2067818/weareytm
 2107976/AndroidTransformers
@@ -147,7 +144,6 @@
 2174618/maelanpotts1026
 2174568/marcoblom38
 2174512/masterbzbz
-2174573/maticoh24
 2174608/melissawiel
 2174609/merlehauser24
 2174597/lindseyjohns821
@@ -158,7 +154,6 @@
 2176810/noob-zz
 2177738/nodebr
 2178430/mobytz
-2174592/ntechbr
 2174563/orvalsong924
 2180372/phproad
 2178619/pmsolutionsca
@@ -189,7 +184,6 @@
 2174549/xycydeccygo906
 2174617/workerfairy
 2206233/3blmedia
-2203835/4garbage
 2203783/AlessandroIBackh
 2203804/ArikitarukikaSNe
 2206058/Barclays-zz
@@ -327,7 +321,6 @@
 2205640/rundeck
 2207231/sauerworld
 2203826/saeso
-2205145/selflearning
 2207536/sellry
 2203818/sethcochrane1025
 2203842/solondrake717
