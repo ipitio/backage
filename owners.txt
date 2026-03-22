@@ -1,4 +1,3 @@
-2066865/korma
 2063309/kurtisbloch12
 2063287/leftsided
 2063259/leopoldofinc615
@@ -69,7 +68,6 @@
 2125458/mrmeyers99
 2129356/navstik
 2130352/nbcl-WebService
-2130198/omnifone
 2125473/orderlevothroisit
 2125478/oszdev
 2130489/phaistos-networks
@@ -119,7 +117,6 @@
 2174500/dumazy
 2177437/ekygroup
 2174569/eparaspam
-2174623/faithon22
 2174524/fireflame
 2174556/esterherman1127
 2174615/francisco-diaz-geocent
@@ -221,7 +218,6 @@
 2203800/LuckerNr1
 2203795/Mattistic
 2206226/MestreSEO
-2205016/MindwayMedia
 2206725/Mantry
 2203858/Nishitha
 2203769/Nescient
