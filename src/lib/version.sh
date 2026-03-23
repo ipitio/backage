@@ -3,22 +3,6 @@
 
 source lib/util.sh
 
-request_version() {
-	[ -n "$1" ] || return
-	[ -n "$2" ] || return
-	[ -n "$3" ] || return
-	local version_tags
-	version_tags=$(perl -pe 's/(?<!\\)"/\\"/g' <<<"$3")
-	[[ "$version_tags" != "[]" && "$version_tags" != '"[]"' ]] || version_tags=""
-	[[ "$version_tags" =~ ^\".*\"$ ]] || version_tags=\"$version_tags\"
-	echo "{
-		\"id\": $1,
-		\"name\": \"$2\",
-		\"tags\": $version_tags
-	}" | tr -d '\n' | jq -c . >"$BKG_INDEX_DIR/$owner/$repo/$package.$1.json" || echo "Failed to save $owner/$repo/$package/$version_id with tags: $version_tags"
-
-}
-
 save_version() {
     [ -n "$1" ] || return
     [ -n "$package" ] || return
@@ -37,17 +21,30 @@ save_version() {
         [[ -n "$version_tags" && "$version_tags" != "[]" ]] || version_tags=$(_jq "$1" '.. | try .tags | select(. != null and . != "")')
         version_tags=$(perl -pe 's/(?<!\\)"/\\"/g' <<<"$version_tags")
 
-		# ensure we have a good number of tagged versions...
-		for page in $(seq 0 1); do
-			((page > 0)) || continue
-			local html
-			html=$(curl "https://github.com/$owner/$repo/pkgs/$package_type/$package/versions?filters[version_type]=tagged&page=$page")
-			(($? != 3)) || return 3
-			[ -z "$(grep -zo "$version_id" <<<"$html" | tr -d '\0')" ] || request_version "$version_id" "$version_name" "$(grep -Po '(?<='"$version_id"'\?tag=)[^\"]+' <<<"$html" | tr -d '\0' | tr '\n' ',' | sed 's/,$//')"
-		done
+        if [[ -z "$version_tags" || "$version_tags" == "[]" || "$version_tags" == '"[]"' ]]; then
+            for page in $(seq 1 2); do
+                local html
+                html=$(curl "https://github.com/$owner/$repo/pkgs/$package_type/$package/versions?filters[version_type]=tagged&page=$page")
+                (($? != 3)) || return 3
 
-		# ...before over/writing from the API
-		request_version "$version_id" "$version_name" "$version_tags"
+                if [ -n "$(grep -zo "$version_id" <<<"$html" | tr -d '\0')" ]; then
+                    version_tags=$(grep -Po '(?<='"$version_id"'\?tag=)[^\"]+' <<<"$html" | tr -d '\0' | tr '\n' ',' | sed 's/,$//')
+                elif (($(grep -Po '\?tag=' <<<"$html" | wc -l) >= 30)); then
+                    continue
+                fi
+
+                break
+            done
+        fi
+
+        version_tags=$(perl -pe 's/(?<!\\)"/\\"/g' <<<"$version_tags")
+        [[ "$version_tags" != "[]" && "$version_tags" != '"[]"' ]] || version_tags=""
+        [[ "$version_tags" =~ ^\".*\"$ ]] || version_tags=\"$version_tags\"
+        echo "{
+            \"id\": $version_id,
+            \"name\": \"$version_name\",
+            \"tags\": $version_tags
+        }" | tr -d '\n' | jq -c . >"$BKG_INDEX_DIR/$owner/$repo/$package.$version_id.json" || echo "Failed to save $owner/$repo/$package/$version_id with tags: $version_tags"
     else
         local version_size
         local version_dl
@@ -90,12 +87,79 @@ save_version() {
     fi
 }
 
+version_tmp_json() {
+    [ -n "$1" ] || return
+    echo "$BKG_INDEX_DIR/$owner/$repo/$package.$1.json"
+}
+
+version_replacement_queue() {
+    echo "${table_version_name}"_replaceable_versions
+}
+
+initialize_version_replacements() {
+    [ -n "$1" ] || return
+    local queue_file
+    local version_line
+    local version_id
+    local version_file
+    local index
+    local -a version_lines_a=()
+    queue_file=$(version_replacement_queue)
+    : >"$queue_file"
+    mapfile -t version_lines_a <<<"$1"
+
+    for ((index = ${#version_lines_a[@]} - 1; index >= 5; index--)); do
+        version_line=${version_lines_a[index]}
+        [ -n "$version_line" ] || continue
+        version_id=$(_jq "$version_line" '.id')
+        version_file=$(version_tmp_json "$version_id")
+        jq -e '.tags == null or .tags == ""' "$version_file" &>/dev/null || continue
+        echo "$version_id" >>"$queue_file"
+    done
+}
+
+apply_version_replacements() {
+    [ -n "$1" ] || return
+    local queue_file
+    local version_line
+    local version_id
+    local version_file
+    local version_tags
+    local replace_id
+    local replace_file
+    local -a version_lines_a=()
+    queue_file=$(version_replacement_queue)
+    mapfile -t version_lines_a <<<"$1"
+
+    for version_line in "${version_lines_a[@]}"; do
+        [ -n "$version_line" ] || continue
+        version_id=$(_jq "$version_line" '.id')
+        version_file=$(version_tmp_json "$version_id")
+        [ -f "$version_file" ] || continue
+        version_tags=$(jq -r '.tags // ""' "$version_file" 2>/dev/null)
+
+        if [ -n "$version_tags" ] && [ -s "$queue_file" ]; then
+            replace_id=$(head -n1 "$queue_file")
+
+            if [ -n "$replace_id" ]; then
+                replace_file=$(version_tmp_json "$replace_id")
+                rm -f "$replace_file"
+                sed -i '1d' "$queue_file"
+                continue
+            fi
+        fi
+
+        rm -f "$version_file"
+    done
+}
+
 page_version() {
     check_limit || return $?
     [ -n "$1" ] || return
     [ -n "$package" ] || return
     local versions_json_more="[]"
     local version_lines
+    local version_line_count=0
 
     if [ -n "$GITHUB_TOKEN" ]; then
         echo "Starting $owner/$package page $1..."
@@ -108,7 +172,19 @@ page_version() {
     run_parallel save_version "$version_lines"
     (($? != 3)) || return 3
     echo "Started $owner/$package page $1"
-    [ "$(wc -l <<<"$version_lines")" -gt 1 ] || return 2
+    version_line_count=$(wc -l <<<"$version_lines")
+
+    if (($1 == 1)); then
+        initialize_version_replacements "$version_lines"
+    else
+        apply_version_replacements "$version_lines"
+    fi
+
+	# return 2 when no more versions to update, so the caller can stop paginating
+    ((version_line_count >= 30)) || return 2
+
+	# return 2 once we have filled every replacement slot from the oldest 25 versions on page 1
+    [ -s "$(version_replacement_queue)" ] || return 2
 }
 
 update_version() {

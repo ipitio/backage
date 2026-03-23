@@ -63,7 +63,6 @@ update_package() {
     local version_with_tag_count=-1
     local version_newest_id=-1
     local latest_version=-1
-    local latest_tags
     local owner_rank
     local repo_rank
     package_type=$(cut -d'/' -f1 <<<"$1")
@@ -120,35 +119,32 @@ update_package() {
         echo "Updating $owner/$package..."
         raw_downloads=$(grep -Pzo 'Total downloads[^"]*"\d*' <<<"$html" | grep -Pzo '\d*$' | tr -d '\0') # https://stackoverflow.com/a/74214537
         sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name' where date >= '$BKG_BATCH_FIRST_STARTED';" | sort -u >"${table_version_name}"_already_updated
-        local break_now=false
+        local max_version_pages=15
+        local page=1
+        local pages_left=0
+        local update_versions_status=0
 
-        for page in $(seq 0 1); do
-            ((page > 0)) || continue
-            local pages_left=0
+        while :; do
             page_version "$page"
             pages_left=$?
-            versions_json=$(jq -c -s '.' "$BKG_INDEX_DIR/$owner/$repo/$package".*.json 2>/dev/null)
-            rm -f "$BKG_INDEX_DIR/$owner/$repo/$package".*.json
-            ((pages_left != 3)) || return 3
-            jq -e . <<<"$versions_json" &>/dev/null || versions_json="[{\"id\":\"-1\",\"name\":\"latest\",\"tags\":\"\"}]"
-            ! jq -e 'length > 1' <<<"$versions_json" &>/dev/null || versions_json=$(jq -c 'map(select(.id >= 0))' <<<"$versions_json")
-            [ -n "$latest_tags" ] || latest_tags=$(
-                jq -r '
-                    [ .[]
-                    | select(.tags | split(",") | map(gsub("^\\s+|\\s+$";"")) | any(. == "latest"))
-                    | .tags
-                    ][0] // ""
-                ' <<<"$versions_json"
-            )
-            latest_tags=$(perl -pe 's/(?<!\\)"/\\"/g' <<<"$latest_tags")
-            run_parallel update_version "$(jq -r '.[] | @base64' <<<"$versions_json")"
-            (($? != 3)) || return 3
+            if ((pages_left == 3)); then
+                rm -f "$BKG_INDEX_DIR/$owner/$repo/$package".*.json "$(version_replacement_queue)" "${table_version_name}"_already_updated
+                return 3
+            fi
             ((pages_left != 2)) || break
-            ! $break_now || break
-            [ -z "$latest_tags" ] || break_now=true
+            ((page < max_version_pages)) || break
+            ((page++))
         done
 
+        versions_json=$(jq -c -s '.' "$BKG_INDEX_DIR/$owner/$repo/$package".*.json 2>/dev/null)
+        rm -f "$BKG_INDEX_DIR/$owner/$repo/$package".*.json "$(version_replacement_queue)"
+        jq -e . <<<"$versions_json" &>/dev/null || versions_json="[{\"id\":\"-1\",\"name\":\"latest\",\"tags\":\"\"}]"
+        ! jq -e 'length > 1' <<<"$versions_json" &>/dev/null || versions_json=$(jq -c 'map(select(.id >= 0))' <<<"$versions_json")
+        run_parallel update_version "$(jq -r '.[] | @base64' <<<"$versions_json")"
+        update_versions_status=$?
+
         rm -f "${table_version_name}"_already_updated
+        ((update_versions_status != 3)) || return 3
     fi
 
     # calculate the overall downloads and size
