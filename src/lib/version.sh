@@ -3,6 +3,22 @@
 
 source lib/util.sh
 
+request_version() {
+	[ -n "$1" ] || return
+	[ -n "$2" ] || return
+	[ -n "$3" ] || return
+	local version_tags
+	version_tags=$(perl -pe 's/(?<!\\)"/\\"/g' <<<"$3")
+	[[ "$version_tags" != "[]" && "$version_tags" != '"[]"' ]] || version_tags=""
+	[[ "$version_tags" =~ ^\".*\"$ ]] || version_tags=\"$version_tags\"
+	echo "{
+		\"id\": $1,
+		\"name\": \"$2\",
+		\"tags\": $version_tags
+	}" | tr -d '\n' | jq -c . >"$BKG_INDEX_DIR/$owner/$repo/$package.$1.json" || echo "Failed to save $owner/$repo/$package/$version_id with tags: $version_tags"
+
+}
+
 save_version() {
     [ -n "$1" ] || return
     [ -n "$package" ] || return
@@ -21,30 +37,17 @@ save_version() {
         [[ -n "$version_tags" && "$version_tags" != "[]" ]] || version_tags=$(_jq "$1" '.. | try .tags | select(. != null and . != "")')
         version_tags=$(perl -pe 's/(?<!\\)"/\\"/g' <<<"$version_tags")
 
-        if [[ -z "$version_tags" || "$version_tags" == "[]" || "$version_tags" == '"[]"' ]]; then
-            for page in $(seq 1 2); do
-                local html
-                html=$(curl "https://github.com/$owner/$repo/pkgs/$package_type/$package/versions?page=$page")
-                (($? != 3)) || return 3
+		# ensure we have a good number of tagged versions...
+		for page in $(seq 0 1); do
+			((page > 0)) || continue
+			local html
+			html=$(curl "https://github.com/$owner/$repo/pkgs/$package_type/$package/versions?filters[version_type]=tagged&page=$page")
+			(($? != 3)) || return 3
+			[ -z "$(grep -zo "$version_id" <<<"$html" | tr -d '\0')" ] || request_version "$version_id" "$version_name" "$(grep -Po '(?<='"$version_id"'\?tag=)[^\"]+' <<<"$html" | tr -d '\0' | tr '\n' ',' | sed 's/,$//')"
+		done
 
-                if [ -n "$(grep -zo "$version_id" <<<"$html" | tr -d '\0')" ]; then
-                    version_tags=$(grep -Po '(?<='"$version_id"'\?tag=)[^\"]+' <<<"$html" | tr -d '\0' | tr '\n' ',' | sed 's/,$//')
-                elif (($(grep -Po '\?tag=' <<<"$html" | wc -l) >= 30)); then
-                    continue
-                fi
-
-                break
-            done
-        fi
-
-        version_tags=$(perl -pe 's/(?<!\\)"/\\"/g' <<<"$version_tags")
-        [[ "$version_tags" != "[]" && "$version_tags" != '"[]"' ]] || version_tags=""
-        [[ "$version_tags" =~ ^\".*\"$ ]] || version_tags=\"$version_tags\"
-        echo "{
-            \"id\": $version_id,
-            \"name\": \"$version_name\",
-            \"tags\": $version_tags
-        }" | tr -d '\n' | jq -c . >"$BKG_INDEX_DIR/$owner/$repo/$package.$version_id.json" || echo "Failed to save $owner/$repo/$package/$version_id with tags: $version_tags"
+		# ...before over/writing from the API
+		request_version "$version_id" "$version_name" "$version_tags"
     else
         local version_size
         local version_dl
@@ -96,7 +99,7 @@ page_version() {
 
     if [ -n "$GITHUB_TOKEN" ]; then
         echo "Starting $owner/$package page $1..."
-        versions_json_more=$(query_api "$owner_type/$owner/packages/$package_type/$package/versions?per_page=20&page=$1")
+        versions_json_more=$(query_api "$owner_type/$owner/packages/$package_type/$package/versions?per_page=30&page=$1")
         (($? != 3)) || return 3
     fi
 
