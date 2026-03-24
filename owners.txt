@@ -1,4 +1,3 @@
-2064872/neats
 2063295/oralcooley512
 2068459/orbisius
 2063338/petershalek
@@ -94,7 +93,6 @@
 2180366/Zocalo
 2178861/WhiteZebra
 2174574/alixmclean36
-2175562/bridgepoint-technologies
 2174593/b1scuit
 2174621/bvaras
 2174598/celestinopadovan
@@ -309,7 +307,6 @@
 2204007/responsivedesign
 2206025/rundeck-plugins
 2205640/rundeck
-2207231/sauerworld
 2203826/saeso
 2207536/sellry
 2203818/sethcochrane1025
