@@ -30,13 +30,16 @@ yq_install() {
     sudonot chmod +x /usr/bin/yq
 }
 
-echo "Verifying dependencies..."
-apt_install git curl jq parallel sqlite3 sqlite3-pcre zstd libxml2-utils
-yq -V | grep -q mikefarah 2>/dev/null || yq_install
-echo "Dependencies verified!"
-# shellcheck disable=SC2046
-source $(which env_parallel.bash)
-env_parallel --session
+if [ -z "${BKG_UTIL_BOOTSTRAPPED:-}" ]; then
+    if [ "${BKG_SKIP_DEP_VERIFY:-0}" != "1" ]; then
+        echo "Verifying dependencies..."
+        apt_install git curl jq parallel sqlite3 sqlite3-pcre zstd libxml2-utils
+        yq -V | grep -q mikefarah 2>/dev/null || yq_install
+        echo "Dependencies verified!"
+    fi
+
+    BKG_UTIL_BOOTSTRAPPED=1
+fi
 GITHUB_OWNER=${GITHUB_OWNER:-ipitio}
 GITHUB_REPO=${GITHUB_REPO:-backage}
 BKG_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"/../..
@@ -281,65 +284,58 @@ run_parallel() {
     ! grep -q "3" <<<"$code" || return 3
 }
 
-parallel_async_start() {
-    PARALLEL_ASYNC_EXIT_CODE=$(mktemp)
-    PARALLEL_ASYNC_MAX_JOBS=${1:-$(nproc --all)}
-    declare -ga PARALLEL_ASYNC_PIDS=()
-}
+parallel_shell_func() {
+    [ -n "$1" ] || return
+    [ -n "$2" ] || return
+    local source_file=$1
+    local function_name=$2
+    shift 2
 
-parallel_async_prune() {
-    local pid
-    local -a live_pids=()
-
-    for pid in "${PARALLEL_ASYNC_PIDS[@]}"; do
-        if kill -0 "$pid" 2>/dev/null; then
-            live_pids+=("$pid")
-        else
-            wait "$pid" 2>/dev/null || :
-        fi
-    done
-
-    PARALLEL_ASYNC_PIDS=("${live_pids[@]}")
+    parallel "$@" bash "$BKG_ROOT/src/lib/parallel-worker.sh" "$source_file" "$function_name"
 }
 
 parallel_async_status() {
     [ -n "$PARALLEL_ASYNC_EXIT_CODE" ] || return
     [ -f "$PARALLEL_ASYNC_EXIT_CODE" ] || return
-    ! grep -q "3" "$PARALLEL_ASYNC_EXIT_CODE" || return 3
+    ! grep -Fxq "3" "$PARALLEL_ASYNC_EXIT_CODE" || return 3
 }
 
 parallel_async_submit() {
     [ -n "$1" ] || return
     [ -n "$2" ] || return
-    [ -n "$PARALLEL_ASYNC_EXIT_CODE" ] || parallel_async_start
-    parallel_async_prune
+
+    if [ -z "$PARALLEL_ASYNC_EXIT_CODE" ]; then
+        PARALLEL_ASYNC_EXIT_CODE=$(mktemp)
+        PARALLEL_ASYNC_MAX_JOBS=$(nproc --all)
+        PARALLEL_ASYNC_RUNNING=0
+    fi
+
     parallel_async_status || return $?
 
-    while [ "${#PARALLEL_ASYNC_PIDS[@]}" -ge "$PARALLEL_ASYNC_MAX_JOBS" ]; do
+    while [ "$PARALLEL_ASYNC_RUNNING" -ge "$PARALLEL_ASYNC_MAX_JOBS" ]; do
         wait -n || :
-        parallel_async_prune
+        ((PARALLEL_ASYNC_RUNNING--))
         parallel_async_status || return $?
     done
 
-    ("$1" "$2" || echo "$?" >>"$PARALLEL_ASYNC_EXIT_CODE") &
-    PARALLEL_ASYNC_PIDS+=("$!")
+    ("$1" "$2" || printf '%s\n' "$?" >>"$PARALLEL_ASYNC_EXIT_CODE") &
+    ((PARALLEL_ASYNC_RUNNING++))
 }
 
 parallel_async_wait() {
     local status=0
 
     [ -n "$PARALLEL_ASYNC_EXIT_CODE" ] || return 0
-    parallel_async_prune
-    parallel_async_status || status=$?
 
-    while ((${#PARALLEL_ASYNC_PIDS[@]} > 0)); do
+    while ((PARALLEL_ASYNC_RUNNING > 0)); do
         wait -n || :
-        parallel_async_prune
+        ((PARALLEL_ASYNC_RUNNING--))
         parallel_async_status || status=$?
     done
 
+    parallel_async_status || status=$?
     rm -f "$PARALLEL_ASYNC_EXIT_CODE"
-    unset PARALLEL_ASYNC_EXIT_CODE PARALLEL_ASYNC_MAX_JOBS PARALLEL_ASYNC_PIDS
+    unset PARALLEL_ASYNC_EXIT_CODE PARALLEL_ASYNC_MAX_JOBS PARALLEL_ASYNC_RUNNING
     return "$status"
 }
 

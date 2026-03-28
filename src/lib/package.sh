@@ -125,13 +125,8 @@ update_package() {
         local pipeline_status=0
         local update_versions_status=0
         local version_lines
-        local version_id
-        local index
-        local watched_ids
-        local -a unresolved_provisional_ids=()
 
         version_reset_pipeline "$tag_cache_pages"
-        parallel_async_start
 
         page_version "$page"
         pages_left=$?
@@ -147,57 +142,14 @@ update_package() {
             pipeline_status=$?
 
             if ((pipeline_status != 3)); then
-                for ((index = 0; index < ${#VERSION_PAGE_IDS[@]} && index < 5; index++)); do
-                    version_submit_candidate "${VERSION_PAGE_IDS[index]}"
-                    pipeline_status=$?
-                    ((pipeline_status != 3)) || break
-                done
-            fi
-
-            if ((pipeline_status != 3)); then
-                for ((index = 5; index < ${#VERSION_PAGE_IDS[@]}; index++)); do
-                    version_id=${VERSION_PAGE_IDS[index]}
-
-                    if [[ "${VERSION_CANDIDATE_TAGGED[$version_id]:-0}" -gt 0 ]]; then
-                        version_submit_candidate "$version_id"
-                        pipeline_status=$?
-                        ((pipeline_status != 3)) || break
-                    fi
-                done
-            fi
-
-            if ((pipeline_status != 3)); then
-                for ((index = ${#VERSION_PAGE_IDS[@]} - 1; index >= 5; index--)); do
-                    version_id=${VERSION_PAGE_IDS[index]}
-
-                    if [[ "${VERSION_CANDIDATE_TAGGED[$version_id]:-0}" -eq 0 ]]; then
-                        VERSION_PROVISIONAL_IDS+=("$version_id")
-                    fi
-                done
-            fi
-
-            if ((pipeline_status != 3)) && ((${#VERSION_PROVISIONAL_IDS[@]} > 0)); then
-                watched_ids=$(printf '%s\n' "${VERSION_PROVISIONAL_IDS[@]}")
-                version_extend_tag_cache "$watched_ids" "$tag_cache_pages"
+                version_submit_current_page_candidates 5 false
                 pipeline_status=$?
+            fi
 
-                if ((pipeline_status != 3)); then
-                    unresolved_provisional_ids=()
-
-                    for version_id in "${VERSION_PROVISIONAL_IDS[@]}"; do
-                        version_store_candidate "${VERSION_SOURCE_LINES[$version_id]}"
-
-                        if [[ "${VERSION_CANDIDATE_TAGGED[$version_id]:-0}" -gt 0 ]]; then
-                            version_submit_candidate "$version_id"
-                            pipeline_status=$?
-                            ((pipeline_status != 3)) || break
-                        else
-                            unresolved_provisional_ids+=("$version_id")
-                        fi
-                    done
-                fi
-
-                ((pipeline_status != 3)) && VERSION_PROVISIONAL_IDS=("${unresolved_provisional_ids[@]}")
+            if ((pipeline_status != 3)); then
+                version_collect_current_page_provisional 5
+                version_resolve_provisional_candidates "$tag_cache_pages"
+                pipeline_status=$?
             fi
         fi
 
@@ -217,44 +169,11 @@ update_package() {
             version_hydrate_candidates "$version_lines" 0
             pipeline_status=$?
             ((pipeline_status != 3)) || break
-
-            for version_id in "${VERSION_PAGE_IDS[@]}"; do
-                ((${#VERSION_PROVISIONAL_IDS[@]} > 0)) || break
-
-                if [[ "${VERSION_CANDIDATE_TAGGED[$version_id]:-0}" -gt 0 ]] && [ -z "${VERSION_SUBMITTED[$version_id]+x}" ]; then
-                    version_submit_candidate "$version_id"
-                    pipeline_status=$?
-                    ((pipeline_status != 3)) || break
-                    unset 'VERSION_PROVISIONAL_IDS[0]'
-                    VERSION_PROVISIONAL_IDS=("${VERSION_PROVISIONAL_IDS[@]}")
-                fi
-            done
-
-            if ((pipeline_status != 3)) && ((${#VERSION_PROVISIONAL_IDS[@]} > 0)); then
-                watched_ids=$(printf '%s\n' "${VERSION_PAGE_IDS[@]}")
-                version_extend_tag_cache "$watched_ids" "$tag_cache_pages"
-                pipeline_status=$?
-                ((pipeline_status != 3)) || break
-
-                for version_id in "${VERSION_PAGE_IDS[@]}"; do
-                    version_store_candidate "${VERSION_SOURCE_LINES[$version_id]}"
-                done
-
-                for version_id in "${VERSION_PAGE_IDS[@]}"; do
-                    ((${#VERSION_PROVISIONAL_IDS[@]} > 0)) || break
-
-                    if [[ "${VERSION_CANDIDATE_TAGGED[$version_id]:-0}" -gt 0 ]] && [ -z "${VERSION_SUBMITTED[$version_id]+x}" ]; then
-                        version_submit_candidate "$version_id"
-                        pipeline_status=$?
-                        ((pipeline_status != 3)) || break
-                        unset 'VERSION_PROVISIONAL_IDS[0]'
-                        VERSION_PROVISIONAL_IDS=("${VERSION_PROVISIONAL_IDS[@]}")
-                    fi
-                done
-            fi
+            version_promote_current_page_candidates "$tag_cache_pages"
+            pipeline_status=$?
         done
 
-        if ((pipeline_status != 3)) && ((${#VERSION_CANDIDATES[@]} == 0)); then
+        if ((pipeline_status != 3)) && ((${#VERSION_SOURCE_LINES[@]} == 0)); then
             version_store_fallback_candidate
             version_submit_candidate "-1"
             pipeline_status=$?

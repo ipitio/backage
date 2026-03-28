@@ -121,7 +121,7 @@ main() {
 	if [ "$BKG_MODE" -ne 2 ]; then
 		if [ "$BKG_MODE" -eq 0 ] || [ "$BKG_MODE" -eq 3 ]; then
 			if $fast_out; then
-				grep -oP '^[^\/]+' "$BKG_OPTOUT" | env_parallel --lb save_owner
+				grep -oP '^[^\/]+' "$BKG_OPTOUT" | parallel_shell_func "$BKG_ROOT/src/lib/owner.sh" save_owner --lb
 				return_code=1
 			else
 				if [ "$GITHUB_OWNER" = "ipitio" ]; then
@@ -138,7 +138,7 @@ main() {
 						(($(wc -l <"$BKG_OWNERS") < $(($(sort -u "$connections" | wc -l) + 100))))
 						echo "$?"
 					)
-					seq 1 2 | env_parallel --lb --halt soon,fail=1 page_owner
+					seq 1 2 | parallel_shell_func "$BKG_ROOT/src/lib/owner.sh" page_owner --lb --halt soon,fail=1
 				else
 					get_membership "$GITHUB_OWNER" >"$connections"
 					[ "$BKG_IS_FIRST" = "false" ] || : >"$BKG_OWNERS"
@@ -164,7 +164,7 @@ main() {
 				grep -vFxf all_owners_in_db "$BKG_OWNERS" >owners.tmp
 				mv owners.tmp "$BKG_OWNERS"
 				rest_first=$(get_BKG BKG_REST_TO_TOP)
-				bash lib/get.sh "$rest_first" "$connections" $request_limit "$GITHUB_OWNER" "$BKG_OWNERS" "$BKG_INDEX_DIR" | env_parallel --lb save_owner
+				bash lib/get.sh "$rest_first" "$connections" $request_limit "$GITHUB_OWNER" "$BKG_OWNERS" "$BKG_INDEX_DIR" | parallel_shell_func "$BKG_ROOT/src/lib/owner.sh" save_owner --lb
 				rm -f all_owners_in_db all_owners_tu owners_updated owners_partially_updated owners_stale
 				set_BKG BKG_DIFF "$db_size_curr"
 				set_BKG BKG_REST_TO_TOP "$((1 - rest_first))"
@@ -173,7 +173,7 @@ main() {
 			save_owner "$GITHUB_OWNER"
 			get_membership "$GITHUB_OWNER" >"$connections"
 			if [ -s "$connections" ]; then
-				env_parallel --lb save_owner <"$connections" || while read -r connection; do save_owner "$connection"; done <"$connections"
+				parallel_shell_func "$BKG_ROOT/src/lib/owner.sh" save_owner --lb <"$connections" || while read -r connection; do save_owner "$connection"; done <"$connections"
 			fi
 		fi
 
@@ -183,7 +183,7 @@ main() {
 		[ -d "$BKG_INDEX_DIR" ] || mkdir "$BKG_INDEX_DIR"
 
 		if [[ "$GITHUB_OWNER" = "ipitio" && "$(git branch --show-current)" = "master" ]]; then
-			get_BKG_set BKG_OWNERS_QUEUE | env_parallel --lb update_owner
+			get_BKG_set BKG_OWNERS_QUEUE | parallel_shell_func "$BKG_ROOT/src/lib/owner.sh" update_owner --lb
 		else # typically fewer owners
 			run_parallel update_owner "$(get_BKG_set BKG_OWNERS_QUEUE)"
 		fi

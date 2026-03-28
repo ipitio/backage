@@ -91,10 +91,8 @@ version_merge_tags() {
 version_reset_pipeline() {
     local max_tag_pages=${1:-3}
 
-    unset VERSION_TAG_CACHE VERSION_CANDIDATES VERSION_CANDIDATE_TAGGED VERSION_SOURCE_LINES VERSION_SUBMITTED VERSION_PROVISIONAL_IDS VERSION_PAGE_IDS
+    unset VERSION_TAG_CACHE VERSION_SOURCE_LINES VERSION_SUBMITTED VERSION_PROVISIONAL_IDS VERSION_PAGE_IDS
     declare -gA VERSION_TAG_CACHE=()
-    declare -gA VERSION_CANDIDATES=()
-    declare -gA VERSION_CANDIDATE_TAGGED=()
     declare -gA VERSION_SOURCE_LINES=()
     declare -gA VERSION_SUBMITTED=()
     declare -ga VERSION_PROVISIONAL_IDS=()
@@ -155,25 +153,16 @@ version_extend_tag_cache() {
     done
 }
 
-version_store_candidate() {
+version_cache_candidate() {
     [ -n "$1" ] || return
     local version_id
     local version_tags
-    local candidate_json
 
     version_id=$(_jq "$1" '.id')
     [[ "$version_id" =~ ^[0-9]+$ ]] || version_id=-1
     VERSION_SOURCE_LINES["$version_id"]="$1"
-    version_tags=$(version_merge_tags "$(version_extract_tags "$1")" "${VERSION_TAG_CACHE[$version_id]}")
-    candidate_json=$(echo "$1" | base64 --decode | jq -c --arg tags "$version_tags" '{id, name, tags: $tags}')
-    VERSION_CANDIDATES["$version_id"]=$(printf '%s' "$candidate_json" | base64 | tr -d '\n')
-
-    if [ -n "$version_tags" ]; then
-        VERSION_TAG_CACHE["$version_id"]=$version_tags
-        VERSION_CANDIDATE_TAGGED["$version_id"]=1
-    else
-        VERSION_CANDIDATE_TAGGED["$version_id"]=0
-    fi
+    version_tags=$(version_extract_tags "$1")
+    [ -n "$version_tags" ] && VERSION_TAG_CACHE["$version_id"]=$(version_merge_tags "${VERSION_TAG_CACHE[$version_id]}" "$version_tags")
 }
 
 version_hydrate_candidates() {
@@ -181,7 +170,6 @@ version_hydrate_candidates() {
     local requested_tag_pages=${2:-0}
     local unresolved_ids=""
     local version_id
-    local version_tags
     local version_line
     local -a version_lines_a=()
 
@@ -192,42 +180,133 @@ version_hydrate_candidates() {
         [ -n "$version_line" ] || continue
         version_id=$(_jq "$version_line" '.id')
         [[ "$version_id" =~ ^[0-9]+$ ]] || version_id=-1
-        version_tags=$(version_extract_tags "$version_line")
-        [ -n "$version_tags" ] && VERSION_TAG_CACHE["$version_id"]=$(version_merge_tags "${VERSION_TAG_CACHE[$version_id]}" "$version_tags")
+        version_cache_candidate "$version_line"
         VERSION_PAGE_IDS+=("$version_id")
 
-        if [ -z "$version_tags" ] && [ -z "${VERSION_TAG_CACHE[$version_id]+x}" ]; then
+        if [ -z "${VERSION_TAG_CACHE[$version_id]}" ]; then
             unresolved_ids+="$version_id"$'\n'
         fi
     done
 
     version_extend_tag_cache "$unresolved_ids" "$requested_tag_pages"
     (($? != 3)) || return 3
+}
 
-    for version_line in "${version_lines_a[@]}"; do
-        [ -n "$version_line" ] || continue
-        version_store_candidate "$version_line"
-    done
+version_candidate_is_tagged() {
+    [ -n "$1" ] || return
+    [ -n "${VERSION_TAG_CACHE[$1]}" ]
+}
+
+version_render_candidate() {
+    [ -n "$1" ] || return
+    [ -n "${VERSION_SOURCE_LINES[$1]+x}" ] || return
+
+    echo "${VERSION_SOURCE_LINES[$1]}" | base64 --decode | jq -c --arg tags "${VERSION_TAG_CACHE[$1]}" '{id, name, tags: $tags}' | base64 | tr -d '\n'
 }
 
 version_submit_candidate() {
     [ -n "$1" ] || return
-    [ -n "${VERSION_CANDIDATES[$1]}" ] || return
+    [ -n "${VERSION_SOURCE_LINES[$1]+x}" ] || return
     [ -z "${VERSION_SUBMITTED[$1]+x}" ] || return
+    local candidate
 
     if [ -f "${table_version_name}"_already_updated ] && grep -Fxq "$1" "${table_version_name}"_already_updated; then
         VERSION_SUBMITTED["$1"]=1
         return
     fi
 
-    parallel_async_submit update_version "${VERSION_CANDIDATES[$1]}"
+    candidate=$(version_render_candidate "$1")
+    [ -n "$candidate" ] || return
+    parallel_async_submit update_version "$candidate"
     (($? != 3)) || return 3
     VERSION_SUBMITTED["$1"]=1
 }
 
 version_store_fallback_candidate() {
-    VERSION_CANDIDATES["-1"]=$(printf '%s' '{"id":-1,"name":"latest","tags":""}' | base64 | tr -d '\n')
-    VERSION_CANDIDATE_TAGGED["-1"]=0
+    VERSION_SOURCE_LINES["-1"]=$(printf '%s' '{"id":-1,"name":"latest"}' | base64 | tr -d '\n')
+    VERSION_TAG_CACHE["-1"]=""
+}
+
+version_pop_provisional_slot() {
+    ((${#VERSION_PROVISIONAL_IDS[@]} > 0)) || return 1
+    unset 'VERSION_PROVISIONAL_IDS[0]'
+    VERSION_PROVISIONAL_IDS=("${VERSION_PROVISIONAL_IDS[@]}")
+}
+
+version_submit_current_page_candidates() {
+    local commit_count=${1:-0}
+    local consume_provisional=${2:-false}
+    local index
+    local version_id
+
+    for ((index = 0; index < ${#VERSION_PAGE_IDS[@]}; index++)); do
+        if $consume_provisional && ((${#VERSION_PROVISIONAL_IDS[@]} == 0)); then
+            break
+        fi
+
+        version_id=${VERSION_PAGE_IDS[index]}
+        [ -z "${VERSION_SUBMITTED[$version_id]+x}" ] || continue
+
+        if ((index < commit_count)) || version_candidate_is_tagged "$version_id"; then
+            version_submit_candidate "$version_id"
+            (($? != 3)) || return 3
+            $consume_provisional && version_pop_provisional_slot || :
+        fi
+    done
+}
+
+version_collect_current_page_provisional() {
+    local start_index=${1:-0}
+    local index
+    local version_id
+
+    VERSION_PROVISIONAL_IDS=()
+
+    for ((index = ${#VERSION_PAGE_IDS[@]} - 1; index >= start_index; index--)); do
+        version_id=${VERSION_PAGE_IDS[index]}
+
+        if [ -z "${VERSION_SUBMITTED[$version_id]+x}" ] && ! version_candidate_is_tagged "$version_id"; then
+            VERSION_PROVISIONAL_IDS+=("$version_id")
+        fi
+    done
+}
+
+version_resolve_provisional_candidates() {
+    local requested_tag_pages=${1:-0}
+    local watched_ids
+    local version_id
+    local -a unresolved_ids=()
+
+    ((${#VERSION_PROVISIONAL_IDS[@]} > 0)) || return 0
+    watched_ids=$(printf '%s\n' "${VERSION_PROVISIONAL_IDS[@]}")
+    version_extend_tag_cache "$watched_ids" "$requested_tag_pages"
+    (($? != 3)) || return 3
+
+    for version_id in "${VERSION_PROVISIONAL_IDS[@]}"; do
+        if version_candidate_is_tagged "$version_id"; then
+            version_submit_candidate "$version_id"
+            (($? != 3)) || return 3
+        else
+            unresolved_ids+=("$version_id")
+        fi
+    done
+
+    VERSION_PROVISIONAL_IDS=("${unresolved_ids[@]}")
+}
+
+version_promote_current_page_candidates() {
+    local requested_tag_pages=${1:-0}
+    local watched_ids
+
+    version_submit_current_page_candidates 0 true
+    (($? != 3)) || return 3
+    ((${#VERSION_PROVISIONAL_IDS[@]} > 0)) || return 0
+
+    watched_ids=$(printf '%s\n' "${VERSION_PAGE_IDS[@]}")
+    version_extend_tag_cache "$watched_ids" "$requested_tag_pages"
+    (($? != 3)) || return 3
+    version_submit_current_page_candidates 0 true
+    (($? != 3)) || return 3
 }
 
 update_version() {
