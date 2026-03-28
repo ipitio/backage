@@ -52,6 +52,87 @@ save_version() {
     echo "$version_json" | tr -d '\n' | jq -c . >"$BKG_INDEX_DIR/$owner/$repo/$package.d/$version_id.json" || echo "Failed to refresh $owner/$repo/$package/$version_id: $version_json"
 }
 
+version_parse_page_html() {
+    [ -n "$1" ] || return
+    VERSION_OWNER_PREFIX="$owner_type/$owner/packages/$package_type/$package" \
+        VERSION_REPO_PREFIX="$owner/$repo/pkgs/$package_type/$package" \
+        perl -0ne '
+            sub decode_text {
+                my ($value) = @_;
+                $value //= q{};
+                $value =~ s/&amp;/&/g;
+                $value =~ s/&quot;/"/g;
+                $value =~ s/&#39;/'"'"'/g;
+                $value =~ s/&lt;/</g;
+                $value =~ s/&gt;/>/g;
+                $value =~ s/\+/ /g;
+                $value =~ s/%([0-9A-Fa-f]{2})/chr(hex($1))/eg;
+                return $value;
+            }
+
+            sub escape_json {
+                my ($value) = @_;
+                $value //= q{};
+                $value =~ s/\\/\\\\/g;
+                $value =~ s/"/\\"/g;
+                $value =~ s/\n/\\n/g;
+                return $value;
+            }
+
+            my $owner_prefix = quotemeta($ENV{VERSION_OWNER_PREFIX});
+            my $repo_prefix = quotemeta($ENV{VERSION_REPO_PREFIX});
+            my $prefix_pattern = qr/(?:$owner_prefix|$repo_prefix)/;
+
+            while (/<li\b[^>]*class="Box-row"[^>]*>(.*?)<\/li>/sg) {
+                my $block = $1;
+                my ($version_id, $version_name);
+                my %seen_tags;
+                my @version_tags;
+
+                while ($block =~ m{href="/$prefix_pattern/([0-9]+)\?tag=([^"&]+)}g) {
+                    $version_id //= $1;
+                    my $tag = decode_text($2);
+                    next if $tag eq q{} || $seen_tags{$tag}++;
+                    push @version_tags, $tag;
+                }
+
+                if (!$version_id && $block =~ m{href="/$prefix_pattern/([0-9]+)"}g) {
+                    $version_id = $1;
+                }
+
+                next unless $version_id;
+
+                if ($block =~ m{href="/$prefix_pattern/\Q$version_id\E"[^>]*>([^<]+)</a>}s) {
+                    $version_name = decode_text($1);
+                }
+
+                if ((!defined $version_name || $version_name eq q{}) && $block =~ m{value="([^"]+)"}s) {
+                    $version_name = decode_text($1);
+                }
+
+                if ((!defined $version_name || $version_name eq q{}) && $block =~ m{<span class="color-fg-muted">([^<]+)</span>}s) {
+                    my $candidate = decode_text($1);
+                    $version_name = $candidate if $candidate =~ /^(?:sha256:|[[:alnum:]][^[:space:]]*)/;
+                }
+
+                $version_name = $version_id unless defined $version_name && $version_name ne q{};
+
+                my $tags_json = join q{,}, map { q{"} . escape_json($_) . q{"} } @version_tags;
+                print qq[{"id":$version_id,"name":"] . escape_json($version_name) . qq[","tags":[$tags_json]}\n];
+            }
+        ' <<<"$1" | jq -cs '.'
+}
+
+version_page_from_html() {
+    [ -n "$1" ] || return
+    [ -n "$package" ] || return
+    local html
+
+    html=$(curl "https://github.com/$owner/$repo/pkgs/$package_type/$package/versions?page=$1")
+    (($? != 3)) || return 3
+    version_parse_page_html "$html"
+}
+
 page_version() {
     check_limit || return $?
     [ -n "$1" ] || return
@@ -67,8 +148,14 @@ page_version() {
         (($? != 3)) || return 3
     fi
 
+    if ! jq -e '.[].id' <<<"$versions_json_more" &>/dev/null; then
+        (($1 > 1)) || echo "Falling back to HTML for $owner/$package..."
+        versions_json_more=$(version_page_from_html "$1")
+        (($? != 3)) || return 3
+    fi
+
     jq -e '.[].id' <<<"$versions_json_more" &>/dev/null || return 2
-    VERSION_PAGE_JSON=$(jq -c '.' <<<"$versions_json_more")
+    VERSION_PAGE_JSON=$(jq -c '.[0:30]' <<<"$versions_json_more")
     VERSION_PAGE_COUNT=$(jq 'length' <<<"$VERSION_PAGE_JSON")
     echo "Started $owner/$package page $1"
     ((VERSION_PAGE_COUNT >= 30)) || return 2
@@ -122,14 +209,40 @@ version_load_tag_cache_page() {
     local html
     local tag_link_count=0
 
-    html=$(curl "https://github.com/$owner/$repo/pkgs/$package_type/$package/versions?filters[version_type]=tagged&page=$1")
+    html=$(curl "https://github.com/$owner/$repo/pkgs/$package_type/$package/versions?filters%5Bversion_type%5D=tagged&page=$1")
     (($? != 3)) || return 3
     tag_link_count=$(grep -Po '\?tag=' <<<"$html" | wc -l)
 
     while IFS='|' read -r version_id version_tags; do
         [ -n "$version_id" ] || continue
         VERSION_TAG_CACHE["$version_id"]=$(version_merge_tags "${VERSION_TAG_CACHE[$version_id]}" "$version_tags")
-    done < <(perl -0ne 'while (/\/pkgs\/[^"\s]+\/([0-9]+)\?tag=([^"&]+)/g) { next if $seen{$1}{$2}++; push @{$tags{$1}}, $2; } END { for my $id (keys %tags) { print "$id|" . join(",", @{$tags{$id}}) . "\n"; } }' <<<"$html")
+    done < <(VERSION_OWNER_PREFIX="$owner_type/$owner/packages/$package_type/$package" \
+        VERSION_REPO_PREFIX="$owner/$repo/pkgs/$package_type/$package" \
+        perl -0ne '
+            sub decode_text {
+                my ($value) = @_;
+                $value //= q{};
+                $value =~ s/\+/ /g;
+                $value =~ s/%([0-9A-Fa-f]{2})/chr(hex($1))/eg;
+                return $value;
+            }
+
+            my $owner_prefix = quotemeta($ENV{VERSION_OWNER_PREFIX});
+            my $repo_prefix = quotemeta($ENV{VERSION_REPO_PREFIX});
+            my $prefix_pattern = qr/(?:$owner_prefix|$repo_prefix)/;
+
+            while (/href="\/$prefix_pattern\/([0-9]+)\?tag=([^"&]+)/g) {
+                my $tag = decode_text($2);
+                next if $tag eq q{} || $seen{$1}{$tag}++;
+                push @{$tags{$1}}, $tag;
+            }
+
+            END {
+                for my $id (keys %tags) {
+                    print "$id|" . join(q{,}, @{$tags{$id}}) . "\n";
+                }
+            }
+        ' <<<"$html")
 
     ((VERSION_TAG_CACHE_PAGES_FETCHED++))
     ((tag_link_count >= 30)) || VERSION_TAG_CACHE_EXHAUSTED=true
