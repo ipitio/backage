@@ -281,6 +281,68 @@ run_parallel() {
     ! grep -q "3" <<<"$code" || return 3
 }
 
+parallel_async_start() {
+    PARALLEL_ASYNC_EXIT_CODE=$(mktemp)
+    PARALLEL_ASYNC_MAX_JOBS=${1:-$(nproc --all)}
+    declare -ga PARALLEL_ASYNC_PIDS=()
+}
+
+parallel_async_prune() {
+    local pid
+    local -a live_pids=()
+
+    for pid in "${PARALLEL_ASYNC_PIDS[@]}"; do
+        if kill -0 "$pid" 2>/dev/null; then
+            live_pids+=("$pid")
+        else
+            wait "$pid" 2>/dev/null || :
+        fi
+    done
+
+    PARALLEL_ASYNC_PIDS=("${live_pids[@]}")
+}
+
+parallel_async_status() {
+    [ -n "$PARALLEL_ASYNC_EXIT_CODE" ] || return
+    [ -f "$PARALLEL_ASYNC_EXIT_CODE" ] || return
+    ! grep -q "3" "$PARALLEL_ASYNC_EXIT_CODE" || return 3
+}
+
+parallel_async_submit() {
+    [ -n "$1" ] || return
+    [ -n "$2" ] || return
+    [ -n "$PARALLEL_ASYNC_EXIT_CODE" ] || parallel_async_start
+    parallel_async_prune
+    parallel_async_status || return $?
+
+    while [ "${#PARALLEL_ASYNC_PIDS[@]}" -ge "$PARALLEL_ASYNC_MAX_JOBS" ]; do
+        wait -n || :
+        parallel_async_prune
+        parallel_async_status || return $?
+    done
+
+    ("$1" "$2" || echo "$?" >>"$PARALLEL_ASYNC_EXIT_CODE") &
+    PARALLEL_ASYNC_PIDS+=("$!")
+}
+
+parallel_async_wait() {
+    local status=0
+
+    [ -n "$PARALLEL_ASYNC_EXIT_CODE" ] || return 0
+    parallel_async_prune
+    parallel_async_status || status=$?
+
+    while ((${#PARALLEL_ASYNC_PIDS[@]} > 0)); do
+        wait -n || :
+        parallel_async_prune
+        parallel_async_status || status=$?
+    done
+
+    rm -f "$PARALLEL_ASYNC_EXIT_CODE"
+    unset PARALLEL_ASYNC_EXIT_CODE PARALLEL_ASYNC_MAX_JOBS PARALLEL_ASYNC_PIDS
+    return "$status"
+}
+
 _jq() {
     echo "$1" | base64 --decode | jq -r "${@:2}"
 }
