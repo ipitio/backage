@@ -1,4 +1,3 @@
-2203848/frings
 2205522/fs-test
 2205562/git-podrecznik
 2203851/gerarteaga
