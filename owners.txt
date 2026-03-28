@@ -1,11 +1,3 @@
-2205577/psu-rdfmg
-2206560/qraftlabs
-2205127/proappers
-2203814/rcanmedia
-2203863/rajuGT
-2204007/responsivedesign
-2206025/rundeck-plugins
-2205640/rundeck
 2203826/saeso
 2207536/sellry
 2203818/sethcochrane1025
