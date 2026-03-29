@@ -77,7 +77,11 @@ popd || exit 1
 [ -f "$BKG_INDEX"/.env ] && \cp "$BKG_INDEX"/.env src/env.env || touch src/env.env
 pushd src || exit 1
 
-db_size=$(stat -c %s "$BKG_INDEX_SQL".zst)
+if [ ! -f "$BKG_INDEX_SQL".zst ] && [ ! -f "$BKG_INDEX_DB" ]; then
+    dldb >/dev/null 2>&1 || true
+fi
+
+db_size=$(stat -c %s "$BKG_INDEX_SQL".zst 2>/dev/null || stat -c %s "$BKG_INDEX_DB" 2>/dev/null || echo 0)
 num_owner_db=$(sqlite3 "$BKG_INDEX_DB" "SELECT COUNT(DISTINCT owner) FROM $BKG_INDEX_TBL_PKG")
 num_owner_index=$(find "$BKG_INDEX_DIR" -mindepth 1 -maxdepth 1 -type d -exec basename {} \; 2>/dev/null | sort -u | awk '{print $1}' | wc -l)
 

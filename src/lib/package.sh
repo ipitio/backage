@@ -90,7 +90,7 @@ update_package() {
                 return
             fi
         done < <(grep "$owner" "$BKG_OPTOUT")
-    elif $fast_out; then
+    elif [ "${fast_out:-false}" = "true" ]; then
         return
     fi
 

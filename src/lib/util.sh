@@ -177,10 +177,9 @@ check_limit() {
     local min_passed
     local rate_limit_start
     rate_limit_end=$(date -u +%s)
-    [ -n "$BKG_SCRIPT_START" ] && rate_limit_start="$BKG_SCRIPT_START" || {
-        rate_limit_start=$(get_BKG BKG_SCRIPT_START)
-        [ -n "$rate_limit_start" ] || echo "BKG_SCRIPT_START empty!"
-    }
+    rate_limit_start=$(get_BKG BKG_SCRIPT_START)
+    [ -n "$rate_limit_start" ] || rate_limit_start="$BKG_SCRIPT_START"
+    [ -n "$rate_limit_start" ] || echo "BKG_SCRIPT_START empty!"
     script_limit_diff=$((rate_limit_end - rate_limit_start))
     ((script_limit_diff < BKG_MAX_LEN)) || save_and_exit
     (($? != 3)) || return 3
