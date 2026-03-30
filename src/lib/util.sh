@@ -467,7 +467,7 @@ explore() {
 	local is_repo=false
 	local is_user=false
 	local got_orgs=false
-	[[ "$node" =~ .*\/.* ]] && is_repo=true || is_user=true
+	[[ ! "$node" =~ .*\/.* ]] || is_repo=true
     [ "$is_repo" = true ] && local graph=("stargazers" "watchers" "forks" "collaborators") || local graph=("followers" "following" "people")
     [ -z "$2" ] || graph=("$2")
 
