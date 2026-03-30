@@ -1,8 +1,31 @@
 #!/bin/bash
 
 ytox() {
-    echo "<?xml version=\"1.0\" encoding=\"UTF-8\"?><xml>$(yq -ox -I0 "$1" | sed 's/"/\\"/g')</xml>" >"${1%.*}.xml" 2>/dev/null
-    stat -c %s "${1%.*}.xml" || echo -1
+	local source_file
+	local normalized_file
+	local normalized_tmp=""
+	local xml_body
+
+	source_file="$1"
+	normalized_file="$source_file"
+
+	if jq -e 'type == "array"' "$source_file" >/dev/null 2>&1; then
+		normalized_tmp=$(mktemp "${TMPDIR:-/tmp}/ytoxt.XXXXXX") || return 1
+		jq -c '{"package": .}' "$source_file" >"$normalized_tmp" || {
+			rm -f "$normalized_tmp"
+			return 1
+		}
+		normalized_file="$normalized_tmp"
+	fi
+
+	xml_body=$(yq -ox -I0 "$normalized_file" 2>/dev/null) || {
+		[ -n "$normalized_tmp" ] && rm -f "$normalized_tmp"
+		return 1
+	}
+
+	[ -n "$normalized_tmp" ] && rm -f "$normalized_tmp"
+	printf '<?xml version="1.0" encoding="UTF-8"?><xml>%s</xml>' "$(printf '%s' "$xml_body" | sed 's/"/\\"/g')" >"${source_file%.*}.xml" 2>/dev/null
+	stat -c %s "${source_file%.*}.xml" || echo -1
 }
 
 # ytox + trim: if the json or xml is over 50MB, remove oldest versions
