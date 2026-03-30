@@ -4,18 +4,9 @@
 
 set -euo pipefail
 
-script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-src_dir=$(cd "$script_dir/.." && pwd)
-workdir=$(mktemp -d)
-
-cleanup() {
-    rm -rf "$workdir"
-}
-
-fail() {
-    echo "$1" >&2
-    exit 1
-}
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
+src_dir=${src_dir:?}
+workdir=${workdir:?}
 
 init_bkg_state() {
     local now
