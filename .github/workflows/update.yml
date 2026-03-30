@@ -31,6 +31,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Regression tests
+        run: bash src/test/discovery.sh
+
       - name: Tune dpkg
         uses: abbbi/github-actions-tune@v1
 
