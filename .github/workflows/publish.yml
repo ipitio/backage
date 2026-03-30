@@ -25,6 +25,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Regression tests
+        run: bash src/test/discovery.sh
+
       - name: Log in to the Container registry
         uses: docker/login-action@v3.1.0
         with:
