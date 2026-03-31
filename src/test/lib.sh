@@ -20,9 +20,9 @@ assert_file_exists() {
 }
 
 assert_contains() {
-	grep -Fq "$2" "$1" || fail "Expected $1 to contain $2"
+	grep -Fq -- "$2" "$1" || fail "Expected $1 to contain $2"
 }
 
 assert_not_contains() {
-	! grep -Fq "$2" "$1" || fail "Expected $1 to not contain $2"
+	! grep -Fq -- "$2" "$1" || fail "Expected $1 to not contain $2"
 }

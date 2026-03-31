@@ -288,9 +288,17 @@ parallel_shell_func() {
     [ -n "$2" ] || return
     local source_file=$1
     local function_name=$2
+    local status
     shift 2
 
     parallel "$@" bash "$BKG_ROOT/src/lib/parallel-worker.sh" "$source_file" "$function_name"
+    status=$?
+
+    if ((status == 2)) && [ "$(get_BKG BKG_TIMEOUT)" = "1" ]; then
+        return 3
+    fi
+
+    return "$status"
 }
 
 parallel_async_status() {
@@ -453,12 +461,14 @@ get_owners() {
 curl_users() {
     local users
     users="$(curl "https://github.com/$1" | grep -oP 'href="/.+?".*>' | tr -d '\0' | grep -Ev '( .*|\?(return_to|tab))=' | tr -d '\0' | grep -oP '/.*?"' | cut -c2- | rev | cut -c2- | rev | grep -v "/")"
+    (($? != 3)) || return 3
     [ -z "$2" ] && echo "$users" || get_owners "$users"
 }
 
 curl_orgs() {
     local orgs
     orgs="$(curl "https://github.com/$1" | grep -oP '/orgs/[^/]+' | tr -d '\0' | cut -d'/' -f3)"
+    (($? != 3)) || return 3
     [ -z "$2" ] && echo "$orgs" || get_owners "$orgs"
 }
 
@@ -467,6 +477,7 @@ explore() {
 	local is_repo=false
 	local is_user=false
 	local got_orgs=false
+	local status=0
 	[[ ! "$node" =~ .*\/.* ]] || is_repo=true
     [ "$is_repo" = true ] && local graph=("stargazers" "watchers" "forks" "collaborators") || local graph=("followers" "following" "people")
     [ -z "$2" ] || graph=("$2")
@@ -477,22 +488,36 @@ explore() {
             local nodes
 
             if [ "$is_repo" = true ]; then
-				[ "$edge" = "collaborators" ] && nodes=$(query_api "repos/$node/collaborators?per_page=100&page=$page" | jq -r '.[] | select(.id and .login) | "\(.id)/\(.login)"' 2>/dev/null) || nodes=$(curl_users "$node/$edge?page=$page")
+                if [ "$edge" = "collaborators" ]; then
+                    nodes=$(query_api "repos/$node/collaborators?per_page=100&page=$page" | jq -r '.[] | select(.id and .login) | "\(.id)/\(.login)"' 2>/dev/null)
+                    status=$?
+                else
+                    nodes=$(curl_users "$node/$edge?page=$page")
+                    status=$?
+                fi
             else
 				if [ "$is_user" = false ]; then
                 	nodes=$(curl_users "orgs/$node/$edge?page=$page") # org
+                    status=$?
+                    ((status != 3)) || return 3
 					[ -n "$nodes" ] || is_user=true
 				fi
 
 				if [ "$is_user" = true ]; then
 					nodes=$(curl_users "$node?tab=$edge&page=$page") # user
+                    status=$?
+                    ((status != 3)) || return 3
 
 					if [ "$got_orgs" = false ]; then
 						curl_orgs "$node"
+                        status=$?
+                        ((status != 3)) || return 3
 						got_orgs=true
 					fi
 				fi
             fi
+
+            ((status != 3)) || return 3
 
             grep -v "$(cut -d'/' -f1 <<<"$node")" <<<"$nodes"
             [[ "$(wc -l <<<"$nodes")" -ge $([ "$edge" = "collaborators" ] && echo 100 || echo 15) ]] || break
@@ -503,9 +528,12 @@ explore() {
 
 get_membership() {
     local owner
+    local people_page
     owner=$(cut -d'/' -f2 <<<"$1")
+    people_page=$(curl "https://github.com/orgs/$owner/people")
+    (($? != 3)) || return 3
 
-    if [ -n "$(grep -zoP 'href="/orgs/'"$owner"'/people"' <<<"$(curl "https://github.com/orgs/$owner/people")" | tr -d '\0')" ]; then
+    if [ -n "$(grep -zoP 'href="/orgs/'"$owner"'/people"' <<<"$people_page" | tr -d '\0')" ]; then
         explore "$owner" "people"
     else
         curl_orgs "$owner"

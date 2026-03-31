@@ -17,6 +17,23 @@
 
 source lib/owner.sh
 
+run_owner_updates() {
+	local owners_queue
+	local status=0
+	owners_queue=$(get_BKG_set BKG_OWNERS_QUEUE)
+	[ -n "$owners_queue" ] || return 0
+
+	if [[ "$GITHUB_OWNER" = "ipitio" && "$(git branch --show-current)" = "master" ]]; then
+		printf '%s\n' "$owners_queue" | parallel_shell_func "$BKG_ROOT/src/lib/owner.sh" update_owner --lb --halt soon,fail=1
+		status=$?
+	else # typically fewer owners
+		run_parallel update_owner "$owners_queue"
+		status=$?
+	fi
+
+	return "$status"
+}
+
 main() {
 	local rotated=false
 	local owners
@@ -28,6 +45,7 @@ main() {
 	local db_size_prev
 	local connections
 	local return_code=0
+	local phase_status=0
 	local opted_out
 	local opted_out_before
 	local rest_first
@@ -126,11 +144,25 @@ main() {
 			else
 				if [ "$GITHUB_OWNER" = "ipitio" ]; then
 					explore "$GITHUB_OWNER" >"$connections"
+					phase_status=$?
+					((phase_status != 3)) || return_code=3
 					explore "$GITHUB_OWNER/$GITHUB_REPO" >>"$connections"
+					phase_status=$?
+					((phase_status != 3)) || return_code=3
 
-					# get orgs of connections
-					while read -r connection; do curl_orgs "$connection" >>"$temp_connections"; done <"$connections"
-					cat "$temp_connections" >>"$connections"
+					if ((return_code != 3)); then
+
+						# get orgs of connections
+						while read -r connection; do
+							curl_orgs "$connection" >>"$temp_connections"
+							phase_status=$?
+							if ((phase_status == 3)); then
+								return_code=3
+								break
+							fi
+						done <"$connections"
+						cat "$temp_connections" >>"$connections"
+					fi
 
 					sed -i 's/^[[:space:]]*//;s/[[:space:]]*$//; /^$/d; /^0\/$/d' "$connections"
 					# shellcheck disable=SC2319
@@ -138,13 +170,22 @@ main() {
 						(($(wc -l <"$BKG_OWNERS") < $(($(sort -u "$connections" | wc -l) + 100))))
 						echo "$?"
 					)
-					seq 1 2 | parallel_shell_func "$BKG_ROOT/src/lib/owner.sh" page_owner --lb --halt soon,fail=1
+					if ((return_code != 3)); then
+						seq 1 2 | parallel_shell_func "$BKG_ROOT/src/lib/owner.sh" page_owner --lb --halt soon,fail=1
+						phase_status=$?
+						((phase_status != 3)) || return_code=3
+					fi
 				else
 					get_membership "$GITHUB_OWNER" >"$connections"
+					phase_status=$?
+					((phase_status != 3)) || return_code=3
 					[ "$BKG_IS_FIRST" = "false" ] || : >"$BKG_OWNERS"
 					[ "$BKG_IS_FIRST" = "false" ] || : >"$BKG_OPTOUT"
 				fi
 
+				if ((return_code == 3)); then
+					echo "Reached BKG_MAX_LEN, stopping after persisting state..."
+				else
 				if (( 9999 < pkg_done )) || (( pkg_left < 4 )) || [[ "${db_size_curr::-4}" == "${db_size_prev::-4}" ]]; then
 					BKG_BATCH_FIRST_STARTED=$today
 					set_BKG BKG_BATCH_FIRST_STARTED "$today"
@@ -168,6 +209,7 @@ main() {
 				rm -f all_owners_in_db all_owners_tu owners_updated owners_partially_updated owners_stale
 				set_BKG BKG_DIFF "$db_size_curr"
 				set_BKG BKG_REST_TO_TOP "$((1 - rest_first))"
+				fi
 			fi
 		else
 			save_owner "$GITHUB_OWNER"
@@ -182,10 +224,13 @@ main() {
 		BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
 		[ -d "$BKG_INDEX_DIR" ] || mkdir "$BKG_INDEX_DIR"
 
-		if [[ "$GITHUB_OWNER" = "ipitio" && "$(git branch --show-current)" = "master" ]]; then
-			get_BKG_set BKG_OWNERS_QUEUE | parallel_shell_func "$BKG_ROOT/src/lib/owner.sh" update_owner --lb
-		else # typically fewer owners
-			run_parallel update_owner "$(get_BKG_set BKG_OWNERS_QUEUE)"
+		if ((return_code != 3)); then
+			run_owner_updates
+			phase_status=$?
+			if ((phase_status == 3)); then
+				return_code=3
+				echo "Reached BKG_MAX_LEN, stopping after persisting state..."
+			fi
 		fi
 
 		set_BKG BKG_OUT "$(wc -l <"$BKG_OPTOUT")"
