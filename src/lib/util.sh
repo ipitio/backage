@@ -164,6 +164,20 @@ save_and_exit() {
     return 3
 }
 
+stop_requested() {
+    [ "$(get_BKG BKG_TIMEOUT)" = "1" ]
+}
+
+sleep_with_stop_check() {
+    local remaining_time=${1:-0}
+
+    while ((remaining_time > 0)); do
+        stop_requested && return 3
+        sleep 1
+        ((remaining_time--))
+    done
+}
+
 # shellcheck disable=SC2120
 check_limit() {
     local total_calls
@@ -197,7 +211,8 @@ check_limit() {
         start=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
         end=$(date -u -d "+${remaining_time} seconds" +'%Y-%m-%dT%H:%M:%SZ')
         echo "Sleeping for $remaining_time seconds from $start to $end..."
-        sleep $remaining_time
+        sleep_with_stop_check "$remaining_time"
+        (($? != 3)) || return 3
         echo "Resuming!"
         set_BKG BKG_RATE_LIMIT_START "$(date -u +%s)"
         set_BKG BKG_CALLS_TO_API "0"
@@ -218,7 +233,8 @@ check_limit() {
         start=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
         end=$(date -u -d "+${remaining_time} seconds" +'%Y-%m-%dT%H:%M:%SZ')
         echo "Sleeping for $remaining_time seconds from $start to $end..."
-        sleep $remaining_time
+        sleep_with_stop_check "$remaining_time"
+        (($? != 3)) || return 3
         echo "Resuming!"
         set_BKG BKG_MIN_RATE_LIMIT_START "$(date -u +%s)"
         set_BKG BKG_MIN_CALLS_TO_API "0"
@@ -233,10 +249,13 @@ curl() {
     local result
 
     while [ "$i" -lt "$max_attempts" ]; do
+        stop_requested && return 3
         result=$(command curl -sSLNZ --connect-timeout 60 -m 120 --retry 5 --retry-delay 1 --retry-all-errors "$@" 2>/dev/null)
         [ -n "$result" ] && echo "$result" && return 0
+        stop_requested && return 3
         check_limit || return $?
-        sleep "$wait_time"
+        sleep_with_stop_check "$wait_time"
+        (($? != 3)) || return 3
         ((i++))
         ((wait_time *= i))
     done
@@ -289,15 +308,21 @@ parallel_shell_func() {
     local source_file=$1
     local function_name=$2
     local status
+    local stderr_file
     shift 2
 
-    parallel "$@" bash "$BKG_ROOT/src/lib/parallel-worker.sh" "$source_file" "$function_name"
+    stderr_file=$(mktemp)
+    parallel "$@" bash "$BKG_ROOT/src/lib/parallel-worker.sh" "$source_file" "$function_name" 2>"$stderr_file"
     status=$?
 
     if ((status == 2)) && [ "$(get_BKG BKG_TIMEOUT)" = "1" ]; then
+        grep -Ev '^parallel: This job failed:$|^bash .*/parallel-worker\.sh .*$|^parallel: Starting no more jobs\. Waiting for [0-9]+ jobs to finish\.$' "$stderr_file" >&2 || :
+        rm -f "$stderr_file"
         return 3
     fi
 
+    cat "$stderr_file" >&2
+    rm -f "$stderr_file"
     return "$status"
 }
 

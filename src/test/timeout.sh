@@ -11,6 +11,7 @@ workdir=${workdir:?}
 test_parallel_shell_func_timeout_fallback() {
 	local fixture_file="$workdir/timeout-worker.sh"
 	local input_file="$workdir/timeout-input.txt"
+	local output_file="$workdir/timeout-output.txt"
 	local status=0
 
 	cat >"$fixture_file" <<'EOF'
@@ -26,13 +27,56 @@ EOF
 	: >"$BKG_ENV"
 	set_BKG BKG_TIMEOUT "1"
 
-	if parallel_shell_func "$fixture_file" timeout_worker --lb <"$input_file"; then
+	if parallel_shell_func "$fixture_file" timeout_worker --lb <"$input_file" >"$output_file" 2>&1; then
 		fail "Expected parallel_shell_func to surface timeout status 3"
 	else
 		status=$?
 	fi
 
 	[ "$status" -eq 3 ] || fail "Expected parallel_shell_func to return 3 after timeout, got $status"
+	assert_not_contains "$output_file" "parallel: This job failed:"
+	assert_not_contains "$output_file" "parallel: Starting no more jobs."
+}
+
+test_curl_stops_retrying_after_timeout() {
+	local fake_bin="$workdir/fake-bin"
+	local fake_curl="$fake_bin/curl"
+	local attempts_file="$workdir/curl-attempts.txt"
+	local original_path="$PATH"
+	local status=0
+
+	mkdir -p "$fake_bin"
+	cat >"$fake_curl" <<'EOF'
+#!/bin/bash
+
+attempts=0
+[ ! -f "$TEST_CURL_ATTEMPTS_FILE" ] || attempts=$(cat "$TEST_CURL_ATTEMPTS_FILE")
+attempts=$((attempts + 1))
+printf '%s\n' "$attempts" >"$TEST_CURL_ATTEMPTS_FILE"
+
+if [ "$attempts" -eq 1 ]; then
+	printf 'BKG_TIMEOUT=1\n' >"$BKG_ENV"
+fi
+
+exit 1
+EOF
+	chmod +x "$fake_curl"
+
+	BKG_ENV="$workdir/env-curl.env"
+	: >"$BKG_ENV"
+	TEST_CURL_ATTEMPTS_FILE="$attempts_file"
+	export TEST_CURL_ATTEMPTS_FILE BKG_ENV
+	PATH="$fake_bin:$original_path"
+
+	if curl "https://example.invalid" >/dev/null 2>&1; then
+		fail "Expected curl wrapper to stop with status 3 after timeout"
+	else
+		status=$?
+	fi
+
+	PATH="$original_path"
+	[ "$status" -eq 3 ] || fail "Expected curl wrapper to return 3 after timeout, got $status"
+	[ "$(cat "$attempts_file")" -eq 1 ] || fail "Expected curl wrapper to stop retrying after timeout"
 }
 
 test_run_owner_updates_halts_on_timeout() {
@@ -83,6 +127,7 @@ source bkg.sh
 popd >/dev/null
 
 test_parallel_shell_func_timeout_fallback
+test_curl_stops_retrying_after_timeout
 test_run_owner_updates_halts_on_timeout
 
 echo "Timeout propagation regression tests passed"
