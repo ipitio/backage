@@ -20,11 +20,24 @@ source lib/owner.sh
 run_owner_updates() {
 	local owners_queue
 	local status=0
+	local updates_pid=""
 	owners_queue=$(get_BKG_set BKG_OWNERS_QUEUE)
 	[ -n "$owners_queue" ] || return 0
 
 	if [[ "$GITHUB_OWNER" = "ipitio" && "$(git branch --show-current)" = "master" ]]; then
-		printf '%s\n' "$owners_queue" | parallel_shell_func "$BKG_ROOT/src/lib/owner.sh" update_owner --lb --halt soon,fail=1
+		(
+			printf '%s\n' "$owners_queue" | parallel_shell_func "$BKG_ROOT/src/lib/owner.sh" update_owner --lb --halt soon,fail=1
+		) &
+		updates_pid=$!
+
+		while kill -0 "$updates_pid" 2>/dev/null; do
+			sleep 30
+			kill -0 "$updates_pid" 2>/dev/null || break
+			[ "$(get_BKG BKG_TIMEOUT)" = "1" ] || continue
+			echo "Waiting for active owner updates to stop..."
+		done
+
+		wait "$updates_pid"
 		status=$?
 	else # typically fewer owners
 		run_parallel update_owner "$owners_queue"
