@@ -1,10 +1,15 @@
 #!/bin/bash
 
+stop_requested() {
+	[ -n "${BKG_ENV:-}" ] && [ -f "$BKG_ENV" ] && grep -q '^BKG_TIMEOUT=1$' "$BKG_ENV" 2>/dev/null
+}
+
 ytox() {
 	local source_file
 	local normalized_file
 	local normalized_tmp=""
 	local xml_body
+	stop_requested && return 3
 
 	source_file="$1"
 	normalized_file="$source_file"
@@ -17,6 +22,11 @@ ytox() {
 		}
 		normalized_file="$normalized_tmp"
 	fi
+
+	stop_requested && {
+		[ -n "$normalized_tmp" ] && rm -f "$normalized_tmp"
+		return 3
+	}
 
 	xml_body=$(yq -ox -I0 "$normalized_file" 2>/dev/null) || {
 		[ -n "$normalized_tmp" ] && rm -f "$normalized_tmp"
@@ -39,11 +49,15 @@ tmp=$(mktemp "${f}.XXXXXX") || exit 1
 trap 'rm -f "$tmp"' EXIT
 
 while [ -f "$f" ]; do
+	stop_requested && exit 3
 	json_size=$(stat -c %s "$f" 2>/dev/null || echo -1)
 
 	if [ "$json_size" -lt 50000000 ]; then
 		# Only generate/check XML if JSON is already under limit.
-		xml_size=$(ytox "$f" 2>/dev/null || echo -1)
+		xml_size=$(ytox "$f" 2>/dev/null)
+		xml_status=$?
+		((xml_status != 3)) || exit 3
+		[ "$xml_status" -eq 0 ] || xml_size=-1
 		# If XML size can't be determined, treat it as oversized so we keep trimming.
 		[ "$xml_size" -ge 0 ] || xml_size=50000000
 
@@ -83,6 +97,7 @@ while [ -f "$f" ]; do
 			end;
 		has_versions
 	' "$f" >/dev/null; then
+		stop_requested && exit 3
 		if ! jq -c '
 			def id_to_num:
 				if type == "number" then .
@@ -141,6 +156,7 @@ while [ -f "$f" ]; do
 			break
 		fi
 	else
+		stop_requested && exit 3
 		if ! jq -c '
 			def drop_one($arr):
 				(
@@ -188,6 +204,7 @@ while [ -f "$f" ]; do
 		fi
 
 		# If we're already at max aggressiveness, fall back to trimming whole packages once.
+		stop_requested && exit 3
 		if ! jq -c '
 			def drop_one($arr):
 				(
@@ -233,7 +250,9 @@ while [ -f "$f" ]; do
 done
 
 # Ensure the XML output corresponds to the final JSON.
-ytox "$f" >/dev/null 2>&1
+final_xml_status=0
+ytox "$f" >/dev/null 2>&1 || final_xml_status=$?
+((final_xml_status != 3)) || exit 3
 
 # If either JSON or XML is > 100MB, there is a bug, but empty each one that is too large to allow others:
 [ "$(stat -c %s "$f" 2>/dev/null || echo -1)" -lt 100000000 ] || echo "{}" >"$f"

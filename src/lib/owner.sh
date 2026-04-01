@@ -136,6 +136,7 @@ update_owner() {
 		find "$BKG_INDEX_DIR/$owner" -type f -name '*.json' ! -name '.*' -print0 | xargs -0 jq -cs '.' >"$BKG_INDEX_DIR/$owner/.json.tmp"
 		mv -f "$BKG_INDEX_DIR/$owner/.json.tmp" "$BKG_INDEX_DIR/$owner/.json"
 		bash lib/ytoxt.sh "$BKG_INDEX_DIR/$owner/.json"
+		(($? != 3)) || return 3
 
 		check_limit || return $?
 		echo "Creating $owner repo arrays..."

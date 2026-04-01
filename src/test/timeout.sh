@@ -42,7 +42,10 @@ test_curl_stops_retrying_after_timeout() {
 	local fake_bin="$workdir/fake-bin"
 	local fake_curl="$fake_bin/curl"
 	local attempts_file="$workdir/curl-attempts.txt"
+	local started_file="$workdir/curl-started.txt"
 	local original_path="$PATH"
+	local started_at
+	local elapsed
 	local status=0
 
 	mkdir -p "$fake_bin"
@@ -53,9 +56,11 @@ attempts=0
 [ ! -f "$TEST_CURL_ATTEMPTS_FILE" ] || attempts=$(cat "$TEST_CURL_ATTEMPTS_FILE")
 attempts=$((attempts + 1))
 printf '%s\n' "$attempts" >"$TEST_CURL_ATTEMPTS_FILE"
+printf 'started\n' >"$TEST_CURL_STARTED_FILE"
 
 if [ "$attempts" -eq 1 ]; then
 	printf 'BKG_TIMEOUT=1\n' >"$BKG_ENV"
+	exec sleep 30
 fi
 
 exit 1
@@ -65,8 +70,10 @@ EOF
 	BKG_ENV="$workdir/env-curl.env"
 	: >"$BKG_ENV"
 	TEST_CURL_ATTEMPTS_FILE="$attempts_file"
-	export TEST_CURL_ATTEMPTS_FILE BKG_ENV
+	TEST_CURL_STARTED_FILE="$started_file"
+	export TEST_CURL_ATTEMPTS_FILE TEST_CURL_STARTED_FILE BKG_ENV
 	PATH="$fake_bin:$original_path"
+	started_at=$(date +%s)
 
 	if curl "https://example.invalid" >/dev/null 2>&1; then
 		fail "Expected curl wrapper to stop with status 3 after timeout"
@@ -75,8 +82,66 @@ EOF
 	fi
 
 	PATH="$original_path"
+	elapsed=$(( $(date +%s) - started_at ))
 	[ "$status" -eq 3 ] || fail "Expected curl wrapper to return 3 after timeout, got $status"
 	[ "$(cat "$attempts_file")" -eq 1 ] || fail "Expected curl wrapper to stop retrying after timeout"
+	assert_file_exists "$started_file"
+	[ "$elapsed" -lt 10 ] || fail "Expected curl wrapper to interrupt a running request promptly"
+}
+
+test_docker_manifest_inspect_stops_after_timeout() {
+	local fake_bin="$workdir/fake-docker-bin"
+	local fake_docker="$fake_bin/docker"
+	local started_file="$workdir/docker-started.txt"
+	local original_path="$PATH"
+	local started_at
+	local elapsed
+	local status=0
+
+	mkdir -p "$fake_bin"
+	cat >"$fake_docker" <<'EOF'
+#!/bin/bash
+printf 'started\n' >"$TEST_DOCKER_STARTED_FILE"
+printf 'BKG_TIMEOUT=1\n' >"$BKG_ENV"
+exec sleep 30
+EOF
+	chmod +x "$fake_docker"
+
+	BKG_ENV="$workdir/env-docker.env"
+	: >"$BKG_ENV"
+	TEST_DOCKER_STARTED_FILE="$started_file"
+	export TEST_DOCKER_STARTED_FILE BKG_ENV
+	PATH="$fake_bin:$original_path"
+	started_at=$(date +%s)
+
+	if docker_manifest_inspect "ghcr.io/example/pkg:latest" >/dev/null 2>&1; then
+		fail "Expected docker_manifest_inspect to stop with status 3 after timeout"
+	else
+		status=$?
+	fi
+
+	PATH="$original_path"
+	elapsed=$(( $(date +%s) - started_at ))
+	[ "$status" -eq 3 ] || fail "Expected docker_manifest_inspect to return 3 after timeout, got $status"
+	assert_file_exists "$started_file"
+	[ "$elapsed" -lt 10 ] || fail "Expected docker_manifest_inspect to interrupt promptly after timeout"
+}
+
+test_ytoxt_stops_after_timeout() {
+	local json_file="$workdir/ytoxt-timeout.json"
+	local status=0
+
+	printf '%s\n' '{"package":[]}' >"$json_file"
+	BKG_ENV="$workdir/env-ytoxt.env"
+	printf 'BKG_TIMEOUT=1\n' >"$BKG_ENV"
+
+	if bash "$src_dir/lib/ytoxt.sh" "$json_file" >/dev/null 2>&1; then
+		fail "Expected ytoxt.sh to return 3 when timeout is already requested"
+	else
+		status=$?
+	fi
+
+	[ "$status" -eq 3 ] || fail "Expected ytoxt.sh to return 3 after timeout, got $status"
 }
 
 test_run_owner_updates_halts_on_timeout() {
@@ -128,6 +193,8 @@ popd >/dev/null
 
 test_parallel_shell_func_timeout_fallback
 test_curl_stops_retrying_after_timeout
+test_docker_manifest_inspect_stops_after_timeout
+test_ytoxt_stops_after_timeout
 test_run_owner_updates_halts_on_timeout
 
 echo "Timeout propagation regression tests passed"

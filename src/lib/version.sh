@@ -456,10 +456,18 @@ update_version() {
     if [ "$package_type" = "container" ]; then
         # https://unix.stackexchange.com/q/550463, https://stackoverflow.com/q/45186440
         local manifest
+        local manifest_ref
+        local inspected_manifest
         manifest=$(awk -v RS='</pre>' '/<code.*?>/{gsub(/.*<code.*?>/, ""); print}' <<<"$version_html" | sed 's/&quot;/"/g')
         version_size=$(docker_manifest_size "$manifest")
         [[ -n "$version_tags" ]] || version_tags=$(jq '.. | try ."org.opencontainers.image.version" | select(. != null and . != "")' <<<"$manifest")
-        [[ "$version_size" =~ ^[0-9]+$ ]] || version_size=$(docker_manifest_size "$(docker manifest inspect -v "ghcr.io/$lower_owner/$lower_package$([[ "$version_name" =~ ^sha256:.+$ ]] && echo "@" || echo ":")$version_name" 2>&1)")
+
+        if [[ ! "$version_size" =~ ^[0-9]+$ ]]; then
+            manifest_ref="ghcr.io/$lower_owner/$lower_package$([[ "$version_name" =~ ^sha256:.+$ ]] && echo "@" || echo ":")$version_name"
+            inspected_manifest=$(docker_manifest_inspect "$manifest_ref")
+            (($? != 3)) || return 3
+            version_size=$(docker_manifest_size "$inspected_manifest")
+        fi
 
         # last resort
         [[ "$version_size" =~ ^[0-9]+$ ]] || version_size=$(curl "https://ghcr-badge.egpl.dev/$owner/$package/size" | grep -oP '>\d+[^<]+' | tail -n1 | cut -c2- | fmtsize_num)

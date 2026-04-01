@@ -178,6 +178,76 @@ sleep_with_stop_check() {
     done
 }
 
+run_command_with_stop_check() {
+    local combine_output=false
+    local stdout_file
+    local stderr_file
+    local pid
+    local status
+    local _
+
+    if [ "${1:-}" = "--combine-output" ]; then
+        combine_output=true
+        shift
+    fi
+
+    stdout_file=$(mktemp)
+    stderr_file=$(mktemp)
+
+    "$@" >"$stdout_file" 2>"$stderr_file" &
+    pid=$!
+
+    while kill -0 "$pid" 2>/dev/null; do
+        if stop_requested; then
+            kill "$pid" 2>/dev/null || :
+
+            for _ in 1 2 3 4 5; do
+                kill -0 "$pid" 2>/dev/null || break
+                sleep 1
+            done
+
+            kill -9 "$pid" 2>/dev/null || :
+            wait "$pid" 2>/dev/null || :
+            rm -f "$stdout_file" "$stderr_file"
+            return 3
+        fi
+
+        sleep 1
+    done
+
+    wait "$pid"
+    status=$?
+    cat "$stdout_file"
+
+    if $combine_output; then
+        cat "$stderr_file"
+    else
+        cat "$stderr_file" >&2
+    fi
+
+    rm -f "$stdout_file" "$stderr_file"
+    return "$status"
+}
+
+curl_single_attempt() {
+    exec env curl -sSLNZ --connect-timeout 60 -m 120 "$@" 2>/dev/null
+}
+
+docker_manifest_inspect_once() {
+    exec env docker manifest inspect -v "$1"
+}
+
+docker_manifest_inspect() {
+    local manifest
+    local status
+
+    manifest=$(run_command_with_stop_check --combine-output docker_manifest_inspect_once "$1")
+    status=$?
+    ((status != 3)) || return 3
+    echo "$manifest"
+    return "$status"
+}
+
 # shellcheck disable=SC2120
 check_limit() {
     local total_calls
@@ -247,10 +317,13 @@ curl() {
     local max_attempts=7
     local wait_time=1
     local result
+    local status
 
     while [ "$i" -lt "$max_attempts" ]; do
         stop_requested && return 3
-        result=$(command curl -sSLNZ --connect-timeout 60 -m 120 --retry 5 --retry-delay 1 --retry-all-errors "$@" 2>/dev/null)
+        result=$(run_command_with_stop_check curl_single_attempt "$@")
+        status=$?
+        ((status != 3)) || return 3
         [ -n "$result" ] && echo "$result" && return 0
         stop_requested && return 3
         check_limit || return $?

@@ -194,6 +194,8 @@ update_package() {
         ((pipeline_status != 3 && update_versions_status != 3)) || return 3
     fi
 
+    check_limit || return $?
+
     # calculate the overall downloads and size
     size=$(sqlite3 "$BKG_INDEX_DB" "select size from '$table_version_name' where size > 1 order by id desc, date desc limit 1;")
     raw_all=$(sqlite3 "$BKG_INDEX_DB" "select sum(downloads), sum(downloads_month), sum(downloads_week), sum(downloads_day) from '$table_version_name' where date >= '$BKG_BATCH_FIRST_STARTED';")
@@ -282,7 +284,9 @@ update_package() {
     [[ ! -f "$json_file".abs || ! -s "$json_file".abs ]] || jq -c --arg newest "$version_newest_id" --arg latest "$latest_version" '.version |= map(if .id == ($newest | tonumber) then .newest = true else . end | if .id == ($latest | tonumber) then .latest = true else . end)' "$json_file".abs >"$json_file".rel
     [[ ! -f "$json_file".rel || ! -s "$json_file".rel ]] || mv "$json_file".rel "$json_file".abs
     [[ ! -f "$json_file".abs || ! -s "$json_file".abs ]] || mv "$json_file".abs "$json_file"
+    check_limit || return $?
 	bash lib/ytoxt.sh "$json_file"
+    (($? != 3)) || return 3
     rm -rf "$BKG_INDEX_DIR/$owner/$repo/$package.d"
     echo "Refreshed $owner/$package"
 }
