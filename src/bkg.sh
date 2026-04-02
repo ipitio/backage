@@ -17,16 +17,46 @@
 
 source lib/owner.sh
 
+owner_update_wait_notice() {
+	local started_at=${1:-0}
+	local last_notice_at=${2:-0}
+	local now
+	local elapsed
+	local notice_interval=300
+
+	OWNER_UPDATE_WAIT_STARTED=$started_at
+	OWNER_UPDATE_WAIT_LAST_NOTICE=$last_notice_at
+	OWNER_UPDATE_WAIT_MESSAGE=""
+	now=$(date -u +%s)
+
+	if ((OWNER_UPDATE_WAIT_STARTED == 0)); then
+		OWNER_UPDATE_WAIT_STARTED=$now
+		OWNER_UPDATE_WAIT_LAST_NOTICE=$now
+		OWNER_UPDATE_WAIT_MESSAGE="Waiting for active owner updates to stop..."
+		return
+	fi
+
+	if ((now - OWNER_UPDATE_WAIT_LAST_NOTICE < notice_interval)); then
+		return
+	fi
+
+	OWNER_UPDATE_WAIT_LAST_NOTICE=$now
+	elapsed=$((now - OWNER_UPDATE_WAIT_STARTED))
+	OWNER_UPDATE_WAIT_MESSAGE="Still waiting for active owner updates to stop after ${elapsed}s..."
+}
+
 run_owner_updates() {
 	local owners_queue
 	local status=0
 	local updates_pid=""
+	local stop_wait_started=0
+	local last_wait_notice=0
 	owners_queue=$(get_BKG_set BKG_OWNERS_QUEUE)
 	[ -n "$owners_queue" ] || return 0
 
 	if [[ "$GITHUB_OWNER" = "ipitio" && "$(git branch --show-current)" = "master" ]]; then
 		(
-			printf '%s\n' "$owners_queue" | parallel_shell_func "$BKG_ROOT/src/lib/owner.sh" update_owner --lb --halt soon,fail=1
+			printf '%s\n' "$owners_queue" | parallel_shell_func "$BKG_ROOT/src/lib/owner.sh" update_owner --lb --halt now,fail=1
 		) &
 		updates_pid=$!
 
@@ -34,7 +64,10 @@ run_owner_updates() {
 			sleep 30
 			kill -0 "$updates_pid" 2>/dev/null || break
 			[ "$(get_BKG BKG_TIMEOUT)" = "1" ] || continue
-			echo "Waiting for active owner updates to stop..."
+			owner_update_wait_notice "$stop_wait_started" "$last_wait_notice"
+			stop_wait_started=$OWNER_UPDATE_WAIT_STARTED
+			last_wait_notice=$OWNER_UPDATE_WAIT_LAST_NOTICE
+			[ -z "$OWNER_UPDATE_WAIT_MESSAGE" ] || echo "$OWNER_UPDATE_WAIT_MESSAGE"
 		done
 
 		wait "$updates_pid"

@@ -201,6 +201,45 @@ test_parallel_async_wait_kills_blocked_workers_after_timeout() {
 	unset -f blocking_async_worker
 }
 
+test_owner_update_wait_notice_is_throttled() {
+	local started_at=0
+	local last_notice_at=0
+	local original_message
+	local followup_message
+	local throttled_message
+
+	date() {
+		if [ "$1" = "-u" ] && [ "$2" = "+%s" ]; then
+			printf '%s\n' "${TEST_FAKE_NOW:-0}"
+			return 0
+		fi
+
+		command date "$@"
+	}
+
+	TEST_FAKE_NOW=100
+	owner_update_wait_notice "$started_at" "$last_notice_at"
+	started_at=$OWNER_UPDATE_WAIT_STARTED
+	last_notice_at=$OWNER_UPDATE_WAIT_LAST_NOTICE
+	original_message=$OWNER_UPDATE_WAIT_MESSAGE
+
+	TEST_FAKE_NOW=130
+	owner_update_wait_notice "$started_at" "$last_notice_at"
+	started_at=$OWNER_UPDATE_WAIT_STARTED
+	last_notice_at=$OWNER_UPDATE_WAIT_LAST_NOTICE
+	throttled_message=$OWNER_UPDATE_WAIT_MESSAGE
+
+	TEST_FAKE_NOW=401
+	owner_update_wait_notice "$started_at" "$last_notice_at"
+	followup_message=$OWNER_UPDATE_WAIT_MESSAGE
+
+	[ "$original_message" = "Waiting for active owner updates to stop..." ] || fail "Expected initial wait message"
+	[ -z "$throttled_message" ] || fail "Expected wait message to be throttled before interval elapses"
+	[ "$followup_message" = "Still waiting for active owner updates to stop after 301s..." ] || fail "Expected throttled follow-up wait message"
+	unset TEST_FAKE_NOW
+	unset -f date
+}
+
 test_run_owner_updates_halts_on_timeout() {
 	local args_file="$workdir/owner-update.args"
 	local stdin_file="$workdir/owner-update.stdin"
@@ -236,7 +275,7 @@ test_run_owner_updates_halts_on_timeout() {
 	[ "$status" -eq 3 ] || fail "Expected run_owner_updates to return 3, got $status"
 	assert_contains "$args_file" "update_owner"
 	assert_contains "$args_file" "--halt"
-	assert_contains "$args_file" "soon,fail=1"
+	assert_contains "$args_file" "now,fail=1"
 	assert_contains "$stdin_file" "1/alpha"
 	assert_contains "$stdin_file" "2/beta"
 }
@@ -254,6 +293,7 @@ test_docker_manifest_inspect_stops_after_timeout
 test_ytoxt_stops_after_timeout
 test_run_parallel_kills_blocked_workers_after_timeout
 test_parallel_async_wait_kills_blocked_workers_after_timeout
+test_owner_update_wait_notice_is_throttled
 test_run_owner_updates_halts_on_timeout
 
 echo "Timeout propagation regression tests passed"
