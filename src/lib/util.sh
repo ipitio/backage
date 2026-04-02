@@ -229,6 +229,40 @@ run_command_with_stop_check() {
     return "$status"
 }
 
+filter_running_pids() {
+    local pid
+
+    for pid in "$@"; do
+        kill -0 "$pid" 2>/dev/null && printf '%s\n' "$pid"
+    done
+}
+
+terminate_pids_with_grace() {
+    local pid
+    local _
+    local -a active_pids=()
+
+    for pid in "$@"; do
+        kill -0 "$pid" 2>/dev/null || continue
+        kill "$pid" 2>/dev/null || :
+        active_pids+=("$pid")
+    done
+
+    for _ in 1 2 3 4 5; do
+        mapfile -t active_pids < <(filter_running_pids "${active_pids[@]}")
+        ((${#active_pids[@]} == 0)) && break
+        sleep 1
+    done
+
+    for pid in "${active_pids[@]}"; do
+        kill -9 "$pid" 2>/dev/null || :
+    done
+
+    for pid in "$@"; do
+        wait "$pid" 2>/dev/null || :
+    done
+}
+
 curl_single_attempt() {
     exec env curl -sSLNZ --connect-timeout 60 -m 120 "$@" 2>/dev/null
 }
@@ -340,35 +374,63 @@ curl() {
 run_parallel() {
     local code
     local exit_code
+    local max_jobs
+    local item
+    local stop_now=false
+    local -a active_pids=()
     exit_code=$(mktemp)
+    max_jobs=$(nproc --all)
 
-    if [ "$(wc -l <<<"$2")" -gt 1 ]; then
-        ( # parallel --lb --halt soon,fail=1 -j "$max_jobs"
-            local active=0
-            local max_jobs
-            max_jobs=$(nproc --all)
+    while IFS= read -r item; do
+        [ -n "$item" ] || continue
+        code=$(cat "$exit_code")
 
-            for i in $2; do
-                code=$(cat "$exit_code")
-                ! grep -q "3" <<<"$code" || exit
-                ! grep -q "2" <<<"$code" || break
+        if grep -q "3" <<<"$code" || stop_requested; then
+            printf '%s\n' 3 >>"$exit_code"
+            terminate_pids_with_grace "${active_pids[@]}"
+            active_pids=()
+            stop_now=true
+            break
+        fi
 
-                while [ "$active" -ge "$max_jobs" ]; do
-                    wait -n
-                    ((active--))
-                done
+        grep -q "2" <<<"$code" && break
 
-                ("$1" "$i" || echo "$?" >>"$exit_code") &
-                ((active++))
-            done
+        while ((${#active_pids[@]} >= max_jobs)); do
+            mapfile -t active_pids < <(filter_running_pids "${active_pids[@]}")
+            code=$(cat "$exit_code")
 
-            wait
-        ) &
+            if grep -q "3" <<<"$code" || stop_requested; then
+                printf '%s\n' 3 >>"$exit_code"
+                terminate_pids_with_grace "${active_pids[@]}"
+                active_pids=()
+                stop_now=true
+                break
+            fi
 
-        wait "$!"
-    else
-        "$1" "$2" || echo "$?" >>"$exit_code"
-    fi
+            ((${#active_pids[@]} < max_jobs)) && break
+            sleep 1
+        done
+
+        $stop_now && break
+
+        ("$1" "$item" || echo "$?" >>"$exit_code") &
+        active_pids+=("$!")
+    done <<<"$2"
+
+    while ((${#active_pids[@]} > 0)); do
+        mapfile -t active_pids < <(filter_running_pids "${active_pids[@]}")
+        code=$(cat "$exit_code")
+
+        if grep -q "3" <<<"$code" || stop_requested; then
+            printf '%s\n' 3 >>"$exit_code"
+            terminate_pids_with_grace "${active_pids[@]}"
+            active_pids=()
+            break
+        fi
+
+        ((${#active_pids[@]} == 0)) && break
+        sleep 1
+    done
 
     code=$(cat "$exit_code")
     rm -f "$exit_code"
@@ -400,47 +462,88 @@ parallel_shell_func() {
 }
 
 parallel_async_status() {
-    [ -n "$PARALLEL_ASYNC_EXIT_CODE" ] || return
-    [ -f "$PARALLEL_ASYNC_EXIT_CODE" ] || return
+    [ -n "${PARALLEL_ASYNC_EXIT_CODE:-}" ] || return
+    [ -f "${PARALLEL_ASYNC_EXIT_CODE:-}" ] || return
     ! grep -Fxq "3" "$PARALLEL_ASYNC_EXIT_CODE" || return 3
 }
 
 parallel_async_submit() {
     [ -n "$1" ] || return
     [ -n "$2" ] || return
+    local pid
+    local async_status=0
 
-    if [ -z "$PARALLEL_ASYNC_EXIT_CODE" ]; then
+    if [ -z "${PARALLEL_ASYNC_EXIT_CODE:-}" ]; then
         PARALLEL_ASYNC_EXIT_CODE=$(mktemp)
         PARALLEL_ASYNC_MAX_JOBS=$(nproc --all)
         PARALLEL_ASYNC_RUNNING=0
+        PARALLEL_ASYNC_PIDS=()
     fi
 
     parallel_async_status || return $?
 
     while [ "$PARALLEL_ASYNC_RUNNING" -ge "$PARALLEL_ASYNC_MAX_JOBS" ]; do
-        wait -n || :
-        ((PARALLEL_ASYNC_RUNNING--))
-        parallel_async_status || return $?
+        mapfile -t PARALLEL_ASYNC_PIDS < <(filter_running_pids "${PARALLEL_ASYNC_PIDS[@]}")
+        PARALLEL_ASYNC_RUNNING=${#PARALLEL_ASYNC_PIDS[@]}
+        parallel_async_status || {
+            async_status=$?
+            terminate_pids_with_grace "${PARALLEL_ASYNC_PIDS[@]}"
+            PARALLEL_ASYNC_PIDS=()
+            PARALLEL_ASYNC_RUNNING=0
+            return "$async_status"
+        }
+
+        if stop_requested; then
+            printf '%s\n' 3 >>"$PARALLEL_ASYNC_EXIT_CODE"
+            terminate_pids_with_grace "${PARALLEL_ASYNC_PIDS[@]}"
+            PARALLEL_ASYNC_PIDS=()
+            PARALLEL_ASYNC_RUNNING=0
+            return 3
+        fi
+
+        [ "$PARALLEL_ASYNC_RUNNING" -lt "$PARALLEL_ASYNC_MAX_JOBS" ] || sleep 1
     done
 
     ("$1" "$2" || printf '%s\n' "$?" >>"$PARALLEL_ASYNC_EXIT_CODE") &
-    ((PARALLEL_ASYNC_RUNNING++))
+    pid=$!
+    PARALLEL_ASYNC_PIDS+=("$pid")
+    PARALLEL_ASYNC_RUNNING=${#PARALLEL_ASYNC_PIDS[@]}
 }
 
 parallel_async_wait() {
     local status=0
+    local async_status=0
 
-    [ -n "$PARALLEL_ASYNC_EXIT_CODE" ] || return 0
+    [ -n "${PARALLEL_ASYNC_EXIT_CODE:-}" ] || return 0
 
     while ((PARALLEL_ASYNC_RUNNING > 0)); do
-        wait -n || :
-        ((PARALLEL_ASYNC_RUNNING--))
-        parallel_async_status || status=$?
+        mapfile -t PARALLEL_ASYNC_PIDS < <(filter_running_pids "${PARALLEL_ASYNC_PIDS[@]}")
+        PARALLEL_ASYNC_RUNNING=${#PARALLEL_ASYNC_PIDS[@]}
+
+        if stop_requested; then
+            printf '%s\n' 3 >>"$PARALLEL_ASYNC_EXIT_CODE"
+            terminate_pids_with_grace "${PARALLEL_ASYNC_PIDS[@]}"
+            PARALLEL_ASYNC_PIDS=()
+            PARALLEL_ASYNC_RUNNING=0
+            status=3
+            break
+        fi
+
+        parallel_async_status || {
+            async_status=$?
+            status=$async_status
+            terminate_pids_with_grace "${PARALLEL_ASYNC_PIDS[@]}"
+            PARALLEL_ASYNC_PIDS=()
+            PARALLEL_ASYNC_RUNNING=0
+            break
+        }
+
+        ((PARALLEL_ASYNC_RUNNING > 0)) && sleep 1
     done
 
     parallel_async_status || status=$?
     rm -f "$PARALLEL_ASYNC_EXIT_CODE"
-    unset PARALLEL_ASYNC_EXIT_CODE PARALLEL_ASYNC_MAX_JOBS PARALLEL_ASYNC_RUNNING
+    unset PARALLEL_ASYNC_EXIT_CODE PARALLEL_ASYNC_MAX_JOBS PARALLEL_ASYNC_RUNNING PARALLEL_ASYNC_PIDS
     return "$status"
 }
 

@@ -144,6 +144,63 @@ test_ytoxt_stops_after_timeout() {
 	[ "$status" -eq 3 ] || fail "Expected ytoxt.sh to return 3 after timeout, got $status"
 }
 
+test_run_parallel_kills_blocked_workers_after_timeout() {
+	local started_file="$workdir/run-parallel-started.txt"
+	local status=0
+	local started_at
+	local elapsed
+
+	blocking_parallel_worker() {
+		printf '%s\n' "$1" >>"$started_file"
+		printf 'BKG_TIMEOUT=1\n' >"$BKG_ENV"
+		exec sleep 30
+	}
+
+	BKG_ENV="$workdir/env-run-parallel.env"
+	: >"$BKG_ENV"
+	: >"$started_file"
+	started_at=$(date +%s)
+
+	if run_parallel blocking_parallel_worker $'one\ntwo'; then
+		fail "Expected run_parallel to return 3 after timeout"
+	else
+		status=$?
+	fi
+
+	elapsed=$(( $(date +%s) - started_at ))
+	[ "$status" -eq 3 ] || fail "Expected run_parallel to return 3 after timeout, got $status"
+	assert_contains "$started_file" "one"
+	[ "$elapsed" -lt 10 ] || fail "Expected run_parallel to terminate blocked workers promptly"
+	unset -f blocking_parallel_worker
+}
+
+test_parallel_async_wait_kills_blocked_workers_after_timeout() {
+	local started_file="$workdir/parallel-async-started.txt"
+	local status=0
+	local started_at
+	local elapsed
+
+	blocking_async_worker() {
+		printf '%s\n' "$1" >>"$started_file"
+		printf 'BKG_TIMEOUT=1\n' >"$BKG_ENV"
+		exec sleep 30
+	}
+
+	BKG_ENV="$workdir/env-parallel-async.env"
+	: >"$BKG_ENV"
+	: >"$started_file"
+	started_at=$(date +%s)
+
+	parallel_async_submit blocking_async_worker "one"
+	parallel_async_wait || status=$?
+
+	elapsed=$(( $(date +%s) - started_at ))
+	[ "$status" -eq 3 ] || fail "Expected parallel_async_wait to return 3 after timeout, got $status"
+	assert_contains "$started_file" "one"
+	[ "$elapsed" -lt 10 ] || fail "Expected parallel_async_wait to terminate blocked workers promptly"
+	unset -f blocking_async_worker
+}
+
 test_run_owner_updates_halts_on_timeout() {
 	local args_file="$workdir/owner-update.args"
 	local stdin_file="$workdir/owner-update.stdin"
@@ -195,6 +252,8 @@ test_parallel_shell_func_timeout_fallback
 test_curl_stops_retrying_after_timeout
 test_docker_manifest_inspect_stops_after_timeout
 test_ytoxt_stops_after_timeout
+test_run_parallel_kills_blocked_workers_after_timeout
+test_parallel_async_wait_kills_blocked_workers_after_timeout
 test_run_owner_updates_halts_on_timeout
 
 echo "Timeout propagation regression tests passed"
