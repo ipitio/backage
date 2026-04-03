@@ -80,17 +80,62 @@ fmtsize_num() {
 }
 
 sqlite3() {
-    command sqlite3 -init <(echo "
+    local statement="${!#:-}"
+    local busy_timeout_ms=${BKG_SQLITE_BUSY_TIMEOUT_MS:-300000}
+    local max_attempts=${BKG_SQLITE_MAX_ATTEMPTS:-3}
+    local retry_delay_secs=${BKG_SQLITE_RETRY_DELAY_SECS:-1}
+    local init_file
+    local stdout_file
+    local stderr_file
+    local attempt=1
+    local status=0
+    local retryable_write=false
+
+    init_file=$(mktemp)
+    stdout_file=$(mktemp)
+    stderr_file=$(mktemp)
+
+    cat >"$init_file" <<EOF
 .output /dev/null
-.timeout 100000
+.timeout $busy_timeout_ms
 .load /usr/lib/sqlite3/pcre.so
-PRAGMA synchronous = OFF;
+PRAGMA busy_timeout = $busy_timeout_ms;
+PRAGMA synchronous = NORMAL;
 PRAGMA foreign_keys = ON;
-PRAGMA journal_mode = OFF;
+PRAGMA journal_mode = WAL;
 PRAGMA locking_mode = NORMAL;
+PRAGMA temp_store = MEMORY;
+PRAGMA wal_autocheckpoint = 1000;
 PRAGMA cache_size = -500000;
 .output stdout
-") "$@" 2>/dev/null
+EOF
+
+    if (( $# >= 2 )) && [[ "$statement" =~ ^[[:space:]]*(insert|update|delete|replace|create|drop|alter|pragma|vacuum|reindex|begin|commit|rollback)([[:space:];]|$) ]]; then
+        retryable_write=true
+    fi
+
+    while true; do
+        command sqlite3 -init "$init_file" "$@" >"$stdout_file" 2>"$stderr_file"
+        status=$?
+        ((status == 0)) && break
+        $retryable_write || break
+        grep -Eqi 'database is locked|database is busy|database schema is locked|locking protocol|cannot commit transaction|disk i/o error' "$stderr_file" || break
+        ((attempt < max_attempts)) || break
+        stop_requested && {
+            rm -f "$init_file" "$stdout_file" "$stderr_file"
+            return 3
+        }
+        sleep_with_stop_check "$retry_delay_secs"
+        (($? != 3)) || {
+            rm -f "$init_file" "$stdout_file" "$stderr_file"
+            return 3
+        }
+        ((attempt++))
+    done
+
+    ((status == 0)) && cat "$stdout_file"
+    rm -f "$init_file" "$stdout_file" "$stderr_file"
+    return "$status"
 }
 
 get_BKG() {
@@ -464,7 +509,25 @@ parallel_shell_func() {
 parallel_async_status() {
     [ -n "${PARALLEL_ASYNC_EXIT_CODE:-}" ] || return
     [ -f "${PARALLEL_ASYNC_EXIT_CODE:-}" ] || return
-    ! grep -Fxq "3" "$PARALLEL_ASYNC_EXIT_CODE" || return 3
+    local async_status
+
+    async_status=$(grep -E '^[0-9]+$' "$PARALLEL_ASYNC_EXIT_CODE" | tail -n1)
+    [ -n "$async_status" ] || return 0
+    return "$async_status"
+}
+
+parallel_async_default_max_jobs() {
+    local max_jobs
+
+    if [[ "${BKG_PARALLEL_ASYNC_MAX_JOBS:-}" =~ ^[1-9][0-9]*$ ]]; then
+        echo "$BKG_PARALLEL_ASYNC_MAX_JOBS"
+        return
+    fi
+
+    max_jobs=$(nproc --all)
+    ((max_jobs > 4)) && max_jobs=4
+    ((max_jobs > 0)) || max_jobs=1
+    echo "$max_jobs"
 }
 
 parallel_async_submit() {
@@ -475,7 +538,7 @@ parallel_async_submit() {
 
     if [ -z "${PARALLEL_ASYNC_EXIT_CODE:-}" ]; then
         PARALLEL_ASYNC_EXIT_CODE=$(mktemp)
-        PARALLEL_ASYNC_MAX_JOBS=$(nproc --all)
+        PARALLEL_ASYNC_MAX_JOBS=$(parallel_async_default_max_jobs)
         PARALLEL_ASYNC_RUNNING=0
         PARALLEL_ASYNC_PIDS=()
     fi

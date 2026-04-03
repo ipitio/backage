@@ -144,6 +144,47 @@ test_ytoxt_stops_after_timeout() {
 	[ "$status" -eq 3 ] || fail "Expected ytoxt.sh to return 3 after timeout, got $status"
 }
 
+test_sqlite_retries_transient_write_failure() {
+	local fake_bin="$workdir/fake-sqlite-bin"
+	local fake_sqlite="$fake_bin/sqlite3"
+	local attempts_file="$workdir/sqlite-attempts.txt"
+	local original_path="$PATH"
+	local result
+	local original_bkg_env="${BKG_ENV:-}"
+
+	mkdir -p "$fake_bin"
+	cat >"$fake_sqlite" <<'EOF'
+#!/bin/bash
+
+attempts=0
+[ ! -f "$TEST_SQLITE_ATTEMPTS_FILE" ] || attempts=$(cat "$TEST_SQLITE_ATTEMPTS_FILE")
+attempts=$((attempts + 1))
+printf '%s\n' "$attempts" >"$TEST_SQLITE_ATTEMPTS_FILE"
+
+if [ "$attempts" -eq 1 ]; then
+	echo 'database is locked' >&2
+	exit 1
+fi
+
+printf 'ok\n'
+EOF
+	chmod +x "$fake_sqlite"
+
+	TEST_SQLITE_ATTEMPTS_FILE="$attempts_file"
+	export TEST_SQLITE_ATTEMPTS_FILE
+	BKG_ENV="$workdir/env-sqlite.env"
+	: >"$BKG_ENV"
+	PATH="$fake_bin:$original_path"
+	BKG_SQLITE_MAX_ATTEMPTS=3
+	BKG_SQLITE_RETRY_DELAY_SECS=1
+	result=$(sqlite3 "$workdir/test.db" "insert into demo values (1);")
+	PATH="$original_path"
+	BKG_ENV="$original_bkg_env"
+
+	[ "$result" = "ok" ] || fail "Expected sqlite3 wrapper to return retried output"
+	[ "$(cat "$attempts_file")" -eq 2 ] || fail "Expected sqlite3 wrapper to retry a transient write failure once"
+}
+
 test_run_parallel_kills_blocked_workers_after_timeout() {
 	local started_file="$workdir/run-parallel-started.txt"
 	local status=0
@@ -317,6 +358,7 @@ test_run_parallel_kills_blocked_workers_after_timeout
 test_parallel_async_wait_kills_blocked_workers_after_timeout
 test_owner_update_wait_notice_is_throttled
 test_owner_update_force_stop_due_after_grace_period
+test_sqlite_retries_transient_write_failure
 test_run_owner_updates_halts_on_timeout
 
 echo "Timeout propagation regression tests passed"
