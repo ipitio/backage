@@ -216,6 +216,26 @@ test_parallel_async_wait_continues_after_non_timeout_failure() {
 	unset -f succeeding_async_worker
 }
 
+test_parallel_async_default_max_jobs_is_tuned() {
+	local default_jobs
+	local override_jobs
+
+	nproc() {
+		echo 32
+	}
+
+	unset BKG_PARALLEL_ASYNC_MAX_JOBS
+	default_jobs=$(parallel_async_default_max_jobs)
+	BKG_PARALLEL_ASYNC_MAX_JOBS=9
+	override_jobs=$(parallel_async_default_max_jobs)
+
+	[ "$default_jobs" = "6" ] || fail "Expected tuned default async max jobs to be 6, got $default_jobs"
+	[ "$override_jobs" = "9" ] || fail "Expected explicit async max jobs override to be honored, got $override_jobs"
+
+	unset BKG_PARALLEL_ASYNC_MAX_JOBS
+	unset -f nproc
+}
+
 test_update_version_logs_sqlite_write_failure() {
 	local row
 	local fake_bin="$workdir/fake-sqlite-flush-bin"
@@ -489,6 +509,7 @@ test_docker_manifest_inspect_stops_after_timeout
 test_ytoxt_stops_after_timeout
 test_sqlite_retries_transient_write_failure
 test_parallel_async_wait_continues_after_non_timeout_failure
+test_parallel_async_default_max_jobs_is_tuned
 test_update_version_logs_sqlite_write_failure
 test_update_package_warns_on_package_level_fallback
 test_run_parallel_kills_blocked_workers_after_timeout

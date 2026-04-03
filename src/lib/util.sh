@@ -536,7 +536,7 @@ parallel_async_default_max_jobs() {
     fi
 
     max_jobs=$(nproc --all)
-    ((max_jobs > 4)) && max_jobs=4
+    ((max_jobs > 6)) && max_jobs=6
     ((max_jobs > 0)) || max_jobs=1
     echo "$max_jobs"
 }
