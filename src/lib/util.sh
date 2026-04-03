@@ -138,6 +138,14 @@ EOF
     return "$status"
 }
 
+sqlite_escape_literal() {
+    printf '%s' "$1" | sed "s/'/''/g"
+}
+
+sqlite_escape_identifier() {
+    printf '%s' "$1" | sed 's/"/""/g'
+}
+
 get_BKG() {
     [ -f "$BKG_ENV" ] || return
     while [ -f "$BKG_ENV.lock" ]; do sleep 0.05; done

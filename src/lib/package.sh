@@ -65,6 +65,7 @@ update_package() {
     local latest_version=-1
     local owner_rank
     local repo_rank
+    local version_flush_status=0
     local package_write_status=0
     package_type=$(cut -d'/' -f1 <<<"$1")
     repo=$(cut -d'/' -f2 <<<"$1")
@@ -129,74 +130,89 @@ update_package() {
         local version_lines
 
         version_reset_pipeline "$tag_cache_pages"
+        version_stage_reset
+        pipeline_status=$?
 
-        page_version "$page"
-        pages_left=$?
-        if ((pages_left == 3)); then
-            parallel_async_wait || :
+        if ((pipeline_status == 3)); then
             rm -f "${table_version_name}"_already_updated
             return 3
-        fi
-
-        version_lines=$(jq -r '.[] | @base64' <<<"$VERSION_PAGE_JSON")
-        if [ -n "$version_lines" ]; then
-            version_hydrate_candidates "$version_lines" 0
-            pipeline_status=$?
-
-            if ((pipeline_status != 3)); then
-                version_submit_current_page_candidates 5 false
-                pipeline_status=$?
-            fi
-
-            if ((pipeline_status != 3)); then
-                version_collect_current_page_provisional 5
-                version_resolve_provisional_candidates "$tag_cache_pages"
-                pipeline_status=$?
-            fi
-        fi
-
-        while ((pipeline_status != 3)) && ((pages_left != 2)) && ((page < max_version_pages)) && ((${#VERSION_PROVISIONAL_IDS[@]} > 0)); do
-            ((page++))
+        elif ((pipeline_status != 0)); then
+            echo "Failed to initialize version staging for $owner/$package; using fallback data where needed" >&2
+            update_versions_status=$pipeline_status
+        else
             page_version "$page"
             pages_left=$?
 
             if ((pages_left == 3)); then
                 pipeline_status=3
-                break
             fi
 
             version_lines=$(jq -r '.[] | @base64' <<<"$VERSION_PAGE_JSON")
-            [ -n "$version_lines" ] || continue
+            if ((pipeline_status != 3)) && [ -n "$version_lines" ]; then
+                version_hydrate_candidates "$version_lines" 0
+                pipeline_status=$?
 
-            version_hydrate_candidates "$version_lines" 0
-            pipeline_status=$?
-            ((pipeline_status != 3)) || break
-            version_promote_current_page_candidates "$tag_cache_pages"
-            pipeline_status=$?
-        done
+                if ((pipeline_status != 3)); then
+                    version_submit_current_page_candidates 5 false
+                    pipeline_status=$?
+                fi
 
-        if ((pipeline_status != 3)) && ((${#VERSION_SOURCE_LINES[@]} == 0)); then
-            version_store_fallback_candidate
-            version_submit_candidate "-1"
-            pipeline_status=$?
-        fi
+                if ((pipeline_status != 3)); then
+                    version_collect_current_page_provisional 5
+                    version_resolve_provisional_candidates "$tag_cache_pages"
+                    pipeline_status=$?
+                fi
+            fi
 
-        if ((pipeline_status != 3)); then
-            for version_id in "${VERSION_PROVISIONAL_IDS[@]}"; do
-                version_submit_candidate "$version_id"
+            while ((pipeline_status != 3)) && ((pages_left != 2)) && ((page < max_version_pages)) && ((${#VERSION_PROVISIONAL_IDS[@]} > 0)); do
+                ((page++))
+                page_version "$page"
+                pages_left=$?
+
+                if ((pages_left == 3)); then
+                    pipeline_status=3
+                    break
+                fi
+
+                version_lines=$(jq -r '.[] | @base64' <<<"$VERSION_PAGE_JSON")
+                [ -n "$version_lines" ] || continue
+
+                version_hydrate_candidates "$version_lines" 0
                 pipeline_status=$?
                 ((pipeline_status != 3)) || break
+                version_promote_current_page_candidates "$tag_cache_pages"
+                pipeline_status=$?
             done
+
+            if ((pipeline_status != 3)) && ((${#VERSION_SOURCE_LINES[@]} == 0)); then
+                version_store_fallback_candidate
+                version_submit_candidate "-1"
+                pipeline_status=$?
+            fi
+
+            if ((pipeline_status != 3)); then
+                for version_id in "${VERSION_PROVISIONAL_IDS[@]}"; do
+                    version_submit_candidate "$version_id"
+                    pipeline_status=$?
+                    ((pipeline_status != 3)) || break
+                done
+            fi
         fi
 
         parallel_async_wait
         update_versions_status=$?
+        version_flush_staged_rows || version_flush_status=$?
+        version_stage_cleanup
 
         rm -f "${table_version_name}"_already_updated
-        ((pipeline_status != 3 && update_versions_status != 3)) || return 3
+        ((pipeline_status != 3 && update_versions_status != 3 && version_flush_status != 3)) || return 3
 
         if ((update_versions_status != 0)); then
             echo "Version refresh had write errors for $owner/$package; using fallback data where needed" >&2
+        fi
+
+        if ((version_flush_status != 0)); then
+            echo "Failed to flush staged version rows for $owner/$package; using fallback data where needed" >&2
         fi
     fi
 

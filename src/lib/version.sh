@@ -52,6 +52,76 @@ save_version() {
     echo "$version_json" | tr -d '\n' | jq -c . >"$BKG_INDEX_DIR/$owner/$repo/$package.d/$version_id.json" || echo "Failed to refresh $owner/$repo/$package/$version_id: $version_json"
 }
 
+version_stage_cleanup() {
+    [ -n "${VERSION_STAGE_DIR:-}" ] || return 0
+    [ -d "$VERSION_STAGE_DIR" ] || return 0
+    rm -rf "$VERSION_STAGE_DIR"
+    unset VERSION_STAGE_DIR
+}
+
+version_stage_reset() {
+    version_stage_cleanup
+    VERSION_STAGE_DIR=$(mktemp -d "${TMPDIR:-/tmp}/bkg-version-stage.XXXXXX") || return 1
+}
+
+version_stage_row_file() {
+    [ -n "${VERSION_STAGE_DIR:-}" ] || return 1
+    [ -d "$VERSION_STAGE_DIR" ] || return 1
+    mktemp "$VERSION_STAGE_DIR/row.XXXXXX.sql"
+}
+
+version_stage_queue_row() {
+    [ -n "$package" ] || return
+    [ -n "${VERSION_STAGE_DIR:-}" ] || {
+        echo "Version stage directory missing for $owner/$package" >&2
+        return 1
+    }
+
+    local row_file
+    local table_name_sql
+    local version_id_sql
+    local version_name_sql
+    local version_tags_sql
+    local version_date_sql
+
+    row_file=$(version_stage_row_file) || return 1
+    table_name_sql=$(sqlite_escape_identifier "$table_version_name")
+    version_id_sql=$(sqlite_escape_literal "$1")
+    version_name_sql=$(sqlite_escape_literal "$2")
+    version_tags_sql=$(sqlite_escape_literal "$9")
+    version_date_sql=$(sqlite_escape_literal "$8")
+
+    cat >"$row_file" <<EOF
+insert or replace into "$table_name_sql" (id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags) values ('$version_id_sql', '$version_name_sql', $3, $4, $5, $6, $7, '$version_date_sql', '$version_tags_sql');
+EOF
+}
+
+version_flush_staged_rows() {
+    [ -n "${VERSION_STAGE_DIR:-}" ] || return 0
+    [ -d "$VERSION_STAGE_DIR" ] || return 0
+    local sql_file
+    local sql_statement
+    local row_file
+    local -a row_files=()
+
+    mapfile -t row_files < <(find "$VERSION_STAGE_DIR" -maxdepth 1 -type f -name '*.sql' | sort)
+    ((${#row_files[@]} > 0)) || return 0
+    sql_file=$(mktemp) || return 1
+
+    {
+        printf 'BEGIN IMMEDIATE;\n'
+        for row_file in "${row_files[@]}"; do
+            cat "$row_file"
+            printf '\n'
+        done
+        printf 'COMMIT;\n'
+    } >"$sql_file"
+
+    sql_statement=$(cat "$sql_file")
+    rm -f "$sql_file"
+    sqlite3 "$BKG_INDEX_DB" "$sql_statement"
+}
+
 version_parse_page_html() {
     [ -n "$1" ] || return
     VERSION_OWNER_PREFIX="$owner_type/$owner/packages/$package_type/$package" \
@@ -426,7 +496,7 @@ update_version() {
     check_limit || return $?
     [ -n "$1" ] || return
     [ -n "$package" ] || return
-    local sqlite_status=0
+    local stage_status=0
     local version_size=-1
     local version_raw_downloads=-1
     local version_raw_downloads_month=-1
@@ -478,11 +548,11 @@ update_version() {
 
     [[ "$version_size" =~ ^[0-9]+$ ]] || version_size=-1
     [[ "$version_tags" != "[]" && "$version_tags" != '"[]"' ]] || version_tags=""
-    sqlite3 "$BKG_INDEX_DB" "insert or replace into '$table_version_name' (id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags) values ('$version_id', '$version_name', '$version_size', '$version_raw_downloads', '$version_raw_downloads_month', '$version_raw_downloads_week', '$version_raw_downloads_day', '$today', '$version_tags');" || sqlite_status=$?
+    version_stage_queue_row "$version_id" "$version_name" "$version_size" "$version_raw_downloads" "$version_raw_downloads_month" "$version_raw_downloads_week" "$version_raw_downloads_day" "$today" "$version_tags" || stage_status=$?
 
-    if ((sqlite_status != 0)); then
-        ((sqlite_status != 3)) && echo "Failed to write version row for $owner/$package/$version_id" >&2
-        return "$sqlite_status"
+    if ((stage_status != 0)); then
+        ((stage_status != 3)) && echo "Failed to stage version row for $owner/$package/$version_id" >&2
+        return "$stage_status"
     fi
 
     echo "Updated $owner/$package/$version_id"
