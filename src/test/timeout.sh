@@ -240,6 +240,28 @@ test_owner_update_wait_notice_is_throttled() {
 	unset -f date
 }
 
+test_owner_update_force_stop_due_after_grace_period() {
+	date() {
+		if [ "$1" = "-u" ] && [ "$2" = "+%s" ]; then
+			printf '%s\n' "${TEST_FAKE_NOW:-0}"
+			return 0
+		fi
+
+		command date "$@"
+	}
+
+	TEST_FAKE_NOW=250
+	owner_update_force_stop_due 100 180
+	[ "$OWNER_UPDATE_FORCE_STOP_DUE" = "false" ] || fail "Expected force stop to remain disabled before grace period"
+
+	TEST_FAKE_NOW=280
+	owner_update_force_stop_due 100 180
+	[ "$OWNER_UPDATE_FORCE_STOP_DUE" = "true" ] || fail "Expected force stop to activate after grace period"
+
+	unset TEST_FAKE_NOW
+	unset -f date
+}
+
 test_run_owner_updates_halts_on_timeout() {
 	local args_file="$workdir/owner-update.args"
 	local stdin_file="$workdir/owner-update.stdin"
@@ -275,7 +297,7 @@ test_run_owner_updates_halts_on_timeout() {
 	[ "$status" -eq 3 ] || fail "Expected run_owner_updates to return 3, got $status"
 	assert_contains "$args_file" "update_owner"
 	assert_contains "$args_file" "--halt"
-	assert_contains "$args_file" "now,fail=1"
+	assert_contains "$args_file" "soon,fail=1"
 	assert_contains "$stdin_file" "1/alpha"
 	assert_contains "$stdin_file" "2/beta"
 }
@@ -294,6 +316,7 @@ test_ytoxt_stops_after_timeout
 test_run_parallel_kills_blocked_workers_after_timeout
 test_parallel_async_wait_kills_blocked_workers_after_timeout
 test_owner_update_wait_notice_is_throttled
+test_owner_update_force_stop_due_after_grace_period
 test_run_owner_updates_halts_on_timeout
 
 echo "Timeout propagation regression tests passed"

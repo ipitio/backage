@@ -450,7 +450,7 @@ parallel_shell_func() {
     parallel "$@" bash "$BKG_ROOT/src/lib/parallel-worker.sh" "$source_file" "$function_name" 2>"$stderr_file"
     status=$?
 
-    if ((status == 2)) && [ "$(get_BKG BKG_TIMEOUT)" = "1" ]; then
+    if ((status == 2 || status == 3)) && [ "$(get_BKG BKG_TIMEOUT)" = "1" ]; then
         grep -Ev '^parallel: This job failed:$|^bash .*/parallel-worker\.sh .*$|^parallel: Starting no more jobs\. Waiting for [0-9]+ jobs to finish\.$' "$stderr_file" >&2 || :
         rm -f "$stderr_file"
         return 3

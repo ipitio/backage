@@ -45,18 +45,64 @@ owner_update_wait_notice() {
 	OWNER_UPDATE_WAIT_MESSAGE="Still waiting for active owner updates to stop after ${elapsed}s..."
 }
 
+owner_update_force_stop_due() {
+	local started_at=${1:-0}
+	local grace_period=${2:-180}
+	local now
+
+	OWNER_UPDATE_FORCE_STOP_DUE=false
+	((started_at > 0)) || return
+	now=$(date -u +%s)
+	if ((now - started_at >= grace_period)); then
+		OWNER_UPDATE_FORCE_STOP_DUE=true
+	fi
+}
+
+owner_update_collect_child_pids() {
+	local root_pid=$1
+	local child_pid
+
+	[ -n "$root_pid" ] || return
+
+	while IFS= read -r child_pid; do
+		child_pid=$(awk '{print $1}' <<<"$child_pid")
+		[ -n "$child_pid" ] || continue
+		printf '%s\n' "$child_pid"
+		owner_update_collect_child_pids "$child_pid"
+	done < <(ps -o pid= --ppid "$root_pid" 2>/dev/null)
+}
+
+owner_update_force_stop() {
+	local root_pid=$1
+	local pid
+	local -a pids=()
+
+	[ -n "$root_pid" ] || return
+
+	while IFS= read -r pid; do
+		[ -n "$pid" ] || continue
+		pids+=("$pid")
+	done < <(owner_update_collect_child_pids "$root_pid")
+
+	pids+=("$root_pid")
+	terminate_pids_with_grace "${pids[@]}"
+}
+
 run_owner_updates() {
 	local owners_queue
 	local status=0
 	local updates_pid=""
 	local stop_wait_started=0
 	local last_wait_notice=0
+	local graceful_stop_window=${BKG_OWNER_UPDATE_STOP_GRACE:-180}
+	local forced_stop=false
+	local elapsed=0
 	owners_queue=$(get_BKG_set BKG_OWNERS_QUEUE)
 	[ -n "$owners_queue" ] || return 0
 
 	if [[ "$GITHUB_OWNER" = "ipitio" && "$(git branch --show-current)" = "master" ]]; then
 		(
-			printf '%s\n' "$owners_queue" | parallel_shell_func "$BKG_ROOT/src/lib/owner.sh" update_owner --lb --halt now,fail=1
+			printf '%s\n' "$owners_queue" | parallel_shell_func "$BKG_ROOT/src/lib/owner.sh" update_owner --lb --halt soon,fail=1
 		) &
 		updates_pid=$!
 
@@ -68,10 +114,21 @@ run_owner_updates() {
 			stop_wait_started=$OWNER_UPDATE_WAIT_STARTED
 			last_wait_notice=$OWNER_UPDATE_WAIT_LAST_NOTICE
 			[ -z "$OWNER_UPDATE_WAIT_MESSAGE" ] || echo "$OWNER_UPDATE_WAIT_MESSAGE"
+
+			owner_update_force_stop_due "$stop_wait_started" "$graceful_stop_window"
+			if ! $forced_stop && $OWNER_UPDATE_FORCE_STOP_DUE; then
+				elapsed=$(( $(date -u +%s) - stop_wait_started ))
+				echo "Graceful stop window exceeded after ${elapsed}s; force-stopping active owner updates..."
+				owner_update_force_stop "$updates_pid"
+				forced_stop=true
+			fi
 		done
 
 		wait "$updates_pid"
 		status=$?
+		if $forced_stop && [ "$(get_BKG BKG_TIMEOUT)" = "1" ]; then
+			status=3
+		fi
 	else # typically fewer owners
 		run_parallel update_owner "$owners_queue"
 		status=$?
