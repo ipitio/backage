@@ -185,6 +185,127 @@ EOF
 	[ "$(cat "$attempts_file")" -eq 2 ] || fail "Expected sqlite3 wrapper to retry a transient write failure once"
 }
 
+test_parallel_async_wait_continues_after_non_timeout_failure() {
+	local status=0
+	local completed_file="$workdir/parallel-async-completed.txt"
+
+	failing_async_worker() {
+		return 1
+	}
+
+	succeeding_async_worker() {
+		printf 'done\n' >>"$completed_file"
+	}
+
+	BKG_ENV="$workdir/env-parallel-async-continue.env"
+	: >"$BKG_ENV"
+	: >"$completed_file"
+
+	parallel_async_submit failing_async_worker "one"
+	parallel_async_submit succeeding_async_worker "two"
+
+	if parallel_async_wait; then
+		fail "Expected parallel_async_wait to surface a non-timeout worker failure"
+	else
+		status=$?
+	fi
+
+	[ "$status" -eq 1 ] || fail "Expected parallel_async_wait to return 1, got $status"
+	assert_contains "$completed_file" "done"
+	unset -f failing_async_worker
+	unset -f succeeding_async_worker
+}
+
+test_update_version_logs_sqlite_write_failure() {
+	local row
+	local output_file="$workdir/update-version-write-fail.log"
+	local status=0
+
+	row=$(printf '%s' '{"id":747026466,"name":"sha256:test","tags":"latest"}' | base64 -w0)
+
+	if (
+		BKG_ENV="$workdir/env-update-version.env"
+		: >"$BKG_ENV"
+		now=$(date -u +%s)
+		set_BKG BKG_SCRIPT_START "$now"
+		set_BKG BKG_RATE_LIMIT_START "$now"
+		set_BKG BKG_MIN_RATE_LIMIT_START "$now"
+		set_BKG BKG_CALLS_TO_API 0
+		set_BKG BKG_MIN_CALLS_TO_API 0
+		BKG_INDEX_DB="$workdir/update-version.db"
+		BKG_INDEX_DIR="$workdir/index"
+		mkdir -p "$BKG_INDEX_DIR/Lazztech/Libre-Closet/libre-closet.d"
+		owner='Lazztech'
+		repo='Libre-Closet'
+		package='libre-closet'
+		owner_type='orgs'
+		package_type='container'
+		lower_owner='lazztech'
+		lower_package='libre-closet'
+		table_version_name='versions_orgs_container_Lazztech_Libre-Closet_libre-closet'
+		sqlite3() { return 1; }
+		curl() {
+			cat <<'EOF'
+<span>Total downloads</span><span>984</span><span>Last 30 days</span><span>984</span><span>Last week</span><span>454</span><span>Today</span><span>2</span><pre><code>{"schemaVersion":2,"layers":[{"size":123}]}</code></pre>
+EOF
+		}
+		update_version "$row"
+	) >"$output_file" 2>&1; then
+		fail "Expected update_version to return non-zero when the SQLite insert fails"
+	else
+		status=$?
+	fi
+
+	[ "$status" -eq 1 ] || fail "Expected update_version to return 1, got $status"
+	assert_contains "$output_file" "Failed to write version row for Lazztech/libre-closet/747026466"
+	assert_not_contains "$output_file" "Updated Lazztech/libre-closet/747026466"
+}
+
+test_update_package_warns_on_package_level_fallback() {
+	local output_file="$workdir/update-package-fallback.log"
+	local json_file="$workdir/index/Lazztech/Libre-Closet/libre-closet.json"
+
+	if ! (
+		cd "$workdir"
+		BKG_ENV="$workdir/env-update-package.env"
+		: >"$BKG_ENV"
+		now=$(date -u +%s)
+		set_BKG BKG_SCRIPT_START "$now"
+		set_BKG BKG_RATE_LIMIT_START "$now"
+		set_BKG BKG_MIN_RATE_LIMIT_START "$now"
+		set_BKG BKG_CALLS_TO_API 0
+		set_BKG BKG_MIN_CALLS_TO_API 0
+		BKG_INDEX_DB="$workdir/test.db"
+		BKG_INDEX_DIR="$workdir/index"
+		BKG_OPTOUT="$workdir/optout.txt"
+		: >"$BKG_OPTOUT"
+		BKG_OWNERS="$workdir/owners.txt"
+		: >"$BKG_OWNERS"
+		BKG_BATCH_FIRST_STARTED='2026-04-02'
+		owner_id=69664378
+		owner='Lazztech'
+		owner_type='orgs'
+		repo='Libre-Closet'
+		package='libre-closet'
+		package_type='container'
+		lower_owner='lazztech'
+		lower_package='libre-closet'
+		fast_out=false
+		BKG_MODE=0
+		sqlite3 "$BKG_INDEX_DB" "create table if not exists '$BKG_INDEX_TBL_PKG' (owner_id text, owner_type text not null, package_type text not null, owner text not null, repo text not null, package text not null, downloads integer not null, downloads_month integer not null, downloads_week integer not null, downloads_day integer not null, size integer not null, date text not null, primary key (owner_id, package, date));"
+		sqlite3 "$BKG_INDEX_DB" "create table if not exists 'versions_orgs_container_Lazztech_Libre-Closet_libre-closet' (id text not null, name text not null, size integer not null, downloads integer not null, downloads_month integer not null, downloads_week integer not null, downloads_day integer not null, date text not null, tags text, primary key (id, date));"
+		sqlite3 "$BKG_INDEX_DB" "insert into '$BKG_INDEX_TBL_PKG' (owner_id, owner_type, package_type, owner, repo, package, downloads, downloads_month, downloads_week, downloads_day, size, date) values ('69664378','orgs','container','Lazztech','Libre-Closet','libre-closet','2394','-1','-1','-1','-1','2026-04-02');"
+		printf '69664378|Lazztech|Libre-Closet|libre-closet|2026-04-02\n' >packages_already_updated
+		update_package 'container/Libre-Closet/libre-closet'
+	) >"$output_file" 2>&1; then
+		fail "Expected update_package to continue and emit fallback JSON when version rows are missing"
+	fi
+
+	assert_contains "$output_file" "No version rows available for Lazztech/libre-closet; using package-level fallback data"
+	assert_file_exists "$json_file"
+	jq -e '.raw_versions == 0 and .raw_downloads == 2394 and (.version | length) == 1 and .version[0].id == -1' "$json_file" >/dev/null || fail "Expected fallback package JSON when version rows are missing"
+}
+
 test_run_parallel_kills_blocked_workers_after_timeout() {
 	local started_file="$workdir/run-parallel-started.txt"
 	local status=0
@@ -354,11 +475,14 @@ test_parallel_shell_func_timeout_fallback
 test_curl_stops_retrying_after_timeout
 test_docker_manifest_inspect_stops_after_timeout
 test_ytoxt_stops_after_timeout
+test_sqlite_retries_transient_write_failure
+test_parallel_async_wait_continues_after_non_timeout_failure
+test_update_version_logs_sqlite_write_failure
+test_update_package_warns_on_package_level_fallback
 test_run_parallel_kills_blocked_workers_after_timeout
 test_parallel_async_wait_kills_blocked_workers_after_timeout
 test_owner_update_wait_notice_is_throttled
 test_owner_update_force_stop_due_after_grace_period
-test_sqlite_retries_transient_write_failure
 test_run_owner_updates_halts_on_timeout
 
 echo "Timeout propagation regression tests passed"

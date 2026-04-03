@@ -58,12 +58,14 @@ update_package() {
     local raw_downloads_week=-1
     local raw_downloads_day=-1
     local size=-1
+    local version_row_count=-1
     local version_count=-1
     local version_with_tag_count=-1
     local version_newest_id=-1
     local latest_version=-1
     local owner_rank
     local repo_rank
+    local package_write_status=0
     package_type=$(cut -d'/' -f1 <<<"$1")
     repo=$(cut -d'/' -f2 <<<"$1")
     package=$(cut -d'/' -f3 <<<"$1")
@@ -192,6 +194,10 @@ update_package() {
 
         rm -f "${table_version_name}"_already_updated
         ((pipeline_status != 3 && update_versions_status != 3)) || return 3
+
+        if ((update_versions_status != 0)); then
+            echo "Version refresh had write errors for $owner/$package; using fallback data where needed" >&2
+        fi
     fi
 
     check_limit || return $?
@@ -213,14 +219,21 @@ update_package() {
     [[ "$summed_raw_downloads" =~ ^[0-9]+$ ]] && ((summed_raw_downloads > raw_downloads)) && raw_downloads=$summed_raw_downloads || :
 
     if ! awk -F'|' -v owner_id_key="$owner_id" -v owner_key="$owner" -v repo_key="$repo" -v package_key="$package" '$1 == owner_id_key && $2 == owner_key && $3 == repo_key && $4 == package_key { found = 1; exit } END { exit !found }' packages_already_updated || [ "$BKG_MODE" -eq 1 ]; then
-        sqlite3 "$BKG_INDEX_DB" "insert or replace into '$BKG_INDEX_TBL_PKG' (owner_id, owner_type, package_type, owner, repo, package, downloads, downloads_month, downloads_week, downloads_day, size, date) values ('$owner_id', '$owner_type', '$package_type', '$owner', '$repo', '$package', '$raw_downloads', '$raw_downloads_month', '$raw_downloads_week', '$raw_downloads_day', '$size', '$(date -u +%Y-%m-%d)');"
-        echo "Updated $owner/$package, refreshing..."
+        sqlite3 "$BKG_INDEX_DB" "insert or replace into '$BKG_INDEX_TBL_PKG' (owner_id, owner_type, package_type, owner, repo, package, downloads, downloads_month, downloads_week, downloads_day, size, date) values ('$owner_id', '$owner_type', '$package_type', '$owner', '$repo', '$package', '$raw_downloads', '$raw_downloads_month', '$raw_downloads_week', '$raw_downloads_day', '$size', '$(date -u +%Y-%m-%d)');" || package_write_status=$?
+
+        if ((package_write_status == 0)); then
+            echo "Updated $owner/$package, refreshing..."
+        elif ((package_write_status != 3)); then
+            echo "Failed to write package row for $owner/$package; continuing with existing package data" >&2
+        fi
     fi
 
     run_parallel save_version "$(sqlite3 -json "$BKG_INDEX_DB" "select * from '$table_version_name';" | jq -r 'group_by(.id)[] | max_by(.date) | @base64')"
+    version_row_count=$(sqlite3 "$BKG_INDEX_DB" "select count(*) from '$table_version_name';")
     version_count=$(sqlite3 "$BKG_INDEX_DB" "select count(distinct id) from '$table_version_name' where id regexp '^[0-9]+$';")
     version_with_tag_count=$(sqlite3 "$BKG_INDEX_DB" "select count(distinct id) from '$table_version_name' where id regexp '^[0-9]+$' and tags is not null and tags != '';")
     version_newest_id=$(find "$BKG_INDEX_DIR/$owner/$repo/$package.d" -type f -name "*.json" 2>/dev/null | grep -oP '\d+' | sort -n | tail -n1)
+	[[ "$version_row_count" =~ ^[0-9]+$ ]] || version_row_count=0
 	[[ "$latest_version" =~ ^[0-9]+$ ]] || latest_version=$(sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name' where id regexp '^[0-9]+$' and tags is not null and tags != '' and tags regexp '(^|,)[[:space:]]*latest([[:space:]]*,|$)' order by id desc limit 1;")
     [[ "$latest_version" =~ ^[0-9]+$ ]] || latest_version=$(sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name' where id regexp '^[0-9]+$' and tags is not null and tags != '' and tags regexp '^[^\^~-]+$' order by id desc limit 1;")
     [[ "$latest_version" =~ ^[0-9]+$ ]] || latest_version=$(sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name' where id regexp '^[0-9]+$' and tags is not null and tags != '' and tags regexp '^[^\^~]+$' order by id desc limit 1;")
@@ -231,6 +244,11 @@ update_package() {
     [[ "$version_with_tag_count" =~ ^[0-9]+$ ]] || version_with_tag_count=0
     [[ "$version_newest_id" =~ ^[0-9]+$ ]] || version_newest_id=-1
     [[ "$latest_version" =~ ^[0-9]+$ ]] || latest_version=-1
+
+	if ((version_row_count == 0)); then
+		echo "No version rows available for $owner/$package; using package-level fallback data" >&2
+	fi
+
     owner_rank=$(sqlite3 "$BKG_INDEX_DB" "select rank from (select package, rank () over (order by downloads desc) rank from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and date in (select date from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' order by date desc limit 1)) where package='$package';")
     repo_rank=$(sqlite3 "$BKG_INDEX_DB" "select rank from (select package, rank () over (order by downloads desc) rank from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and repo='$repo' and date in (select date from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and repo='$repo' order by date desc limit 1)) where package='$package';")
     [[ "$owner_rank" =~ ^[0-9]+$ ]] || owner_rank=-1

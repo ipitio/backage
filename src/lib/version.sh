@@ -426,6 +426,7 @@ update_version() {
     check_limit || return $?
     [ -n "$1" ] || return
     [ -n "$package" ] || return
+    local sqlite_status=0
     local version_size=-1
     local version_raw_downloads=-1
     local version_raw_downloads_month=-1
@@ -477,6 +478,12 @@ update_version() {
 
     [[ "$version_size" =~ ^[0-9]+$ ]] || version_size=-1
     [[ "$version_tags" != "[]" && "$version_tags" != '"[]"' ]] || version_tags=""
-    sqlite3 "$BKG_INDEX_DB" "insert or replace into '$table_version_name' (id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags) values ('$version_id', '$version_name', '$version_size', '$version_raw_downloads', '$version_raw_downloads_month', '$version_raw_downloads_week', '$version_raw_downloads_day', '$today', '$version_tags');"
+    sqlite3 "$BKG_INDEX_DB" "insert or replace into '$table_version_name' (id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags) values ('$version_id', '$version_name', '$version_size', '$version_raw_downloads', '$version_raw_downloads_month', '$version_raw_downloads_week', '$version_raw_downloads_day', '$today', '$version_tags');" || sqlite_status=$?
+
+    if ((sqlite_status != 0)); then
+        ((sqlite_status != 3)) && echo "Failed to write version row for $owner/$package/$version_id" >&2
+        return "$sqlite_status"
+    fi
+
     echo "Updated $owner/$package/$version_id"
 }

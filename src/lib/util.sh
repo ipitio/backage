@@ -507,13 +507,16 @@ parallel_shell_func() {
 }
 
 parallel_async_status() {
+    PARALLEL_ASYNC_LAST_STATUS=0
     [ -n "${PARALLEL_ASYNC_EXIT_CODE:-}" ] || return
     [ -f "${PARALLEL_ASYNC_EXIT_CODE:-}" ] || return
     local async_status
 
     async_status=$(grep -E '^[0-9]+$' "$PARALLEL_ASYNC_EXIT_CODE" | tail -n1)
     [ -n "$async_status" ] || return 0
-    return "$async_status"
+    PARALLEL_ASYNC_LAST_STATUS=$async_status
+    ((async_status == 3)) && return 3
+    return 0
 }
 
 parallel_async_default_max_jobs() {
@@ -555,6 +558,10 @@ parallel_async_submit() {
             PARALLEL_ASYNC_RUNNING=0
             return "$async_status"
         }
+
+        if ((PARALLEL_ASYNC_LAST_STATUS != 0)); then
+            :
+        fi
 
         if stop_requested; then
             printf '%s\n' 3 >>"$PARALLEL_ASYNC_EXIT_CODE"
@@ -601,12 +608,19 @@ parallel_async_wait() {
             break
         }
 
+        if ((PARALLEL_ASYNC_LAST_STATUS != 0)); then
+            status=$PARALLEL_ASYNC_LAST_STATUS
+        fi
+
         ((PARALLEL_ASYNC_RUNNING > 0)) && sleep 1
     done
 
     parallel_async_status || status=$?
+    if ((PARALLEL_ASYNC_LAST_STATUS != 0)) && ((status == 0)); then
+        status=$PARALLEL_ASYNC_LAST_STATUS
+    fi
     rm -f "$PARALLEL_ASYNC_EXIT_CODE"
-    unset PARALLEL_ASYNC_EXIT_CODE PARALLEL_ASYNC_MAX_JOBS PARALLEL_ASYNC_RUNNING PARALLEL_ASYNC_PIDS
+    unset PARALLEL_ASYNC_EXIT_CODE PARALLEL_ASYNC_MAX_JOBS PARALLEL_ASYNC_RUNNING PARALLEL_ASYNC_PIDS PARALLEL_ASYNC_LAST_STATUS
     return "$status"
 }
 
