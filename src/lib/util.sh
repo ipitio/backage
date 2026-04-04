@@ -432,7 +432,7 @@ run_parallel() {
     local stop_now=false
     local -a active_pids=()
     exit_code=$(mktemp)
-    max_jobs=$(nproc --all)
+    max_jobs=$(command nproc --all)
 
     while IFS= read -r item; do
         [ -n "$item" ] || continue
@@ -536,7 +536,7 @@ parallel_async_default_max_jobs() {
     fi
 
     max_jobs=$(nproc --all)
-    ((max_jobs > 6)) && max_jobs=6
+    ((max_jobs *= 2))
     ((max_jobs > 0)) || max_jobs=1
     echo "$max_jobs"
 }

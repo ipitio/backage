@@ -3,55 +3,6 @@
 
 source lib/util.sh
 
-save_version() {
-    [ -n "$1" ] || return
-    [ -n "$package" ] || return
-    local version_id
-    local version_name
-    local version_tags
-    local version_size
-    local version_dl
-    local version_dl_month
-    local version_dl_week
-    local version_dl_day
-    local version_json
-
-    version_id=$(_jq "$1" '.id')
-    version_name=$(_jq "$1" '.name')
-    version_size=$(_jq "$1" '.size')
-    version_dl=$(_jq "$1" '.downloads')
-    version_dl_month=$(_jq "$1" '.downloads_month')
-    version_dl_week=$(_jq "$1" '.downloads_week')
-    version_dl_day=$(_jq "$1" '.downloads_day')
-    version_tags=$(_jq "$1" '.tags')
-    [[ "$version_id" =~ ^[0-9]+$ ]] || version_id=\"$version_id\"
-    [[ "$version_size" =~ ^[0-9]+$ ]] || version_size=-1
-    [[ "$version_dl" =~ ^[0-9]+$ ]] || version_dl=-1
-    [[ "$version_dl_month" =~ ^[0-9]+$ ]] || version_dl_month=-1
-    [[ "$version_dl_week" =~ ^[0-9]+$ ]] || version_dl_week=-1
-    [[ "$version_dl_day" =~ ^[0-9]+$ ]] || version_dl_day=-1
-    [[ -z "$version_tags" || "$version_tags" =~ ^\".*\"$ ]] || version_tags=\"$version_tags\"
-    version_json="{
-        \"id\": $version_id,
-        \"name\": \"$version_name\",
-        \"date\": \"$(date -u +%Y-%m-%d)\",
-        \"newest\": false,
-        \"latest\": false,
-        \"size\": \"$(numfmt_size <<<"$version_size")\",
-        \"downloads\": \"$(numfmt <<<"$version_dl")\",
-        \"downloads_month\": \"$(numfmt <<<"$version_dl_month")\",
-        \"downloads_week\": \"$(numfmt <<<"$version_dl_week")\",
-        \"downloads_day\": \"$(numfmt <<<"$version_dl_day")\",
-        \"raw_size\": $version_size,
-        \"raw_downloads\": $version_dl,
-        \"raw_downloads_month\": $version_dl_month,
-        \"raw_downloads_week\": $version_dl_week,
-        \"raw_downloads_day\": $version_dl_day,
-        \"tags\": [${version_tags//,/\",\"}]
-    }"
-    echo "$version_json" | tr -d '\n' | jq -c . >"$BKG_INDEX_DIR/$owner/$repo/$package.d/$version_id.json" || echo "Failed to refresh $owner/$repo/$package/$version_id: $version_json"
-}
-
 version_stage_cleanup() {
     [ -n "${VERSION_STAGE_DIR:-}" ] || return 0
     [ -d "$VERSION_STAGE_DIR" ] || return 0
@@ -120,6 +71,75 @@ version_flush_staged_rows() {
     sql_statement=$(cat "$sql_file")
     rm -f "$sql_file"
     sqlite3 "$BKG_INDEX_DB" "$sql_statement"
+}
+
+version_build_array_json() {
+    [ -n "$package" ] || return
+    local newest_version_id="${1:-}"
+    local latest_version_id="${2:-}"
+
+    sqlite3 -json "$BKG_INDEX_DB" "select * from '$table_version_name';" | jq -c --arg newest "$newest_version_id" --arg latest "$latest_version_id" '
+        def human_units($units; $spaced):
+            . as $value
+            | (if type == "number" then . else (tonumber? // .) end) as $n
+            | if ($n | type) != "number" then
+                ($value | tostring)
+              else
+                reduce range(0; ($units | length) - 1) as $i ({v: $n, s: 0};
+                    if .v > 999.9 and .s < (($units | length) - 1) then
+                        {v: (.v / 1000), s: (.s + 1)}
+                    else
+                        .
+                    end
+                )
+                | (((.v * 10) | floor) / 10 | tostring) as $formatted
+                | if ($units[.s] == "") then
+                    $formatted
+                  elif $spaced then
+                    $formatted + " " + $units[.s]
+                  else
+                    $formatted + $units[.s]
+                  end
+              end;
+        def human_metric: human_units(["", "k", "M", "B", "T", "P", "E", "Z", "Y"]; false);
+        def human_size: human_units(["", "kB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"]; true);
+
+        group_by(.id)
+        | map(max_by(.date))
+        | sort_by(.id | tostring)
+        | map(
+            (.id | tostring) as $id
+            | (.size | tonumber? // -1) as $size
+            | (.downloads | tonumber? // -1) as $downloads
+            | (.downloads_month | tonumber? // -1) as $downloads_month
+            | (.downloads_week | tonumber? // -1) as $downloads_week
+            | (.downloads_day | tonumber? // -1) as $downloads_day
+            | {
+                id: (.id | tonumber? // .id),
+                name: .name,
+                date: .date,
+                newest: ($id == $newest),
+                latest: ($id == $latest),
+                size: ($size | human_size),
+                downloads: ($downloads | human_metric),
+                downloads_month: ($downloads_month | human_metric),
+                downloads_week: ($downloads_week | human_metric),
+                downloads_day: ($downloads_day | human_metric),
+                raw_size: $size,
+                raw_downloads: $downloads,
+                raw_downloads_month: $downloads_month,
+                raw_downloads_week: $downloads_week,
+                raw_downloads_day: $downloads_day,
+                tags: (
+                    if .tags == null or (.tags | tostring) == "" then
+                        []
+                    else
+                        (.tags | tostring | split(",") | map(gsub("^[[:space:]]+|[[:space:]]+$"; "")) | map(select(length > 0)))
+                    end
+                )
+            }
+        )
+    '
 }
 
 version_parse_page_html() {

@@ -218,22 +218,19 @@ test_parallel_async_wait_continues_after_non_timeout_failure() {
 
 test_parallel_async_default_max_jobs_is_tuned() {
 	local default_jobs
+	local expected_jobs
 	local override_jobs
 
-	nproc() {
-		echo 32
-	}
-
 	unset BKG_PARALLEL_ASYNC_MAX_JOBS
+	expected_jobs=$(( $(command nproc --all) * 2 ))
 	default_jobs=$(parallel_async_default_max_jobs)
 	BKG_PARALLEL_ASYNC_MAX_JOBS=9
 	override_jobs=$(parallel_async_default_max_jobs)
 
-	[ "$default_jobs" = "6" ] || fail "Expected tuned default async max jobs to be 6, got $default_jobs"
+	[ "$default_jobs" = "$expected_jobs" ] || fail "Expected tuned default async max jobs to be $expected_jobs, got $default_jobs"
 	[ "$override_jobs" = "9" ] || fail "Expected explicit async max jobs override to be honored, got $override_jobs"
 
 	unset BKG_PARALLEL_ASYNC_MAX_JOBS
-	unset -f nproc
 }
 
 test_update_version_logs_sqlite_write_failure() {
@@ -255,8 +252,6 @@ test_update_version_logs_sqlite_write_failure() {
 		set_BKG BKG_CALLS_TO_API 0
 		set_BKG BKG_MIN_CALLS_TO_API 0
 		BKG_INDEX_DB="$workdir/update-version.db"
-		BKG_INDEX_DIR="$workdir/index"
-		mkdir -p "$BKG_INDEX_DIR/Lazztech/Libre-Closet/libre-closet.d"
 		owner='Lazztech'
 		repo='Libre-Closet'
 		package='libre-closet'
