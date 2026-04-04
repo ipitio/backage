@@ -128,12 +128,13 @@ update_owner() {
 
 	local owner_repos
 	check_limit || return $?
+	cleanup_index_legacy_artifacts "$BKG_INDEX_DIR/$owner"
 	owner_repos=$(find "$BKG_INDEX_DIR/$owner" -mindepth 1 -maxdepth 1 -type d -print0 | xargs -0 -I {} basename {})
 
 	if [ -n "$owner_repos" ]; then
 		check_limit || return $?
 		echo "Creating $owner array..."
-		find "$BKG_INDEX_DIR/$owner" -type f -name '*.json' ! -name '.*' -print0 | xargs -0 jq -cs '.' >"$BKG_INDEX_DIR/$owner/.json.tmp"
+		find "$BKG_INDEX_DIR/$owner" -type d -name '*.d' -prune -o -type f -name '*.json' ! -name '.*' -print0 | xargs -0 jq -cs '.' >"$BKG_INDEX_DIR/$owner/.json.tmp"
 		mv -f "$BKG_INDEX_DIR/$owner/.json.tmp" "$BKG_INDEX_DIR/$owner/.json"
 		bash lib/ytoxt.sh "$BKG_INDEX_DIR/$owner/.json"
 		(($? != 3)) || return 3

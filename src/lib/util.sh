@@ -146,6 +146,29 @@ sqlite_escape_identifier() {
     printf '%s' "$1" | sed 's/"/""/g'
 }
 
+cleanup_generated_json_sidecars() {
+    [ -n "$1" ] || return
+    [ -e "$1" ] || return 0
+
+    find "$1" -type f \( -name '*.json.tmp' -o -name '*.json.abs' -o -name '*.json.rel' \) -delete
+    find "$1" -regextype posix-extended -type f -regex '.*\.json\.[[:alnum:]]{6}$' -delete
+}
+
+cleanup_legacy_version_dirs() {
+    [ -n "$1" ] || return
+    [ -d "$1" ] || return 0
+
+    find "$1" -type d -name '*.d' -prune -exec rm -rf {} +
+}
+
+cleanup_index_legacy_artifacts() {
+    [ -n "$1" ] || return
+    [ -d "$1" ] || return 0
+
+    cleanup_generated_json_sidecars "$1"
+    cleanup_legacy_version_dirs "$1"
+}
+
 get_BKG() {
     [ -f "$BKG_ENV" ] || return
     while [ -f "$BKG_ENV.lock" ]; do sleep 0.05; done

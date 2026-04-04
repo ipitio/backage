@@ -45,7 +45,7 @@ last_xml_size=-1
 
 [ -f "$f" ] || exit 1
 
-tmp=$(mktemp "${f}.XXXXXX") || exit 1
+tmp=$(mktemp "$(dirname "$f")/.${f##*/}.XXXXXX") || exit 1
 trap 'rm -f "$tmp"' EXIT
 
 while [ -f "$f" ]; do
