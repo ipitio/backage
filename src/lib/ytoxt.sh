@@ -42,6 +42,7 @@ ytox() {
 f="$1"
 del_n=1
 last_xml_size=-1
+xml_current=false
 
 [ -f "$f" ] || exit 1
 
@@ -58,6 +59,7 @@ while [ -f "$f" ]; do
 		xml_status=$?
 		((xml_status != 3)) || exit 3
 		[ "$xml_status" -eq 0 ] || xml_size=-1
+		[ "$xml_status" -eq 0 ] && xml_current=true || xml_current=false
 		# If XML size can't be determined, treat it as oversized so we keep trimming.
 		[ "$xml_size" -ge 0 ] || xml_size=50000000
 
@@ -84,91 +86,86 @@ while [ -f "$f" ]; do
 		fi
 	fi
 
-	if jq -e '
+	stop_requested && exit 3
+	if ! jq -c '
+		def id_to_num:
+			if type == "number" then .
+			elif type == "string" then tonumber? // 0
+			else 0 end;
+		def version_len:
+			if type == "object" then
+				(.version? // []) | if type == "array" then length else 0 end
+			else
+				0
+			end;
+		def trim_version_holder($n):
+			if version_len > 0 then
+				.version |= (sort_by(.id | id_to_num) | .[$n:])
+			else
+				.
+			end;
 		def has_versions:
 			if type == "array" then
-				any(.[]?; ((.version? // []) | type == "array") and ((.version? // []) | length > 0))
+				any(.[]?; (. | version_len) > 0)
 			elif type == "object" and ((.package? // null) | type == "array") then
-				any(.package[]?; ((.version? // []) | type == "array") and ((.version? // []) | length > 0))
+				any(.package[]?; (. | version_len) > 0)
 			elif type == "object" then
-				((.version? // []) | type == "array") and ((.version? // []) | length > 0)
+				version_len > 0
 			else
 				false
 			end;
-		has_versions
-	' "$f" >/dev/null; then
-		stop_requested && exit 3
-		if ! jq -c '
-			def id_to_num:
-				if type == "number" then .
-				elif type == "string" then tonumber? // 0
-				else 0 end;
-			def vlen:
-				(.version? // []) | if type == "array" then length else 0 end;
-			def trim_versions($n):
-				if ((.version? // []) | type == "array") and ((.version? // []) | length > 0) then
-					(
-						.version
-						| sort_by(.id | id_to_num)
-						| .[$n:]
-					) as $v
-					| .version = $v
+		def drop_one($arr):
+			(
+				$arr
+				| to_entries
+				| (min_by([ (.value.raw_downloads // 0 | tonumber? // 0), (.value.date // "") ]) // null) as $target
+				| if $target == null then
+					map(.value)
 				else
-					.
-				end;
+					[ .[] | select(.key != $target.key) | .value ]
+				end
+			);
+		def trim_largest_versions($n):
 			if type == "array" then
 				(to_entries
-				| (max_by(.value | vlen) // empty) as $max
-				| map(
-					if .key == $max.key and ((.value | vlen) > 0)
-					then (.value |= trim_versions($n))
-					else .
-					end
-				)
-				| map(.value))
-			elif type == "object" and ((.package? // null) | type == "array") then
-				.package |= (
-					to_entries
-					| (max_by(.value | vlen) // empty) as $max
-					| map(
-						if .key == $max.key and ((.value | vlen) > 0)
-						then (.value |= trim_versions($n))
-						else .
+				| (max_by(.value | version_len) // null) as $max
+				| if $max == null or (($max.value | version_len) == 0) then
+					map(.value)
+				else
+					map(
+						if .key == $max.key then
+							(.value |= trim_version_holder($n))
+						else
+							.
 						end
 					)
 					| map(.value)
-				)
-			elif type == "object" then
-				(to_entries
-				| (max_by(.value | vlen) // empty) as $max
-				| map(
-					if .key == $max.key and ((.value | vlen) > 0)
-					then (.value |= trim_versions($n))
-					else .
-					end
-				)
-				| from_entries)
-			else
-				trim_versions($n)
-			end
-		' --argjson n "$del_n" "$f" >"$tmp"; then
-			rm -f "$tmp"
-			break
-		fi
-	else
-		stop_requested && exit 3
-		if ! jq -c '
-			def drop_one($arr):
-				(
-					$arr
-					| to_entries
-					| (min_by([ (.value.raw_downloads // 0 | tonumber? // 0), (.value.date // "") ]) // null) as $target
-					| if $target == null then
+				end)
+			elif type == "object" and ((.package? // null) | type == "array") then
+				.package |= (
+					to_entries
+					| (max_by(.value | version_len) // null) as $max
+					| if $max == null or (($max.value | version_len) == 0) then
 						map(.value)
 					else
-						[ .[] | select(.key != $target.key) | .value ]
+						map(
+							if .key == $max.key then
+								(.value |= trim_version_holder($n))
+							else
+								.
+							end
+						)
+						| map(.value)
 					end
-				);
+				)
+			elif type == "object" then
+				trim_version_holder($n)
+			else
+				.
+			end;
+		if has_versions then
+			trim_largest_versions($n)
+		else
 			if type == "array" then
 				drop_one(.)
 			elif type == "object" and ((.package? // null) | type == "array") then
@@ -186,10 +183,10 @@ while [ -f "$f" ]; do
 			else
 				.
 			end
-			' "$f" >"$tmp"; then
-			rm -f "$tmp"
-			break
-		fi
+		end
+	' --argjson n "$del_n" "$f" >"$tmp"; then
+		rm -f "$tmp"
+		break
 	fi
 
 	tmp_size=$(stat -c %s "$tmp" 2>/dev/null || echo -1)
@@ -247,12 +244,15 @@ while [ -f "$f" ]; do
 	fi
 
 	mv "$tmp" "$f"
+	xml_current=false
 done
 
 # Ensure the XML output corresponds to the final JSON.
 final_xml_status=0
-ytox "$f" >/dev/null 2>&1 || final_xml_status=$?
-((final_xml_status != 3)) || exit 3
+if ! $xml_current; then
+	ytox "$f" >/dev/null 2>&1 || final_xml_status=$?
+	((final_xml_status != 3)) || exit 3
+fi
 
 # If either JSON or XML is > 100MB, there is a bug, but empty each one that is too large to allow others:
 [ "$(stat -c %s "$f" 2>/dev/null || echo -1)" -lt 100000000 ] || echo "{}" >"$f"
