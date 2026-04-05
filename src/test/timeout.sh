@@ -144,36 +144,6 @@ test_ytoxt_stops_after_timeout() {
 	[ "$status" -eq 3 ] || fail "Expected ytoxt.sh to return 3 after timeout, got $status"
 }
 
-test_run_index_legacy_cleanup_once() {
-	local index_dir="$workdir/index-cleanup"
-	local package_dir="$index_dir/Lazztech/Libre-Closet"
-
-	mkdir -p "$package_dir/libre-closet.d"
-	printf '%s\n' 'stale tmp' >"$package_dir/libre-closet.json.tmp"
-	printf '%s\n' 'stale mktemp' >"$package_dir/libre-closet.json.ABC123"
-	printf '%s\n' 'legacy version' >"$package_dir/libre-closet.d/legacy.json"
-
-	BKG_ENV="$workdir/env-index-cleanup.env"
-	: >"$BKG_ENV"
-	del_BKG BKG_INDEX_CLEANUP_DONE || :
-	BKG_INDEX_DIR="$index_dir"
-
-	run_index_legacy_cleanup_once
-
-	[ ! -f "$package_dir/libre-closet.json.tmp" ] || fail "Expected one-shot cleanup to remove stale .json.tmp files"
-	[ ! -f "$package_dir/libre-closet.json.ABC123" ] || fail "Expected one-shot cleanup to remove stale .json.XXXXXX files"
-	[ ! -d "$package_dir/libre-closet.d" ] || fail "Expected one-shot cleanup to remove legacy package.d directories"
-	[ "$(get_BKG BKG_INDEX_CLEANUP_DONE)" = "1" ] || fail "Expected one-shot cleanup to persist completion state"
-
-	mkdir -p "$package_dir/libre-closet.d"
-	printf '%s\n' 'stale tmp again' >"$package_dir/libre-closet.json.tmp"
-
-	run_index_legacy_cleanup_once
-
-	assert_file_exists "$package_dir/libre-closet.json.tmp"
-	[ -d "$package_dir/libre-closet.d" ] || fail "Expected one-shot cleanup not to rerun after completion is recorded"
-}
-
 test_sqlite_retries_transient_write_failure() {
 	local fake_bin="$workdir/fake-sqlite-bin"
 	local fake_sqlite="$fake_bin/sqlite3"
@@ -532,7 +502,6 @@ test_parallel_shell_func_timeout_fallback
 test_curl_stops_retrying_after_timeout
 test_docker_manifest_inspect_stops_after_timeout
 test_ytoxt_stops_after_timeout
-test_run_index_legacy_cleanup_once
 test_sqlite_retries_transient_write_failure
 test_parallel_async_wait_continues_after_non_timeout_failure
 test_parallel_async_default_max_jobs_is_tuned

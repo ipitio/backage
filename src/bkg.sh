@@ -137,15 +137,6 @@ run_owner_updates() {
 	return "$status"
 }
 
-run_index_legacy_cleanup_once() {
-	[ -d "$BKG_INDEX_DIR" ] || return 0
-	[ "$(get_BKG BKG_INDEX_CLEANUP_DONE)" = "1" ] && return 0
-
-	echo "Cleaning legacy index artifacts..."
-	cleanup_index_legacy_artifacts "$BKG_INDEX_DIR"
-	set_BKG BKG_INDEX_CLEANUP_DONE "1"
-}
-
 main() {
 	local rotated=false
 	local owners
@@ -335,7 +326,6 @@ main() {
 		rm -f "$temp_connections"
 		BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
 		[ -d "$BKG_INDEX_DIR" ] || mkdir "$BKG_INDEX_DIR"
-		run_index_legacy_cleanup_once
 
 		if ((return_code != 3)); then
 			run_owner_updates

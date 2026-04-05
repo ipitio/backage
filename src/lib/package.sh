@@ -65,7 +65,6 @@ update_package() {
     local latest_version=-1
     local version_array_file=""
     local version_array_status=0
-    local legacy_version_dir
     local owner_rank
     local repo_rank
     local version_flush_status=0
@@ -103,7 +102,7 @@ update_package() {
     # shellcheck disable=SC2034
     lower_package=$(perl -pe 's/%([0-9A-Fa-f]{2})/chr(hex($1))/eg' <<<"${package//%/%25}" | tr '[:upper:]' '[:lower:]')
     [ -d "$BKG_INDEX_DIR/$owner/$repo" ] || mkdir -p "$BKG_INDEX_DIR/$owner/$repo" 2>/dev/null
-    cleanup_index_legacy_artifacts "$BKG_INDEX_DIR/$owner/$repo"
+    cleanup_generated_json_sidecars "$BKG_INDEX_DIR/$owner/$repo"
     sqlite3 "$BKG_INDEX_DB" "create table if not exists '$table_version_name' (
         id text not null,
         name text not null,
@@ -382,7 +381,5 @@ EOF
     check_limit || return $?
 	bash lib/ytoxt.sh "$json_file"
     (($? != 3)) || return 3
-	legacy_version_dir="$BKG_INDEX_DIR/$owner/$repo/$package.d"
-	[ ! -d "$legacy_version_dir" ] || rm -rf "$legacy_version_dir"
     echo "Refreshed $owner/$package"
 }

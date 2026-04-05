@@ -79,9 +79,7 @@ build_owner_arrays() {
 	local repo
 
 	find "$owner_dir" -type f \( -name '*.json.tmp' -o -name '*.json.abs' -o -name '*.json.rel' \) -delete
-	find "$owner_dir" -regextype posix-extended -type f -regex '.*\.json\.[[:alnum:]]{6}$' -delete
-	find "$owner_dir" -type d -name '*.d' -prune -exec rm -rf {} +
-	mapfile -d '' -t json_files < <(find "$owner_dir" -type d -name '*.d' -prune -o -type f -name '*.json' ! -name '.*' -print0 | LC_ALL=C sort -z)
+	mapfile -d '' -t json_files < <(find "$owner_dir" -type f -name '*.json' ! -name '.*' -print0 | LC_ALL=C sort -z)
 	if ((${#json_files[@]} == 0)); then
 		printf '[]\n' >"$owner_dir/.json.tmp"
 	else
@@ -140,24 +138,6 @@ test_small_owner_and_repo_arrays() {
 	assert_not_contains "$owner_dir/SideRepo/.xml" "libre-closet"
 }
 
-test_owner_arrays_cleanup_legacy_version_dirs() {
-	local owner_dir="$workdir/legacy/Lazztech"
-	local empty_payload="$workdir/empty-legacy.txt"
-	local legacy_dir="$owner_dir/Libre-Closet/libre-closet.d"
-
-	: >"$empty_payload"
-	mkdir -p "$owner_dir/Libre-Closet" "$legacy_dir"
-
-	write_package_json "$owner_dir/Libre-Closet/libre-closet.json" "Lazztech" "Libre-Closet" "libre-closet" 2 "$empty_payload"
-	printf '%s\n' '{"id":999,"name":"legacy-version"}' >"$legacy_dir/legacy.json"
-
-	build_owner_arrays "$owner_dir"
-
-	[ ! -d "$legacy_dir" ] || fail "Expected owner array creation to remove legacy package.d directories"
-	assert_json_array "$owner_dir/.json"
-	assert_json_length "$owner_dir/.json" 1
-}
-
 test_owner_arrays_cleanup_stale_json_sidecars() {
 	local owner_dir="$workdir/sidecars/Lazztech"
 	local empty_payload="$workdir/empty-sidecars.txt"
@@ -168,13 +148,11 @@ test_owner_arrays_cleanup_stale_json_sidecars() {
 	write_package_json "$owner_dir/Libre-Closet/libre-closet.json" "Lazztech" "Libre-Closet" "libre-closet" 1 "$empty_payload"
 	printf '%s\n' 'stale owner tmp' >"$owner_dir/owner.json.tmp"
 	printf '%s\n' 'stale repo abs' >"$owner_dir/Libre-Closet/libre-closet.json.abs"
-	printf '%s\n' 'stale repo mktemp' >"$owner_dir/Libre-Closet/libre-closet.json.ABC123"
 
 	build_owner_arrays "$owner_dir"
 
 	[ ! -f "$owner_dir/owner.json.tmp" ] || fail "Expected owner array creation to remove stale .json.tmp files"
 	[ ! -f "$owner_dir/Libre-Closet/libre-closet.json.abs" ] || fail "Expected owner array creation to remove stale .json.abs files"
-	[ ! -f "$owner_dir/Libre-Closet/libre-closet.json.ABC123" ] || fail "Expected owner array creation to remove stale .json.XXXXXX files"
 }
 
 test_owner_arrays_stream_json_into_jq() {
@@ -258,7 +236,6 @@ test_large_array_trimming() {
 trap cleanup EXIT
 
 test_small_owner_and_repo_arrays
-test_owner_arrays_cleanup_legacy_version_dirs
 test_owner_arrays_cleanup_stale_json_sidecars
 test_owner_arrays_stream_json_into_jq
 test_large_array_trimming

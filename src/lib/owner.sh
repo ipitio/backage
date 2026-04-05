@@ -52,7 +52,7 @@ owner_build_json_array() {
 	local json_file
 	local -a json_files=()
 
-	mapfile -d '' -t json_files < <(find "$1" -type d -name '*.d' -prune -o -type f -name '*.json' ! -name '.*' -print0 | LC_ALL=C sort -z)
+	mapfile -d '' -t json_files < <(find "$1" -type f -name '*.json' ! -name '.*' -print0 | LC_ALL=C sort -z)
 
 	if ((${#json_files[@]} == 0)); then
 		printf '[]\n'
@@ -150,7 +150,7 @@ update_owner() {
 
 	local owner_repos
 	check_limit || return $?
-	cleanup_index_legacy_artifacts "$BKG_INDEX_DIR/$owner"
+	cleanup_generated_json_sidecars "$BKG_INDEX_DIR/$owner"
 	owner_repos=$(find "$BKG_INDEX_DIR/$owner" -mindepth 1 -maxdepth 1 -type d -print0 | xargs -0 -I {} basename {})
 
 	if [ -n "$owner_repos" ]; then
