@@ -6,36 +6,44 @@ stop_requested() {
 
 ytox() {
 	local source_file
-	local normalized_file
-	local normalized_tmp=""
-	local xml_body
+	local xml_file
+	local xml_tmp
 	stop_requested && return 3
 
 	source_file="$1"
-	normalized_file="$source_file"
-
-	if jq -e 'type == "array"' "$source_file" >/dev/null 2>&1; then
-		normalized_tmp=$(mktemp "${TMPDIR:-/tmp}/ytoxt.XXXXXX") || return 1
-		jq -c '{"package": .}' "$source_file" >"$normalized_tmp" || {
-			rm -f "$normalized_tmp"
-			return 1
-		}
-		normalized_file="$normalized_tmp"
-	fi
+	xml_file="${source_file%.*}.xml"
+	xml_tmp=$(mktemp "$(dirname "$xml_file")/.${xml_file##*/}.XXXXXX") || return 1
 
 	stop_requested && {
-		[ -n "$normalized_tmp" ] && rm -f "$normalized_tmp"
+		rm -f "$xml_tmp"
 		return 3
 	}
 
-	xml_body=$(yq -ox -I0 "$normalized_file" 2>/dev/null) || {
-		[ -n "$normalized_tmp" ] && rm -f "$normalized_tmp"
+	printf '%s' '<?xml version="1.0" encoding="UTF-8"?><xml>' >"$xml_tmp" || {
+		rm -f "$xml_tmp"
 		return 1
 	}
 
-	[ -n "$normalized_tmp" ] && rm -f "$normalized_tmp"
-	printf '<?xml version="1.0" encoding="UTF-8"?><xml>%s</xml>' "$(printf '%s' "$xml_body" | sed 's/"/\\"/g')" >"${source_file%.*}.xml" 2>/dev/null
-	stat -c %s "${source_file%.*}.xml" || echo -1
+	if ! (
+		set -o pipefail
+		jq -c 'if type == "array" then {package: .} else . end' "$source_file" \
+			| yq -ox -I0 - 2>/dev/null \
+			| sed 's/"/\\"/g'
+	) >>"$xml_tmp"; then
+		rm -f "$xml_tmp"
+		return 1
+	fi
+
+	printf '%s' '</xml>' >>"$xml_tmp" || {
+		rm -f "$xml_tmp"
+		return 1
+	}
+
+	mv -f "$xml_tmp" "$xml_file" || {
+		rm -f "$xml_tmp"
+		return 1
+	}
+	stat -c %s "$xml_file" || echo -1
 }
 
 # ytox + trim: if the json or xml is over 50MB, remove oldest versions
@@ -98,9 +106,20 @@ while [ -f "$f" ]; do
 			else
 				0
 			end;
+		def versions_sorted:
+			(.version? // []) as $versions
+			| if ($versions | type) != "array" or ($versions | length) < 2 then
+				true
+			else
+				reduce range(1; ($versions | length)) as $i (true; . and (($versions[$i - 1].id | id_to_num) <= ($versions[$i].id | id_to_num)))
+			end;
 		def trim_version_holder($n):
 			if version_len > 0 then
-				.version |= (sort_by(.id | id_to_num) | .[$n:])
+				if versions_sorted then
+					.version |= .[$n:]
+				else
+					.version |= (sort_by(.id | id_to_num) | .[$n:])
+				end
 			else
 				.
 			end;

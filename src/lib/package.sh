@@ -251,11 +251,11 @@ update_package() {
     version_with_tag_count=$(sqlite3 "$BKG_INDEX_DB" "select count(distinct id) from '$table_version_name' where id regexp '^[0-9]+$' and tags is not null and tags != '';")
 	version_newest_id=$(sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name' where id regexp '^[0-9]+$' order by CAST(id as integer) desc limit 1;" || :)
 	[[ "$version_row_count" =~ ^[0-9]+$ ]] || version_row_count=0
-	[[ "$latest_version" =~ ^[0-9]+$ ]] || latest_version=$(sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name' where id regexp '^[0-9]+$' and tags is not null and tags != '' and tags regexp '(^|,)[[:space:]]*latest([[:space:]]*,|$)' order by id desc limit 1;" || :)
-    [[ "$latest_version" =~ ^[0-9]+$ ]] || latest_version=$(sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name' where id regexp '^[0-9]+$' and tags is not null and tags != '' and tags regexp '^[^\^~-]+$' order by id desc limit 1;" || :)
-    [[ "$latest_version" =~ ^[0-9]+$ ]] || latest_version=$(sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name' where id regexp '^[0-9]+$' and tags is not null and tags != '' and tags regexp '^[^\^~]+$' order by id desc limit 1;" || :)
-    [[ "$latest_version" =~ ^[0-9]+$ ]] || latest_version=$(sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name' where id regexp '^[0-9]+$' and tags is not null and tags != '' and tags regexp '^[^\^]+$' order by id desc limit 1;" || :)
-    [[ "$latest_version" =~ ^[0-9]+$ ]] || latest_version=$(sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name' where id regexp '^[0-9]+$' and tags is not null and tags != '' order by id desc limit 1;" || :)
+	[[ "$latest_version" =~ ^[0-9]+$ ]] || latest_version=$(sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name' where id regexp '^[0-9]+$' and tags is not null and tags != '' and tags regexp '(^|,)[[:space:]]*latest([[:space:]]*,|$)' order by CAST(id as integer) desc limit 1;" || :)
+    [[ "$latest_version" =~ ^[0-9]+$ ]] || latest_version=$(sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name' where id regexp '^[0-9]+$' and tags is not null and tags != '' and tags regexp '^[^\^~-]+$' order by CAST(id as integer) desc limit 1;" || :)
+    [[ "$latest_version" =~ ^[0-9]+$ ]] || latest_version=$(sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name' where id regexp '^[0-9]+$' and tags is not null and tags != '' and tags regexp '^[^\^~]+$' order by CAST(id as integer) desc limit 1;" || :)
+    [[ "$latest_version" =~ ^[0-9]+$ ]] || latest_version=$(sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name' where id regexp '^[0-9]+$' and tags is not null and tags != '' and tags regexp '^[^\^]+$' order by CAST(id as integer) desc limit 1;" || :)
+    [[ "$latest_version" =~ ^[0-9]+$ ]] || latest_version=$(sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name' where id regexp '^[0-9]+$' and tags is not null and tags != '' order by CAST(id as integer) desc limit 1;" || :)
 	[[ "$latest_version" =~ ^[0-9]+$ ]] || latest_version=$(sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name' order by id desc limit 1;" || :)
     [[ "$version_count" =~ ^[0-9]+$ ]] || version_count=0
     [[ "$version_with_tag_count" =~ ^[0-9]+$ ]] || version_with_tag_count=0

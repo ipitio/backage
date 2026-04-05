@@ -103,10 +103,16 @@ version_build_array_json() {
               end;
         def human_metric: human_units(["", "k", "M", "B", "T", "P", "E", "Z", "Y"]; false);
         def human_size: human_units(["", "kB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"]; true);
+        def sort_id_key:
+            [
+                (if (.id | tonumber?) != null then 0 else 1 end),
+                ((.id | tonumber?) // 0),
+                (.id | tostring)
+            ];
 
         group_by(.id)
         | map(max_by(.date))
-        | sort_by(.id | tostring)
+        | sort_by(sort_id_key)
         | map(
             (.id | tostring) as $id
             | (.size | tonumber? // -1) as $size

@@ -114,8 +114,8 @@ test_update_package_builds_version_array_from_db() {
 		sqlite3 "$BKG_INDEX_DB" "create table if not exists '$BKG_INDEX_TBL_PKG' (owner_id text, owner_type text not null, package_type text not null, owner text not null, repo text not null, package text not null, downloads integer not null, downloads_month integer not null, downloads_week integer not null, downloads_day integer not null, size integer not null, date text not null, primary key (owner_id, package, date));"
 		sqlite3 "$BKG_INDEX_DB" "create table if not exists '$table_version_name' (id text not null, name text not null, size integer not null, downloads integer not null, downloads_month integer not null, downloads_week integer not null, downloads_day integer not null, date text not null, tags text, primary key (id, date));"
 		sqlite3 "$BKG_INDEX_DB" "insert into '$BKG_INDEX_TBL_PKG' (owner_id, owner_type, package_type, owner, repo, package, downloads, downloads_month, downloads_week, downloads_day, size, date) values ('69664378','orgs','container','Lazztech','Libre-Closet','libre-closet','2000','300','200','20','400','$today');"
-		sqlite3 "$BKG_INDEX_DB" "insert into '$table_version_name' (id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags) values ('101','sha256:a','123','984','984','454','2','$today','stable');"
-		sqlite3 "$BKG_INDEX_DB" "insert into '$table_version_name' (id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags) values ('102','sha256:b','456','985','985','455','3','$today','latest');"
+		sqlite3 "$BKG_INDEX_DB" "insert into '$table_version_name' (id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags) values ('10','sha256:b','456','985','985','455','3','$today','latest');"
+		sqlite3 "$BKG_INDEX_DB" "insert into '$table_version_name' (id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags) values ('2','sha256:a','123','984','984','454','2','$today','stable');"
 		printf '69664378|Lazztech|Libre-Closet|libre-closet|%s\n' "$today" >packages_already_updated
 
 		update_package 'container/Libre-Closet/libre-closet' >/dev/null
@@ -123,7 +123,7 @@ test_update_package_builds_version_array_from_db() {
 		assert_file_exists "$BKG_INDEX_DIR/$owner/$repo/$package.json"
 		[ ! -f "$BKG_INDEX_DIR/$owner/$repo/$package.json.abs" ] || fail "Expected package refresh to remove stale .json.abs files"
 		[ ! -f "$BKG_INDEX_DIR/$owner/$repo/$package.json.tmp" ] || fail "Expected package refresh to remove stale .json.tmp files"
-		jq -e '.raw_versions == 2 and (.version | length) == 2 and any(.version[]; .id == 102 and .latest == true and .newest == true) and any(.version[]; .id == 101 and (.tags | index("stable")))' "$BKG_INDEX_DIR/$owner/$repo/$package.json" >/dev/null || fail "Expected package JSON to embed version rows directly from the database"
+		jq -e '.raw_versions == 2 and (.version | map(.id) == [2,10]) and any(.version[]; .id == 10 and .latest == true and .newest == true) and any(.version[]; .id == 2 and (.tags | index("stable")))' "$BKG_INDEX_DIR/$owner/$repo/$package.json" >/dev/null || fail "Expected package JSON to embed numerically ordered version rows directly from the database"
 	)
 }
 
