@@ -74,12 +74,22 @@ write_package_json() {
 
 build_owner_arrays() {
 	local owner_dir=$1
+	local json_file
+	local -a json_files=()
 	local repo
 
 	find "$owner_dir" -type f \( -name '*.json.tmp' -o -name '*.json.abs' -o -name '*.json.rel' \) -delete
 	find "$owner_dir" -regextype posix-extended -type f -regex '.*\.json\.[[:alnum:]]{6}$' -delete
 	find "$owner_dir" -type d -name '*.d' -prune -exec rm -rf {} +
-	find "$owner_dir" -type d -name '*.d' -prune -o -type f -name '*.json' ! -name '.*' -print0 | xargs -0 jq -cs '.' >"$owner_dir/.json.tmp"
+	mapfile -d '' -t json_files < <(find "$owner_dir" -type d -name '*.d' -prune -o -type f -name '*.json' ! -name '.*' -print0 | LC_ALL=C sort -z)
+	if ((${#json_files[@]} == 0)); then
+		printf '[]\n' >"$owner_dir/.json.tmp"
+	else
+		for json_file in "${json_files[@]}"; do
+			cat "$json_file"
+			printf '\n'
+		done | jq -cs '.' >"$owner_dir/.json.tmp"
+	fi
 	mv -f "$owner_dir/.json.tmp" "$owner_dir/.json"
 	bash "$src_dir/lib/ytoxt.sh" "$owner_dir/.json" >/dev/null
 
@@ -167,6 +177,34 @@ test_owner_arrays_cleanup_stale_json_sidecars() {
 	[ ! -f "$owner_dir/Libre-Closet/libre-closet.json.ABC123" ] || fail "Expected owner array creation to remove stale .json.XXXXXX files"
 }
 
+test_owner_arrays_stream_json_into_jq() {
+	local owner_dir="$workdir/stream/Lazztech"
+	local empty_payload="$workdir/empty-stream.txt"
+
+	: >"$empty_payload"
+	mkdir -p "$owner_dir/Libre-Closet"
+
+	write_package_json "$owner_dir/Libre-Closet/libre-closet.json" "Lazztech" "Libre-Closet" "libre-closet" 1 "$empty_payload"
+	write_package_json "$owner_dir/Libre-Closet/libre-closet-dev.json" "Lazztech" "Libre-Closet" "libre-closet-dev" 1 "$empty_payload"
+
+	jq() {
+		local arg
+		if [ "${1:-}" = "-cs" ] && [ "${2:-}" = "." ]; then
+			for arg in "$@"; do
+				[[ "$arg" == *.json ]] && fail "Expected owner array creation to stream JSON into jq instead of passing file paths"
+			done
+		fi
+
+		command jq "$@"
+	}
+
+	build_owner_arrays "$owner_dir"
+	unset -f jq
+
+	assert_file_exists "$owner_dir/.json"
+	assert_json_length "$owner_dir/.json" 2
+}
+
 test_large_array_trimming() {
 	local payload_file="$workdir/payload.txt"
 	local empty_payload="$workdir/empty-large.txt"
@@ -222,6 +260,7 @@ trap cleanup EXIT
 test_small_owner_and_repo_arrays
 test_owner_arrays_cleanup_legacy_version_dirs
 test_owner_arrays_cleanup_stale_json_sidecars
+test_owner_arrays_stream_json_into_jq
 test_large_array_trimming
 
 echo "Array creation regression tests passed"

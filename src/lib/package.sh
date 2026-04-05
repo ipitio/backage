@@ -63,7 +63,7 @@ update_package() {
     local version_with_tag_count=-1
     local version_newest_id=-1
     local latest_version=-1
-    local version_array_json=""
+    local version_array_file=""
     local version_array_status=0
     local legacy_version_dir
     local owner_rank
@@ -262,52 +262,58 @@ update_package() {
     [[ "$version_with_tag_count" =~ ^[0-9]+$ ]] || version_with_tag_count=0
     [[ "$version_newest_id" =~ ^[0-9]+$ ]] || version_newest_id=-1
     [[ "$latest_version" =~ ^[0-9]+$ ]] || latest_version=-1
+	version_array_file=$(mktemp) || return 1
 
 	if ((version_row_count == 0)); then
 		echo "No version rows available for $owner/$package; using package-level fallback data" >&2
-		version_array_json="[{
-            \"id\": -1,
-            \"name\": \"latest\",
-            \"date\": \"$(date -u +%Y-%m-%d)\",
-            \"newest\": true,
-            \"latest\": true,
-            \"size\": \"$(numfmt_size <<<"$size")\",
-            \"downloads\": \"$(numfmt <<<"$raw_downloads")\",
-            \"downloads_month\": \"$(numfmt <<<"$raw_downloads_month")\",
-            \"downloads_week\": \"$(numfmt <<<"$raw_downloads_week")\",
-            \"downloads_day\": \"$(numfmt <<<"$raw_downloads_day")\",
-            \"raw_size\": $size,
-            \"raw_downloads\": $raw_downloads,
-            \"raw_downloads_month\": $raw_downloads_month,
-            \"raw_downloads_week\": $raw_downloads_week,
-            \"raw_downloads_day\": $raw_downloads_day,
-            \"tags\": []
-        }]"
+		cat >"$version_array_file" <<EOF
+[{
+    "id": -1,
+    "name": "latest",
+    "date": "$(date -u +%Y-%m-%d)",
+    "newest": true,
+    "latest": true,
+    "size": "$(numfmt_size <<<"$size")",
+    "downloads": "$(numfmt <<<"$raw_downloads")",
+    "downloads_month": "$(numfmt <<<"$raw_downloads_month")",
+    "downloads_week": "$(numfmt <<<"$raw_downloads_week")",
+    "downloads_day": "$(numfmt <<<"$raw_downloads_day")",
+    "raw_size": $size,
+    "raw_downloads": $raw_downloads,
+    "raw_downloads_month": $raw_downloads_month,
+    "raw_downloads_week": $raw_downloads_week,
+    "raw_downloads_day": $raw_downloads_day,
+    "tags": []
+}]
+EOF
 	else
-		version_array_json=$(version_build_array_json "$version_newest_id" "$latest_version") || version_array_status=$?
+		version_build_array_json "$version_newest_id" "$latest_version" >"$version_array_file" || version_array_status=$?
 
 		if ((version_array_status == 3)); then
+			rm -f "$version_array_file"
 			return 3
-		elif ((version_array_status != 0)) || [ -z "$version_array_json" ]; then
+		elif ((version_array_status != 0)) || [ ! -s "$version_array_file" ]; then
 			echo "Failed to build version array from database for $owner/$package; using package-level fallback data" >&2
-			version_array_json="[{
-                \"id\": -1,
-                \"name\": \"latest\",
-                \"date\": \"$(date -u +%Y-%m-%d)\",
-                \"newest\": true,
-                \"latest\": true,
-                \"size\": \"$(numfmt_size <<<"$size")\",
-                \"downloads\": \"$(numfmt <<<"$raw_downloads")\",
-                \"downloads_month\": \"$(numfmt <<<"$raw_downloads_month")\",
-                \"downloads_week\": \"$(numfmt <<<"$raw_downloads_week")\",
-                \"downloads_day\": \"$(numfmt <<<"$raw_downloads_day")\",
-                \"raw_size\": $size,
-                \"raw_downloads\": $raw_downloads,
-                \"raw_downloads_month\": $raw_downloads_month,
-                \"raw_downloads_week\": $raw_downloads_week,
-                \"raw_downloads_day\": $raw_downloads_day,
-                \"tags\": []
-            }]"
+			cat >"$version_array_file" <<EOF
+[{
+    "id": -1,
+    "name": "latest",
+    "date": "$(date -u +%Y-%m-%d)",
+    "newest": true,
+    "latest": true,
+    "size": "$(numfmt_size <<<"$size")",
+    "downloads": "$(numfmt <<<"$raw_downloads")",
+    "downloads_month": "$(numfmt <<<"$raw_downloads_month")",
+    "downloads_week": "$(numfmt <<<"$raw_downloads_week")",
+    "downloads_day": "$(numfmt <<<"$raw_downloads_day")",
+    "raw_size": $size,
+    "raw_downloads": $raw_downloads,
+    "raw_downloads_month": $raw_downloads_month,
+    "raw_downloads_week": $raw_downloads_week,
+    "raw_downloads_day": $raw_downloads_day,
+    "tags": []
+}]
+EOF
 		fi
 	fi
 
@@ -342,7 +348,7 @@ update_package() {
         --argjson raw_downloads_month "$raw_downloads_month" \
         --argjson raw_downloads_week "$raw_downloads_week" \
         --argjson raw_downloads_day "$raw_downloads_day" \
-        --argjson version "$version_array_json" \
+        --slurpfile version "$version_array_file" \
         '{
             owner_type: $owner_type,
             package_type: $package_type,
@@ -369,8 +375,9 @@ update_package() {
             raw_downloads_month: $raw_downloads_month,
             raw_downloads_week: $raw_downloads_week,
             raw_downloads_day: $raw_downloads_day,
-            version: $version
+            version: ($version[0] // [])
         }' >"$json_file".abs || echo "Failed to update $owner/$package with $size bytes and $raw_downloads downloads and $version_count versions and $version_with_tag_count tagged versions and $raw_downloads_month downloads this month and $raw_downloads_week downloads this week and $raw_downloads_day downloads today and $latest_version latest version and $version_newest_id newest version"
+    rm -f "$version_array_file"
     [[ ! -f "$json_file".abs || ! -s "$json_file".abs ]] || mv "$json_file".abs "$json_file"
     check_limit || return $?
 	bash lib/ytoxt.sh "$json_file"

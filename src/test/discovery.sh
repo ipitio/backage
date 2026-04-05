@@ -94,4 +94,38 @@ popd >/dev/null
 
 grep -Fxq "container/Libre-Closet/libre-closet" <<<"$(get_BKG_set BKG_PACKAGES_Lazztech)" || fail "Expected queued package list to include Lazztech/libre-closet"
 
+init_bkg_state
+GITHUB_TOKEN=dummy
+BKG_PAGE_ALL=1
+set_BKG BKG_LAST_SCANNED_ID 0
+
+query_api() {
+    case "$1" in
+    users*)
+        printf '%s\n' '[{"id":1,"login":"alpha"}]'
+        ;;
+    organizations*)
+        printf '%s\n' '[{"id":2,"login":"beta"}]'
+        ;;
+    esac
+}
+
+request_owner() {
+    :
+}
+
+jq() {
+    if [[ " $* " == *" --argjson users "* ]] || [[ " $* " == *" --argjson orgs "* ]]; then
+        fail "Expected page_owner to merge API pages without jq --argjson"
+    fi
+
+    command jq "$@"
+}
+
+page_owner 1 >/dev/null
+
+unset -f query_api
+unset -f request_owner
+unset -f jq
+
 echo "Second-hop discovery regression test passed"

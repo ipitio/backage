@@ -43,6 +43,28 @@ save_owner() {
 	! set_BKG_set BKG_OWNERS_QUEUE "$owner_id" || echo "Queued $(cut -d'/' -f2 <<<"$owner_id")"
 }
 
+owner_merge_pages_json() {
+	printf '%s\n%s\n' "${1:-[]}" "${2:-[]}" | jq -cs 'add | unique_by(.login)'
+}
+
+owner_build_json_array() {
+	[ -n "$1" ] || return
+	local json_file
+	local -a json_files=()
+
+	mapfile -d '' -t json_files < <(find "$1" -type d -name '*.d' -prune -o -type f -name '*.json' ! -name '.*' -print0 | LC_ALL=C sort -z)
+
+	if ((${#json_files[@]} == 0)); then
+		printf '[]\n'
+		return 0
+	fi
+
+	for json_file in "${json_files[@]}"; do
+		cat "$json_file"
+		printf '\n'
+	done | jq -cs '.'
+}
+
 page_owner() {
 	[ -n "$1" ] || return
 	local owners_more="[]"
@@ -55,7 +77,7 @@ page_owner() {
 		last_id=$(get_BKG BKG_LAST_SCANNED_ID)
 		users_more=$(query_api "users?per_page=100&page=$1&since=$last_id")
 		orgs_more=$(query_api "organizations?per_page=100&page=$1&since=$last_id")
-		owners_more=$(jq --argjson users "$users_more" --argjson orgs "$orgs_more" -n '$users + $orgs | unique_by(.login)')
+		owners_more=$(owner_merge_pages_json "$users_more" "$orgs_more")
 	fi
 
 	# if owners doesn't have .login, break
@@ -134,7 +156,7 @@ update_owner() {
 	if [ -n "$owner_repos" ]; then
 		check_limit || return $?
 		echo "Creating $owner array..."
-		find "$BKG_INDEX_DIR/$owner" -type d -name '*.d' -prune -o -type f -name '*.json' ! -name '.*' -print0 | xargs -0 jq -cs '.' >"$BKG_INDEX_DIR/$owner/.json.tmp"
+		owner_build_json_array "$BKG_INDEX_DIR/$owner" >"$BKG_INDEX_DIR/$owner/.json.tmp"
 		mv -f "$BKG_INDEX_DIR/$owner/.json.tmp" "$BKG_INDEX_DIR/$owner/.json"
 		bash lib/ytoxt.sh "$BKG_INDEX_DIR/$owner/.json"
 		(($? != 3)) || return 3
