@@ -52,7 +52,6 @@ update_package() {
     [ -n "$1" ] || return
     [ -n "$owner" ] || return
     local html
-    local raw_all
     local raw_downloads=-1
     local raw_downloads_month=-1
     local raw_downloads_week=-1
@@ -65,6 +64,10 @@ update_package() {
     local latest_version=-1
     local version_array_file=""
     local version_array_status=0
+    local package_stats_row=""
+    local version_stats_row=""
+    local package_max_downloads=-1
+    local rank_stats_row=""
     local owner_rank
     local repo_rank
     local version_flush_status=0
@@ -221,18 +224,30 @@ update_package() {
     check_limit || return $?
 
     # calculate the overall downloads and size
-    size=$(sqlite3 "$BKG_INDEX_DB" "select size from '$table_version_name' where size > 1 order by id desc, date desc limit 1;")
-    raw_all=$(sqlite3 "$BKG_INDEX_DB" "select sum(downloads), sum(downloads_month), sum(downloads_week), sum(downloads_day) from '$table_version_name' where date >= '$BKG_BATCH_FIRST_STARTED';")
-    summed_raw_downloads=$(cut -d'|' -f1 <<<"$raw_all")
-    raw_downloads_month=$(cut -d'|' -f2 <<<"$raw_all")
-    raw_downloads_week=$(cut -d'|' -f3 <<<"$raw_all")
-    raw_downloads_day=$(cut -d'|' -f4 <<<"$raw_all")
+    package_stats_row=$(sqlite3 "$BKG_INDEX_DB" "
+        select
+            coalesce((select size from '$table_version_name' where size > 1 order by CAST(id as integer) desc, date desc limit 1), -1),
+            coalesce(sum(downloads), -1),
+            coalesce(sum(downloads_month), -1),
+            coalesce(sum(downloads_week), -1),
+            coalesce(sum(downloads_day), -1),
+            coalesce((select max(downloads) from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and package='$package'), -1)
+        from '$table_version_name'
+        where date >= '$BKG_BATCH_FIRST_STARTED';
+    ")
+    size=$(cut -d'|' -f1 <<<"$package_stats_row")
+    summed_raw_downloads=$(cut -d'|' -f2 <<<"$package_stats_row")
+    raw_downloads_month=$(cut -d'|' -f3 <<<"$package_stats_row")
+    raw_downloads_week=$(cut -d'|' -f4 <<<"$package_stats_row")
+    raw_downloads_day=$(cut -d'|' -f5 <<<"$package_stats_row")
+    package_max_downloads=$(cut -d'|' -f6 <<<"$package_stats_row")
     [[ "$size" =~ ^[0-9]+$ ]] || size=-1
     [[ "$summed_raw_downloads" =~ ^[0-9]+$ ]] || summed_raw_downloads=-1
     [[ "$raw_downloads_month" =~ ^[0-9]+$ ]] || raw_downloads_month=-1
     [[ "$raw_downloads_week" =~ ^[0-9]+$ ]] || raw_downloads_week=-1
     [[ "$raw_downloads_day" =~ ^[0-9]+$ ]] || raw_downloads_day=-1
-    [[ "$raw_downloads" =~ ^[0-9]+$ ]] || raw_downloads=$(sqlite3 "$BKG_INDEX_DB" "select max(downloads) from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and package='$package';")
+    [[ "$package_max_downloads" =~ ^[0-9]+$ ]] || package_max_downloads=-1
+    [[ "$raw_downloads" =~ ^[0-9]+$ ]] || raw_downloads=$package_max_downloads
     [[ "$raw_downloads" =~ ^[0-9]+$ || "$raw_downloads" == "-1" ]] || return
     [[ "$summed_raw_downloads" =~ ^[0-9]+$ ]] && ((summed_raw_downloads > raw_downloads)) && raw_downloads=$summed_raw_downloads || :
 
@@ -246,17 +261,44 @@ update_package() {
         fi
     fi
 
-    version_row_count=$(sqlite3 "$BKG_INDEX_DB" "select count(*) from '$table_version_name';")
-    version_count=$(sqlite3 "$BKG_INDEX_DB" "select count(distinct id) from '$table_version_name' where id regexp '^[0-9]+$';")
-    version_with_tag_count=$(sqlite3 "$BKG_INDEX_DB" "select count(distinct id) from '$table_version_name' where id regexp '^[0-9]+$' and tags is not null and tags != '';")
-	version_newest_id=$(sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name' where id regexp '^[0-9]+$' order by CAST(id as integer) desc limit 1;" || :)
+    version_stats_row=$(sqlite3 "$BKG_INDEX_DB" "
+        with version_rows as (
+            select
+                id,
+                tags,
+                case when id regexp '^[0-9]+$' then CAST(id as integer) end as numeric_id,
+                replace(replace(replace(replace(coalesce(tags, ''), ' ', ''), char(9), ''), char(10), ''), char(13), '') as compact_tags
+            from '$table_version_name'
+        ),
+        stats as (
+            select
+                count(*) as version_row_count,
+                count(distinct case when numeric_id is not null then id end) as version_count,
+                count(distinct case when numeric_id is not null and tags is not null and tags != '' then id end) as version_with_tag_count,
+                max(numeric_id) as version_newest_id,
+                max(case when numeric_id is not null and tags is not null and tags != '' and (',' || compact_tags || ',') like '%,latest,%' then numeric_id end) as latest_exact,
+                max(case when numeric_id is not null and tags is not null and tags != '' and instr(tags, '^') = 0 and instr(tags, '~') = 0 and instr(tags, '-') = 0 then numeric_id end) as latest_no_caret_tilde_hyphen,
+                max(case when numeric_id is not null and tags is not null and tags != '' and instr(tags, '^') = 0 and instr(tags, '~') = 0 then numeric_id end) as latest_no_caret_tilde,
+                max(case when numeric_id is not null and tags is not null and tags != '' and instr(tags, '^') = 0 then numeric_id end) as latest_no_caret,
+                max(case when numeric_id is not null and tags is not null and tags != '' then numeric_id end) as latest_any_tagged
+            from version_rows
+        )
+        select
+            version_row_count,
+            version_count,
+            version_with_tag_count,
+            coalesce(version_newest_id, ''),
+            coalesce(latest_exact, latest_no_caret_tilde_hyphen, latest_no_caret_tilde, latest_no_caret, latest_any_tagged, ''),
+            coalesce((select id from '$table_version_name' order by id desc limit 1), '')
+        from stats;
+    ")
+    version_row_count=$(cut -d'|' -f1 <<<"$version_stats_row")
+    version_count=$(cut -d'|' -f2 <<<"$version_stats_row")
+    version_with_tag_count=$(cut -d'|' -f3 <<<"$version_stats_row")
+	version_newest_id=$(cut -d'|' -f4 <<<"$version_stats_row")
 	[[ "$version_row_count" =~ ^[0-9]+$ ]] || version_row_count=0
-	[[ "$latest_version" =~ ^[0-9]+$ ]] || latest_version=$(sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name' where id regexp '^[0-9]+$' and tags is not null and tags != '' and tags regexp '(^|,)[[:space:]]*latest([[:space:]]*,|$)' order by CAST(id as integer) desc limit 1;" || :)
-    [[ "$latest_version" =~ ^[0-9]+$ ]] || latest_version=$(sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name' where id regexp '^[0-9]+$' and tags is not null and tags != '' and tags regexp '^[^\^~-]+$' order by CAST(id as integer) desc limit 1;" || :)
-    [[ "$latest_version" =~ ^[0-9]+$ ]] || latest_version=$(sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name' where id regexp '^[0-9]+$' and tags is not null and tags != '' and tags regexp '^[^\^~]+$' order by CAST(id as integer) desc limit 1;" || :)
-    [[ "$latest_version" =~ ^[0-9]+$ ]] || latest_version=$(sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name' where id regexp '^[0-9]+$' and tags is not null and tags != '' and tags regexp '^[^\^]+$' order by CAST(id as integer) desc limit 1;" || :)
-    [[ "$latest_version" =~ ^[0-9]+$ ]] || latest_version=$(sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name' where id regexp '^[0-9]+$' and tags is not null and tags != '' order by CAST(id as integer) desc limit 1;" || :)
-	[[ "$latest_version" =~ ^[0-9]+$ ]] || latest_version=$(sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name' order by id desc limit 1;" || :)
+	[[ "$latest_version" =~ ^[0-9]+$ ]] || latest_version=$(cut -d'|' -f5 <<<"$version_stats_row")
+	[[ "$latest_version" =~ ^[0-9]+$ ]] || latest_version=$(cut -d'|' -f6 <<<"$version_stats_row")
     [[ "$version_count" =~ ^[0-9]+$ ]] || version_count=0
     [[ "$version_with_tag_count" =~ ^[0-9]+$ ]] || version_with_tag_count=0
     [[ "$version_newest_id" =~ ^[0-9]+$ ]] || version_newest_id=-1
@@ -288,10 +330,7 @@ EOF
 	else
 		version_build_array_json "$version_newest_id" "$latest_version" >"$version_array_file" || version_array_status=$?
 
-		if ((version_array_status == 3)); then
-			rm -f "$version_array_file"
-			return 3
-		elif ((version_array_status != 0)) || [ ! -s "$version_array_file" ]; then
+		if ((version_array_status != 0)) || [ ! -s "$version_array_file" ]; then
 			echo "Failed to build version array from database for $owner/$package; using package-level fallback data" >&2
 			cat >"$version_array_file" <<EOF
 [{
@@ -316,8 +355,37 @@ EOF
 		fi
 	fi
 
-    owner_rank=$(sqlite3 "$BKG_INDEX_DB" "select rank from (select package, rank () over (order by downloads desc) rank from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and date in (select date from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' order by date desc limit 1)) where package='$package';" || :)
-    repo_rank=$(sqlite3 "$BKG_INDEX_DB" "select rank from (select package, rank () over (order by downloads desc) rank from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and repo='$repo' and date in (select date from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and repo='$repo' order by date desc limit 1)) where package='$package';" || :)
+    rank_stats_row=$(sqlite3 "$BKG_INDEX_DB" "
+        with
+        owner_latest as (
+            select max(date) as latest_date
+            from '$BKG_INDEX_TBL_PKG'
+            where owner_id='$owner_id'
+        ),
+        repo_latest as (
+            select max(date) as latest_date
+            from '$BKG_INDEX_TBL_PKG'
+            where owner_id='$owner_id' and repo='$repo'
+        ),
+        owner_ranked as (
+            select package, rank() over (order by downloads desc) as rank
+            from '$BKG_INDEX_TBL_PKG'
+            where owner_id='$owner_id'
+              and date = (select latest_date from owner_latest)
+        ),
+        repo_ranked as (
+            select package, rank() over (order by downloads desc) as rank
+            from '$BKG_INDEX_TBL_PKG'
+            where owner_id='$owner_id'
+              and repo='$repo'
+              and date = (select latest_date from repo_latest)
+        )
+        select
+            coalesce((select rank from owner_ranked where package='$package'), -1),
+            coalesce((select rank from repo_ranked where package='$package'), -1);
+    " || :)
+    owner_rank=$(cut -d'|' -f1 <<<"$rank_stats_row")
+    repo_rank=$(cut -d'|' -f2 <<<"$rank_stats_row")
     [[ "$owner_rank" =~ ^[0-9]+$ ]] || owner_rank=-1
     [[ "$repo_rank" =~ ^[0-9]+$ ]] || repo_rank=-1
 
@@ -378,8 +446,6 @@ EOF
         }' >"$json_file".abs || echo "Failed to update $owner/$package with $size bytes and $raw_downloads downloads and $version_count versions and $version_with_tag_count tagged versions and $raw_downloads_month downloads this month and $raw_downloads_week downloads this week and $raw_downloads_day downloads today and $latest_version latest version and $version_newest_id newest version"
     rm -f "$version_array_file"
     [[ ! -f "$json_file".abs || ! -s "$json_file".abs ]] || mv "$json_file".abs "$json_file"
-    check_limit || return $?
 	bash lib/ytoxt.sh "$json_file"
-    (($? != 3)) || return 3
     echo "Refreshed $owner/$package"
 }

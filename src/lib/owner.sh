@@ -75,8 +75,8 @@ page_owner() {
 		echo "Checking owners page $1..."
 		local last_id
 		last_id=$(get_BKG BKG_LAST_SCANNED_ID)
-		users_more=$(query_api "users?per_page=100&page=$1&since=$last_id")
-		orgs_more=$(query_api "organizations?per_page=100&page=$1&since=$last_id")
+		users_more=$(query_api "users?per_page=$( ((BKG_PAGE_ALL > 0)) && echo 1 || echo 100)&page=$1&since=$last_id")
+		orgs_more=$(query_api "organizations?per_page=$( ((BKG_PAGE_ALL > 0)) && echo 1 || echo 100)&page=$1&since=$last_id")
 		owners_more=$(owner_merge_pages_json "$users_more" "$orgs_more")
 	fi
 
@@ -84,7 +84,7 @@ page_owner() {
 	jq -e '.[].login' <<<"$owners_more" &>/dev/null || return 2
 	local owners_lines
 	owners_lines=$(jq -r '.[] | @base64' <<<"$owners_more")
-	((BKG_PAGE_ALL > 0)) && request_owner "$(echo "$owners_lines" | head -n1)" || run_parallel request_owner "$owners_lines"
+	run_parallel request_owner "$owners_lines"
 	echo "Checked owners page $1"
 	[ "$(wc -l <<<"$owners_lines")" -gt 1 ] || return 2
 }
@@ -149,19 +149,15 @@ update_owner() {
 	fi
 
 	local owner_repos
-	check_limit || return $?
 	cleanup_generated_json_sidecars "$BKG_INDEX_DIR/$owner"
 	owner_repos=$(find "$BKG_INDEX_DIR/$owner" -mindepth 1 -maxdepth 1 -type d -print0 | xargs -0 -I {} basename {})
 
 	if [ -n "$owner_repos" ]; then
-		check_limit || return $?
 		echo "Creating $owner array..."
 		owner_build_json_array "$BKG_INDEX_DIR/$owner" >"$BKG_INDEX_DIR/$owner/.json.tmp"
 		mv -f "$BKG_INDEX_DIR/$owner/.json.tmp" "$BKG_INDEX_DIR/$owner/.json"
 		bash lib/ytoxt.sh "$BKG_INDEX_DIR/$owner/.json"
-		(($? != 3)) || return 3
 
-		check_limit || return $?
 		echo "Creating $owner repo arrays..."
 		parallel "jq -c --arg repo {} '[.[] | select(.repo == \$repo)]' \"$BKG_INDEX_DIR/$owner/.json\" > \"$BKG_INDEX_DIR/$owner/{}/.json.tmp\"" <<<"$owner_repos"
 		xargs -I {} mv -f "$BKG_INDEX_DIR/$owner/{}/.json.tmp" "$BKG_INDEX_DIR/$owner/{}/.json" 2>/dev/null <<<"$owner_repos"
