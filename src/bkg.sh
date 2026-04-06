@@ -137,6 +137,68 @@ run_owner_updates() {
 	return "$status"
 }
 
+startup_phase_started_at() {
+	date -u +%s
+}
+
+log_startup_phase() {
+	local phase=$1
+	local started_at=${2:-0}
+	local elapsed=0
+
+	((started_at > 0)) || return 0
+	elapsed=$(( $(date -u +%s) - started_at ))
+	echo "Startup phase '$phase' completed in ${elapsed}s"
+}
+
+log_prequeue_elapsed_once() {
+	[ "${BKG_QUEUE_START_LOGGED:-0}" = "1" ] && return 0
+	BKG_QUEUE_START_LOGGED=1
+	log_startup_phase "pre-queue-work" "${BKG_STARTUP_STARTED_AT:-0}"
+}
+
+db_restore_signature_file() {
+	printf '%s\n' "${BKG_INDEX_DB}.snapshot.sha256"
+}
+
+current_index_snapshot_signature() {
+	sha256sum "$BKG_INDEX_SQL.zst" | awk '{print $1}'
+}
+
+restore_db_from_index_snapshot_if_needed() {
+	[ -f "$BKG_INDEX_SQL.zst" ] || return 0
+	local signature_file
+	local current_signature
+	local stored_signature=""
+
+	signature_file=$(db_restore_signature_file)
+	current_signature=$(current_index_snapshot_signature)
+	[ -f "$signature_file" ] && stored_signature=$(cat "$signature_file")
+
+	if [ -s "$BKG_INDEX_DB" ] && [ -n "$stored_signature" ] && [ "$stored_signature" = "$current_signature" ]; then
+		echo "Using existing database; index.sql.zst unchanged"
+		return 0
+	fi
+
+	echo "Restoring database from index.sql.zst..."
+	[ ! -f "$BKG_INDEX_DB" ] || mv "$BKG_INDEX_DB" "$BKG_INDEX_DB".bak
+
+	if unzstd -c "$BKG_INDEX_SQL.zst" | sqlite3 "$BKG_INDEX_DB"; then
+		printf '%s\n' "$current_signature" >"$signature_file"
+		[ ! -f "$BKG_INDEX_DB".bak ] || rm -f "$BKG_INDEX_DB".bak
+		return 0
+	fi
+
+	[ ! -f "$BKG_INDEX_DB" ] || rm -f "$BKG_INDEX_DB"
+	[ ! -f "$BKG_INDEX_DB".bak ] || mv "$BKG_INDEX_DB".bak "$BKG_INDEX_DB"
+	return 1
+}
+
+write_db_restore_signature() {
+	[ -f "$BKG_INDEX_SQL.zst" ] || return 0
+	current_index_snapshot_signature >"$(db_restore_signature_file)"
+}
+
 main() {
 	local rotated=false
 	local owners
@@ -153,6 +215,7 @@ main() {
 	local opted_out_before
 	local rest_first
 	local request_limit=200
+	local phase_started_at=0
 	connections=$(mktemp) || exit 1
 	temp_connections=$(mktemp) || exit 1
 
@@ -173,6 +236,8 @@ main() {
 
 	today=$(date -u +%Y-%m-%d)
 	BKG_SCRIPT_START=$(date -u +%s)
+	BKG_STARTUP_STARTED_AT=$BKG_SCRIPT_START
+	BKG_QUEUE_START_LOGGED=0
 	[ -n "$(get_BKG BKG_BATCH_FIRST_STARTED)" ] || set_BKG BKG_BATCH_FIRST_STARTED "$today"
 	[ -n "$(get_BKG BKG_RATE_LIMIT_START)" ] || set_BKG BKG_RATE_LIMIT_START "$(date -u +%s)"
 	[ -n "$(get_BKG BKG_MIN_RATE_LIMIT_START)" ] || set_BKG BKG_MIN_RATE_LIMIT_START "$(date -u +%s)"
@@ -199,13 +264,15 @@ main() {
 	fi
 
 	if [ -f "$BKG_INDEX_SQL.zst" ]; then
-		[ ! -f "$BKG_INDEX_DB" ] || mv "$BKG_INDEX_DB" "$BKG_INDEX_DB".bak
-		unzstd -c "$BKG_INDEX_SQL.zst" | sqlite3 "$BKG_INDEX_DB"
+		phase_started_at=$(startup_phase_started_at)
+		restore_db_from_index_snapshot_if_needed || :
+		log_startup_phase "restore-db-from-snapshot" "$phase_started_at"
 	fi
 
 	[ -f "$BKG_INDEX_DB" ] || {
 		[ -f "$BKG_INDEX_DB".bak ] && mv "$BKG_INDEX_DB".bak "$BKG_INDEX_DB" || sqlite3 "$BKG_INDEX_DB" ""
 	}
+	phase_started_at=$(startup_phase_started_at)
 	sqlite3 "$BKG_INDEX_DB" "create table if not exists '$BKG_INDEX_TBL_PKG' (
         owner_id text,
         owner_type text not null,
@@ -238,24 +305,29 @@ main() {
 	opted_out=$(wc -l <"$BKG_OPTOUT")
 	opted_out_before=$(get_BKG BKG_OUT)
 	fast_out=$([ "$GITHUB_OWNER" = "ipitio" ] && [ -n "$opted_out_before" ] && ((opted_out_before < opted_out)) && echo "true" || echo "false")
+	log_startup_phase "prepare-package-state" "$phase_started_at"
 
 	if [ "$BKG_MODE" -ne 2 ]; then
 		if [ "$BKG_MODE" -eq 0 ] || [ "$BKG_MODE" -eq 3 ]; then
 			if $fast_out; then
+				log_prequeue_elapsed_once
 				grep -oP '^[^\/]+' "$BKG_OPTOUT" | parallel_shell_func "$BKG_ROOT/src/lib/owner.sh" save_owner --lb
 				return_code=1
 			else
 				if [ "$GITHUB_OWNER" = "ipitio" ]; then
+					phase_started_at=$(startup_phase_started_at)
 					explore "$GITHUB_OWNER" >"$connections"
 					phase_status=$?
 					((phase_status != 3)) || return_code=3
 					explore "$GITHUB_OWNER/$GITHUB_REPO" >>"$connections"
 					phase_status=$?
 					((phase_status != 3)) || return_code=3
+					log_startup_phase "discover-connections" "$phase_started_at"
 
 					if ((return_code != 3)); then
 
 						# get orgs of connections
+						phase_started_at=$(startup_phase_started_at)
 						while read -r connection; do
 							curl_orgs "$connection" >>"$temp_connections"
 							phase_status=$?
@@ -265,6 +337,7 @@ main() {
 							fi
 						done <"$connections"
 						cat "$temp_connections" >>"$connections"
+						log_startup_phase "expand-connection-orgs" "$phase_started_at"
 					fi
 
 					sed -i 's/^[[:space:]]*//;s/[[:space:]]*$//; /^$/d; /^0\/$/d' "$connections"
@@ -274,16 +347,20 @@ main() {
 						echo "$?"
 					)
 					if ((return_code != 3)); then
+						phase_started_at=$(startup_phase_started_at)
 						seq 1 2 | parallel_shell_func "$BKG_ROOT/src/lib/owner.sh" page_owner --lb --halt soon,fail=1
 						phase_status=$?
 						((phase_status != 3)) || return_code=3
+						log_startup_phase "page-owner-discovery" "$phase_started_at"
 					fi
 				else
+					phase_started_at=$(startup_phase_started_at)
 					get_membership "$GITHUB_OWNER" >"$connections"
 					phase_status=$?
 					((phase_status != 3)) || return_code=3
 					[ "$BKG_IS_FIRST" = "false" ] || : >"$BKG_OWNERS"
 					[ "$BKG_IS_FIRST" = "false" ] || : >"$BKG_OPTOUT"
+					log_startup_phase "discover-membership" "$phase_started_at"
 				fi
 
 				if ((return_code == 3)); then
@@ -308,18 +385,24 @@ main() {
 				grep -vFxf all_owners_in_db "$BKG_OWNERS" >owners.tmp
 				mv owners.tmp "$BKG_OWNERS"
 				rest_first=$(get_BKG BKG_REST_TO_TOP)
+				log_prequeue_elapsed_once
+				phase_started_at=$(startup_phase_started_at)
 				bash lib/get.sh "$rest_first" "$connections" $request_limit "$GITHUB_OWNER" "$BKG_OWNERS" "$BKG_INDEX_DIR" | parallel_shell_func "$BKG_ROOT/src/lib/owner.sh" save_owner --lb
+				log_startup_phase "queue-discovered-owners" "$phase_started_at"
 				rm -f all_owners_in_db all_owners_tu owners_updated owners_partially_updated owners_stale
 				set_BKG BKG_DIFF "$db_size_curr"
 				set_BKG BKG_REST_TO_TOP "$((1 - rest_first))"
 				fi
 			fi
 		else
+			log_prequeue_elapsed_once
 			save_owner "$GITHUB_OWNER"
+			phase_started_at=$(startup_phase_started_at)
 			get_membership "$GITHUB_OWNER" >"$connections"
 			if [ -s "$connections" ]; then
 				parallel_shell_func "$BKG_ROOT/src/lib/owner.sh" save_owner --lb <"$connections" || while read -r connection; do save_owner "$connection"; done <"$connections"
 			fi
+			log_startup_phase "queue-membership-owners" "$phase_started_at"
 		fi
 
 		rm -f "$connections"
@@ -359,6 +442,7 @@ main() {
 			fi
 
 			mv "$BKG_INDEX_SQL".new.zst "$BKG_INDEX_SQL".zst
+			write_db_restore_signature
 			chmod 666 "$BKG_INDEX_SQL".zst
 			echo "Compressed the database"
 		else

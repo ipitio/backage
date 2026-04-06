@@ -491,6 +491,60 @@ test_run_owner_updates_halts_on_timeout() {
 	assert_contains "$stdin_file" "2/beta"
 }
 
+test_restore_db_from_snapshot_skips_when_signature_matches() {
+	local db_root="$workdir/db-restore-skip"
+	local output_file="$db_root/output.txt"
+
+	mkdir -p "$db_root"
+	BKG_INDEX_DB="$db_root/index.db"
+	BKG_INDEX_SQL="$db_root/index.sql"
+	printf '%s\n' 'snapshot-data' >"$BKG_INDEX_SQL.zst"
+	printf '%s\n' 'existing-db' >"$BKG_INDEX_DB"
+	current_index_snapshot_signature >"$(db_restore_signature_file)"
+
+	unzstd() {
+		fail "Expected matching snapshot signature to skip database restore"
+	}
+
+	restore_db_from_index_snapshot_if_needed >"$output_file"
+
+	unset -f unzstd
+	assert_contains "$output_file" "Using existing database; index.sql.zst unchanged"
+	assert_contains "$BKG_INDEX_DB" "existing-db"
+}
+
+test_restore_db_from_snapshot_rebuilds_when_signature_changes() {
+	local db_root="$workdir/db-restore-rebuild"
+	local output_file="$db_root/output.txt"
+	local sqlite3_def
+
+	mkdir -p "$db_root"
+	BKG_INDEX_DB="$db_root/index.db"
+	BKG_INDEX_SQL="$db_root/index.sql"
+	printf '%s\n' 'snapshot-data-new' >"$BKG_INDEX_SQL.zst"
+	printf '%s\n' 'existing-db' >"$BKG_INDEX_DB"
+	printf '%s\n' 'stale-signature' >"$(db_restore_signature_file)"
+	sqlite3_def=$(declare -f sqlite3)
+
+	unzstd() {
+		[ "${1:-}" = "-c" ] || fail "Expected restore to invoke unzstd with -c"
+		cat "$2"
+	}
+
+	sqlite3() {
+		local db_file=$1
+		cat >"$db_file"
+	}
+
+	restore_db_from_index_snapshot_if_needed >"$output_file"
+
+	eval "$sqlite3_def"
+	unset -f unzstd
+	assert_contains "$output_file" "Restoring database from index.sql.zst"
+	assert_contains "$BKG_INDEX_DB" "snapshot-data-new"
+	[ "$(cat "$(db_restore_signature_file)")" = "$(current_index_snapshot_signature)" ] || fail "Expected restore to refresh the snapshot signature"
+}
+
 trap cleanup EXIT
 
 pushd "$src_dir" >/dev/null
@@ -512,5 +566,7 @@ test_parallel_async_wait_kills_blocked_workers_after_timeout
 test_owner_update_wait_notice_is_throttled
 test_owner_update_force_stop_due_after_grace_period
 test_run_owner_updates_halts_on_timeout
+test_restore_db_from_snapshot_skips_when_signature_matches
+test_restore_db_from_snapshot_rebuilds_when_signature_changes
 
 echo "Timeout propagation regression tests passed"

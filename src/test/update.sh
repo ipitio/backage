@@ -5,10 +5,26 @@
 #
 # shellcheck disable=SC1090,SC1091,SC2015,SC2034
 
+update_startup_phase_started_at() {
+    date -u +%s
+}
+
+log_update_startup_phase() {
+    local phase=$1
+    local started_at=${2:-0}
+    local elapsed=0
+
+    ((started_at > 0)) || return 0
+    elapsed=$(( $(date -u +%s) - started_at ))
+    echo "Update setup phase '$phase' completed in ${elapsed}s"
+}
+
 root="$1"
 [[ -n "$root" && ! "${root:0:2}" =~ -(m|d) ]] && shift || root="."
 [ -d "$root" ] || mkdir -p "$root"
+[ -n "${UPDATE_STARTUP_PHASE_STARTED_AT:-}" ] || UPDATE_STARTUP_PHASE_STARTED_AT=$(update_startup_phase_started_at)
 [ -d "$root/.git" ] || { gh auth status &>/dev/null && gh repo clone "${GITHUB_OWNER:-ipitio}/${GITHUB_REPO:-backage}" "$root"  -- --depth=1 -b "$GITHUB_BRANCH" --single-branch || git clone --depth=1 -b "$GITHUB_BRANCH" --single-branch "https://github.com/${GITHUB_OWNER:-ipitio}/${GITHUB_REPO:-backage}.git" "$root"; }
+log_update_startup_phase "ensure-root-repo" "$UPDATE_STARTUP_PHASE_STARTED_AT"
 
 # actions: move db into root
 shopt -s dotglob
@@ -48,6 +64,8 @@ BKG_INDEX_SQL=$BKG_ROOT/"$BKG_INDEX".sql
 BKG_INDEX_DIR=$BKG_ROOT/"$BKG_INDEX"
 set +o allexport
 
+UPDATE_STARTUP_PHASE_STARTED_AT=$(update_startup_phase_started_at)
+
 if git ls-remote --exit-code origin "$BKG_INDEX" &>/dev/null; then
     git worktree remove -f "$BKG_INDEX".bak &>/dev/null
     [ -d "$BKG_INDEX".bak ] || rm -rf "$BKG_INDEX".bak
@@ -76,9 +94,12 @@ git reset --hard origin/"$BKG_INDEX"
 popd || exit 1
 [ -f "$BKG_INDEX"/.env ] && \cp "$BKG_INDEX"/.env src/env.env || touch src/env.env
 pushd src || exit 1
+log_update_startup_phase "prepare-index-worktree" "$UPDATE_STARTUP_PHASE_STARTED_AT"
 
 if [ ! -f "$BKG_INDEX_SQL".zst ] && [ ! -f "$BKG_INDEX_DB" ]; then
+    UPDATE_STARTUP_PHASE_STARTED_AT=$(update_startup_phase_started_at)
     dldb >/dev/null 2>&1 || true
+    log_update_startup_phase "download-initial-db" "$UPDATE_STARTUP_PHASE_STARTED_AT"
 fi
 
 db_size=$(stat -c %s "$BKG_INDEX_SQL".zst 2>/dev/null || stat -c %s "$BKG_INDEX_DB" 2>/dev/null || echo 0)
