@@ -79,6 +79,52 @@ fmtsize_num() {
     }'
 }
 
+db_snapshot_archive_file() {
+    [ -n "${BKG_INDEX_DB:-}" ] || return 1
+    printf '%s\n' "${BKG_INDEX_DB}.zst"
+}
+
+legacy_sql_snapshot_archive_file() {
+    if [ -n "${BKG_INDEX_SQL:-}" ]; then
+        printf '%s.zst\n' "$BKG_INDEX_SQL"
+    elif [ -n "${BKG_INDEX_DB:-}" ]; then
+        printf '%s.sql.zst\n' "${BKG_INDEX_DB%.db}"
+    else
+        return 1
+    fi
+}
+
+db_snapshot_asset_name() {
+    basename "$(db_snapshot_archive_file)"
+}
+
+legacy_sql_snapshot_asset_name() {
+    basename "$(legacy_sql_snapshot_archive_file)"
+}
+
+resolve_release_snapshot_asset() {
+    local latest=$1
+    local db_asset_name
+    local legacy_asset_name
+    local status_code
+
+    db_asset_name=$(db_snapshot_asset_name 2>/dev/null || echo "index.db.zst")
+    status_code=$(curl -o /dev/null --silent -Iw '%{http_code}' "https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/download/$latest/$db_asset_name")
+    if [ "$status_code" != "404" ]; then
+        printf 'db|%s\n' "$db_asset_name"
+        return 0
+    fi
+
+    legacy_asset_name=$(legacy_sql_snapshot_asset_name 2>/dev/null || echo "index.sql.zst")
+    status_code=$(curl -o /dev/null --silent -Iw '%{http_code}' "https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/download/$latest/$legacy_asset_name")
+    if [ "$status_code" != "404" ]; then
+        printf 'sql|%s\n' "$legacy_asset_name"
+        return 0
+    fi
+
+    return 1
+}
+
 sqlite3() {
     local statement="${!#:-}"
     local busy_timeout_ms=${BKG_SQLITE_BUSY_TIMEOUT_MS:-300000}
@@ -645,12 +691,46 @@ _jq() {
 
 dldb() {
     local latest=${1:-$(curl "https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest" | grep -oP "href=\"/${GITHUB_OWNER}/${GITHUB_REPO}/releases/tag/[^\"]+" | cut -d'/' -f6)}
-    [[ "$(curl -o /dev/null --silent -Iw '%{http_code}' "https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/download/$latest/index.sql.zst")" != "404" ]] || return 1
+    local asset_info
+    local asset_kind
+    local asset_name
+    local asset_url
+    local db_archive_file
+    local legacy_archive_file
+    local db_tmp=""
+    local archive_tmp=""
+
+    asset_info=$(resolve_release_snapshot_asset "$latest") || return 1
+    asset_kind=$(cut -d'|' -f1 <<<"$asset_info")
+    asset_name=$(cut -d'|' -f2 <<<"$asset_info")
+    asset_url="https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/download/$latest/$asset_name"
     [ -z "$2" ] || return 0
     echo "Downloading the latest database..."
     # `cd src ; source bkg.sh && dldb` to dl the latest db
     [ ! -f "$BKG_INDEX_DB" ] || mv "$BKG_INDEX_DB" "$BKG_INDEX_DB".bak
-    command curl -sSLNZ "https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/download/$latest/index.sql.zst" | unzstd -v -c | sqlite3 "$BKG_INDEX_DB"
+
+    if [ "$asset_kind" = "db" ]; then
+        db_archive_file=$(db_snapshot_archive_file)
+        archive_tmp=$(mktemp "$(dirname "$db_archive_file")/.${db_archive_file##*/}.XXXXXX") || return 1
+        db_tmp=$(mktemp "$(dirname "$BKG_INDEX_DB")/.${BKG_INDEX_DB##*/}.XXXXXX") || {
+            rm -f "$archive_tmp"
+            return 1
+        }
+
+        if command curl -sSLNZ "$asset_url" -o "$archive_tmp" && unzstd -c "$archive_tmp" >"$db_tmp"; then
+            mv -f "$db_tmp" "$BKG_INDEX_DB"
+            mv -f "$archive_tmp" "$db_archive_file"
+            legacy_archive_file=$(legacy_sql_snapshot_archive_file 2>/dev/null || :)
+            [ -z "$legacy_archive_file" ] || rm -f "$legacy_archive_file"
+            if command -v db_restore_signature_file >/dev/null 2>&1; then
+                sha256sum "$db_archive_file" | awk '{print $1}' >"$(db_restore_signature_file)"
+            fi
+        else
+            rm -f "$db_tmp" "$archive_tmp"
+        fi
+    else
+        command curl -sSLNZ "$asset_url" | unzstd -v -c | command sqlite3 "$BKG_INDEX_DB"
+    fi
 
     if [ -f "$BKG_INDEX_DB" ]; then
         [ ! -f "$BKG_INDEX_DB".bak ] || rm -f "$BKG_INDEX_DB".bak

@@ -60,13 +60,17 @@ BKG_BRANCH=$(git branch --show-current 2>/dev/null)
 [ -n "$GITHUB_BRANCH" ] || GITHUB_BRANCH="$BKG_BRANCH"
 BKG_INDEX=$([ "$GITHUB_BRANCH" = "master" ] && echo -n "index" || echo -n "index-${BKG_BRANCH:-}")
 BKG_INDEX_DB=$BKG_ROOT/"$BKG_INDEX".db
+BKG_INDEX_DB_ZST="$BKG_INDEX_DB".zst
 BKG_INDEX_SQL=$BKG_ROOT/"$BKG_INDEX".sql
 BKG_INDEX_DIR=$BKG_ROOT/"$BKG_INDEX"
 set +o allexport
 
 UPDATE_STARTUP_PHASE_STARTED_AT=$(update_startup_phase_started_at)
+WORKTREE_PHASE_STARTED_AT=$(update_startup_phase_started_at)
 
 if git ls-remote --exit-code origin "$BKG_INDEX" &>/dev/null; then
+	log_update_startup_phase "check-index-branch" "$WORKTREE_PHASE_STARTED_AT"
+	WORKTREE_PHASE_STARTED_AT=$(update_startup_phase_started_at)
     git worktree remove -f "$BKG_INDEX".bak &>/dev/null
     [ -d "$BKG_INDEX".bak ] || rm -rf "$BKG_INDEX".bak
     git worktree move "$BKG_INDEX" "$BKG_INDEX".bak &>/dev/null
@@ -74,7 +78,10 @@ if git ls-remote --exit-code origin "$BKG_INDEX" &>/dev/null; then
     git show-ref --verify --quiet "refs/remotes/origin/$BKG_INDEX" || git fetch origin "$BKG_INDEX:refs/remotes/origin/$BKG_INDEX"
     git branch --track -f "$BKG_INDEX" "origin/$BKG_INDEX" 2>/dev/null || git branch -f "$BKG_INDEX" "origin/$BKG_INDEX"
     BKG_IS_FIRST=true
+	log_update_startup_phase "prepare-index-branch-ref" "$WORKTREE_PHASE_STARTED_AT"
 else
+	log_update_startup_phase "check-index-branch" "$WORKTREE_PHASE_STARTED_AT"
+	WORKTREE_PHASE_STARTED_AT=$(update_startup_phase_started_at)
     fd_list=$(find . -type f -o -type d | grep -vE "^\.($|\/(\.git\/*|.*\.md$))")
 	git stash
     git switch --orphan "$BKG_INDEX"
@@ -84,25 +91,31 @@ else
     git push -u origin "$BKG_INDEX"
     git checkout "$([ -n "$GITHUB_BRANCH" ] && echo "$GITHUB_BRANCH" || echo "$BKG_BRANCH")"
 	git stash pop || true
+	log_update_startup_phase "create-index-branch" "$WORKTREE_PHASE_STARTED_AT"
 fi
 
+WORKTREE_PHASE_STARTED_AT=$(update_startup_phase_started_at)
 git worktree remove -f "$BKG_INDEX" 2>/dev/null
 git worktree add -f "$BKG_INDEX" "$BKG_INDEX"
 [[ -d "$BKG_INDEX" || ! -d "$BKG_INDEX".bak ]] || git worktree move "$BKG_INDEX".bak "$BKG_INDEX"
+log_update_startup_phase "attach-index-worktree" "$WORKTREE_PHASE_STARTED_AT"
+
+WORKTREE_PHASE_STARTED_AT=$(update_startup_phase_started_at)
 pushd "$BKG_INDEX" || exit 1
 git reset --hard origin/"$BKG_INDEX"
 popd || exit 1
 [ -f "$BKG_INDEX"/.env ] && \cp "$BKG_INDEX"/.env src/env.env || touch src/env.env
 pushd src || exit 1
+log_update_startup_phase "reset-index-worktree" "$WORKTREE_PHASE_STARTED_AT"
 log_update_startup_phase "prepare-index-worktree" "$UPDATE_STARTUP_PHASE_STARTED_AT"
 
-if [ ! -f "$BKG_INDEX_SQL".zst ] && [ ! -f "$BKG_INDEX_DB" ]; then
+if [ ! -f "$BKG_INDEX_DB_ZST" ] && [ ! -f "$BKG_INDEX_SQL".zst ] && [ ! -f "$BKG_INDEX_DB" ]; then
     UPDATE_STARTUP_PHASE_STARTED_AT=$(update_startup_phase_started_at)
     dldb >/dev/null 2>&1 || true
     log_update_startup_phase "download-initial-db" "$UPDATE_STARTUP_PHASE_STARTED_AT"
 fi
 
-db_size=$(stat -c %s "$BKG_INDEX_SQL".zst 2>/dev/null || stat -c %s "$BKG_INDEX_DB" 2>/dev/null || echo 0)
+db_size=$(stat -c %s "$BKG_INDEX_DB_ZST" 2>/dev/null || stat -c %s "$BKG_INDEX_SQL".zst 2>/dev/null || stat -c %s "$BKG_INDEX_DB" 2>/dev/null || echo 0)
 num_owner_db=$(sqlite3 "$BKG_INDEX_DB" "SELECT COUNT(DISTINCT owner) FROM $BKG_INDEX_TBL_PKG")
 num_owner_index=$(find "$BKG_INDEX_DIR" -mindepth 1 -maxdepth 1 -type d -exec basename {} \; 2>/dev/null | sort -u | awk '{print $1}' | wc -l)
 
@@ -116,7 +129,7 @@ fi
 main "$@"
 return_code=$?
 # db should not be empty, error if it is
-[ "$(stat -c %s "$BKG_INDEX_SQL".zst)" -ge 100 ] || exit 1
+[ "$(stat -c %s "$BKG_INDEX_DB_ZST" 2>/dev/null || stat -c %s "$BKG_INDEX_SQL".zst 2>/dev/null || echo 0)" -ge 100 ] || exit 1
 # files should be valid, warn if not, unless only opted out owners
 #(( return_code == 1 )) || find .. -type f -name '*.json' -o -name '*.xml' | parallel --lb test/index.sh {}
 popd || exit 1

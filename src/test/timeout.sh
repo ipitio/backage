@@ -497,8 +497,7 @@ test_restore_db_from_snapshot_skips_when_signature_matches() {
 
 	mkdir -p "$db_root"
 	BKG_INDEX_DB="$db_root/index.db"
-	BKG_INDEX_SQL="$db_root/index.sql"
-	printf '%s\n' 'snapshot-data' >"$BKG_INDEX_SQL.zst"
+	printf '%s\n' 'snapshot-data' >"$(db_snapshot_archive_file)"
 	printf '%s\n' 'existing-db' >"$BKG_INDEX_DB"
 	current_index_snapshot_signature >"$(db_restore_signature_file)"
 
@@ -509,40 +508,55 @@ test_restore_db_from_snapshot_skips_when_signature_matches() {
 	restore_db_from_index_snapshot_if_needed >"$output_file"
 
 	unset -f unzstd
-	assert_contains "$output_file" "Using existing database; index.sql.zst unchanged"
+	assert_contains "$output_file" "Using existing database; index.db.zst unchanged"
 	assert_contains "$BKG_INDEX_DB" "existing-db"
 }
 
 test_restore_db_from_snapshot_rebuilds_when_signature_changes() {
 	local db_root="$workdir/db-restore-rebuild"
 	local output_file="$db_root/output.txt"
-	local sqlite3_def
 
 	mkdir -p "$db_root"
 	BKG_INDEX_DB="$db_root/index.db"
-	BKG_INDEX_SQL="$db_root/index.sql"
-	printf '%s\n' 'snapshot-data-new' >"$BKG_INDEX_SQL.zst"
+	printf '%s\n' 'snapshot-data-new' >"$(db_snapshot_archive_file)"
 	printf '%s\n' 'existing-db' >"$BKG_INDEX_DB"
 	printf '%s\n' 'stale-signature' >"$(db_restore_signature_file)"
-	sqlite3_def=$(declare -f sqlite3)
 
 	unzstd() {
 		[ "${1:-}" = "-c" ] || fail "Expected restore to invoke unzstd with -c"
 		cat "$2"
 	}
 
-	sqlite3() {
-		local db_file=$1
-		cat >"$db_file"
+	restore_db_from_index_snapshot_if_needed >"$output_file"
+
+	unset -f unzstd
+	assert_contains "$output_file" "Restoring database from index.db.zst"
+	assert_contains "$BKG_INDEX_DB" "snapshot-data-new"
+	[ "$(cat "$(db_restore_signature_file)")" = "$(current_index_snapshot_signature)" ] || fail "Expected restore to refresh the snapshot signature"
+}
+
+test_restore_db_from_legacy_sql_snapshot() {
+	local db_root="$workdir/db-restore-legacy"
+	local output_file="$db_root/output.txt"
+
+	mkdir -p "$db_root"
+	BKG_INDEX_DB="$db_root/index.db"
+	BKG_INDEX_SQL="$db_root/index.sql"
+	cat >"$(legacy_sql_snapshot_archive_file)" <<'EOF'
+create table restored_payload (value text);
+insert into restored_payload (value) values ('legacy-snapshot-data');
+EOF
+
+	unzstd() {
+		[ "${1:-}" = "-c" ] || fail "Expected legacy restore to invoke unzstd with -c"
+		cat "$2"
 	}
 
 	restore_db_from_index_snapshot_if_needed >"$output_file"
 
-	eval "$sqlite3_def"
 	unset -f unzstd
-	assert_contains "$output_file" "Restoring database from index.sql.zst"
-	assert_contains "$BKG_INDEX_DB" "snapshot-data-new"
-	[ "$(cat "$(db_restore_signature_file)")" = "$(current_index_snapshot_signature)" ] || fail "Expected restore to refresh the snapshot signature"
+	assert_contains "$output_file" "Restoring database from legacy index.sql.zst"
+	[ "$(command sqlite3 "$BKG_INDEX_DB" "select value from restored_payload limit 1;")" = "legacy-snapshot-data" ] || fail "Expected legacy sql snapshot restore to import into sqlite"
 }
 
 trap cleanup EXIT
@@ -568,5 +582,6 @@ test_owner_update_force_stop_due_after_grace_period
 test_run_owner_updates_halts_on_timeout
 test_restore_db_from_snapshot_skips_when_signature_matches
 test_restore_db_from_snapshot_rebuilds_when_signature_changes
+test_restore_db_from_legacy_sql_snapshot
 
 echo "Timeout propagation regression tests passed"

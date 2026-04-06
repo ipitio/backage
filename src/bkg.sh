@@ -161,29 +161,77 @@ db_restore_signature_file() {
 	printf '%s\n' "${BKG_INDEX_DB}.snapshot.sha256"
 }
 
-current_index_snapshot_signature() {
-	sha256sum "$BKG_INDEX_SQL.zst" | awk '{print $1}'
-}
+current_index_snapshot_archive_file() {
+	local db_archive_file=""
+	local legacy_archive_file=""
 
-restore_db_from_index_snapshot_if_needed() {
-	[ -f "$BKG_INDEX_SQL.zst" ] || return 0
-	local signature_file
-	local current_signature
-	local stored_signature=""
-
-	signature_file=$(db_restore_signature_file)
-	current_signature=$(current_index_snapshot_signature)
-	[ -f "$signature_file" ] && stored_signature=$(cat "$signature_file")
-
-	if [ -s "$BKG_INDEX_DB" ] && [ -n "$stored_signature" ] && [ "$stored_signature" = "$current_signature" ]; then
-		echo "Using existing database; index.sql.zst unchanged"
+	db_archive_file=$(db_snapshot_archive_file 2>/dev/null || :)
+	if [ -n "$db_archive_file" ] && [ -f "$db_archive_file" ]; then
+		printf '%s\n' "$db_archive_file"
 		return 0
 	fi
 
-	echo "Restoring database from index.sql.zst..."
+	legacy_archive_file=$(legacy_sql_snapshot_archive_file 2>/dev/null || :)
+	if [ -n "$legacy_archive_file" ] && [ -f "$legacy_archive_file" ]; then
+		printf '%s\n' "$legacy_archive_file"
+		return 0
+	fi
+
+	return 1
+}
+
+current_index_snapshot_signature() {
+	local archive_file
+	archive_file=$(current_index_snapshot_archive_file) || return 1
+	sha256sum "$archive_file" | awk '{print $1}'
+}
+
+restore_db_from_index_snapshot_if_needed() {
+	local archive_file
+	local archive_name
+	local archive_kind
+	local signature_file
+	local current_signature
+	local stored_signature=""
+	local restore_started_at=0
+	local db_tmp=""
+
+	archive_file=$(current_index_snapshot_archive_file) || return 0
+	archive_name=$(basename "$archive_file")
+	case "$archive_file" in
+		*.db.zst) archive_kind="db" ;;
+		*) archive_kind="sql" ;;
+	esac
+
+	signature_file=$(db_restore_signature_file)
+	current_signature=$(sha256sum "$archive_file" | awk '{print $1}')
+	[ -f "$signature_file" ] && stored_signature=$(cat "$signature_file")
+
+	if [ -s "$BKG_INDEX_DB" ] && [ -n "$stored_signature" ] && [ "$stored_signature" = "$current_signature" ]; then
+		echo "Using existing database; $archive_name unchanged"
+		return 0
+	fi
+
+	restore_started_at=$(startup_phase_started_at)
 	[ ! -f "$BKG_INDEX_DB" ] || mv "$BKG_INDEX_DB" "$BKG_INDEX_DB".bak
 
-	if unzstd -c "$BKG_INDEX_SQL.zst" | sqlite3 "$BKG_INDEX_DB"; then
+	if [ "$archive_kind" = "db" ]; then
+		echo "Restoring database from $archive_name..."
+		db_tmp=$(mktemp "$(dirname "$BKG_INDEX_DB")/.${BKG_INDEX_DB##*/}.XXXXXX") || return 1
+		if unzstd -c "$archive_file" >"$db_tmp"; then
+			mv -f "$db_tmp" "$BKG_INDEX_DB"
+			log_startup_phase "decompress-db-archive" "$restore_started_at"
+		else
+			rm -f "$db_tmp"
+		fi
+	else
+		echo "Restoring database from legacy $archive_name..."
+		if unzstd -c "$archive_file" | command sqlite3 "$BKG_INDEX_DB"; then
+			log_startup_phase "import-legacy-sql-archive" "$restore_started_at"
+		fi
+	fi
+
+	if [ -f "$BKG_INDEX_DB" ]; then
 		printf '%s\n' "$current_signature" >"$signature_file"
 		[ ! -f "$BKG_INDEX_DB".bak ] || rm -f "$BKG_INDEX_DB".bak
 		return 0
@@ -195,8 +243,13 @@ restore_db_from_index_snapshot_if_needed() {
 }
 
 write_db_restore_signature() {
-	[ -f "$BKG_INDEX_SQL.zst" ] || return 0
-	current_index_snapshot_signature >"$(db_restore_signature_file)"
+	local current_signature
+	current_signature=$(current_index_snapshot_signature) || return 0
+	printf '%s\n' "$current_signature" >"$(db_restore_signature_file)"
+}
+
+checkpoint_database_for_archive() {
+	command sqlite3 "$BKG_INDEX_DB" 'pragma wal_checkpoint(truncate);' >/dev/null 2>&1 || sqlite3 "$BKG_INDEX_DB" 'pragma wal_checkpoint(truncate);' >/dev/null 2>&1 || :
 }
 
 main() {
@@ -263,7 +316,7 @@ main() {
 		set_BKG BKG_MIN_CALLS_TO_API "0"
 	fi
 
-	if [ -f "$BKG_INDEX_SQL.zst" ]; then
+	if current_index_snapshot_archive_file >/dev/null 2>&1; then
 		phase_started_at=$(startup_phase_started_at)
 		restore_db_from_index_snapshot_if_needed || :
 		log_startup_phase "restore-db-from-snapshot" "$phase_started_at"
@@ -422,28 +475,34 @@ main() {
 		set_BKG BKG_OUT "$(wc -l <"$BKG_OPTOUT")"
 		sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, repo, package from '$BKG_INDEX_TBL_PKG';" | sort -u >packages_all
 		echo "Compressing the database..."
-		sqlite3 "$BKG_INDEX_DB" ".dump" | zstd -22 --ultra --long -T0 -o "$BKG_INDEX_SQL".new.zst
+		checkpoint_database_for_archive
+		db_archive_file=$(db_snapshot_archive_file)
+		db_archive_tmp="$db_archive_file.new"
+		zstd -22 --ultra --long -T0 "$BKG_INDEX_DB" -o "$db_archive_tmp"
 
-		if [ -f "$BKG_INDEX_SQL".new.zst ]; then
+		if [ -f "$db_archive_tmp" ]; then
 			# rotate the database if it's greater than 2GB
-			if [ -f "$BKG_INDEX_SQL".zst ] && [ "$(stat -c %s "$BKG_INDEX_SQL".new.zst)" -ge 2000000000 ]; then
+			if [ -f "$db_archive_file" ] && [ "$(stat -c %s "$db_archive_tmp")" -ge 2000000000 ]; then
 				rotated=true
 				echo "Rotating the database..."
 				local older_db
-				older_db="$(date -u +%Y.%m.%d)".zst
+				older_db="$BKG_ROOT/$(date -u +%Y.%m.%d).$(basename "$db_archive_file")"
 				[ ! -f "$older_db" ] || rm -f "$older_db"
-				mv "$BKG_INDEX_SQL".zst "$older_db"
+				mv "$db_archive_file" "$older_db"
 				sqlite3 "$BKG_INDEX_DB" "delete from '$BKG_INDEX_TBL_PKG' where date < '$BKG_BATCH_FIRST_STARTED';"
 				sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name like '${BKG_INDEX_TBL_VER}_%';" | parallel --lb "sqlite3 '$BKG_INDEX_DB' 'delete from {} where date < \"$BKG_BATCH_FIRST_STARTED\";'"
 				sqlite3 "$BKG_INDEX_DB" "vacuum;"
-				rm -f "$BKG_INDEX_SQL".new.zst
-				sqlite3 "$BKG_INDEX_DB" ".dump" | zstd -22 --ultra --long -T0 -o "$BKG_INDEX_SQL".new.zst
+				checkpoint_database_for_archive
+				rm -f "$db_archive_tmp"
+				zstd -22 --ultra --long -T0 "$BKG_INDEX_DB" -o "$db_archive_tmp"
 				echo "Rotated the database"
 			fi
 
-			mv "$BKG_INDEX_SQL".new.zst "$BKG_INDEX_SQL".zst
+			mv "$db_archive_tmp" "$db_archive_file"
+			legacy_archive_file=$(legacy_sql_snapshot_archive_file 2>/dev/null || :)
+			[ -z "$legacy_archive_file" ] || rm -f "$legacy_archive_file"
 			write_db_restore_signature
-			chmod 666 "$BKG_INDEX_SQL".zst
+			chmod 666 "$db_archive_file"
 			echo "Compressed the database"
 		else
 			echo "Failed to compress the database!"
