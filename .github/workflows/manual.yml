@@ -61,7 +61,7 @@ jobs:
         uses: robinraju/release-downloader@v1
         with:
           latest: true
-          fileName: "index*.zst"
+          fileName: "*.db.zst"
           tarBall: false
           zipBall: false
           out-file-path: ".bkg"
@@ -85,7 +85,7 @@ jobs:
         if: ${{ steps.update.outputs.updated == '0' }}
         uses: ncipollo/release-action@v1
         with:
-          artifacts: "bkg/index*.db.zst,bkg/index*.tar.zst"
+          artifacts: "bkg/*.db.zst"
           bodyFile: "bkg/CHANGELOG.md"
           tag: "v${{ steps.date.outputs.tag }}"
           commit: "master"
