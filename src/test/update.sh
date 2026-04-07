@@ -47,7 +47,11 @@ git config --add safe.directory "$(pwd)"
 git config core.sharedRepository all
 
 # performance
-git config core.fsmonitor true
+if git fsmonitor--daemon status >/dev/null 2>&1 || git fsmonitor--daemon start >/dev/null 2>&1; then
+    git config core.fsmonitor true
+else
+    git config --unset-all core.fsmonitor >/dev/null 2>&1 || :
+fi
 git config core.untrackedcache true
 git config feature.manyFiles true
 git update-index --index-version 4
