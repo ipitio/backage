@@ -559,6 +559,24 @@ EOF
 	[ "$(command sqlite3 "$BKG_INDEX_DB" "select value from restored_payload limit 1;")" = "legacy-snapshot-data" ] || fail "Expected legacy sql snapshot restore to import into sqlite"
 }
 
+test_run_owner_page_discovery_stops_on_code_2() {
+	local calls_file="$workdir/owner-pages.txt"
+
+	page_owner() {
+		printf '%s\n' "$1" >>"$calls_file"
+		[ "$1" -lt 3 ] && return 0
+		return 2
+	}
+
+	run_owner_page_discovery || fail "Expected run_owner_page_discovery to treat exit code 2 as normal completion"
+
+	assert_contains "$calls_file" "1"
+	assert_contains "$calls_file" "2"
+	assert_contains "$calls_file" "3"
+	[ "$(wc -l <"$calls_file")" -eq 3 ] || fail "Expected run_owner_page_discovery to stop immediately after the first page_owner exit code 2"
+	unset -f page_owner
+}
+
 trap cleanup EXIT
 
 pushd "$src_dir" >/dev/null
@@ -580,6 +598,7 @@ test_parallel_async_wait_kills_blocked_workers_after_timeout
 test_owner_update_wait_notice_is_throttled
 test_owner_update_force_stop_due_after_grace_period
 test_run_owner_updates_halts_on_timeout
+test_run_owner_page_discovery_stops_on_code_2
 test_restore_db_from_snapshot_skips_when_signature_matches
 test_restore_db_from_snapshot_rebuilds_when_signature_changes
 test_restore_db_from_legacy_sql_snapshot

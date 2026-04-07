@@ -70,23 +70,38 @@ page_owner() {
 	local owners_more="[]"
 	local users_more="[]"
 	local orgs_more="[]"
+	local per_page=100
+	local users_count=0
+	local orgs_count=0
+	local merged_count=0
+	local requested_count=0
+	local request_output=""
+	local request_status=0
 
 	if [ -n "$GITHUB_TOKEN" ]; then
 		echo "Checking owners page $1..."
 		local last_id
 		last_id=$(get_BKG BKG_LAST_SCANNED_ID)
-		users_more=$(query_api "users?per_page=$( ((BKG_PAGE_ALL > 0)) && echo 1 || echo 100)&page=$1&since=$last_id")
-		orgs_more=$(query_api "organizations?per_page=$( ((BKG_PAGE_ALL > 0)) && echo 1 || echo 100)&page=$1&since=$last_id")
+		((BKG_PAGE_ALL > 0)) && per_page=1 || per_page=100
+		users_more=$(query_api "users?per_page=$per_page&page=$1&since=$last_id")
+		orgs_more=$(query_api "organizations?per_page=$per_page&page=$1&since=$last_id")
+		users_count=$(jq 'length' <<<"$users_more" 2>/dev/null || echo 0)
+		orgs_count=$(jq 'length' <<<"$orgs_more" 2>/dev/null || echo 0)
 		owners_more=$(owner_merge_pages_json "$users_more" "$orgs_more")
 	fi
 
 	# if owners doesn't have .login, break
 	jq -e '.[].login' <<<"$owners_more" &>/dev/null || return 2
 	local owners_lines
+	merged_count=$(jq 'length' <<<"$owners_more" 2>/dev/null || echo 0)
 	owners_lines=$(jq -r '.[] | @base64' <<<"$owners_more")
-	run_parallel request_owner "$owners_lines"
-	echo "Checked owners page $1"
-	[ "$(wc -l <<<"$owners_lines")" -gt 1 ] || return 2
+	request_output=$(run_parallel request_owner "$owners_lines")
+	request_status=$?
+	((request_status != 3)) || return 3
+	[ -z "$request_output" ] || printf '%s\n' "$request_output"
+	requested_count=$(grep -c '^Requested ' <<<"$request_output" || :)
+	echo "Checked owners page $1 (raw_users=$users_count raw_orgs=$orgs_count merged=$merged_count requested=$requested_count)"
+	((users_count >= per_page || orgs_count >= per_page)) || return 2
 }
 
 update_owner() {

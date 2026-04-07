@@ -101,11 +101,23 @@ set_BKG BKG_LAST_SCANNED_ID 0
 
 query_api() {
     case "$1" in
-    users*)
+    users*'&page=1&'*)
         printf '%s\n' '[{"id":1,"login":"alpha"}]'
         ;;
-    organizations*)
+    organizations*'&page=1&'*)
+        printf '%s\n' '[{"id":1,"login":"alpha"}]'
+        ;;
+    users*'&page=2&'*)
         printf '%s\n' '[{"id":2,"login":"beta"}]'
+        ;;
+    organizations*'&page=2&'*)
+        printf '%s\n' '[]'
+        ;;
+    users*'&page=3&'*)
+        printf '%s\n' '[]'
+        ;;
+    organizations*'&page=3&'*)
+        printf '%s\n' '[]'
         ;;
     esac
 }
@@ -122,7 +134,17 @@ jq() {
     command jq "$@"
 }
 
-page_owner 1 >/dev/null
+page_one_output=$(page_owner 1) || fail "Expected page_owner page 1 to continue when both raw API pages are full but the merged owner list deduplicates to one owner"
+grep -Fq "Checked owners page 1 (raw_users=1 raw_orgs=1 merged=1 requested=0)" <<<"$page_one_output" || fail "Expected page_owner page 1 log to report raw, merged, and requested owner counts"
+
+page_two_output=$(page_owner 2) || fail "Expected page_owner page 2 to continue when one raw API page is still full"
+grep -Fq "Checked owners page 2 (raw_users=1 raw_orgs=0 merged=1 requested=0)" <<<"$page_two_output" || fail "Expected page_owner page 2 log to report raw, merged, and requested owner counts"
+
+if page_owner 3 >/dev/null; then
+    fail "Expected page_owner to stop paging after both raw API pages are short"
+elif [ "$?" -ne 2 ]; then
+    fail "Expected page_owner to return 2 when paging should stop"
+fi
 
 unset -f query_api
 unset -f request_owner

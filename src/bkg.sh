@@ -137,6 +137,27 @@ run_owner_updates() {
 	return "$status"
 }
 
+run_owner_page_discovery() {
+	local page=1
+	local status=0
+
+	while true; do
+		page_owner "$page"
+		status=$?
+
+		if ((status == 0)); then
+			((page++))
+			continue
+		fi
+
+		if ((status == 2)); then
+			return 0
+		fi
+
+		return "$status"
+	done
+}
+
 startup_phase_started_at() {
 	date -u +%s
 }
@@ -401,7 +422,7 @@ main() {
 					)
 					if ((return_code != 3)); then
 						phase_started_at=$(startup_phase_started_at)
-						seq 1 2 | parallel_shell_func "$BKG_ROOT/src/lib/owner.sh" page_owner --lb --halt soon,fail=1
+						run_owner_page_discovery
 						phase_status=$?
 						((phase_status != 3)) || return_code=3
 						log_startup_phase "page-owner-discovery" "$phase_started_at"
