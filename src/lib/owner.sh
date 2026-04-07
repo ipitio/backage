@@ -73,10 +73,6 @@ page_owner() {
 	local per_page=100
 	local users_count=0
 	local orgs_count=0
-	local merged_count=0
-	local requested_count=0
-	local request_output=""
-	local request_status=0
 
 	if [ -n "$GITHUB_TOKEN" ]; then
 		echo "Checking owners page $1..."
@@ -93,14 +89,9 @@ page_owner() {
 	# if owners doesn't have .login, break
 	jq -e '.[].login' <<<"$owners_more" &>/dev/null || return 2
 	local owners_lines
-	merged_count=$(jq 'length' <<<"$owners_more" 2>/dev/null || echo 0)
 	owners_lines=$(jq -r '.[] | @base64' <<<"$owners_more")
-	request_output=$(run_parallel request_owner "$owners_lines")
-	request_status=$?
-	((request_status != 3)) || return 3
-	[ -z "$request_output" ] || printf '%s\n' "$request_output"
-	requested_count=$(grep -c '^Requested ' <<<"$request_output" || :)
-	echo "Checked owners page $1 (raw_users=$users_count raw_orgs=$orgs_count merged=$merged_count requested=$requested_count)"
+	run_parallel request_owner "$owners_lines"
+	echo "Checked owners page $1"
 	((users_count >= per_page || orgs_count >= per_page)) || return 2
 }
 

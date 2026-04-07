@@ -139,9 +139,10 @@ run_owner_updates() {
 
 run_owner_page_discovery() {
 	local page=1
+	local max_pages=${BKG_OWNER_DISCOVERY_MAX_PAGES:-1}
 	local status=0
 
-	while true; do
+	while ((page <= max_pages)); do
 		page_owner "$page"
 		status=$?
 
@@ -156,6 +157,8 @@ run_owner_page_discovery() {
 
 		return "$status"
 	done
+
+	return 0
 }
 
 startup_phase_started_at() {
