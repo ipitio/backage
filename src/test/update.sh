@@ -74,9 +74,15 @@ if git ls-remote --exit-code origin "$BKG_INDEX" &>/dev/null; then
     git worktree remove -f "$BKG_INDEX".bak &>/dev/null
     [ -d "$BKG_INDEX".bak ] || rm -rf "$BKG_INDEX".bak
     git worktree move "$BKG_INDEX" "$BKG_INDEX".bak &>/dev/null
+    WORKTREE_SUBPHASE_STARTED_AT=$(update_startup_phase_started_at)
     git fetch --depth=1 origin "$BKG_INDEX"
+    log_update_startup_phase "fetch-index-branch" "$WORKTREE_SUBPHASE_STARTED_AT"
+    WORKTREE_SUBPHASE_STARTED_AT=$(update_startup_phase_started_at)
     git show-ref --verify --quiet "refs/remotes/origin/$BKG_INDEX" || git fetch origin "$BKG_INDEX:refs/remotes/origin/$BKG_INDEX"
+    log_update_startup_phase "ensure-index-remote-ref" "$WORKTREE_SUBPHASE_STARTED_AT"
+    WORKTREE_SUBPHASE_STARTED_AT=$(update_startup_phase_started_at)
     git branch --track -f "$BKG_INDEX" "origin/$BKG_INDEX" 2>/dev/null || git branch -f "$BKG_INDEX" "origin/$BKG_INDEX"
+    log_update_startup_phase "track-index-branch" "$WORKTREE_SUBPHASE_STARTED_AT"
     BKG_IS_FIRST=true
 	log_update_startup_phase "prepare-index-branch-ref" "$WORKTREE_PHASE_STARTED_AT"
 else
