@@ -1,4 +1,3 @@
-2387174/66writertime
 2387492/AllianceFilms
 2387109/5spoondryer
 2388719/AeonGames
@@ -6,8 +5,6 @@
 2388498/BloodyTongue
 2389442/BuyThisSellThat
 2389424/AskNature
-2388864/CentralAvenueUMC
-2388857/CitiLogics
 2388806/CryptoSwitch
 2390578/CircuitOfLifeRobotics
 2388025/Cyclical
@@ -17,8 +14,6 @@
 2388037/E-Group
 2389630/EZSWIPE
 2387370/GROSSWEBER
-2387130/Girilaya
-2387503/GlassRobotStudios
 2388182/Home-learning-organization
 2387987/IUPAT
 2387142/InFlames20
@@ -34,7 +29,6 @@
 2387157/MehmetKaplan
 2387698/MiyS
 2388786/Mobee
-2387121/PavelOst
 2388224/NashvilleSoftwareSchool
 2387173/NCIP
 2387170/PhuocVo
@@ -52,12 +46,9 @@
 2388536/TrackMaven
 2388343/VMop
 2388047/VuPage
-2389548/WDS-Project
 2388171/WagePoint
 2390483/YaboInc
 2390686/XPT-Framework
-2389542/YouNoodle
-2389278/ZeusFramework
 2389738/acm-ndsu
 2388568/ZyApps
 2390386/aixili
@@ -84,7 +75,6 @@
 2388279/danicacorp
 2387112/dgraynails
 2387111/diladmin
-2387116/dorseyrad
 2387151/doctornurse6
 2387144/dvazquez88
 2387191/ecros
@@ -133,8 +123,6 @@
 2387179/mathieulavoie
 2387155/mohdfiazkhan
 2387164/marienordahl
-2387114/mpwatson
-2387185/mustapa
 2388841/mypizza
 2387145/nervemaple2
 2387092/nikoly
@@ -142,13 +130,11 @@
 2387139/newthorn618
 2387206/openssh
 2387168/owl57perch
-2387098/oopkid
 2390049/parkscholars
 2388917/pejuang
 2387104/ox69shake
 2387614/parthenonsoftware
 2390370/perl11
-2387102/pgeorge
 2387200/porchbail98
 2387103/pwpw1551614
 2387126/radar77hail
@@ -168,7 +154,6 @@
 2387171/smartworld-zz
 2387722/sourcemax
 2387124/targetgiant44
-2387160/tinkarobert97
 2387138/stanlp
 2387158/toan2406
 2387099/trial7text
@@ -180,7 +165,6 @@
 2387162/voyage2button
 2387197/wimeme
 2388588/wtamu-cisresearch
-2390990/0juiceclaus
 2391013/15sheepend
 2393263/0k
 2391345/2514
@@ -193,7 +177,6 @@
 2390951/72doorlaura
 2390984/88courtconga
 2393938/AmanatLabs
-2390987/AKIRA-MIYAKE
 2395695/AutoLean
 2392723/BeanPole
 2395822/BrewPi
@@ -228,7 +211,6 @@
 2395358/Nancyborg
 2391670/MogulTestOrg9221
 2394372/Nashville
-2394583/Nest4Less
 2392819/OpenWaterAnalytics
 2394377/NikaNOW
 2392399/Patternslib
@@ -245,7 +227,6 @@
 2391801/Tallknuserne
 2391037/TwistedOne
 2391020/WanliTian
-2392833/WebIntents
 2393232/VenueOne
 2394409/XantusStudio
 2391001/abdulburris1229
@@ -256,9 +237,7 @@
 2391059/akashsinghngi
 2391006/alexchonglian
 2391054/alexisberry36
-2392914/anthemis
 2391036/anthonyryan1128
-2393245/amala-developers
 2391049/arsyadreal
 2392311/atomised
 2391038/bagel2jaguar
@@ -315,9 +294,7 @@
 2391042/leaflaw9
 2391007/locket6liver
 2391045/leonied
-2391021/lolingnubcake
 2391043/mahof
-2392608/makeamobile
 2391789/ludomotion
 2391044/matzvincent1128
 2393968/maxsound
@@ -337,7 +314,6 @@
 2393766/ooni
 2394763/openatlanta
 2392832/opencolour
-2391061/orasanchez1025
 2392360/opensolutis
 2392933/orcc
 2391018/patrickviet
@@ -381,3 +357,4 @@
 2390950/xordspar0
 2395887/ARCHE-IT
 2395888/jamiewestell
+2396042/esrf-bliss
