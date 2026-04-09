@@ -1,4 +1,3 @@
-2388037/E-Group
 2389630/EZSWIPE
 2387370/GROSSWEBER
 2387987/IUPAT
@@ -14,7 +13,6 @@
 2387698/MiyS
 2388224/NashvilleSoftwareSchool
 2387170/PhuocVo
-2390635/Prof-Calebe
 2390227/PlanetSoftware
 2389551/ProjectBIOS
 2387650/TakTek
@@ -23,7 +21,6 @@
 2390221/ThinkSpirit
 2387108/TonyXT1
 2390285/The-Next-Edge
-2388343/VMop
 2388171/WagePoint
 2390686/XPT-Framework
 2387136/adprasad
@@ -83,13 +80,11 @@
 2387200/porchbail98
 2387103/pwpw1551614
 2387126/radar77hail
-2390947/quantelainc
 2387089/rattakan35
 2388462/redpointventures
 2387172/riddlecrook62
 2387152/saythink
 2387149/scali
-2387181/seat21pigeon
 2388705/softify
 2390854/sophiaTest
 2387171/smartworld-zz
@@ -114,7 +109,6 @@
 2393449/Code125
 2391927/Deviceworks
 2392949/Derivitec
-2392955/EvershineAndroid
 2393474/FalkorSystems
 2391016/Gaganjuneja
 2394841/GeoRun
@@ -155,9 +149,7 @@
 2391030/c-p-c
 2391062/chessfrance5
 2391025/butanetwig8
-2390952/child87llama
 2391035/collinmccart512
-2390983/cornettemple4
 2390975/cliffglerup1127
 2395287/cs101-smumn-fall12
 2391034/darkhorse166
@@ -168,7 +160,6 @@
 2393489/eXist-db
 2391040/erezchalom
 2395723/eudemocracia
-2391050/euanoeua326
 2392039/fresh8gaming
 2394893/hazelhq
 2391032/hardik852
@@ -241,15 +232,12 @@
 2396042/esrf-bliss
 2396043/5sealstudy
 2396100/coconutlabs
-2396283/arielco
 2396392/RosalilaDarkSacrifice
 2396396/braddoro
 2396428/jump0edger
 2396665/SaintsRobotics
-2396683/artistgrowth
 2400020/1Projects
 2396684/0sandramark
-2400462/15minuteslate
 2396710/1ghostson
 2396717/28fuelmarket
 2396791/4Thought-Studios
@@ -260,7 +248,6 @@
 2396752/56sizebeet
 2396792/77fuelfifth
 2396698/8oystersearch
-2396724/95reportepoch
 2396697/8letterteeth
 2400007/AdroitSolutionsganeshan
 2403051/AnimasWeb
@@ -305,7 +292,6 @@
 2399080/SSGS
 2403959/TheRojasGroup
 2403809/Time-Keeper
-2402061/TheShowelTeam
 2396757/VinzenzBauer
 2400110/YAPOG
 2400515/ZBar
@@ -355,13 +341,11 @@
 2396690/gas39root
 2404661/gasmotorenfabrik
 2396870/girassolbit
-2396795/git-dev
 2396777/gurleen-zz
 2399143/globiantravel
 2396782/golfpan1
 2396759/harp02period
 2401712/healthyipcom
-2396721/housedj
 2400176/huntfunc
 2401334/iaFGames
 2396686/ikemsley
@@ -408,7 +392,6 @@
 2396779/sburton
 2401933/shodann
 2396733/sidner
-2396774/shredtechular
 2396732/sled7spark
 2400099/socialcops
 2397494/sveholding
@@ -435,3 +418,4 @@
 2396787/zaneboyd418
 2405296/erlanger-ru
 2405370/myorgtango
+2405371/jeorino
