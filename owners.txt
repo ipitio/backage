@@ -1,4 +1,3 @@
-2387177/Developer-Integration-Lab
 2388037/E-Group
 2389630/EZSWIPE
 2387370/GROSSWEBER
@@ -13,7 +12,6 @@
 2390536/MTDATA
 2389986/MaorinOrganization
 2387698/MiyS
-2388786/Mobee
 2388224/NashvilleSoftwareSchool
 2387170/PhuocVo
 2390635/Prof-Calebe
@@ -28,11 +26,9 @@
 2388343/VMop
 2388171/WagePoint
 2390686/XPT-Framework
-2389738/acm-ndsu
 2387136/adprasad
 2387093/ajaxjones259
 2387744/amakawa
-2387159/andrew-kennedy
 2387134/avallach2000
 2390564/axiatechnologypartners
 2387143/booktoad56
@@ -45,7 +41,6 @@
 2388279/danicacorp
 2387151/doctornurse6
 2387191/ecros
-2387090/effectgoose7
 2389132/eFileCabinet
 2389100/epanet
 2387150/five9-ci
@@ -60,8 +55,6 @@
 2387128/idleness
 2389516/israfil
 2387995/jj12098fnqajlkkasdu2234098t
-2387180/iyarchuk
-2387188/jiminjia
 2387132/joealpha55
 2390469/jwclogic
 2387113/klemmj
@@ -121,21 +114,16 @@
 2393449/Code125
 2391927/Deviceworks
 2392949/Derivitec
-2391119/Epymes
 2392955/EvershineAndroid
 2393474/FalkorSystems
 2391016/Gaganjuneja
 2394841/GeoRun
 2395142/GestUAB
-2394169/GroundWork
-2391506/HelloMars
 2395057/HackerTrain
 2393064/Hoss-Bear-Enterprises
 2391846/Infohos
 2392634/LMAX-Exchange
-2395740/Legify
 2393208/MakeMeReach
-2395463/NYU-Poly-ISIS
 2394372/Nashville
 2392819/OpenWaterAnalytics
 2392399/Patternslib
@@ -156,7 +144,6 @@
 2393404/acbr
 2391057/adammarcus1026
 2393944/agrinventory
-2390948/ajiwane
 2391059/akashsinghngi
 2391006/alexchonglian
 2391054/alexisberry36
@@ -165,7 +152,6 @@
 2390965/atmtrial51
 2390971/basin7raft
 2392207/bonjourmodule
-2395148/brogrammers
 2391030/c-p-c
 2391062/chessfrance5
 2391025/butanetwig8
@@ -184,7 +170,6 @@
 2395723/eudemocracia
 2391050/euanoeua326
 2392039/fresh8gaming
-2392854/fsl
 2394893/hazelhq
 2391032/hardik852
 2391003/horaciocarey615
@@ -194,7 +179,6 @@
 2391029/jacobusbowde12
 2391051/joejung
 2393126/jxsolucoes
-2391046/jpmen
 2390967/kennouth
 2390954/ladiesmanmenu0
 2395596/lainventoria
@@ -263,7 +247,6 @@
 2396428/jump0edger
 2396665/SaintsRobotics
 2396683/artistgrowth
-2396722/13pantsmetal
 2400020/1Projects
 2396684/0sandramark
 2400462/15minuteslate
@@ -296,9 +279,7 @@
 2404101/Di-TeC
 2401595/EligibleAPI
 2402966/FMSInc
-2401602/Featurings
 2396851/G5
-2396729/Hardycore
 2401122/INF1EECommerce
 2396714/LarsKort
 2398176/IFCastle
@@ -309,7 +290,6 @@
 2403442/LifeRPG
 2396780/MichaelRE
 2397622/Nodejs-ar
-2404143/MobilityMedia
 2401604/NoCheatPlus
 2396773/OfficialMiguelN
 2396801/PetHero
@@ -323,7 +303,6 @@
 2402232/Root-Box
 2396758/Shawnyall
 2399080/SSGS
-2405070/TeamMac
 2403959/TheRojasGroup
 2403809/Time-Keeper
 2402061/TheShowelTeam
@@ -347,7 +326,6 @@
 2396749/canvas8spark
 2396745/cd2death
 2396688/cameloption34
-2399226/cellcounter
 2396737/chord3wrist
 2398052/cfmlprojects
 2396695/chesleyloomi1129
@@ -362,9 +340,7 @@
 2396718/cub41hub
 2396769/decadebeech8
 2400496/devudo
-2396783/cut3stove
 2396740/dimcoder
-2396785/drumshrine41
 2400661/documatrix
 2396746/dsavard
 2396961/e14n
@@ -395,12 +371,10 @@
 2396772/ivanalonzo
 2404161/jimgreen8
 2398746/ionyse
-2403622/jnrain
 2396739/kenya85polish
 2396685/kenjiomura
 2404283/kennycx-test
 2396713/khut
-2401637/kidiso
 2396764/kthai15
 2396750/kickink9
 2401172/lambalabs
@@ -443,7 +417,6 @@
 2400023/tivea
 2396781/syriabrow4
 2396768/tillmananker616
-2396754/trable4003
 2396763/tritonND1
 2396767/trevortomesh
 2396753/trentonnash717
@@ -451,7 +424,6 @@
 2400550/uptimejp
 2399795/uthcode
 2401042/ultramatrix69
-2397772/velocityraptor
 2396793/voidunknown
 2396709/vyang17
 2396702/vidya0911
@@ -461,3 +433,4 @@
 2404822/web3apps
 2397069/yoolotto
 2396787/zaneboyd418
+2405296/erlanger-ru
