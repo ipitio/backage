@@ -45,6 +45,9 @@ git config user.email "${GITHUB_ACTOR}@users.noreply.github.com"
 git config credential.helper "!f() { echo username=${GITHUB_ACTOR}; echo password=${GITHUB_TOKEN}; }; f"
 git config --add safe.directory "$(pwd)"
 git config core.sharedRepository all
+git config remote.origin.promisor true
+git config remote.origin.partialclonefilter blob:none
+git config extensions.partialClone origin
 
 # performance
 if git fsmonitor--daemon status >/dev/null 2>&1 || git fsmonitor--daemon start >/dev/null 2>&1; then
@@ -79,10 +82,10 @@ if git ls-remote --exit-code origin "$BKG_INDEX" &>/dev/null; then
     [ -d "$BKG_INDEX".bak ] || rm -rf "$BKG_INDEX".bak
     git worktree move "$BKG_INDEX" "$BKG_INDEX".bak &>/dev/null
     WORKTREE_SUBPHASE_STARTED_AT=$(update_startup_phase_started_at)
-    git fetch --depth=1 origin "$BKG_INDEX"
+    git fetch --depth=1 --filter=blob:none origin "$BKG_INDEX"
     log_update_startup_phase "fetch-index-branch" "$WORKTREE_SUBPHASE_STARTED_AT"
     WORKTREE_SUBPHASE_STARTED_AT=$(update_startup_phase_started_at)
-    git show-ref --verify --quiet "refs/remotes/origin/$BKG_INDEX" || git fetch origin "$BKG_INDEX:refs/remotes/origin/$BKG_INDEX"
+    git show-ref --verify --quiet "refs/remotes/origin/$BKG_INDEX" || git fetch --filter=blob:none origin "$BKG_INDEX:refs/remotes/origin/$BKG_INDEX"
     log_update_startup_phase "ensure-index-remote-ref" "$WORKTREE_SUBPHASE_STARTED_AT"
     WORKTREE_SUBPHASE_STARTED_AT=$(update_startup_phase_started_at)
     git branch --track -f "$BKG_INDEX" "origin/$BKG_INDEX" 2>/dev/null || git branch -f "$BKG_INDEX" "origin/$BKG_INDEX"
@@ -106,17 +109,21 @@ fi
 
 WORKTREE_PHASE_STARTED_AT=$(update_startup_phase_started_at)
 git worktree remove -f "$BKG_INDEX" 2>/dev/null
-git worktree add -f "$BKG_INDEX" "$BKG_INDEX"
+git worktree add --no-checkout -f "$BKG_INDEX" "$BKG_INDEX"
 [[ -d "$BKG_INDEX" || ! -d "$BKG_INDEX".bak ]] || git worktree move "$BKG_INDEX".bak "$BKG_INDEX"
 log_update_startup_phase "attach-index-worktree" "$WORKTREE_PHASE_STARTED_AT"
 
 WORKTREE_PHASE_STARTED_AT=$(update_startup_phase_started_at)
 pushd "$BKG_INDEX" || exit 1
+WORKTREE_SUBPHASE_STARTED_AT=$(update_startup_phase_started_at)
+index_sparse_set_root
+log_update_startup_phase "configure-index-sparse-root" "$WORKTREE_SUBPHASE_STARTED_AT"
+WORKTREE_SUBPHASE_STARTED_AT=$(update_startup_phase_started_at)
 git reset --hard origin/"$BKG_INDEX"
+log_update_startup_phase "reset-index-worktree" "$WORKTREE_SUBPHASE_STARTED_AT"
 popd || exit 1
 [ -f "$BKG_INDEX"/.env ] && \cp "$BKG_INDEX"/.env src/env.env || touch src/env.env
 pushd src || exit 1
-log_update_startup_phase "reset-index-worktree" "$WORKTREE_PHASE_STARTED_AT"
 log_update_startup_phase "prepare-index-worktree" "$UPDATE_STARTUP_PHASE_STARTED_AT"
 
 if [ ! -f "$BKG_INDEX_DB_ZST" ] && [ ! -f "$BKG_INDEX_SQL".zst ] && [ ! -f "$BKG_INDEX_DB" ]; then
@@ -127,7 +134,7 @@ fi
 
 db_size=$(stat -c %s "$BKG_INDEX_DB_ZST" 2>/dev/null || stat -c %s "$BKG_INDEX_SQL".zst 2>/dev/null || stat -c %s "$BKG_INDEX_DB" 2>/dev/null || echo 0)
 num_owner_db=$(sqlite3 "$BKG_INDEX_DB" "SELECT COUNT(DISTINCT owner) FROM $BKG_INDEX_TBL_PKG")
-num_owner_index=$(find "$BKG_INDEX_DIR" -mindepth 1 -maxdepth 1 -type d -exec basename {} \; 2>/dev/null | sort -u | awk '{print $1}' | wc -l)
+num_owner_index=$(index_top_level_owner_count)
 
 if [ "$GITHUB_OWNER" = "ipitio" ] && ((num_owner_db < num_owner_index/2)) && ((db_size < 100000)); then
     [ ! -f "$BKG_INDEX_DB".bak ] || mv "$BKG_INDEX_DB".bak "$BKG_INDEX_DB"

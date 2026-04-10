@@ -125,6 +125,53 @@ resolve_release_snapshot_asset() {
     return 1
 }
 
+index_worktree_is_git_repo() {
+    [ -n "${BKG_INDEX_DIR:-}" ] || return 1
+    git -C "$BKG_INDEX_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1
+}
+
+index_sparse_set_root() {
+    index_worktree_is_git_repo || return 0
+    git -C "$BKG_INDEX_DIR" sparse-checkout init --cone >/dev/null 2>&1 || return 1
+    git -C "$BKG_INDEX_DIR" sparse-checkout set >/dev/null 2>&1 || return 1
+}
+
+index_sparse_add_paths() {
+    index_worktree_is_git_repo || return 0
+    local path
+    local -a batch=()
+
+    while IFS= read -r path; do
+        [ -n "$path" ] || continue
+        batch+=("$path")
+
+        if ((${#batch[@]} >= 100)); then
+            git -C "$BKG_INDEX_DIR" sparse-checkout add --skip-checks -- "${batch[@]}" || return 1
+            batch=()
+        fi
+    done
+
+    ((${#batch[@]} == 0)) || git -C "$BKG_INDEX_DIR" sparse-checkout add --skip-checks -- "${batch[@]}"
+}
+
+index_queue_owner_names() {
+    get_BKG_set BKG_OWNERS_QUEUE | cut -d'/' -f2 | awk 'NF && !seen[$0]++'
+}
+
+materialize_index_queue_owners() {
+    index_worktree_is_git_repo || return 0
+    index_queue_owner_names | index_sparse_add_paths
+}
+
+index_top_level_owner_count() {
+    index_worktree_is_git_repo || {
+        echo 0
+        return 0
+    }
+
+    git -C "$BKG_INDEX_DIR" ls-tree -d --name-only HEAD 2>/dev/null | awk 'NF' | wc -l
+}
+
 sqlite3() {
     local statement="${!#:-}"
     local busy_timeout_ms=${BKG_SQLITE_BUSY_TIMEOUT_MS:-300000}

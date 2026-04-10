@@ -488,6 +488,10 @@ main() {
 		[ -d "$BKG_INDEX_DIR" ] || mkdir "$BKG_INDEX_DIR"
 
 		if ((return_code != 3)); then
+			phase_started_at=$(startup_phase_started_at)
+			materialize_index_queue_owners || return $?
+			log_startup_phase "materialize-queued-owner-trees" "$phase_started_at"
+
 			run_owner_updates
 			phase_status=$?
 			if ((phase_status == 3)); then
