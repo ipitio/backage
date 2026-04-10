@@ -480,7 +480,7 @@ main() {
 				if ((return_code != 3)); then
 					queue_subphase_started_at=$(startup_phase_started_at)
 					if [ -s "$owner_candidates_file" ]; then
-						parallel_shell_func "$BKG_ROOT/src/lib/owner.sh" resolve_owner_id --lb <"$owner_candidates_file" >"$owner_ids_file"
+						resolve_owner_ids "$owner_candidates_file" >"$owner_ids_file"
 					else
 						: >"$owner_ids_file"
 					fi

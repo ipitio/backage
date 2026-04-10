@@ -831,6 +831,25 @@ query_api() {
     echo "$res"
 }
 
+query_graphql_api() {
+    local query=$1
+    local payload
+    local res
+    local calls_to_api
+    local min_calls_to_api
+
+    payload=$(jq -cn --arg query "$query" '{query:$query}') || return 1
+    res=$(curl_gh -X POST "https://api.github.com/graphql" -d "$payload")
+    (($? != 3)) || return 3
+    calls_to_api=$(get_BKG BKG_CALLS_TO_API)
+    min_calls_to_api=$(get_BKG BKG_MIN_CALLS_TO_API)
+    ((calls_to_api++))
+    ((min_calls_to_api++))
+    set_BKG BKG_CALLS_TO_API "$calls_to_api"
+    set_BKG BKG_MIN_CALLS_TO_API "$min_calls_to_api"
+    echo "$res"
+}
+
 check_db() {
     local release
     local latest

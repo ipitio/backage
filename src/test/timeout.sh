@@ -590,6 +590,46 @@ test_run_owner_page_discovery_caps_at_one_page() {
 	unset -f page_owner
 }
 
+test_resolve_owner_ids_preserves_ids_and_batches_live_lookup() {
+	local candidates_file="$workdir/owner-candidates.txt"
+	local output_file="$workdir/owner-ids.txt"
+	local query_log="$workdir/graphql-query.txt"
+
+	cat >"$candidates_file" <<'EOF'
+123/alpha
+beta
+0/gamma
+delta
+EOF
+
+	GITHUB_TOKEN=dummy
+
+	query_graphql_api() {
+		printf '%s\n' "$1" >"$query_log"
+		cat <<'EOF'
+{"data":{"o0":{"login":"beta","databaseId":200},"o1":{"login":"gamma","databaseId":300},"o2":null}}
+EOF
+	}
+
+	owner_get_id() {
+		[ "$1" = "delta" ] || fail "Expected only unresolved delta to fall back to owner_get_id"
+		printf '%s\n' '400/delta'
+	}
+
+	resolve_owner_ids "$candidates_file" >"$output_file"
+
+	assert_contains "$output_file" "123/alpha"
+	assert_contains "$output_file" "200/beta"
+	assert_contains "$output_file" "300/gamma"
+	assert_contains "$output_file" "400/delta"
+	assert_contains "$query_log" 'repositoryOwner(login:"beta")'
+	assert_contains "$query_log" 'repositoryOwner(login:"gamma")'
+	assert_contains "$query_log" 'repositoryOwner(login:"delta")'
+	unset -f query_graphql_api
+	unset -f owner_get_id
+	GITHUB_TOKEN=""
+}
+
 trap cleanup EXIT
 
 pushd "$src_dir" >/dev/null
@@ -613,6 +653,7 @@ test_owner_update_force_stop_due_after_grace_period
 test_run_owner_updates_halts_on_timeout
 test_run_owner_page_discovery_stops_on_code_2
 test_run_owner_page_discovery_caps_at_one_page
+test_resolve_owner_ids_preserves_ids_and_batches_live_lookup
 test_restore_db_from_snapshot_skips_when_signature_matches
 test_restore_db_from_snapshot_rebuilds_when_signature_changes
 test_restore_db_from_legacy_sql_snapshot

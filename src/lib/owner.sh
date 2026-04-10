@@ -53,6 +53,100 @@ queue_owner_id() {
 	! set_BKG_set BKG_OWNERS_QUEUE "$1" || echo "Queued $(cut -d'/' -f2 <<<"$1")"
 }
 
+graphql_owner_lookup_query() {
+	[ -n "$1" ] || return
+	local alias_index=0
+	local owner
+	local query='query {'
+
+	while IFS= read -r owner; do
+		[ -n "$owner" ] || continue
+		query+=" o${alias_index}: repositoryOwner(login:\"${owner}\") { login ... on User { databaseId } ... on Organization { databaseId } }"
+		((alias_index++))
+	done <"$1"
+
+	query+=' }'
+	printf '%s\n' "$query"
+}
+
+resolve_owner_ids() {
+	[ -n "$1" ] || return 0
+	[ -s "$1" ] || return 0
+	local candidate
+	local owner_name
+	local owner_id
+	local query
+	local response
+	local batch_file=""
+	local unresolved_file=""
+	local resolved=""
+	local -a candidates=()
+	local -a unresolved=()
+	local -A resolved_by_owner=()
+
+	while IFS= read -r candidate; do
+		[ -n "$candidate" ] || continue
+		candidates+=("$candidate")
+
+		if [[ "$candidate" =~ ^[1-9][0-9]*/.+$ ]]; then
+			owner_name=$(cut -d'/' -f2- <<<"$candidate")
+			resolved_by_owner["$owner_name"]="$candidate"
+			continue
+		fi
+
+		owner_name=${candidate#*/}
+		[ -n "$owner_name" ] || continue
+		[[ -n "${resolved_by_owner[$owner_name]:-}" ]] && continue
+		unresolved+=("$owner_name")
+	done <"$1"
+
+	if ((${#unresolved[@]} > 0)) && [ -n "${GITHUB_TOKEN:-}" ]; then
+		unresolved_file=$(mktemp) || return 1
+		printf '%s\n' "${unresolved[@]}" | awk '!seen[$0]++' >"$unresolved_file"
+
+		while [ -s "$unresolved_file" ]; do
+			batch_file=$(mktemp) || {
+				rm -f "$unresolved_file"
+				return 1
+			}
+			head -n 50 "$unresolved_file" >"$batch_file"
+			query=$(graphql_owner_lookup_query "$batch_file")
+			response=$(query_graphql_api "$query")
+			(($? != 3)) || {
+				rm -f "$batch_file" "$unresolved_file"
+				return 3
+			}
+			while IFS=$'\t' read -r owner_name owner_id; do
+				[ -n "$owner_name" ] || continue
+				[ -n "$owner_id" ] || continue
+				resolved_by_owner["$owner_name"]="$owner_id/$owner_name"
+			done < <(jq -r '.data | to_entries[] | select(.value != null and .value.login != null and .value.databaseId != null) | "\(.value.login)\t\(.value.databaseId)"' <<<"$response" 2>/dev/null)
+			tail -n +51 "$unresolved_file" >"$unresolved_file.next"
+			mv "$unresolved_file.next" "$unresolved_file"
+			rm -f "$batch_file"
+		done
+
+		rm -f "$unresolved_file"
+	fi
+
+	for candidate in "${candidates[@]}"; do
+		if [[ "$candidate" =~ ^[1-9][0-9]*/.+$ ]]; then
+			printf '%s\n' "$candidate"
+			continue
+		fi
+
+		owner_name=${candidate#*/}
+		resolved=${resolved_by_owner[$owner_name]:-}
+
+		if [ -z "$resolved" ]; then
+			resolved=$(owner_get_id "$owner_name")
+			(($? != 3)) || return 3
+		fi
+
+		[ -z "$resolved" ] || printf '%s\n' "$resolved"
+	done | awk 'NF && $0 !~ /^\// && !seen[$0]++'
+}
+
 owner_merge_pages_json() {
 	printf '%s\n%s\n' "${1:-[]}" "${2:-[]}" | jq -cs 'add | unique_by(.login)'
 }
