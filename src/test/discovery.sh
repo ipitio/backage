@@ -143,8 +143,66 @@ elif [ "$?" -ne 2 ]; then
     fail "Expected page_owner to return 2 when paging should stop"
 fi
 
+GITHUB_TOKEN=dummy
+
+query_graphql_api() {
+    case "$1" in
+    *'repository(owner:"ipitio", name:"backage")'*stargazers*)
+        cat <<'EOF'
+{"data":{"repository":{"stargazers":{"nodes":[{"login":"alpha"},{"login":"ipitio"}],"pageInfo":{"hasNextPage":false,"endCursor":null}}}}}
+EOF
+        ;;
+    *'repositoryOwner(login:"ipitio")'*'__typename'*)
+        cat <<'EOF'
+{"data":{"owner":{"__typename":"User"}}}
+EOF
+        ;;
+    *'repositoryOwner(login:"ipitio")'*followers*)
+        cat <<'EOF'
+{"data":{"owner":{"followers":{"nodes":[{"login":"beta"}],"pageInfo":{"hasNextPage":false,"endCursor":null}}}}}
+EOF
+        ;;
+    *'repositoryOwner(login:"ipitio")'*organizations*)
+        cat <<'EOF'
+{"data":{"owner":{"organizations":{"nodes":[{"login":"gamma"}],"pageInfo":{"hasNextPage":false,"endCursor":null}}}}}
+EOF
+        ;;
+    *'repositoryOwner(login:"github")'*'__typename'*)
+        cat <<'EOF'
+{"data":{"owner":{"__typename":"Organization"}}}
+EOF
+        ;;
+    *'repositoryOwner(login:"github")'*membersWithRole*)
+        cat <<'EOF'
+{"data":{"owner":{"membersWithRole":{"nodes":[{"login":"delta"}],"pageInfo":{"hasNextPage":false,"endCursor":null}}}}}
+EOF
+        ;;
+    *)
+        fail "Unexpected GraphQL discovery query: $1"
+        ;;
+    esac
+}
+
+curl() {
+    fail "Expected GraphQL discovery path to avoid HTML scraping"
+}
+
+repo_nodes=$(explore "ipitio/backage" "stargazers")
+grep -Fxq "alpha" <<<"$repo_nodes" || fail "Expected GraphQL repo discovery to emit stargazer logins"
+! grep -Fxq "ipitio" <<<"$repo_nodes" || fail "Expected explore to continue filtering the current owner from repo discovery results"
+
+user_nodes=$(explore "ipitio" "followers")
+grep -Fxq "beta" <<<"$user_nodes" || fail "Expected GraphQL user discovery to emit follower logins"
+grep -Fxq "gamma" <<<"$user_nodes" || fail "Expected GraphQL user discovery to include organization expansion output"
+
+membership_nodes=$(get_membership "1/github")
+grep -Fxq "delta" <<<"$membership_nodes" || fail "Expected GraphQL membership discovery to emit organization member logins"
+
 unset -f query_api
 unset -f request_owner
 unset -f jq
+unset -f query_graphql_api
+unset -f curl
+GITHUB_TOKEN=""
 
 echo "Second-hop discovery regression test passed"

@@ -875,6 +875,135 @@ query_graphql_api() {
     echo "$res"
 }
 
+graphql_escape_string() {
+    printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
+}
+
+owner_ref_login() {
+    [ -n "$1" ] || return
+
+    if [[ "$1" =~ ^[1-9][0-9]*/.+$ ]]; then
+        printf '%s\n' "${1#*/}"
+    else
+        printf '%s\n' "$1"
+    fi
+}
+
+graphql_owner_type() {
+    [ -n "$1" ] || return
+    local owner_login
+    local response
+
+    owner_login=$(owner_ref_login "$1") || return 1
+    response=$(query_graphql_api "query { owner: repositoryOwner(login:\"$(graphql_escape_string "$owner_login")\") { __typename } }")
+    (($? != 3)) || return 3
+    jq -r '.data.owner.__typename // empty' <<<"$response"
+}
+
+graphql_discovery_reset_page_info() {
+    GRAPHQL_DISCOVERY_HAS_NEXT_PAGE=false
+    GRAPHQL_DISCOVERY_END_CURSOR=""
+    GRAPHQL_DISCOVERY_NODES=""
+}
+
+graphql_repo_discovery_nodes() {
+    [ -n "$1" ] || return 1
+    [ -n "$2" ] || return 1
+    local node=$1
+    local edge=$2
+    local cursor=${3:-}
+    local owner
+    local repo
+    local after_arg=""
+    local query
+    local response
+    local parsed_nodes=""
+
+    owner=$(cut -d'/' -f1 <<<"$node")
+    repo=$(cut -d'/' -f2- <<<"$node")
+    [ -n "$owner" ] || return 1
+    [ -n "$repo" ] || return 1
+    graphql_discovery_reset_page_info
+    [ -z "$cursor" ] || after_arg=", after:\"$(graphql_escape_string "$cursor")\""
+
+    case "$edge" in
+    stargazers|watchers)
+        query="query { repository(owner:\"$(graphql_escape_string "$owner")\", name:\"$(graphql_escape_string "$repo")\") { $edge(first:100$after_arg) { nodes { login } pageInfo { hasNextPage endCursor } } } }"
+        response=$(query_graphql_api "$query")
+        (($? != 3)) || return 3
+        GRAPHQL_DISCOVERY_HAS_NEXT_PAGE=$(jq -r ".data.repository.$edge.pageInfo.hasNextPage // false" <<<"$response" 2>/dev/null)
+        GRAPHQL_DISCOVERY_END_CURSOR=$(jq -r ".data.repository.$edge.pageInfo.endCursor // empty" <<<"$response" 2>/dev/null)
+        parsed_nodes=$(jq -r ".data.repository.$edge.nodes[]? | select(.login != null) | .login" <<<"$response" 2>/dev/null)
+        GRAPHQL_DISCOVERY_NODES=$parsed_nodes
+        return 0
+        ;;
+    forks)
+        query="query { repository(owner:\"$(graphql_escape_string "$owner")\", name:\"$(graphql_escape_string "$repo")\") { forks(first:100$after_arg) { nodes { owner { login } } pageInfo { hasNextPage endCursor } } } }"
+        response=$(query_graphql_api "$query")
+        (($? != 3)) || return 3
+        GRAPHQL_DISCOVERY_HAS_NEXT_PAGE=$(jq -r '.data.repository.forks.pageInfo.hasNextPage // false' <<<"$response" 2>/dev/null)
+        GRAPHQL_DISCOVERY_END_CURSOR=$(jq -r '.data.repository.forks.pageInfo.endCursor // empty' <<<"$response" 2>/dev/null)
+        parsed_nodes=$(jq -r '.data.repository.forks.nodes[]? | .owner.login // empty' <<<"$response" 2>/dev/null)
+        GRAPHQL_DISCOVERY_NODES=$parsed_nodes
+        return 0
+        ;;
+    *)
+        return 1
+        ;;
+    esac
+}
+
+graphql_owner_discovery_nodes() {
+    [ -n "$1" ] || return 1
+    [ -n "$2" ] || return 1
+    local owner_ref=$1
+    local edge=$2
+    local cursor=${3:-}
+    local owner_type=${4:-}
+    local owner_login
+    local after_arg=""
+    local query
+    local response
+    local connection_name=""
+    local parsed_nodes=""
+
+    owner_login=$(owner_ref_login "$owner_ref") || return 1
+    [ -n "$owner_type" ] || owner_type=$(graphql_owner_type "$owner_login")
+    (($? != 3)) || return 3
+    [ -n "$owner_type" ] || return 1
+    graphql_discovery_reset_page_info
+    [ -z "$cursor" ] || after_arg=", after:\"$(graphql_escape_string "$cursor")\""
+
+    case "$edge" in
+    followers|following|organizations)
+        [ "$owner_type" = "User" ] || return 0
+        connection_name=$edge
+        query="query { owner: repositoryOwner(login:\"$(graphql_escape_string "$owner_login")\") { ... on User { $connection_name(first:100$after_arg) { nodes { login } pageInfo { hasNextPage endCursor } } } } }"
+        response=$(query_graphql_api "$query")
+        (($? != 3)) || return 3
+        GRAPHQL_DISCOVERY_HAS_NEXT_PAGE=$(jq -r ".data.owner.$connection_name.pageInfo.hasNextPage // false" <<<"$response" 2>/dev/null)
+        GRAPHQL_DISCOVERY_END_CURSOR=$(jq -r ".data.owner.$connection_name.pageInfo.endCursor // empty" <<<"$response" 2>/dev/null)
+        parsed_nodes=$(jq -r ".data.owner.$connection_name.nodes[]? | select(.login != null) | .login" <<<"$response" 2>/dev/null)
+        GRAPHQL_DISCOVERY_NODES=$parsed_nodes
+        return 0
+        ;;
+    people)
+        [ "$owner_type" = "Organization" ] || return 0
+        query="query { owner: repositoryOwner(login:\"$(graphql_escape_string "$owner_login")\") { ... on Organization { membersWithRole(first:100$after_arg) { nodes { login } pageInfo { hasNextPage endCursor } } } } }"
+        response=$(query_graphql_api "$query")
+        (($? != 3)) || return 3
+        GRAPHQL_DISCOVERY_HAS_NEXT_PAGE=$(jq -r '.data.owner.membersWithRole.pageInfo.hasNextPage // false' <<<"$response" 2>/dev/null)
+        GRAPHQL_DISCOVERY_END_CURSOR=$(jq -r '.data.owner.membersWithRole.pageInfo.endCursor // empty' <<<"$response" 2>/dev/null)
+        parsed_nodes=$(jq -r '.data.owner.membersWithRole.nodes[]? | select(.login != null) | .login' <<<"$response" 2>/dev/null)
+        GRAPHQL_DISCOVERY_NODES=$parsed_nodes
+        return 0
+        ;;
+    *)
+        return 1
+        ;;
+    esac
+}
+
 check_db() {
     local release
     local latest
@@ -944,17 +1073,49 @@ get_owners() {
 }
 
 curl_users() {
+    local resolve_names=${2:-}
     local users
     users="$(curl "https://github.com/$1" | grep -oP 'href="/.+?".*>' | tr -d '\0' | grep -Ev '( .*|\?(return_to|tab))=' | tr -d '\0' | grep -oP '/.*?"' | cut -c2- | rev | cut -c2- | rev | grep -v "/")"
     (($? != 3)) || return 3
-    [ -z "$2" ] && echo "$users" || get_owners "$users"
+    [ -z "$resolve_names" ] && echo "$users" || get_owners "$users"
 }
 
 curl_orgs() {
-    local orgs
-    orgs="$(curl "https://github.com/$1" | grep -oP '/orgs/[^/]+' | tr -d '\0' | cut -d'/' -f3)"
+    local target=$1
+    local resolve_names=${2:-}
+    local owner_type=""
+    local cursor=""
+    local orgs=""
+    local status=0
+
+    if [ -n "${GITHUB_TOKEN:-}" ] && [[ "$target" != orgs/* ]] && [[ "$target" != *\?* ]] && [[ "$target" != */*/* ]]; then
+        owner_type=$(graphql_owner_type "$target")
+        status=$?
+        ((status != 3)) || return 3
+
+        if [ "$owner_type" = "User" ]; then
+            while true; do
+                graphql_owner_discovery_nodes "$target" organizations "$cursor" "$owner_type"
+                status=$?
+                ((status != 3)) || return 3
+                ((status == 0)) || break
+                orgs=$GRAPHQL_DISCOVERY_NODES
+                [ -z "$resolve_names" ] && echo "$orgs" || get_owners "$orgs"
+                [ "$GRAPHQL_DISCOVERY_HAS_NEXT_PAGE" = "true" ] || return 0
+                cursor=$GRAPHQL_DISCOVERY_END_CURSOR
+            done
+        elif [ "$owner_type" = "Organization" ]; then
+            return 0
+        fi
+    fi
+
+    if [[ "$target" =~ ^[1-9][0-9]*/[^/?]+$ ]]; then
+        target=${target#*/}
+    fi
+
+    orgs="$(curl "https://github.com/$target" | grep -oP '/orgs/[^/]+' | tr -d '\0' | cut -d'/' -f3)"
     (($? != 3)) || return 3
-    [ -z "$2" ] && echo "$orgs" || get_owners "$orgs"
+    [ -z "$resolve_names" ] && echo "$orgs" || get_owners "$orgs"
 }
 
 explore() {
@@ -963,14 +1124,58 @@ explore() {
 	local is_user=false
 	local got_orgs=false
 	local status=0
+    local graphql_owner_type=""
 	[[ ! "$node" =~ .*\/.* ]] || is_repo=true
     [ "$is_repo" = true ] && local graph=("stargazers" "watchers" "forks" "collaborators") || local graph=("followers" "following" "people")
     [ -z "$2" ] || graph=("$2")
 
+    if [ "$is_repo" = false ] && [ -n "${GITHUB_TOKEN:-}" ]; then
+        graphql_owner_type=$(graphql_owner_type "$node")
+        status=$?
+        ((status != 3)) || return 3
+    fi
+
     for edge in "${graph[@]}"; do
         local page=1
+        local cursor=""
         while true; do
             local nodes
+
+            if [ -n "${GITHUB_TOKEN:-}" ] && [ "$edge" != "collaborators" ]; then
+                if [ "$is_repo" = true ]; then
+                    graphql_repo_discovery_nodes "$node" "$edge" "$cursor"
+                    status=$?
+                    ((status != 3)) || return 3
+
+                    if ((status == 0)); then
+                        nodes=$GRAPHQL_DISCOVERY_NODES
+                        grep -v "$(cut -d'/' -f1 <<<"$node")" <<<"$nodes"
+                        [ "$GRAPHQL_DISCOVERY_HAS_NEXT_PAGE" = "true" ] || break
+                        cursor=$GRAPHQL_DISCOVERY_END_CURSOR
+                        continue
+                    fi
+                elif [ -n "$graphql_owner_type" ]; then
+                    graphql_owner_discovery_nodes "$node" "$edge" "$cursor" "$graphql_owner_type"
+                    status=$?
+                    ((status != 3)) || return 3
+
+                    if ((status == 0)); then
+                        nodes=$GRAPHQL_DISCOVERY_NODES
+                        grep -v "$(cut -d'/' -f1 <<<"$node")" <<<"$nodes"
+
+                        if [ "$graphql_owner_type" = "User" ] && [ "$got_orgs" = false ]; then
+                            curl_orgs "$node"
+                            status=$?
+                            ((status != 3)) || return 3
+                            got_orgs=true
+                        fi
+
+                        [ "$GRAPHQL_DISCOVERY_HAS_NEXT_PAGE" = "true" ] || break
+                        cursor=$GRAPHQL_DISCOVERY_END_CURSOR
+                        continue
+                    fi
+                fi
+            fi
 
             if [ "$is_repo" = true ]; then
                 if [ "$edge" = "collaborators" ]; then
@@ -1014,7 +1219,34 @@ explore() {
 get_membership() {
     local owner
     local people_page
+    local owner_type=""
+    local people=""
+    local cursor=""
+    local status=0
     owner=$(cut -d'/' -f2 <<<"$1")
+
+    if [ -n "${GITHUB_TOKEN:-}" ]; then
+        owner_type=$(graphql_owner_type "$owner")
+        status=$?
+        ((status != 3)) || return 3
+
+        if [ "$owner_type" = "Organization" ]; then
+            while true; do
+                graphql_owner_discovery_nodes "$owner" people "$cursor" "$owner_type"
+                status=$?
+                ((status != 3)) || return 3
+                ((status == 0)) || break
+                people=$GRAPHQL_DISCOVERY_NODES
+                echo "$people"
+                [ "$GRAPHQL_DISCOVERY_HAS_NEXT_PAGE" = "true" ] || return 0
+                cursor=$GRAPHQL_DISCOVERY_END_CURSOR
+            done
+        elif [ "$owner_type" = "User" ]; then
+            curl_orgs "$owner"
+            return $?
+        fi
+    fi
+
     people_page=$(curl "https://github.com/orgs/$owner/people")
     (($? != 3)) || return 3
 
