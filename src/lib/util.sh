@@ -136,22 +136,43 @@ index_sparse_set_root() {
     git -C "$BKG_INDEX_DIR" sparse-checkout set >/dev/null 2>&1 || return 1
 }
 
+index_sparse_log_batch() {
+    local batch_number=$1
+    local path_count=$2
+    local started_at=${3:-0}
+    local elapsed=0
+
+    ((started_at > 0)) || return 0
+    elapsed=$(( $(date -u +%s) - started_at ))
+    echo "Sparse expansion batch '$batch_number' ($path_count path(s)) completed in ${elapsed}s"
+}
+
 index_sparse_add_paths() {
     index_worktree_is_git_repo || return 0
     local path
     local -a batch=()
+    local batch_number=0
+    local batch_started_at=0
 
     while IFS= read -r path; do
         [ -n "$path" ] || continue
         batch+=("$path")
 
         if ((${#batch[@]} >= 100)); then
+            ((batch_number++))
+            batch_started_at=$(date -u +%s)
             git -C "$BKG_INDEX_DIR" sparse-checkout add --skip-checks -- "${batch[@]}" || return 1
+            index_sparse_log_batch "$batch_number" "${#batch[@]}" "$batch_started_at"
             batch=()
         fi
     done
 
-    ((${#batch[@]} == 0)) || git -C "$BKG_INDEX_DIR" sparse-checkout add --skip-checks -- "${batch[@]}"
+    if ((${#batch[@]} > 0)); then
+        ((batch_number++))
+        batch_started_at=$(date -u +%s)
+        git -C "$BKG_INDEX_DIR" sparse-checkout add --skip-checks -- "${batch[@]}" || return 1
+        index_sparse_log_batch "$batch_number" "${#batch[@]}" "$batch_started_at"
+    fi
 }
 
 index_queue_owner_names() {

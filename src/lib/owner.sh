@@ -39,8 +39,18 @@ request_owner() {
 save_owner() {
 	[ -n "$1" ] || return
 	local owner_id
-	owner_id=$(owner_get_id "$1") || return
-	! set_BKG_set BKG_OWNERS_QUEUE "$owner_id" || echo "Queued $(cut -d'/' -f2 <<<"$owner_id")"
+	owner_id=$(resolve_owner_id "$1") || return
+	queue_owner_id "$owner_id"
+}
+
+resolve_owner_id() {
+	[ -n "$1" ] || return
+	owner_get_id "$1"
+}
+
+queue_owner_id() {
+	[ -n "$1" ] || return
+	! set_BKG_set BKG_OWNERS_QUEUE "$1" || echo "Queued $(cut -d'/' -f2 <<<"$1")"
 }
 
 owner_merge_pages_json() {
