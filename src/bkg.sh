@@ -464,7 +464,22 @@ main() {
 				rest_first=$(get_BKG BKG_REST_TO_TOP)
 				log_prequeue_elapsed_once
 				phase_started_at=$(startup_phase_started_at)
-				bash lib/get.sh "$rest_first" "$connections" $request_limit "$GITHUB_OWNER" "$BKG_OWNERS" "$BKG_INDEX_DIR" | parallel_shell_func "$BKG_ROOT/src/lib/owner.sh" save_owner --lb
+				local owner_candidates_file
+				owner_candidates_file=$(mktemp) || return 1
+				local queue_subphase_started_at
+				queue_subphase_started_at=$(startup_phase_started_at)
+				bash lib/get.sh "$rest_first" "$connections" $request_limit "$GITHUB_OWNER" "$BKG_OWNERS" "$BKG_INDEX_DIR" >"$owner_candidates_file"
+				phase_status=$?
+				((phase_status != 3)) || return_code=3
+				log_startup_phase "discover-owner-candidates" "$queue_subphase_started_at"
+				if ((return_code != 3)); then
+					queue_subphase_started_at=$(startup_phase_started_at)
+					[ ! -s "$owner_candidates_file" ] || parallel_shell_func "$BKG_ROOT/src/lib/owner.sh" save_owner --lb <"$owner_candidates_file"
+					phase_status=$?
+					((phase_status != 3)) || return_code=3
+					log_startup_phase "queue-owner-candidates" "$queue_subphase_started_at"
+				fi
+				rm -f "$owner_candidates_file"
 				log_startup_phase "queue-discovered-owners" "$phase_started_at"
 				rm -f all_owners_in_db all_owners_tu owners_updated owners_partially_updated owners_stale
 				set_BKG BKG_DIFF "$db_size_curr"
