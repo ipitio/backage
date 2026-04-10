@@ -831,22 +831,47 @@ query_api() {
     echo "$res"
 }
 
+graphql_query_with_rate_limit() {
+    [ -n "$1" ] || return
+
+    if grep -q 'rateLimit' <<<"$1"; then
+        printf '%s\n' "$1"
+        return 0
+    fi
+
+    perl -0pe 's/\}\s*$/ rateLimit { cost remaining resetAt } }/' <<<"$1"
+}
+
 query_graphql_api() {
     local query=$1
+    local query_with_rate_limit
     local payload
     local res
     local calls_to_api
     local min_calls_to_api
+    local graphql_cost=1
+    local graphql_remaining=""
+    local graphql_reset_at=""
 
-    payload=$(jq -cn --arg query "$query" '{query:$query}') || return 1
+    query_with_rate_limit=$(graphql_query_with_rate_limit "$query") || return 1
+    payload=$(jq -cn --arg query "$query_with_rate_limit" '{query:$query}') || return 1
     res=$(curl_gh -X POST "https://api.github.com/graphql" -d "$payload")
     (($? != 3)) || return 3
+    graphql_cost=$(jq -r '.data.rateLimit.cost // 1' <<<"$res" 2>/dev/null)
+    [[ "$graphql_cost" =~ ^[0-9]+$ ]] || graphql_cost=1
+    graphql_remaining=$(jq -r '.data.rateLimit.remaining // empty' <<<"$res" 2>/dev/null)
+    graphql_reset_at=$(jq -r '.data.rateLimit.resetAt // empty' <<<"$res" 2>/dev/null)
     calls_to_api=$(get_BKG BKG_CALLS_TO_API)
     min_calls_to_api=$(get_BKG BKG_MIN_CALLS_TO_API)
-    ((calls_to_api++))
-    ((min_calls_to_api++))
+    [ -n "$calls_to_api" ] || calls_to_api=0
+    [ -n "$min_calls_to_api" ] || min_calls_to_api=0
+    ((calls_to_api += graphql_cost))
+    ((min_calls_to_api += graphql_cost))
     set_BKG BKG_CALLS_TO_API "$calls_to_api"
     set_BKG BKG_MIN_CALLS_TO_API "$min_calls_to_api"
+    set_BKG BKG_GRAPHQL_LAST_COST "$graphql_cost"
+    [[ "$graphql_remaining" =~ ^[0-9]+$ ]] && set_BKG BKG_GRAPHQL_REMAINING "$graphql_remaining"
+    [ -n "$graphql_reset_at" ] && set_BKG BKG_GRAPHQL_RESET_AT "$graphql_reset_at"
     echo "$res"
 }
 

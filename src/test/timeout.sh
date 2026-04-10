@@ -590,6 +590,33 @@ test_run_owner_page_discovery_caps_at_one_page() {
 	unset -f page_owner
 }
 
+test_query_graphql_api_tracks_cost_and_remaining() {
+	BKG_ENV="$workdir/env-graphql.env"
+	: >"$BKG_ENV"
+	set_BKG BKG_CALLS_TO_API 5
+	set_BKG BKG_MIN_CALLS_TO_API 7
+	GITHUB_TOKEN=dummy
+
+	curl_gh() {
+		[ "$1" = "-X" ] || fail "Expected query_graphql_api to call curl_gh with -X POST"
+		[ "$2" = "POST" ] || fail "Expected query_graphql_api to use POST"
+		assert_contains <(printf '%s\n' "$5") 'rateLimit { cost remaining resetAt }'
+		cat <<'EOF'
+{"data":{"viewer":{"login":"ipitio"},"rateLimit":{"cost":17,"remaining":4321,"resetAt":"2026-04-10T23:59:59Z"}}}
+EOF
+	}
+
+	query_graphql_api 'query { viewer { login } }' >/tmp/query-graphql.out
+
+	[ "$(get_BKG BKG_CALLS_TO_API)" = "22" ] || fail "Expected query_graphql_api to add GraphQL cost to BKG_CALLS_TO_API"
+	[ "$(get_BKG BKG_MIN_CALLS_TO_API)" = "24" ] || fail "Expected query_graphql_api to add GraphQL cost to BKG_MIN_CALLS_TO_API"
+	[ "$(get_BKG BKG_GRAPHQL_LAST_COST)" = "17" ] || fail "Expected query_graphql_api to persist the last GraphQL cost"
+	[ "$(get_BKG BKG_GRAPHQL_REMAINING)" = "4321" ] || fail "Expected query_graphql_api to persist GraphQL remaining budget"
+	[ "$(get_BKG BKG_GRAPHQL_RESET_AT)" = "2026-04-10T23:59:59Z" ] || fail "Expected query_graphql_api to persist the GraphQL reset time"
+	unset -f curl_gh
+	GITHUB_TOKEN=""
+}
+
 test_resolve_owner_ids_preserves_ids_and_batches_live_lookup() {
 	local candidates_file="$workdir/owner-candidates.txt"
 	local output_file="$workdir/owner-ids.txt"
@@ -653,6 +680,7 @@ test_owner_update_force_stop_due_after_grace_period
 test_run_owner_updates_halts_on_timeout
 test_run_owner_page_discovery_stops_on_code_2
 test_run_owner_page_discovery_caps_at_one_page
+test_query_graphql_api_tracks_cost_and_remaining
 test_resolve_owner_ids_preserves_ids_and_batches_live_lookup
 test_restore_db_from_snapshot_skips_when_signature_matches
 test_restore_db_from_snapshot_rebuilds_when_signature_changes
