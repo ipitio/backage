@@ -67,7 +67,7 @@ pushd "$workdir" >/dev/null
 admitted_capped=$(bash "$src_dir/lib/get.sh" 0 "$many_connections" 100 ipitio "$owners_file" "$index_repo")
 popd >/dev/null
 
-[ "$(wc -l <<<"$admitted_capped")" -eq 200 ] || fail "Expected discovered owner admission to cap at twice request_limit"
+[ "$(wc -l <<<"$admitted_capped")" -eq 301 ] || fail "Expected discovered owner admission to include all candidates when the four-times-request_limit cap is not reached"
 grep -Fxq ipitio <<<"$admitted_capped" || fail "Expected current owner to still be eligible within the capped owner admission set"
 
 init_bkg_state
@@ -208,6 +208,43 @@ grep -Fxq "gamma" <<<"$user_nodes" || fail "Expected GraphQL user discovery to i
 
 membership_nodes=$(get_membership "1/github")
 grep -Fxq "delta" <<<"$membership_nodes" || fail "Expected GraphQL membership discovery to emit organization member logins"
+
+init_bkg_state
+BKG_INDEX_DB="$workdir/no-package-owners.db"
+BKG_BATCH_FIRST_STARTED="$(date -u +%Y-%m-%d)"
+: >packages_already_updated
+mkdir -p "$BKG_INDEX_DIR"
+command sqlite3 "$BKG_INDEX_DB" "create table if not exists '$BKG_INDEX_TBL_PKG' (owner_id text, owner_type text not null, package_type text not null, owner text not null, repo text not null, package text not null, downloads integer not null, downloads_month integer not null, downloads_week integer not null, downloads_day integer not null, size integer not null, date text not null, primary key (owner_id, package, date));"
+set_BKG BKG_DISCOVERED_CONNECTION_OWNERS '4242/NoPackages'
+
+pushd "$workdir" >/dev/null
+
+curl() {
+    printf '%s\n' '<div></div>'
+}
+
+update_owner '4242/NoPackages' >/dev/null || fail "Expected update_owner to handle owners with no packages"
+
+[ "$(command sqlite3 "$BKG_INDEX_DB" "select count(*) from '$BKG_INDEX_TBL_OWN' where owner_id = '4242' and owner = 'NoPackages' and date = '$BKG_BATCH_FIRST_STARTED';")" = "1" ] || fail "Expected no-package owner to be remembered in the owners table for the current batch"
+
+printf '%s\n' 'NoPackages' >"$connections"
+: >"$owners_file"
+command sqlite3 "$BKG_INDEX_DB" "
+    with known_owners as (
+        select owner from '$BKG_INDEX_TBL_PKG' where owner is not null and owner != ''
+        union
+        select owner from '$BKG_INDEX_TBL_OWN' where date >= '$BKG_BATCH_FIRST_STARTED' and owner is not null and owner != ''
+    )
+    select owner from known_owners order by owner asc;
+" >all_owners_in_db
+    filtered_after_remember=$(bash "$src_dir/lib/get.sh" 0 "$connections" 10 ipitio "$owners_file" "$index_repo")
+    ! grep -Fxq "NoPackages" <<<"$filtered_after_remember" || fail "Expected remembered no-package owner to be filtered from later batch discovery"
+
+    printf '%s\n' 'NoPackages' >"$owners_file"
+    filtered_manual_after_remember=$(bash "$src_dir/lib/get.sh" 0 "$connections" 10 ipitio "$owners_file" "$index_repo")
+    grep -Fxq "NoPackages" <<<"$filtered_manual_after_remember" || fail "Expected owners.txt entries to bypass remembered no-package connection filtering"
+
+popd >/dev/null
 
 unset -f query_api
 unset -f request_owner

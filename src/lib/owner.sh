@@ -74,6 +74,27 @@ queue_owner_id() {
 	! set_BKG_set BKG_OWNERS_QUEUE "$1" || echo "Queued $(cut -d'/' -f2 <<<"$1")"
 }
 
+owner_is_discovered_connection() {
+	[ -n "${owner_id:-}" ] || return 1
+	[ -n "${owner:-}" ] || return 1
+	awk -F'/' -v owner_id_key="$owner_id" -v owner_key="$owner" '$1 == owner_id_key && $2 == owner_key { found = 1; exit } END { exit !found }' < <(get_BKG_set BKG_DISCOVERED_CONNECTION_OWNERS)
+}
+
+remember_scanned_owner_without_packages() {
+	[ -n "${owner_id:-}" ] || return 0
+	[ -n "${owner:-}" ] || return 0
+	[ -n "${BKG_BATCH_FIRST_STARTED:-}" ] || return 0
+	owner_is_discovered_connection || return 0
+
+	sqlite3 "$BKG_INDEX_DB" "create table if not exists '$BKG_INDEX_TBL_OWN' (
+		owner_id text not null,
+		owner text not null,
+		date text not null,
+		primary key (owner_id, date)
+	);" >/dev/null || return $?
+	sqlite3 "$BKG_INDEX_DB" "insert or replace into '$BKG_INDEX_TBL_OWN' (owner_id, owner, date) values ('$(sqlite_escape_literal "$owner_id")', '$(sqlite_escape_literal "$owner")', '$(sqlite_escape_literal "$BKG_BATCH_FIRST_STARTED")');" >/dev/null
+}
+
 graphql_owner_lookup_query() {
 	[ -n "$1" ] || return
 	local alias_index=0
@@ -288,8 +309,13 @@ update_owner() {
 	fi
 
 	local owner_repos
+	local owner_has_packages
 	cleanup_generated_json_sidecars "$BKG_INDEX_DIR/$owner"
 	owner_repos=$(find "$BKG_INDEX_DIR/$owner" -mindepth 1 -maxdepth 1 -type d -print0 | xargs -0 -I {} basename {})
+	owner_has_packages=$(sqlite3 "$BKG_INDEX_DB" "select 1 from '$BKG_INDEX_TBL_PKG' where owner_id='$(sqlite_escape_literal "$owner_id")' limit 1;" 2>/dev/null || :)
+	if [ -z "$owner_repos" ] && ! [[ "$owner_has_packages" =~ ^1$ ]]; then
+		remember_scanned_owner_without_packages || return $?
+	fi
 
 	if [ -n "$owner_repos" ]; then
 		echo "Creating $owner array..."

@@ -325,6 +325,7 @@ main() {
 	[ -n "$(get_BKG BKG_REST_TO_TOP)" ] || set_BKG BKG_REST_TO_TOP "0"
 	BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
 	reset_owner_id_cache || return 1
+	set_BKG BKG_DISCOVERED_CONNECTION_OWNERS ""
 	set_BKG BKG_OWNERS_QUEUE ""
 	set_BKG BKG_TIMEOUT "0"
 	set_BKG BKG_SCRIPT_START "$BKG_SCRIPT_START"
@@ -351,6 +352,12 @@ main() {
 		[ -f "$BKG_INDEX_DB".bak ] && mv "$BKG_INDEX_DB".bak "$BKG_INDEX_DB" || sqlite3 "$BKG_INDEX_DB" ""
 	}
 	phase_started_at=$(startup_phase_started_at)
+	sqlite3 "$BKG_INDEX_DB" "create table if not exists '$BKG_INDEX_TBL_OWN' (
+		owner_id text not null,
+		owner text not null,
+		date text not null,
+		primary key (owner_id, date)
+	);"
 	sqlite3 "$BKG_INDEX_DB" "create table if not exists '$BKG_INDEX_TBL_PKG' (
         owner_id text,
         owner_type text not null,
@@ -459,6 +466,9 @@ main() {
 				grep -vFxf owners_updated all_owners_tu >owners_stale
 				sort "$connections" | uniq -c | sort -nr | awk '{print $2}' >"$connections".bak
 				mv "$connections".bak "$connections"
+				sqlite3 "$BKG_INDEX_DB" "select owner from '$BKG_INDEX_TBL_OWN' where date >= '$BKG_BATCH_FIRST_STARTED' order by owner asc;" >owners_scanned_without_packages
+				grep -vFxf owners_scanned_without_packages "$connections" >"$connections".filtered || :
+				mv "$connections".filtered "$connections"
 				clean_owners "$BKG_OWNERS"
 				grep -vFxf all_owners_in_db "$BKG_OWNERS" >owners.tmp
 				mv owners.tmp "$BKG_OWNERS"
@@ -491,6 +501,13 @@ main() {
 				fi
 				if ((return_code != 3)); then
 					queue_subphase_started_at=$(startup_phase_started_at)
+					set_BKG BKG_DISCOVERED_CONNECTION_OWNERS ""
+					if [ -s "$owner_ids_file" ]; then
+						while IFS= read -r owner_ref; do
+							[ -n "$owner_ref" ] || continue
+							set_BKG_set BKG_DISCOVERED_CONNECTION_OWNERS "$owner_ref" >/dev/null
+						done < <(awk -F'/' 'NR==FNR { discovered[$0] = 1; next } { owner = $NF; if (owner in discovered) print $0 }' "$connections" "$owner_ids_file")
+					fi
 					[ ! -s "$owner_ids_file" ] || parallel_shell_func "$BKG_ROOT/src/lib/owner.sh" queue_owner_id --lb <"$owner_ids_file"
 					phase_status=$?
 					((phase_status != 3)) || return_code=3
@@ -500,7 +517,7 @@ main() {
 				rm -f "$owner_candidates_file"
 				rm -f "$owner_ids_file"
 				log_startup_phase "queue-discovered-owners" "$phase_started_at"
-				rm -f all_owners_in_db all_owners_tu owners_updated owners_partially_updated owners_stale
+				rm -f all_owners_in_db all_owners_tu owners_updated owners_partially_updated owners_stale owners_scanned_without_packages
 				set_BKG BKG_DIFF "$db_size_curr"
 				set_BKG BKG_REST_TO_TOP "$((1 - rest_first))"
 				fi
