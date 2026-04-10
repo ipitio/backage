@@ -889,6 +889,73 @@ owner_ref_login() {
     fi
 }
 
+owner_id_cache_file() {
+    if [ -n "${BKG_OWNER_ID_CACHE:-}" ]; then
+        printf '%s\n' "$BKG_OWNER_ID_CACHE"
+    elif [ -n "${BKG_ENV:-}" ]; then
+        printf '%s\n' "$(dirname "$BKG_ENV")/owner-id-cache.txt"
+    else
+        printf '%s\n' "$BKG_ROOT/owner-id-cache.txt"
+    fi
+}
+
+reset_owner_id_cache() {
+    local cache_file
+
+    cache_file=$(owner_id_cache_file) || return 1
+    mkdir -p "$(dirname "$cache_file")" || return 1
+    : >"$cache_file"
+}
+
+lookup_owner_ref_cache() {
+    [ -n "$1" ] || return 1
+    local owner_login
+    local cache_file
+
+    owner_login=$(owner_ref_login "$1") || return 1
+    cache_file=$(owner_id_cache_file) || return 1
+    [ -f "$cache_file" ] || return 1
+
+    awk -F'/' -v owner_key="$owner_login" '
+        $NF == owner_key {
+            if (match_ref != "" && match_ref != $0) {
+                conflict = 1
+                exit
+            }
+            match_ref = $0
+        }
+        END {
+            if (!conflict && match_ref != "") print match_ref
+        }
+    ' "$cache_file"
+}
+
+cache_owner_ref() {
+    [ -n "$1" ] || return 0
+    [[ "$1" =~ ^[1-9][0-9]*/.+$ ]] || return 0
+    local owner_ref=$1
+    local cache_file
+    local cache_lock
+    local owner_login
+    local tmp_file
+
+    cache_file=$(owner_id_cache_file) || return 1
+    cache_lock="$cache_file.lock"
+    owner_login=$(owner_ref_login "$owner_ref") || return 1
+    mkdir -p "$(dirname "$cache_file")" || return 1
+    [ -f "$cache_file" ] || : >"$cache_file"
+    tmp_file=$(mktemp) || return 1
+
+    until ln "$cache_file" "$cache_lock" 2>/dev/null; do sleep 0.05; done
+
+    awk -F'/' -v owner_key="$owner_login" '$NF != owner_key' "$cache_file" >"$tmp_file"
+    printf '%s\n' "$owner_ref" >>"$tmp_file"
+    awk '!seen[$0]++' "$tmp_file" >"$tmp_file.dedup"
+    mv "$tmp_file.dedup" "$tmp_file"
+    mv "$tmp_file" "$cache_file"
+    rm -f "$cache_lock"
+}
+
 graphql_owner_type() {
     [ -n "$1" ] || return
     local owner_login
@@ -928,21 +995,31 @@ graphql_repo_discovery_nodes() {
 
     case "$edge" in
     stargazers|watchers)
-        query="query { repository(owner:\"$(graphql_escape_string "$owner")\", name:\"$(graphql_escape_string "$repo")\") { $edge(first:100$after_arg) { nodes { login } pageInfo { hasNextPage endCursor } } } }"
+        query="query { repository(owner:\"$(graphql_escape_string "$owner")\", name:\"$(graphql_escape_string "$repo")\") { $edge(first:100$after_arg) { nodes { login databaseId } pageInfo { hasNextPage endCursor } } } }"
         response=$(query_graphql_api "$query")
         (($? != 3)) || return 3
         GRAPHQL_DISCOVERY_HAS_NEXT_PAGE=$(jq -r ".data.repository.$edge.pageInfo.hasNextPage // false" <<<"$response" 2>/dev/null)
         GRAPHQL_DISCOVERY_END_CURSOR=$(jq -r ".data.repository.$edge.pageInfo.endCursor // empty" <<<"$response" 2>/dev/null)
+        while IFS=$'\t' read -r owner_login owner_id; do
+            [ -n "$owner_login" ] || continue
+            [[ "$owner_id" =~ ^[1-9][0-9]*$ ]] || continue
+            cache_owner_ref "$owner_id/$owner_login"
+        done < <(jq -r ".data.repository.$edge.nodes[]? | select(.login != null and .databaseId != null) | \"\(.login)\t\(.databaseId)\"" <<<"$response" 2>/dev/null)
         parsed_nodes=$(jq -r ".data.repository.$edge.nodes[]? | select(.login != null) | .login" <<<"$response" 2>/dev/null)
         GRAPHQL_DISCOVERY_NODES=$parsed_nodes
         return 0
         ;;
     forks)
-        query="query { repository(owner:\"$(graphql_escape_string "$owner")\", name:\"$(graphql_escape_string "$repo")\") { forks(first:100$after_arg) { nodes { owner { login } } pageInfo { hasNextPage endCursor } } } }"
+        query="query { repository(owner:\"$(graphql_escape_string "$owner")\", name:\"$(graphql_escape_string "$repo")\") { forks(first:100$after_arg) { nodes { owner { login ... on User { databaseId } ... on Organization { databaseId } } } pageInfo { hasNextPage endCursor } } } }"
         response=$(query_graphql_api "$query")
         (($? != 3)) || return 3
         GRAPHQL_DISCOVERY_HAS_NEXT_PAGE=$(jq -r '.data.repository.forks.pageInfo.hasNextPage // false' <<<"$response" 2>/dev/null)
         GRAPHQL_DISCOVERY_END_CURSOR=$(jq -r '.data.repository.forks.pageInfo.endCursor // empty' <<<"$response" 2>/dev/null)
+        while IFS=$'\t' read -r owner_login owner_id; do
+            [ -n "$owner_login" ] || continue
+            [[ "$owner_id" =~ ^[1-9][0-9]*$ ]] || continue
+            cache_owner_ref "$owner_id/$owner_login"
+        done < <(jq -r '.data.repository.forks.nodes[]? | select(.owner.login != null and .owner.databaseId != null) | "\(.owner.login)\t\(.owner.databaseId)"' <<<"$response" 2>/dev/null)
         parsed_nodes=$(jq -r '.data.repository.forks.nodes[]? | .owner.login // empty' <<<"$response" 2>/dev/null)
         GRAPHQL_DISCOVERY_NODES=$parsed_nodes
         return 0
@@ -978,22 +1055,32 @@ graphql_owner_discovery_nodes() {
     followers|following|organizations)
         [ "$owner_type" = "User" ] || return 0
         connection_name=$edge
-        query="query { owner: repositoryOwner(login:\"$(graphql_escape_string "$owner_login")\") { ... on User { $connection_name(first:100$after_arg) { nodes { login } pageInfo { hasNextPage endCursor } } } } }"
+        query="query { owner: repositoryOwner(login:\"$(graphql_escape_string "$owner_login")\") { ... on User { $connection_name(first:100$after_arg) { nodes { login databaseId } pageInfo { hasNextPage endCursor } } } } }"
         response=$(query_graphql_api "$query")
         (($? != 3)) || return 3
         GRAPHQL_DISCOVERY_HAS_NEXT_PAGE=$(jq -r ".data.owner.$connection_name.pageInfo.hasNextPage // false" <<<"$response" 2>/dev/null)
         GRAPHQL_DISCOVERY_END_CURSOR=$(jq -r ".data.owner.$connection_name.pageInfo.endCursor // empty" <<<"$response" 2>/dev/null)
+        while IFS=$'\t' read -r ref_login ref_id; do
+            [ -n "$ref_login" ] || continue
+            [[ "$ref_id" =~ ^[1-9][0-9]*$ ]] || continue
+            cache_owner_ref "$ref_id/$ref_login"
+        done < <(jq -r ".data.owner.$connection_name.nodes[]? | select(.login != null and .databaseId != null) | \"\(.login)\t\(.databaseId)\"" <<<"$response" 2>/dev/null)
         parsed_nodes=$(jq -r ".data.owner.$connection_name.nodes[]? | select(.login != null) | .login" <<<"$response" 2>/dev/null)
         GRAPHQL_DISCOVERY_NODES=$parsed_nodes
         return 0
         ;;
     people)
         [ "$owner_type" = "Organization" ] || return 0
-        query="query { owner: repositoryOwner(login:\"$(graphql_escape_string "$owner_login")\") { ... on Organization { membersWithRole(first:100$after_arg) { nodes { login } pageInfo { hasNextPage endCursor } } } } }"
+        query="query { owner: repositoryOwner(login:\"$(graphql_escape_string "$owner_login")\") { ... on Organization { membersWithRole(first:100$after_arg) { nodes { login databaseId } pageInfo { hasNextPage endCursor } } } } }"
         response=$(query_graphql_api "$query")
         (($? != 3)) || return 3
         GRAPHQL_DISCOVERY_HAS_NEXT_PAGE=$(jq -r '.data.owner.membersWithRole.pageInfo.hasNextPage // false' <<<"$response" 2>/dev/null)
         GRAPHQL_DISCOVERY_END_CURSOR=$(jq -r '.data.owner.membersWithRole.pageInfo.endCursor // empty' <<<"$response" 2>/dev/null)
+        while IFS=$'\t' read -r ref_login ref_id; do
+            [ -n "$ref_login" ] || continue
+            [[ "$ref_id" =~ ^[1-9][0-9]*$ ]] || continue
+            cache_owner_ref "$ref_id/$ref_login"
+        done < <(jq -r '.data.owner.membersWithRole.nodes[]? | select(.login != null and .databaseId != null) | "\(.login)\t\(.databaseId)"' <<<"$response" 2>/dev/null)
         parsed_nodes=$(jq -r '.data.owner.membersWithRole.nodes[]? | select(.login != null) | .login' <<<"$response" 2>/dev/null)
         GRAPHQL_DISCOVERY_NODES=$parsed_nodes
         return 0

@@ -18,6 +18,8 @@ request_owner() {
 		owner=$(cut -d'/' -f2 <<<"$owner")
 	fi
 
+	cache_owner_ref "$id/$owner"
+
 	! awk -F'|' -v owner_key="$owner" '$2 == owner_key { found = 1; exit } END { exit !found }' packages_all || return 1
 	until ln "$BKG_OWNERS" "$BKG_OWNERS.lock" 2>/dev/null; do sleep 0.05; done
 	awk -F'/' -v owner_key="$owner" '$NF == owner_key { found = 1; exit } END { exit !found }' "$BKG_OWNERS" || echo "$id/$owner" >>"$BKG_OWNERS"
@@ -45,7 +47,26 @@ save_owner() {
 
 resolve_owner_id() {
 	[ -n "$1" ] || return
-	owner_get_id "$1"
+	local owner_name
+	local cached_ref
+	local resolved_ref
+
+	if [[ "$1" =~ ^[1-9][0-9]*/.+$ ]]; then
+		cache_owner_ref "$1"
+		printf '%s\n' "$1"
+		return 0
+	fi
+
+	owner_name=${1#*/}
+	cached_ref=$(lookup_owner_ref_cache "$owner_name")
+	if [ -n "$cached_ref" ]; then
+		printf '%s\n' "$cached_ref"
+		return 0
+	fi
+
+	resolved_ref=$(owner_get_id "$1") || return $?
+	cache_owner_ref "$resolved_ref"
+	printf '%s\n' "$resolved_ref"
 }
 
 queue_owner_id() {
@@ -91,11 +112,17 @@ resolve_owner_ids() {
 		if [[ "$candidate" =~ ^[1-9][0-9]*/.+$ ]]; then
 			owner_name=$(cut -d'/' -f2- <<<"$candidate")
 			resolved_by_owner["$owner_name"]="$candidate"
+			cache_owner_ref "$candidate"
 			continue
 		fi
 
 		owner_name=${candidate#*/}
 		[ -n "$owner_name" ] || continue
+		resolved=$(lookup_owner_ref_cache "$owner_name")
+		if [ -n "$resolved" ]; then
+			resolved_by_owner["$owner_name"]="$resolved"
+			continue
+		fi
 		[[ -n "${resolved_by_owner[$owner_name]:-}" ]] && continue
 		unresolved+=("$owner_name")
 	done <"$1"
@@ -120,6 +147,7 @@ resolve_owner_ids() {
 				[ -n "$owner_name" ] || continue
 				[ -n "$owner_id" ] || continue
 				resolved_by_owner["$owner_name"]="$owner_id/$owner_name"
+				cache_owner_ref "$owner_id/$owner_name"
 			done < <(jq -r '.data | to_entries[] | select(.value != null and .value.login != null and .value.databaseId != null) | "\(.value.login)\t\(.value.databaseId)"' <<<"$response" 2>/dev/null)
 			tail -n +51 "$unresolved_file" >"$unresolved_file.next"
 			mv "$unresolved_file.next" "$unresolved_file"
@@ -141,6 +169,7 @@ resolve_owner_ids() {
 		if [ -z "$resolved" ]; then
 			resolved=$(owner_get_id "$owner_name")
 			(($? != 3)) || return 3
+			cache_owner_ref "$resolved"
 		fi
 
 		[ -z "$resolved" ] || printf '%s\n' "$resolved"

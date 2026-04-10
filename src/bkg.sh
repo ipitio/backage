@@ -324,6 +324,7 @@ main() {
 	[ -n "$(get_BKG BKG_DIFF)" ] || set_BKG BKG_DIFF "0"
 	[ -n "$(get_BKG BKG_REST_TO_TOP)" ] || set_BKG BKG_REST_TO_TOP "0"
 	BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
+	reset_owner_id_cache || return 1
 	set_BKG BKG_OWNERS_QUEUE ""
 	set_BKG BKG_TIMEOUT "0"
 	set_BKG BKG_SCRIPT_START "$BKG_SCRIPT_START"

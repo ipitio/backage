@@ -617,6 +617,37 @@ EOF
 	GITHUB_TOKEN=""
 }
 
+test_resolve_owner_ids_uses_run_cache_before_live_lookup() {
+	local candidates_file="$workdir/owner-candidates-cache.txt"
+	local output_file="$workdir/owner-ids-cache.txt"
+
+	BKG_ENV="$workdir/env-owner-cache.env"
+	: >"$BKG_ENV"
+	reset_owner_id_cache
+	cache_owner_ref '200/beta'
+	cache_owner_ref '300/gamma'
+
+	cat >"$candidates_file" <<'EOF'
+beta
+gamma
+EOF
+
+	query_graphql_api() {
+		fail "Expected resolve_owner_ids to use the run-scoped cache before GraphQL"
+	}
+
+	owner_get_id() {
+		fail "Expected resolve_owner_ids to use the run-scoped cache before owner_get_id fallback"
+	}
+
+	resolve_owner_ids "$candidates_file" >"$output_file"
+
+	assert_contains "$output_file" "200/beta"
+	assert_contains "$output_file" "300/gamma"
+	unset -f query_graphql_api
+	unset -f owner_get_id
+}
+
 test_resolve_owner_ids_preserves_ids_and_batches_live_lookup() {
 	local candidates_file="$workdir/owner-candidates.txt"
 	local output_file="$workdir/owner-ids.txt"
@@ -629,6 +660,9 @@ beta
 delta
 EOF
 
+	BKG_ENV="$workdir/env-owner-batch.env"
+	: >"$BKG_ENV"
+	reset_owner_id_cache
 	GITHUB_TOKEN=dummy
 
 	query_graphql_api() {
@@ -681,6 +715,7 @@ test_run_owner_updates_halts_on_timeout
 test_run_owner_page_discovery_stops_on_code_2
 test_run_owner_page_discovery_caps_at_one_page
 test_query_graphql_api_tracks_cost_and_remaining
+test_resolve_owner_ids_uses_run_cache_before_live_lookup
 test_resolve_owner_ids_preserves_ids_and_batches_live_lookup
 test_restore_db_from_snapshot_skips_when_signature_matches
 test_restore_db_from_snapshot_rebuilds_when_signature_changes
