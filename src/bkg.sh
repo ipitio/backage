@@ -503,9 +503,27 @@ main() {
 		[ -d "$BKG_INDEX_DIR" ] || mkdir "$BKG_INDEX_DIR"
 
 		if ((return_code != 3)); then
+			local queued_owner_file
+			local queued_owner_count
+			local materialize_started_at
+			queued_owner_file=$(mktemp) || return 1
+			materialize_started_at=$(startup_phase_started_at)
 			phase_started_at=$(startup_phase_started_at)
-			materialize_index_queue_owners || return $?
-			log_startup_phase "materialize-queued-owner-trees" "$phase_started_at"
+			index_queue_owner_names >"$queued_owner_file"
+			queued_owner_count=$(awk 'NF' "$queued_owner_file" | wc -l)
+			echo "Materializing $queued_owner_count queued owner tree(s)..."
+			log_startup_phase "collect-queued-owner-paths" "$phase_started_at"
+
+			phase_started_at=$(startup_phase_started_at)
+			if [ -s "$queued_owner_file" ]; then
+				index_sparse_add_paths <"$queued_owner_file" || {
+					rm -f "$queued_owner_file"
+					return $?
+				}
+			fi
+			rm -f "$queued_owner_file"
+			log_startup_phase "expand-sparse-owner-paths" "$phase_started_at"
+			log_startup_phase "materialize-queued-owner-trees" "$materialize_started_at"
 
 			run_owner_updates
 			phase_status=$?
