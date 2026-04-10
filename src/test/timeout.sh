@@ -590,6 +590,22 @@ test_run_owner_page_discovery_caps_at_one_page() {
 	unset -f page_owner
 }
 
+test_daily_gate_helpers_track_per_day() {
+	BKG_ENV="$workdir/env-daily-gate.env"
+	: >"$BKG_ENV"
+
+	if daily_gate_completed_today BKG_LAST_EXPLORE_DATE 2026-04-10; then
+		fail "Expected daily gate to be incomplete before it is marked"
+	fi
+
+	mark_daily_gate_completed BKG_LAST_EXPLORE_DATE 2026-04-10
+	daily_gate_completed_today BKG_LAST_EXPLORE_DATE 2026-04-10 || fail "Expected daily gate to be complete for the marked day"
+
+	if daily_gate_completed_today BKG_LAST_EXPLORE_DATE 2026-04-11; then
+		fail "Expected daily gate to be incomplete for a different day"
+	fi
+}
+
 test_query_graphql_api_tracks_cost_and_remaining() {
 	BKG_ENV="$workdir/env-graphql.env"
 	: >"$BKG_ENV"
@@ -714,6 +730,7 @@ test_owner_update_force_stop_due_after_grace_period
 test_run_owner_updates_halts_on_timeout
 test_run_owner_page_discovery_stops_on_code_2
 test_run_owner_page_discovery_caps_at_one_page
+test_daily_gate_helpers_track_per_day
 test_query_graphql_api_tracks_cost_and_remaining
 test_resolve_owner_ids_uses_run_cache_before_live_lookup
 test_resolve_owner_ids_preserves_ids_and_batches_live_lookup

@@ -290,6 +290,7 @@ main() {
 	local phase_status=0
 	local opted_out
 	local opted_out_before
+	local owners_queue_source
 	local rest_first
 	local request_limit=100
 	local phase_started_at=0
@@ -400,32 +401,40 @@ main() {
 				return_code=1
 			else
 				if [ "$GITHUB_OWNER" = "ipitio" ]; then
-					phase_started_at=$(startup_phase_started_at)
-					explore "$GITHUB_OWNER" >"$connections"
-					phase_status=$?
-					((phase_status != 3)) || return_code=3
-					explore "$GITHUB_OWNER/$GITHUB_REPO" >>"$connections"
-					phase_status=$?
-					((phase_status != 3)) || return_code=3
-					log_startup_phase "discover-connections" "$phase_started_at"
-
-					if ((return_code != 3)); then
-
-						# get orgs of connections
+					if daily_gate_completed_today BKG_LAST_EXPLORE_DATE "$today"; then
+						: >"$connections"
+						echo "Skipping explore; already ran today"
+					else
 						phase_started_at=$(startup_phase_started_at)
-						while read -r connection; do
-							curl_orgs "$connection" >>"$temp_connections"
-							phase_status=$?
-							if ((phase_status == 3)); then
-								return_code=3
-								break
-							fi
-						done <"$connections"
-						cat "$temp_connections" >>"$connections"
-						log_startup_phase "expand-connection-orgs" "$phase_started_at"
+						explore "$GITHUB_OWNER" >"$connections"
+						phase_status=$?
+						((phase_status != 3)) || return_code=3
+						explore "$GITHUB_OWNER/$GITHUB_REPO" >>"$connections"
+						phase_status=$?
+						((phase_status != 3)) || return_code=3
+						log_startup_phase "discover-connections" "$phase_started_at"
+
+						if ((return_code != 3)); then
+
+							# get orgs of connections
+							phase_started_at=$(startup_phase_started_at)
+							while read -r connection; do
+								curl_orgs "$connection" >>"$temp_connections"
+								phase_status=$?
+								if ((phase_status == 3)); then
+									return_code=3
+									break
+								fi
+							done <"$connections"
+							cat "$temp_connections" >>"$connections"
+							log_startup_phase "expand-connection-orgs" "$phase_started_at"
+						fi
 					fi
 
 					sed -i 's/^[[:space:]]*//;s/[[:space:]]*$//; /^$/d; /^0\/$/d' "$connections"
+					if ! daily_gate_completed_today BKG_LAST_EXPLORE_DATE "$today" && ((return_code != 3)); then
+						mark_daily_gate_completed BKG_LAST_EXPLORE_DATE "$today"
+					fi
 					# shellcheck disable=SC2319
 					BKG_PAGE_ALL=$(
 						(($(wc -l <"$BKG_OWNERS") < $(($(sort -u "$connections" | wc -l) + 100))))
@@ -475,6 +484,11 @@ main() {
 				rest_first=$(get_BKG BKG_REST_TO_TOP)
 				log_prequeue_elapsed_once
 				phase_started_at=$(startup_phase_started_at)
+				owners_queue_source="$BKG_OWNERS"
+				if daily_gate_completed_today BKG_LAST_OWNERS_QUEUE_DATE "$today"; then
+					owners_queue_source=/dev/null
+					echo "Skipping owners.txt queue; already ran today"
+				fi
 				local owner_candidates_file
 				owner_candidates_file=$(mktemp) || return 1
 				local owner_ids_file
@@ -484,7 +498,7 @@ main() {
 				}
 				local queue_subphase_started_at
 				queue_subphase_started_at=$(startup_phase_started_at)
-				bash lib/get.sh "$rest_first" "$connections" $request_limit "$GITHUB_OWNER" "$BKG_OWNERS" "$BKG_INDEX_DIR" >"$owner_candidates_file"
+				bash lib/get.sh "$rest_first" "$connections" $request_limit "$GITHUB_OWNER" "$owners_queue_source" "$BKG_INDEX_DIR" >"$owner_candidates_file"
 				phase_status=$?
 				((phase_status != 3)) || return_code=3
 				log_startup_phase "discover-owner-candidates" "$queue_subphase_started_at"
@@ -516,6 +530,9 @@ main() {
 				fi
 				rm -f "$owner_candidates_file"
 				rm -f "$owner_ids_file"
+				if [ "$owners_queue_source" != "/dev/null" ] && ((return_code != 3)); then
+					mark_daily_gate_completed BKG_LAST_OWNERS_QUEUE_DATE "$today"
+				fi
 				log_startup_phase "queue-discovered-owners" "$phase_started_at"
 				rm -f all_owners_in_db all_owners_tu owners_updated owners_partially_updated owners_stale owners_scanned_without_packages
 				set_BKG BKG_DIFF "$db_size_curr"

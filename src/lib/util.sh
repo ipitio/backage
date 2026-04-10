@@ -294,6 +294,18 @@ set_BKG() {
     rm -f "$BKG_ENV.lock"
 }
 
+daily_gate_completed_today() {
+    [ -n "$1" ] || return 1
+    local today_value=${2:-$(date -u +%Y-%m-%d)}
+    [ "$(get_BKG "$1")" = "$today_value" ]
+}
+
+mark_daily_gate_completed() {
+    [ -n "$1" ] || return 1
+    local today_value=${2:-$(date -u +%Y-%m-%d)}
+    set_BKG "$1" "$today_value"
+}
+
 get_BKG_set() {
     get_BKG "$1" | perl -pe 's/^\\n//' | perl -pe 's/\\n$//' | perl -pe 's/\\n\\n/\\n/' | perl -pe 's/\\n/\n/g'
 }
