@@ -81,4 +81,4 @@ END { for(d in seen) printf "%s %s\n", seen[d], d }
     log_get_phase "assemble-owner-candidates" "$phase_started_at"
 }
 
-get_owners "$1" "$2" "$3" "$4" "$5" "$6" | awk '!seen[$0]++' | head -n $((3 * $3))
+get_owners "$1" "$2" "$3" "$4" "$5" "$6" | awk '!seen[$0]++' | head -n $((2 * $3))

@@ -291,7 +291,7 @@ main() {
 	local opted_out
 	local opted_out_before
 	local rest_first
-	local request_limit=200
+	local request_limit=100
 	local phase_started_at=0
 	connections=$(mktemp) || exit 1
 	temp_connections=$(mktemp) || exit 1

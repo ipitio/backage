@@ -77,8 +77,9 @@ version_build_array_json() {
     [ -n "$package" ] || return
     local newest_version_id="${1:-}"
     local latest_version_id="${2:-}"
+    local batch_first_started="${BKG_BATCH_FIRST_STARTED:-0000-00-00}"
 
-    sqlite3 -json "$BKG_INDEX_DB" "select * from '$table_version_name';" | jq -c --arg newest "$newest_version_id" --arg latest "$latest_version_id" '
+    sqlite3 -json "$BKG_INDEX_DB" "select * from '$table_version_name' where date >= '$batch_first_started';" | jq -c --arg newest "$newest_version_id" --arg latest "$latest_version_id" '
         def human_units($units; $spaced):
             . as $value
             | (if type == "number" then . else (tonumber? // .) end) as $n

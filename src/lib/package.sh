@@ -269,6 +269,7 @@ update_package() {
                 case when id regexp '^[0-9]+$' then CAST(id as integer) end as numeric_id,
                 replace(replace(replace(replace(coalesce(tags, ''), ' ', ''), char(9), ''), char(10), ''), char(13), '') as compact_tags
             from '$table_version_name'
+            where date >= '$BKG_BATCH_FIRST_STARTED'
         ),
         stats as (
             select
@@ -289,7 +290,7 @@ update_package() {
             version_with_tag_count,
             coalesce(version_newest_id, ''),
             coalesce(latest_exact, latest_no_caret_tilde_hyphen, latest_no_caret_tilde, latest_no_caret, latest_any_tagged, ''),
-            coalesce((select id from '$table_version_name' order by id desc limit 1), '')
+            coalesce((select id from version_rows order by id desc limit 1), '')
         from stats;
     ")
     version_row_count=$(cut -d'|' -f1 <<<"$version_stats_row")

@@ -59,6 +59,17 @@ popd >/dev/null
 
 grep -Fxq Lazztech <<<"$admitted" || fail "Expected discovered second-hop org to survive owner admission"
 
+many_connections="$workdir/many-connections.txt"
+seq -f 'owner%03g' 1 300 >"$many_connections"
+: >"$owners_file"
+
+pushd "$workdir" >/dev/null
+admitted_capped=$(bash "$src_dir/lib/get.sh" 0 "$many_connections" 100 ipitio "$owners_file" "$index_repo")
+popd >/dev/null
+
+[ "$(wc -l <<<"$admitted_capped")" -eq 200 ] || fail "Expected discovered owner admission to cap at twice request_limit"
+grep -Fxq ipitio <<<"$admitted_capped" || fail "Expected current owner to still be eligible within the capped owner admission set"
+
 init_bkg_state
 save_owner "556677/Lazztech" >/dev/null
 grep -Fxq "556677/Lazztech" <<<"$(get_BKG_set BKG_OWNERS_QUEUE)" || fail "Expected discovered org to be queued for owner updates"

@@ -120,6 +120,7 @@ test_update_package_builds_version_array_from_db() {
 		sqlite3 "$BKG_INDEX_DB" "insert into '$BKG_INDEX_TBL_PKG' (owner_id, owner_type, package_type, owner, repo, package, downloads, downloads_month, downloads_week, downloads_day, size, date) values ('69664378','orgs','container','Lazztech','Libre-Closet','stale-higher','9000','900','900','90','900','$yesterday');"
 		sqlite3 "$BKG_INDEX_DB" "insert into '$table_version_name' (id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags) values ('10','sha256:b','456','985','985','455','3','$today','latest');"
 		sqlite3 "$BKG_INDEX_DB" "insert into '$table_version_name' (id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags) values ('2','sha256:a','123','984','984','454','2','$today','stable');"
+		sqlite3 "$BKG_INDEX_DB" "insert into '$table_version_name' (id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags) values ('50','sha256:stale','999','9999','9999','9999','99','$yesterday','latest,stable');"
 		printf '69664378|Lazztech|Libre-Closet|libre-closet|%s\n' "$today" >packages_already_updated
 
 		update_package 'container/Libre-Closet/libre-closet' >/dev/null
