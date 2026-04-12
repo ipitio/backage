@@ -217,7 +217,6 @@ restore_db_from_index_snapshot_if_needed() {
 	local signature_file
 	local current_signature
 	local stored_signature=""
-	local restore_started_at=0
 	local db_tmp=""
 
 	archive_file=$(current_index_snapshot_archive_file) || return 0
@@ -236,7 +235,6 @@ restore_db_from_index_snapshot_if_needed() {
 		return 0
 	fi
 
-	restore_started_at=$(startup_phase_started_at)
 	[ ! -f "$BKG_INDEX_DB" ] || mv "$BKG_INDEX_DB" "$BKG_INDEX_DB".bak
 
 	if [ "$archive_kind" = "db" ]; then
@@ -244,14 +242,13 @@ restore_db_from_index_snapshot_if_needed() {
 		db_tmp=$(mktemp "$(dirname "$BKG_INDEX_DB")/.${BKG_INDEX_DB##*/}.XXXXXX") || return 1
 		if unzstd -c "$archive_file" >"$db_tmp"; then
 			mv -f "$db_tmp" "$BKG_INDEX_DB"
-			log_startup_phase "decompress-db-archive" "$restore_started_at"
 		else
 			rm -f "$db_tmp"
 		fi
 	else
 		echo "Restoring database from legacy $archive_name..."
 		if unzstd -c "$archive_file" | command sqlite3 "$BKG_INDEX_DB"; then
-			log_startup_phase "import-legacy-sql-archive" "$restore_started_at"
+			true
 		fi
 	fi
 
@@ -324,6 +321,7 @@ main() {
 	[ -n "$(get_BKG BKG_LAST_SCANNED_ID)" ] || set_BKG BKG_LAST_SCANNED_ID "0"
 	[ -n "$(get_BKG BKG_DIFF)" ] || set_BKG BKG_DIFF "0"
 	[ -n "$(get_BKG BKG_REST_TO_TOP)" ] || set_BKG BKG_REST_TO_TOP "0"
+	[ -n "$(get_BKG BKG_BATCH_MARKER)" ] || set_BKG BKG_BATCH_MARKER "$(generate_batch_marker)"
 	BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
 	reset_owner_id_cache || return 1
 	set_BKG BKG_DISCOVERED_CONNECTION_OWNERS ""
@@ -401,7 +399,7 @@ main() {
 				return_code=1
 			else
 				if [ "$GITHUB_OWNER" = "ipitio" ]; then
-					if daily_gate_completed_today BKG_LAST_EXPLORE_DATE "$today"; then
+					if daily_gate_should_skip_today BKG_LAST_EXPLORE_DATE "$today"; then
 						: >"$connections"
 						echo "Skipping explore; already ran today"
 					else
@@ -461,8 +459,10 @@ main() {
 					echo "Reached BKG_MAX_LEN, stopping after persisting state..."
 				else
 				if (( 9999 < pkg_done )) || (( pkg_left < 4 )) || [[ "${db_size_curr::-4}" == "${db_size_prev::-4}" ]]; then
+					# reset the batch
 					BKG_BATCH_FIRST_STARTED=$today
 					set_BKG BKG_BATCH_FIRST_STARTED "$today"
+					set_BKG BKG_BATCH_MARKER "$(generate_batch_marker)"
 					rm -f packages_to_update
 					\cp packages_all packages_to_update
 					: >packages_already_updated
@@ -485,7 +485,7 @@ main() {
 				log_prequeue_elapsed_once
 				phase_started_at=$(startup_phase_started_at)
 				owners_queue_source="$BKG_OWNERS"
-				if daily_gate_completed_today BKG_LAST_OWNERS_QUEUE_DATE "$today"; then
+				if daily_gate_should_skip_today BKG_LAST_OWNERS_QUEUE_DATE "$today"; then
 					owners_queue_source=/dev/null
 					echo "Skipping owners.txt queue; already ran today"
 				fi
@@ -496,14 +496,10 @@ main() {
 					rm -f "$owner_candidates_file"
 					return 1
 				}
-				local queue_subphase_started_at
-				queue_subphase_started_at=$(startup_phase_started_at)
 				bash lib/get.sh "$rest_first" "$connections" $request_limit "$GITHUB_OWNER" "$owners_queue_source" "$BKG_INDEX_DIR" >"$owner_candidates_file"
 				phase_status=$?
 				((phase_status != 3)) || return_code=3
-				log_startup_phase "discover-owner-candidates" "$queue_subphase_started_at"
 				if ((return_code != 3)); then
-					queue_subphase_started_at=$(startup_phase_started_at)
 					if [ -s "$owner_candidates_file" ]; then
 						resolve_owner_ids "$owner_candidates_file" >"$owner_ids_file"
 					else
@@ -511,10 +507,8 @@ main() {
 					fi
 					phase_status=$?
 					((phase_status != 3)) || return_code=3
-					log_startup_phase "resolve-owner-ids" "$queue_subphase_started_at"
 				fi
 				if ((return_code != 3)); then
-					queue_subphase_started_at=$(startup_phase_started_at)
 					set_BKG BKG_DISCOVERED_CONNECTION_OWNERS ""
 					if [ -s "$owner_ids_file" ]; then
 						while IFS= read -r owner_ref; do
@@ -525,8 +519,6 @@ main() {
 					[ ! -s "$owner_ids_file" ] || parallel_shell_func "$BKG_ROOT/src/lib/owner.sh" queue_owner_id --lb <"$owner_ids_file"
 					phase_status=$?
 					((phase_status != 3)) || return_code=3
-					log_startup_phase "enqueue-owner-updates" "$queue_subphase_started_at"
-					log_startup_phase "queue-owner-candidates" "$queue_subphase_started_at"
 				fi
 				rm -f "$owner_candidates_file"
 				rm -f "$owner_ids_file"
@@ -561,13 +553,10 @@ main() {
 			local materialize_started_at
 			queued_owner_file=$(mktemp) || return 1
 			materialize_started_at=$(startup_phase_started_at)
-			phase_started_at=$(startup_phase_started_at)
 			index_queue_owner_names >"$queued_owner_file"
 			queued_owner_count=$(awk 'NF' "$queued_owner_file" | wc -l)
 			echo "Materializing $queued_owner_count queued owner tree(s)..."
-			log_startup_phase "collect-queued-owner-paths" "$phase_started_at"
 
-			phase_started_at=$(startup_phase_started_at)
 			if [ -s "$queued_owner_file" ]; then
 				index_sparse_add_paths <"$queued_owner_file" || {
 					rm -f "$queued_owner_file"
@@ -575,7 +564,6 @@ main() {
 				}
 			fi
 			rm -f "$queued_owner_file"
-			log_startup_phase "expand-sparse-owner-paths" "$phase_started_at"
 			log_startup_phase "materialize-queued-owner-trees" "$materialize_started_at"
 
 			run_owner_updates

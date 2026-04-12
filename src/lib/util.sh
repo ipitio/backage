@@ -136,42 +136,23 @@ index_sparse_set_root() {
     git -C "$BKG_INDEX_DIR" sparse-checkout set >/dev/null 2>&1 || return 1
 }
 
-index_sparse_log_batch() {
-    local batch_number=$1
-    local path_count=$2
-    local started_at=${3:-0}
-    local elapsed=0
-
-    ((started_at > 0)) || return 0
-    elapsed=$(( $(date -u +%s) - started_at ))
-    echo "Sparse expansion batch '$batch_number' ($path_count path(s)) completed in ${elapsed}s"
-}
-
 index_sparse_add_paths() {
     index_worktree_is_git_repo || return 0
     local path
     local -a batch=()
-    local batch_number=0
-    local batch_started_at=0
 
     while IFS= read -r path; do
         [ -n "$path" ] || continue
         batch+=("$path")
 
         if ((${#batch[@]} >= 100)); then
-            ((batch_number++))
-            batch_started_at=$(date -u +%s)
             git -C "$BKG_INDEX_DIR" sparse-checkout add --skip-checks -- "${batch[@]}" || return 1
-            index_sparse_log_batch "$batch_number" "${#batch[@]}" "$batch_started_at"
             batch=()
         fi
     done
 
     if ((${#batch[@]} > 0)); then
-        ((batch_number++))
-        batch_started_at=$(date -u +%s)
         git -C "$BKG_INDEX_DIR" sparse-checkout add --skip-checks -- "${batch[@]}" || return 1
-        index_sparse_log_batch "$batch_number" "${#batch[@]}" "$batch_started_at"
     fi
 }
 
@@ -297,13 +278,51 @@ set_BKG() {
 daily_gate_completed_today() {
     [ -n "$1" ] || return 1
     local today_value=${2:-$(date -u +%Y-%m-%d)}
-    [ "$(get_BKG "$1")" = "$today_value" ]
+    [ "$(get_BKG "$1")" = "$(daily_gate_state_value "$today_value")" ]
+}
+
+generate_batch_marker() {
+    printf '%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)-$$"
+}
+
+daily_gate_batch_marker() {
+    local marker
+
+    marker=$(get_BKG BKG_BATCH_MARKER)
+    [ -n "$marker" ] || marker="${BKG_BATCH_FIRST_STARTED:-}"
+    [ -n "$marker" ] || marker="default"
+    printf '%s\n' "$marker"
+}
+
+daily_gate_state_value() {
+    local today_value=${1:-$(date -u +%Y-%m-%d)}
+    printf '%s|%s\n' "$today_value" "$(daily_gate_batch_marker)"
+}
+
+master_branch_has_commit_today() {
+    local today_value=${1:-$(date -u +%Y-%m-%d)}
+    local today_start_epoch=""
+    local master_commit_epoch=""
+
+    git rev-parse --verify master >/dev/null 2>&1 || return 1
+    today_start_epoch=$(date -u -d "$today_value 00:00:00" +%s 2>/dev/null) || return 1
+    master_commit_epoch=$(git log -1 --format=%ct master 2>/dev/null) || return 1
+    [[ "$master_commit_epoch" =~ ^[0-9]+$ ]] || return 1
+    ((master_commit_epoch >= today_start_epoch))
+}
+
+daily_gate_should_skip_today() {
+    [ -n "$1" ] || return 1
+    local today_value=${2:-$(date -u +%Y-%m-%d)}
+
+    daily_gate_completed_today "$1" "$today_value" || return 1
+    master_branch_has_commit_today "$today_value"
 }
 
 mark_daily_gate_completed() {
     [ -n "$1" ] || return 1
     local today_value=${2:-$(date -u +%Y-%m-%d)}
-    set_BKG "$1" "$today_value"
+    set_BKG "$1" "$(daily_gate_state_value "$today_value")"
 }
 
 get_BKG_set() {

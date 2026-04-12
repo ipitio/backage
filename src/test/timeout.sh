@@ -593,6 +593,7 @@ test_run_owner_page_discovery_caps_at_one_page() {
 test_daily_gate_helpers_track_per_day() {
 	BKG_ENV="$workdir/env-daily-gate.env"
 	: >"$BKG_ENV"
+	set_BKG BKG_BATCH_MARKER batch-1
 
 	if daily_gate_completed_today BKG_LAST_EXPLORE_DATE 2026-04-10; then
 		fail "Expected daily gate to be incomplete before it is marked"
@@ -604,6 +605,49 @@ test_daily_gate_helpers_track_per_day() {
 	if daily_gate_completed_today BKG_LAST_EXPLORE_DATE 2026-04-11; then
 		fail "Expected daily gate to be incomplete for a different day"
 	fi
+}
+
+test_daily_gate_skip_depends_on_master_commit_today() {
+	BKG_ENV="$workdir/env-daily-gate-skip.env"
+	: >"$BKG_ENV"
+	set_BKG BKG_BATCH_MARKER batch-1
+	mark_daily_gate_completed BKG_LAST_EXPLORE_DATE 2026-04-10
+
+	master_branch_has_commit_today() {
+		[ "$1" = "2026-04-10" ] || fail "Expected skip helper to pass the current day into master_branch_has_commit_today"
+		return 1
+	}
+
+	if daily_gate_should_skip_today BKG_LAST_EXPLORE_DATE 2026-04-10; then
+		fail "Expected daily gate skip to stay disabled when master has no commit today"
+	fi
+
+	unset -f master_branch_has_commit_today
+
+	master_branch_has_commit_today() {
+		return 0
+	}
+
+	daily_gate_should_skip_today BKG_LAST_EXPLORE_DATE 2026-04-10 || fail "Expected daily gate skip to activate once master has a commit today"
+	unset -f master_branch_has_commit_today
+}
+
+test_daily_gate_skip_resets_on_new_batch_marker() {
+	BKG_ENV="$workdir/env-daily-gate-batch.env"
+	: >"$BKG_ENV"
+	set_BKG BKG_BATCH_MARKER batch-1
+	mark_daily_gate_completed BKG_LAST_EXPLORE_DATE 2026-04-10
+
+	master_branch_has_commit_today() {
+		return 0
+	}
+
+	daily_gate_should_skip_today BKG_LAST_EXPLORE_DATE 2026-04-10 || fail "Expected daily gate skip to apply for the current batch marker"
+	set_BKG BKG_BATCH_MARKER batch-2
+	if daily_gate_should_skip_today BKG_LAST_EXPLORE_DATE 2026-04-10; then
+		fail "Expected daily gate skip to be cleared after the batch marker changes"
+	fi
+	unset -f master_branch_has_commit_today
 }
 
 test_query_graphql_api_tracks_cost_and_remaining() {
@@ -731,6 +775,8 @@ test_run_owner_updates_halts_on_timeout
 test_run_owner_page_discovery_stops_on_code_2
 test_run_owner_page_discovery_caps_at_one_page
 test_daily_gate_helpers_track_per_day
+test_daily_gate_skip_depends_on_master_commit_today
+test_daily_gate_skip_resets_on_new_batch_marker
 test_query_graphql_api_tracks_cost_and_remaining
 test_resolve_owner_ids_uses_run_cache_before_live_lookup
 test_resolve_owner_ids_preserves_ids_and_batches_live_lookup
