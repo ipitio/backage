@@ -1,4 +1,3 @@
-2390693/LocalGround
 2390536/MTDATA
 2387698/MiyS
 2388224/NashvilleSoftwareSchool
@@ -8,7 +7,6 @@
 2390221/ThinkSpirit
 2387108/TonyXT1
 2388171/WagePoint
-2390686/XPT-Framework
 2387136/adprasad
 2387093/ajaxjones259
 2387744/amakawa
@@ -39,7 +37,6 @@
 2387132/joealpha55
 2390469/jwclogic
 2387113/klemmj
-2387193/kravchenkodev
 2390753/kmfed
 2387407/klonfed
 2387192/leonsokrates
@@ -56,14 +53,12 @@
 2388917/pejuang
 2387104/ox69shake
 2387200/porchbail98
-2387103/pwpw1551614
 2387126/radar77hail
 2387089/rattakan35
 2388462/redpointventures
 2387172/riddlecrook62
 2387152/saythink
 2388705/softify
-2390854/sophiaTest
 2387124/targetgiant44
 2387099/trial7text
 2387725/ucsdlib
@@ -77,8 +72,6 @@
 2390982/84ringskirt
 2393938/AmanatLabs
 2395695/AutoLean
-2392723/BeanPole
-2394867/CEMI
 2393449/Code125
 2391927/Deviceworks
 2392949/Derivitec
@@ -307,7 +300,6 @@
 2396765/east1pest
 2396725/evertwhitfie410
 2396748/galloncouch72
-2402100/evilrovot
 2396690/gas39root
 2404661/gasmotorenfabrik
 2396870/girassolbit
@@ -335,7 +327,6 @@
 2396744/makeuphair87
 2396741/matheokok716
 2396751/microonline
-2396738/mozai
 2401967/myfairelection
 2396784/mrskv
 2396719/notxreal
@@ -346,8 +337,6 @@
 2398444/phpforce
 2396761/pimplecoach56
 2399917/pimoroni
-2396708/pinecomma3
-2397137/publicservantsprayer
 2398964/reorg
 2396796/poison7actor
 2396726/rfrausto
@@ -355,7 +344,6 @@
 2396715/ruthrise2
 2396693/rollinvind36
 2396779/sburton
-2401933/shodann
 2396733/sidner
 2396732/sled7spark
 2400099/socialcops
@@ -371,12 +359,10 @@
 2401042/ultramatrix69
 2396793/voidunknown
 2396709/vyang17
-2398602/web-engineering
 2396778/xduckxx
 2397069/yoolotto
 2396787/zaneboyd418
 2405296/erlanger-ru
-2405415/MageTest
 2405433/A2PLab
 2405484/DevInLive
 2405600/Rovers097
@@ -387,7 +373,6 @@
 2405841/softwareyou
 2405832/handspruce9
 2405842/fieldsystem6
-2405882/obzy
 2405903/Pwdremind
 2405883/sagnymine
 2405964/Velocitous
@@ -399,7 +384,6 @@
 2406353/notepink11
 2406429/52pipequill
 2406446/clever-girls
-2406447/maidhood11
 2406493/unievo
 2406509/OpenCLInitiative
-2406494/select97rise
+2406512/flythecurtis
