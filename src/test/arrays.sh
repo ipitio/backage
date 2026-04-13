@@ -264,10 +264,10 @@ test_unsorted_version_arrays_still_trim_by_numeric_id() {
 
 trap cleanup EXIT
 
-test_small_owner_and_repo_arrays
-test_owner_arrays_cleanup_stale_json_sidecars
-test_owner_arrays_stream_json_into_jq
-test_large_array_trimming
-test_unsorted_version_arrays_still_trim_by_numeric_id
+run_test test_small_owner_and_repo_arrays
+run_test test_owner_arrays_cleanup_stale_json_sidecars
+run_test test_owner_arrays_stream_json_into_jq
+run_test test_large_array_trimming
+run_test test_unsorted_version_arrays_still_trim_by_numeric_id
 
 echo "Array creation regression tests passed"

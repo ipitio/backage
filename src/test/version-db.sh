@@ -10,16 +10,7 @@ workdir=${workdir:?}
 
 init_bkg_state() {
 	local env_file=$1
-	local now
-
-	BKG_ENV="$env_file"
-	: >"$BKG_ENV"
-	now=$(date -u +%s)
-	set_BKG BKG_SCRIPT_START "$now"
-	set_BKG BKG_RATE_LIMIT_START "$now"
-	set_BKG BKG_MIN_RATE_LIMIT_START "$now"
-	set_BKG BKG_CALLS_TO_API 0
-	set_BKG BKG_MIN_CALLS_TO_API 0
+	init_bkg_runtime_state "$env_file"
 }
 
 test_update_version_batches_rows_until_flush() {
@@ -188,8 +179,8 @@ test_update_package_handles_large_version_arrays() {
 
 trap cleanup EXIT
 
-test_update_version_batches_rows_until_flush
-test_update_package_builds_version_array_from_db
-test_update_package_handles_large_version_arrays
+run_test test_update_version_batches_rows_until_flush
+run_test test_update_package_builds_version_array_from_db
+run_test test_update_package_handles_large_version_arrays
 
 echo "Version DB regression tests passed"

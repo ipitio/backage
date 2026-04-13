@@ -1,6 +1,6 @@
 #!/bin/bash
 # Test the sprinkler
-# Usage: ./update.sh
+# Usage: src/update.sh
 # Copyright (c) ipitio
 #
 # shellcheck disable=SC1090,SC1091,SC2015,SC2034
@@ -81,15 +81,9 @@ if git ls-remote --exit-code origin "$BKG_INDEX" &>/dev/null; then
     git worktree remove -f "$BKG_INDEX".bak &>/dev/null
     [ -d "$BKG_INDEX".bak ] || rm -rf "$BKG_INDEX".bak
     git worktree move "$BKG_INDEX" "$BKG_INDEX".bak &>/dev/null
-    WORKTREE_SUBPHASE_STARTED_AT=$(update_startup_phase_started_at)
     git fetch --depth=1 --filter=blob:none origin "$BKG_INDEX"
-    log_update_startup_phase "fetch-index-branch" "$WORKTREE_SUBPHASE_STARTED_AT"
-    WORKTREE_SUBPHASE_STARTED_AT=$(update_startup_phase_started_at)
     git show-ref --verify --quiet "refs/remotes/origin/$BKG_INDEX" || git fetch --filter=blob:none origin "$BKG_INDEX:refs/remotes/origin/$BKG_INDEX"
-    log_update_startup_phase "ensure-index-remote-ref" "$WORKTREE_SUBPHASE_STARTED_AT"
-    WORKTREE_SUBPHASE_STARTED_AT=$(update_startup_phase_started_at)
     git branch --track -f "$BKG_INDEX" "origin/$BKG_INDEX" 2>/dev/null || git branch -f "$BKG_INDEX" "origin/$BKG_INDEX"
-    log_update_startup_phase "track-index-branch" "$WORKTREE_SUBPHASE_STARTED_AT"
     BKG_IS_FIRST=true
 	log_update_startup_phase "prepare-index-branch-ref" "$WORKTREE_PHASE_STARTED_AT"
 else
@@ -115,12 +109,8 @@ log_update_startup_phase "attach-index-worktree" "$WORKTREE_PHASE_STARTED_AT"
 
 WORKTREE_PHASE_STARTED_AT=$(update_startup_phase_started_at)
 pushd "$BKG_INDEX" || exit 1
-WORKTREE_SUBPHASE_STARTED_AT=$(update_startup_phase_started_at)
 index_sparse_set_root
-log_update_startup_phase "configure-index-sparse-root" "$WORKTREE_SUBPHASE_STARTED_AT"
-WORKTREE_SUBPHASE_STARTED_AT=$(update_startup_phase_started_at)
 git reset --hard origin/"$BKG_INDEX"
-log_update_startup_phase "reset-index-worktree" "$WORKTREE_SUBPHASE_STARTED_AT"
 popd || exit 1
 [ -f "$BKG_INDEX"/.env ] && \cp "$BKG_INDEX"/.env src/env.env || touch src/env.env
 pushd src || exit 1
@@ -148,7 +138,7 @@ return_code=$?
 # db should not be empty, error if it is
 [ "$(stat -c %s "$BKG_INDEX_DB_ZST" 2>/dev/null || stat -c %s "$BKG_INDEX_SQL".zst 2>/dev/null || echo 0)" -ge 100 ] || exit 1
 # files should be valid, warn if not, unless only opted out owners
-#(( return_code == 1 )) || find .. -type f -name '*.json' -o -name '*.xml' | parallel --lb test/index.sh {}
+#(( return_code == 1 )) || find .. -type f -name '*.json' -o -name '*.xml' | parallel --lb src/index.sh {}
 popd || exit 1
 \cp src/env.env "$BKG_INDEX"/.env
 

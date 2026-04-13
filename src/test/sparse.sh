@@ -61,12 +61,9 @@ test_materialize_index_queue_owners_adds_owner_subtrees() {
 
 trap cleanup EXIT
 
-pushd "$src_dir" >/dev/null
-export BKG_SKIP_DEP_VERIFY=1
-source lib/util.sh
-popd >/dev/null
+source_project_script "lib/util.sh"
 
-test_index_top_level_owner_count_uses_git_tree_with_root_sparse_checkout
-test_materialize_index_queue_owners_adds_owner_subtrees
+run_test test_index_top_level_owner_count_uses_git_tree_with_root_sparse_checkout
+run_test test_materialize_index_queue_owners_adds_owner_subtrees
 
 echo "Sparse workflow regression tests passed"

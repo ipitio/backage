@@ -72,7 +72,7 @@ jobs:
           set +e
           docker run -v $PWD:/app --env-file <(env | grep GITHUB) \
             ghcr.io/$GITHUB_OWNER/$GITHUB_REPO:master \
-            src/test/update.sh bkg
+            src/update.sh bkg
           code=$?
           echo "updated=$code" >> "$GITHUB_OUTPUT"
           exit "$code"

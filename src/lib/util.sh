@@ -501,7 +501,13 @@ check_limit() {
     local rate_limit_start
     rate_limit_end=$(date -u +%s)
     rate_limit_start=$(get_BKG BKG_SCRIPT_START)
-    [ -n "$rate_limit_start" ] || rate_limit_start="$BKG_SCRIPT_START"
+
+    if [ -z "$rate_limit_start" ]; then
+        sleep 0.05
+        rate_limit_start=$(get_BKG BKG_SCRIPT_START)
+    fi
+
+    [ -n "$rate_limit_start" ] || rate_limit_start="${BKG_SCRIPT_START:-}"
     [ -n "$rate_limit_start" ] || echo "BKG_SCRIPT_START empty!"
     script_limit_diff=$((rate_limit_end - rate_limit_start))
     ((script_limit_diff < BKG_MAX_LEN)) || save_and_exit
