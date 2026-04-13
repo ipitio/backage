@@ -36,7 +36,7 @@ New packages may not be added until *all* existing ones are refreshed; you shoul
 <details>
 <summary>With Actions</summary>
 
-This will use a lot of minutes on GitHub-hosted runners, so you may want to use your own.
+You can use GitHub-hosted runners or your own.
 
 1. Enable Actions from its tab
 2. Enable all disabled workflows
@@ -75,7 +75,7 @@ ExecStart=/usr/bin/sh -c '                   \\
   docker run -v /opt/\$BKG_PATH:/app         \\
     --env-file <(env | grep GITHUB)          \\
     ghcr.io/\$GITHUB_OWNER/\${BKG_PATH////:} \\
-    src/test/update.sh -m 0 -d 0'
+    src/update.sh -m 0 -d 0'
 
 [Install]
 WantedBy=multi-user.target
@@ -241,4 +241,4 @@ https://ipitio.github.io/backage?json=https://URL/ENCODED/JSON
 
 While this doesn't directly work with Shields, you can BYOJ to convert into XML.  Try it out in your browser:
 
-**<https://ipitio.github.io/backage?json=https://raw.githubusercontent.com/ipitio/backage/index/.json>**
+**<<https://ipitio.github.io/backage?json=https://raw.githubusercontent.com/>ipitio/backage/index/.json>**
