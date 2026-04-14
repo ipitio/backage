@@ -294,9 +294,18 @@ daily_gate_batch_marker() {
     printf '%s\n' "$marker"
 }
 
+daily_gate_rest_to_top() {
+    local rest_to_top
+
+    rest_to_top=$(get_BKG BKG_REST_TO_TOP)
+    [ -n "$rest_to_top" ] || rest_to_top="${BKG_REST_TO_TOP:-0}"
+    [ -n "$rest_to_top" ] || rest_to_top="0"
+    printf '%s\n' "$rest_to_top"
+}
+
 daily_gate_state_value() {
     local today_value=${1:-$(date -u +%Y-%m-%d)}
-    printf '%s|%s\n' "$today_value" "$(daily_gate_batch_marker)"
+    printf '%s|%s|%s\n' "$today_value" "$(daily_gate_batch_marker)" "$(daily_gate_rest_to_top)"
 }
 
 master_branch_has_commit_today() {

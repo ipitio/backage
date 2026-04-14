@@ -232,6 +232,7 @@ test_daily_gate_helpers_track_per_day() {
 	BKG_ENV="$workdir/env-daily-gate.env"
 	: >"$BKG_ENV"
 	set_BKG BKG_BATCH_MARKER batch-1
+	set_BKG BKG_REST_TO_TOP 0
 
 	if daily_gate_completed_today BKG_LAST_EXPLORE_DATE 2026-04-10; then
 		fail "Expected daily gate to be incomplete before it is marked"
@@ -249,6 +250,7 @@ test_daily_gate_skip_depends_on_master_commit_today() {
 	BKG_ENV="$workdir/env-daily-gate-skip.env"
 	: >"$BKG_ENV"
 	set_BKG BKG_BATCH_MARKER batch-1
+	set_BKG BKG_REST_TO_TOP 0
 	mark_daily_gate_completed BKG_LAST_EXPLORE_DATE 2026-04-10
 
 	master_branch_has_commit_today() {
@@ -274,6 +276,7 @@ test_daily_gate_skip_resets_on_new_batch_marker() {
 	BKG_ENV="$workdir/env-daily-gate-batch.env"
 	: >"$BKG_ENV"
 	set_BKG BKG_BATCH_MARKER batch-1
+	set_BKG BKG_REST_TO_TOP 0
 	mark_daily_gate_completed BKG_LAST_EXPLORE_DATE 2026-04-10
 
 	master_branch_has_commit_today() {
@@ -284,6 +287,25 @@ test_daily_gate_skip_resets_on_new_batch_marker() {
 	set_BKG BKG_BATCH_MARKER batch-2
 	if daily_gate_should_skip_today BKG_LAST_EXPLORE_DATE 2026-04-10; then
 		fail "Expected daily gate skip to be cleared after the batch marker changes"
+	fi
+	unset -f master_branch_has_commit_today
+}
+
+test_daily_gate_skip_resets_on_rest_to_top_change() {
+	BKG_ENV="$workdir/env-daily-gate-rest.env"
+	: >"$BKG_ENV"
+	set_BKG BKG_BATCH_MARKER batch-1
+	set_BKG BKG_REST_TO_TOP 0
+	mark_daily_gate_completed BKG_LAST_EXPLORE_DATE 2026-04-10
+
+	master_branch_has_commit_today() {
+		return 0
+	}
+
+	daily_gate_should_skip_today BKG_LAST_EXPLORE_DATE 2026-04-10 || fail "Expected daily gate skip to apply for the current BKG_REST_TO_TOP value"
+	set_BKG BKG_REST_TO_TOP 1
+	if daily_gate_should_skip_today BKG_LAST_EXPLORE_DATE 2026-04-10; then
+		fail "Expected daily gate skip to be cleared after BKG_REST_TO_TOP changes"
 	fi
 	unset -f master_branch_has_commit_today
 }
@@ -511,6 +533,7 @@ run_test test_run_owner_page_discovery_caps_at_one_page
 run_test test_daily_gate_helpers_track_per_day
 run_test test_daily_gate_skip_depends_on_master_commit_today
 run_test test_daily_gate_skip_resets_on_new_batch_marker
+run_test test_daily_gate_skip_resets_on_rest_to_top_change
 run_test test_check_limit_retries_missing_script_start_once
 run_test test_query_graphql_api_tracks_cost_and_remaining
 run_test test_resolve_owner_ids_uses_run_cache_before_live_lookup
