@@ -1,4 +1,3 @@
-2388401/cs210-smumn-fall12
 2387191/ecros
 2387150/five9-ci
 2388968/etcgroup
@@ -6,7 +5,6 @@
 2387110/flare4rate
 2387119/gandyink
 2390690/icehousecorp
-2387128/idleness
 2389516/israfil
 2390469/jwclogic
 2387113/klemmj
@@ -46,7 +44,6 @@
 2393474/FalkorSystems
 2391016/Gaganjuneja
 2395142/GestUAB
-2395057/HackerTrain
 2391846/Infohos
 2392634/LMAX-Exchange
 2393208/MakeMeReach
@@ -80,7 +77,6 @@
 2390991/donald5place
 2392432/dcentralize
 2393489/eXist-db
-2391040/erezchalom
 2395723/eudemocracia
 2392039/fresh8gaming
 2394893/hazelhq
@@ -269,11 +265,9 @@
 2404283/kennycx-test
 2396713/khut
 2396750/kickink9
-2396797/luislp2
 2396736/leonardolamb511
 2398870/makersdeck
 2396744/makeuphair87
-2396741/matheokok716
 2396751/microonline
 2401967/myfairelection
 2396784/mrskv
@@ -298,10 +292,8 @@
 2396767/trevortomesh
 2396753/trentonnash717
 2403900/uhds
-2400550/uptimejp
 2401042/ultramatrix69
 2396793/voidunknown
-2396778/xduckxx
 2397069/yoolotto
 2396787/zaneboyd418
 2405296/erlanger-ru
@@ -311,7 +303,6 @@
 2405704/Basiges
 2405831/SEGaL-Group
 2405832/handspruce9
-2405842/fieldsystem6
 2405903/Pwdremind
 2405883/sagnymine
 2405964/Velocitous
@@ -325,13 +316,10 @@
 2406493/unievo
 2406509/OpenCLInitiative
 2406512/flythecurtis
-2406566/25capturtle
 2406669/BMKEG
 2406593/damienbolger
-2406773/JoomGallery
 2406670/advicegun14
 2406860/cestlaz
-2407030/BespokeIndustries
 2406861/market4use
 2407031/liw937
 2407149/indelible
@@ -341,3 +329,4 @@
 2407701/bitzeebot
 2407899/SoftwareSymphony
 2407964/ehsstgi
+2408033/Dance-Marathon
