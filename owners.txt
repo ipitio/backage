@@ -1,4 +1,3 @@
-2387750/flogger
 2387110/flare4rate
 2387119/gandyink
 2390690/icehousecorp
@@ -10,7 +9,6 @@
 2387757/libsdb
 2387604/lotsOFFstuff
 2387164/marienordahl
-2387145/nervemaple2
 2387092/nikoly
 2387165/napkin87rule
 2387139/newthorn618
@@ -36,9 +34,7 @@
 2390982/84ringskirt
 2393938/AmanatLabs
 2395695/AutoLean
-2391927/Deviceworks
 2392949/Derivitec
-2393474/FalkorSystems
 2391016/Gaganjuneja
 2395142/GestUAB
 2391846/Infohos
@@ -87,7 +83,6 @@
 2390988/lamb25bun
 2391042/leaflaw9
 2391007/locket6liver
-2391045/leonied
 2391043/mahof
 2391789/ludomotion
 2391044/matzvincent1128
@@ -224,7 +219,6 @@
 2396745/cd2death
 2396688/cameloption34
 2396737/chord3wrist
-2398052/cfmlprojects
 2396695/chesleyloomi1129
 2400124/cibum
 2396730/claudiourquh36
@@ -234,7 +228,6 @@
 2402475/createinform
 2397788/csadvisor
 2396794/court11loss
-2396718/cub41hub
 2400496/devudo
 2400661/documatrix
 2396746/dsavard
@@ -247,7 +240,6 @@
 2396870/girassolbit
 2396777/gurleen-zz
 2399143/globiantravel
-2396759/harp02period
 2396686/ikemsley
 2404941/ieee-scam
 2396772/ivanalonzo
@@ -278,7 +270,6 @@
 2396768/tillmananker616
 2396763/tritonND1
 2396767/trevortomesh
-2396753/trentonnash717
 2403900/uhds
 2401042/ultramatrix69
 2396793/voidunknown
@@ -302,7 +293,6 @@
 2406353/notepink11
 2406446/clever-girls
 2406493/unievo
-2406509/OpenCLInitiative
 2406512/flythecurtis
 2406669/BMKEG
 2406593/damienbolger
@@ -317,6 +307,5 @@
 2407899/SoftwareSymphony
 2407964/ehsstgi
 2408033/Dance-Marathon
-2408034/jonashqrpqge49
 2408263/CluelessNERDS
 2408264/8pocketclimb
