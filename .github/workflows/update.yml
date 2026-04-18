@@ -53,10 +53,10 @@ jobs:
         uses: robinraju/release-downloader@v1
         with:
           latest: true
-          fileName: "*.db.zst"
+          fileName: "*.db"
           tarBall: false
           zipBall: false
-          out-file-path: ".bkg"
+          out-file-path: ".bkg/.snapshot"
 
       - name: Dry run
         id: update
@@ -77,7 +77,7 @@ jobs:
         if: ${{ steps.update.outputs.updated == '0' }}
         uses: ncipollo/release-action@v1
         with:
-          artifacts: "bkg/*.db.zst"
+          artifacts: "bkg/.snapshot/*"
           bodyFile: "bkg/CHANGELOG.md"
           tag: "v${{ steps.date.outputs.tag }}"
           commit: "master"

@@ -528,6 +528,7 @@ test_restore_db_from_snapshot_skips_when_signature_matches() {
 
 	mkdir -p "$db_root"
 	BKG_INDEX_DB="$db_root/index.db"
+	mkdir -p "$(dirname "$(db_snapshot_archive_file)")"
 	printf '%s\n' 'snapshot-data' >"$(db_snapshot_archive_file)"
 	printf '%s\n' 'existing-db' >"$BKG_INDEX_DB"
 	current_index_snapshot_signature >"$(db_restore_signature_file)"
@@ -539,7 +540,7 @@ test_restore_db_from_snapshot_skips_when_signature_matches() {
 	restore_db_from_index_snapshot_if_needed >"$output_file"
 
 	unset -f unzstd
-	assert_contains "$output_file" "Using existing database; index.db.zst unchanged"
+	assert_contains "$output_file" "Using existing database; index.db unchanged"
 	assert_contains "$BKG_INDEX_DB" "existing-db"
 }
 
@@ -549,12 +550,35 @@ test_restore_db_from_snapshot_rebuilds_when_signature_changes() {
 
 	mkdir -p "$db_root"
 	BKG_INDEX_DB="$db_root/index.db"
+	mkdir -p "$(dirname "$(db_snapshot_archive_file)")"
 	printf '%s\n' 'snapshot-data-new' >"$(db_snapshot_archive_file)"
 	printf '%s\n' 'existing-db' >"$BKG_INDEX_DB"
 	printf '%s\n' 'stale-signature' >"$(db_restore_signature_file)"
 
 	unzstd() {
-		[ "${1:-}" = "-c" ] || fail "Expected restore to invoke unzstd with -c"
+		fail "Expected uncompressed DB restore to avoid unzstd"
+	}
+
+	restore_db_from_index_snapshot_if_needed >"$output_file"
+
+	unset -f unzstd
+	assert_contains "$output_file" "Restoring database from index.db"
+	assert_contains "$BKG_INDEX_DB" "snapshot-data-new"
+	[ "$(cat "$(db_restore_signature_file)")" = "$(current_index_snapshot_signature)" ] || fail "Expected restore to refresh the snapshot signature"
+}
+
+test_restore_db_from_legacy_compressed_snapshot() {
+	local db_root="$workdir/db-restore-legacy-db"
+	local output_file="$db_root/output.txt"
+
+	mkdir -p "$db_root"
+	BKG_INDEX_DB="$db_root/index.db"
+	printf '%s\n' 'snapshot-data-legacy-db' >"$(legacy_db_snapshot_archive_file)"
+	printf '%s\n' 'existing-db' >"$BKG_INDEX_DB"
+	printf '%s\n' 'stale-signature' >"$(db_restore_signature_file)"
+
+	unzstd() {
+		[ "${1:-}" = "-c" ] || fail "Expected legacy DB restore to invoke unzstd with -c"
 		cat "$2"
 	}
 
@@ -562,8 +586,8 @@ test_restore_db_from_snapshot_rebuilds_when_signature_changes() {
 
 	unset -f unzstd
 	assert_contains "$output_file" "Restoring database from index.db.zst"
-	assert_contains "$BKG_INDEX_DB" "snapshot-data-new"
-	[ "$(cat "$(db_restore_signature_file)")" = "$(current_index_snapshot_signature)" ] || fail "Expected restore to refresh the snapshot signature"
+	assert_contains "$BKG_INDEX_DB" "snapshot-data-legacy-db"
+	[ "$(cat "$(db_restore_signature_file)")" = "$(current_index_snapshot_signature)" ] || fail "Expected legacy DB restore to refresh the snapshot signature"
 }
 
 test_restore_db_from_legacy_sql_snapshot() {
@@ -614,6 +638,7 @@ run_test test_resolve_owner_ids_uses_run_cache_before_live_lookup
 run_test test_resolve_owner_ids_preserves_ids_and_batches_live_lookup
 run_test test_restore_db_from_snapshot_skips_when_signature_matches
 run_test test_restore_db_from_snapshot_rebuilds_when_signature_changes
+run_test test_restore_db_from_legacy_compressed_snapshot
 run_test test_restore_db_from_legacy_sql_snapshot
 
 echo "Runtime regression tests passed"

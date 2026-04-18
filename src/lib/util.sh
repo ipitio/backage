@@ -81,6 +81,11 @@ fmtsize_num() {
 
 db_snapshot_archive_file() {
     [ -n "${BKG_INDEX_DB:-}" ] || return 1
+    printf '%s\n' "$(dirname "$BKG_INDEX_DB")/.snapshot/$(basename "$BKG_INDEX_DB")"
+}
+
+legacy_db_snapshot_archive_file() {
+    [ -n "${BKG_INDEX_DB:-}" ] || return 1
     printf '%s\n' "${BKG_INDEX_DB}.zst"
 }
 
@@ -98,6 +103,10 @@ db_snapshot_asset_name() {
     basename "$(db_snapshot_archive_file)"
 }
 
+legacy_db_snapshot_asset_name() {
+    basename "$(legacy_db_snapshot_archive_file)"
+}
+
 legacy_sql_snapshot_asset_name() {
     basename "$(legacy_sql_snapshot_archive_file)"
 }
@@ -105,13 +114,21 @@ legacy_sql_snapshot_asset_name() {
 resolve_release_snapshot_asset() {
     local latest=$1
     local db_asset_name
+    local legacy_db_asset_name
     local legacy_asset_name
     local status_code
 
-    db_asset_name=$(db_snapshot_asset_name 2>/dev/null || echo "index.db.zst")
+    db_asset_name=$(db_snapshot_asset_name 2>/dev/null || echo "index.db")
     status_code=$(curl -o /dev/null --silent -Iw '%{http_code}' "https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/download/$latest/$db_asset_name")
     if [ "$status_code" != "404" ]; then
         printf 'db|%s\n' "$db_asset_name"
+        return 0
+    fi
+
+    legacy_db_asset_name=$(legacy_db_snapshot_asset_name 2>/dev/null || echo "index.db.zst")
+    status_code=$(curl -o /dev/null --silent -Iw '%{http_code}' "https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/download/$latest/$legacy_db_asset_name")
+    if [ "$status_code" != "404" ]; then
+        printf 'db-zst|%s\n' "$legacy_db_asset_name"
         return 0
     fi
 
@@ -839,6 +856,28 @@ dldb() {
 
     if [ "$asset_kind" = "db" ]; then
         db_archive_file=$(db_snapshot_archive_file)
+        mkdir -p "$(dirname "$db_archive_file")" || return 1
+        archive_tmp=$(mktemp "$(dirname "$db_archive_file")/.${db_archive_file##*/}.XXXXXX") || return 1
+        db_tmp=$(mktemp "$(dirname "$BKG_INDEX_DB")/.${BKG_INDEX_DB##*/}.XXXXXX") || {
+            rm -f "$archive_tmp"
+            return 1
+        }
+
+        if command curl -sSLNZ "$asset_url" -o "$archive_tmp" && cp -f "$archive_tmp" "$db_tmp"; then
+            mv -f "$db_tmp" "$BKG_INDEX_DB"
+            mv -f "$archive_tmp" "$db_archive_file"
+            legacy_archive_file=$(legacy_db_snapshot_archive_file 2>/dev/null || :)
+            [ -z "$legacy_archive_file" ] || rm -f "$legacy_archive_file"
+            legacy_archive_file=$(legacy_sql_snapshot_archive_file 2>/dev/null || :)
+            [ -z "$legacy_archive_file" ] || rm -f "$legacy_archive_file"
+            if command -v db_restore_signature_file >/dev/null 2>&1; then
+                sha256sum "$db_archive_file" | awk '{print $1}' >"$(db_restore_signature_file)"
+            fi
+        else
+            rm -f "$db_tmp" "$archive_tmp"
+        fi
+    elif [ "$asset_kind" = "db-zst" ]; then
+        db_archive_file=$(legacy_db_snapshot_archive_file)
         archive_tmp=$(mktemp "$(dirname "$db_archive_file")/.${db_archive_file##*/}.XXXXXX") || return 1
         db_tmp=$(mktemp "$(dirname "$BKG_INDEX_DB")/.${BKG_INDEX_DB##*/}.XXXXXX") || {
             rm -f "$archive_tmp"

@@ -195,6 +195,12 @@ current_index_snapshot_archive_file() {
 		return 0
 	fi
 
+	db_archive_file=$(legacy_db_snapshot_archive_file 2>/dev/null || :)
+	if [ -n "$db_archive_file" ] && [ -f "$db_archive_file" ]; then
+		printf '%s\n' "$db_archive_file"
+		return 0
+	fi
+
 	legacy_archive_file=$(legacy_sql_snapshot_archive_file 2>/dev/null || :)
 	if [ -n "$legacy_archive_file" ] && [ -f "$legacy_archive_file" ]; then
 		printf '%s\n' "$legacy_archive_file"
@@ -222,6 +228,7 @@ restore_db_from_index_snapshot_if_needed() {
 	archive_file=$(current_index_snapshot_archive_file) || return 0
 	archive_name=$(basename "$archive_file")
 	case "$archive_file" in
+		*.db) archive_kind="db" ;;
 		*.db.zst) archive_kind="db" ;;
 		*) archive_kind="sql" ;;
 	esac
@@ -240,7 +247,7 @@ restore_db_from_index_snapshot_if_needed() {
 	if [ "$archive_kind" = "db" ]; then
 		echo "Restoring database from $archive_name..."
 		db_tmp=$(mktemp "$(dirname "$BKG_INDEX_DB")/.${BKG_INDEX_DB##*/}.XXXXXX") || return 1
-		if unzstd -c "$archive_file" >"$db_tmp"; then
+		if { [[ "$archive_file" = *.zst ]] && unzstd -c "$archive_file" >"$db_tmp"; } || { [[ "$archive_file" != *.zst ]] && cp -f "$archive_file" "$db_tmp"; }; then
 			mv -f "$db_tmp" "$BKG_INDEX_DB"
 		else
 			rm -f "$db_tmp"
@@ -576,38 +583,44 @@ main() {
 
 		set_BKG BKG_OUT "$(wc -l <"$BKG_OPTOUT")"
 		sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, repo, package from '$BKG_INDEX_TBL_PKG';" | sort -u >packages_all
-		echo "Compressing the database..."
+		echo "Preparing the database snapshot..."
 		checkpoint_database_for_archive
 		db_archive_file=$(db_snapshot_archive_file)
 		db_archive_tmp="$db_archive_file.new"
-		zstd -22 --ultra --long -T0 "$BKG_INDEX_DB" -o "$db_archive_tmp"
+		mkdir -p "$(dirname "$db_archive_file")"
+		cp -f "$BKG_INDEX_DB" "$db_archive_tmp"
 
 		if [ -f "$db_archive_tmp" ]; then
 			# rotate the database if it's greater than 2GB
-			if [ -f "$db_archive_file" ] && [ "$(stat -c %s "$db_archive_tmp")" -ge 2000000000 ]; then
+			if [ "$(stat -c %s "$db_archive_tmp")" -ge 2000000000 ]; then
 				rotated=true
 				echo "Rotating the database..."
 				local older_db
-				older_db="$BKG_ROOT/$(date -u +%Y.%m.%d).$(basename "$db_archive_file")"
-				[ ! -f "$older_db" ] || rm -f "$older_db"
-				mv "$db_archive_file" "$older_db"
+				older_db="$(dirname "$db_archive_file")/$(date -u +%Y.%m.%d).$(basename "$db_archive_file").zst"
+				if [ -f "$db_archive_file" ]; then
+					[ ! -f "$older_db" ] || rm -f "$older_db"
+					zstd -22 --ultra --long -T0 "$db_archive_file" -o "$older_db"
+					rm -f "$db_archive_file"
+				fi
 				sqlite3 "$BKG_INDEX_DB" "delete from '$BKG_INDEX_TBL_PKG' where date < '$BKG_BATCH_FIRST_STARTED';"
 				sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name like '${BKG_INDEX_TBL_VER}_%';" | parallel --lb "sqlite3 '$BKG_INDEX_DB' 'delete from {} where date < \"$BKG_BATCH_FIRST_STARTED\";'"
 				sqlite3 "$BKG_INDEX_DB" "vacuum;"
 				checkpoint_database_for_archive
 				rm -f "$db_archive_tmp"
-				zstd -22 --ultra --long -T0 "$BKG_INDEX_DB" -o "$db_archive_tmp"
+				cp -f "$BKG_INDEX_DB" "$db_archive_tmp"
 				echo "Rotated the database"
 			fi
 
 			mv "$db_archive_tmp" "$db_archive_file"
+			legacy_db_archive_file=$(legacy_db_snapshot_archive_file 2>/dev/null || :)
+			[ -z "$legacy_db_archive_file" ] || rm -f "$legacy_db_archive_file"
 			legacy_archive_file=$(legacy_sql_snapshot_archive_file 2>/dev/null || :)
 			[ -z "$legacy_archive_file" ] || rm -f "$legacy_archive_file"
 			write_db_restore_signature
 			chmod 666 "$db_archive_file"
-			echo "Compressed the database"
+			echo "Prepared the database snapshot"
 		else
-			echo "Failed to compress the database!"
+			echo "Failed to prepare the database snapshot!"
 		fi
 	fi
 

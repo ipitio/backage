@@ -67,7 +67,6 @@ BKG_BRANCH=$(git branch --show-current 2>/dev/null)
 [ -n "$GITHUB_BRANCH" ] || GITHUB_BRANCH="$BKG_BRANCH"
 BKG_INDEX=$([ "$GITHUB_BRANCH" = "master" ] && echo -n "index" || echo -n "index-${BKG_BRANCH:-}")
 BKG_INDEX_DB=$BKG_ROOT/"$BKG_INDEX".db
-BKG_INDEX_DB_ZST="$BKG_INDEX_DB".zst
 BKG_INDEX_SQL=$BKG_ROOT/"$BKG_INDEX".sql
 BKG_INDEX_DIR=$BKG_ROOT/"$BKG_INDEX"
 set +o allexport
@@ -117,13 +116,16 @@ ensure_pages_dotfiles_visible "$BKG_INDEX"
 pushd src || exit 1
 log_update_startup_phase "prepare-index-worktree" "$UPDATE_STARTUP_PHASE_STARTED_AT"
 
-if [ ! -f "$BKG_INDEX_DB_ZST" ] && [ ! -f "$BKG_INDEX_SQL".zst ] && [ ! -f "$BKG_INDEX_DB" ]; then
+snapshot_file=$(current_index_snapshot_archive_file 2>/dev/null || :)
+
+if [ -z "$snapshot_file" ] && [ ! -f "$BKG_INDEX_DB" ]; then
     UPDATE_STARTUP_PHASE_STARTED_AT=$(update_startup_phase_started_at)
     dldb >/dev/null 2>&1 || true
     log_update_startup_phase "download-initial-db" "$UPDATE_STARTUP_PHASE_STARTED_AT"
+    snapshot_file=$(current_index_snapshot_archive_file 2>/dev/null || :)
 fi
 
-db_size=$(stat -c %s "$BKG_INDEX_DB_ZST" 2>/dev/null || stat -c %s "$BKG_INDEX_SQL".zst 2>/dev/null || stat -c %s "$BKG_INDEX_DB" 2>/dev/null || echo 0)
+db_size=$(stat -c %s "$snapshot_file" 2>/dev/null || stat -c %s "$BKG_INDEX_DB" 2>/dev/null || echo 0)
 num_owner_db=$(sqlite3 "$BKG_INDEX_DB" "SELECT COUNT(DISTINCT owner) FROM $BKG_INDEX_TBL_PKG")
 num_owner_index=$(index_top_level_owner_count)
 
@@ -137,7 +139,8 @@ fi
 main "$@"
 return_code=$?
 # db should not be empty, error if it is
-[ "$(stat -c %s "$BKG_INDEX_DB_ZST" 2>/dev/null || stat -c %s "$BKG_INDEX_SQL".zst 2>/dev/null || echo 0)" -ge 100 ] || exit 1
+snapshot_file=$(current_index_snapshot_archive_file 2>/dev/null || :)
+[ "$(stat -c %s "$snapshot_file" 2>/dev/null || echo 0)" -ge 100 ] || exit 1
 # files should be valid, warn if not, unless only opted out owners
 #(( return_code == 1 )) || find .. -type f -name '*.json' -o -name '*.xml' | parallel --lb src/index.sh {}
 popd || exit 1
