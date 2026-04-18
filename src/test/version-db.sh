@@ -177,10 +177,61 @@ test_update_package_handles_large_version_arrays() {
 	)
 }
 
+test_update_package_uses_persisted_batch_start_when_shell_var_missing() {
+	local test_root="$workdir/package-refresh-batch-state"
+	local db_file="$test_root/test.db"
+	local today
+	local yesterday
+
+	mkdir -p "$test_root"
+	today=$(date -u +%Y-%m-%d)
+	yesterday=$(date -u -d '1 day ago' +%Y-%m-%d)
+
+	(
+		cd "$test_root"
+		ln -s "$src_dir/lib" lib
+		export BKG_SKIP_DEP_VERIFY=1
+		source "$src_dir/lib/package.sh"
+		init_bkg_state "$test_root/env.env"
+
+		BKG_INDEX_DB="$db_file"
+		BKG_INDEX_DIR="$test_root/index"
+		BKG_OPTOUT="$test_root/optout.txt"
+		: >"$BKG_OPTOUT"
+		BKG_OWNERS="$test_root/owners.txt"
+		: >"$BKG_OWNERS"
+		set_BKG BKG_BATCH_FIRST_STARTED "$today"
+		unset BKG_BATCH_FIRST_STARTED
+		owner_id=69664378
+		owner='Lazztech'
+		repo='Libre-Closet'
+		package='libre-closet'
+		owner_type='orgs'
+		package_type='container'
+		fast_out=false
+		BKG_MODE=0
+		table_version_name='versions_orgs_container_Lazztech_Libre-Closet_libre-closet'
+		mkdir -p "$BKG_INDEX_DIR/$owner/$repo"
+
+		sqlite3 "$BKG_INDEX_DB" "create table if not exists '$BKG_INDEX_TBL_PKG' (owner_id text, owner_type text not null, package_type text not null, owner text not null, repo text not null, package text not null, downloads integer not null, downloads_month integer not null, downloads_week integer not null, downloads_day integer not null, size integer not null, date text not null, primary key (owner_id, package, date));"
+		sqlite3 "$BKG_INDEX_DB" "create table if not exists '$table_version_name' (id text not null, name text not null, size integer not null, downloads integer not null, downloads_month integer not null, downloads_week integer not null, downloads_day integer not null, date text not null, tags text, primary key (id, date));"
+		sqlite3 "$BKG_INDEX_DB" "insert into '$BKG_INDEX_TBL_PKG' (owner_id, owner_type, package_type, owner, repo, package, downloads, downloads_month, downloads_week, downloads_day, size, date) values ('69664378','orgs','container','Lazztech','Libre-Closet','libre-closet','2000','300','200','20','400','$today');"
+		sqlite3 "$BKG_INDEX_DB" "insert into '$table_version_name' (id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags) values ('10','sha256:current','456','985','985','455','3','$today','latest');"
+		sqlite3 "$BKG_INDEX_DB" "insert into '$table_version_name' (id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags) values ('2','sha256:stale','123','984','984','454','2','$yesterday','stable');"
+		printf '69664378|Lazztech|Libre-Closet|libre-closet|%s\n' "$today" >packages_already_updated
+
+		update_package 'container/Libre-Closet/libre-closet' >/dev/null
+
+		assert_file_exists "$BKG_INDEX_DIR/$owner/$repo/$package.json"
+		jq -e '.raw_versions == 1 and (.version | map(.id) == [10])' "$BKG_INDEX_DIR/$owner/$repo/$package.json" >/dev/null || fail "Expected update_package to honor persisted BKG_BATCH_FIRST_STARTED when the shell variable is unset"
+	)
+}
+
 trap cleanup EXIT
 
 run_test test_update_version_batches_rows_until_flush
 run_test test_update_package_builds_version_array_from_db
 run_test test_update_package_handles_large_version_arrays
+run_test test_update_package_uses_persisted_batch_start_when_shell_var_missing
 
 echo "Version DB regression tests passed"

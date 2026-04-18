@@ -72,12 +72,15 @@ update_package() {
     local repo_rank
     local version_flush_status=0
     local package_write_status=0
+    local batch_first_started=""
     package_type=$(cut -d'/' -f1 <<<"$1")
     repo=$(cut -d'/' -f2 <<<"$1")
     package=$(cut -d'/' -f3 <<<"$1")
     package=${package%/}
     json_file="$BKG_INDEX_DIR/$owner/$repo/$package.json"
     table_version_name="${BKG_INDEX_TBL_VER}_${owner_type}_${package_type}_${owner}_${repo}_${package}"
+    batch_first_started=$(current_batch_first_started)
+    [ -n "$batch_first_started" ] || batch_first_started="0000-00-00"
 
     if grep -qP "^$owner(?=/$repo(?=/$package$|$)|$)" "$BKG_OPTOUT"; then
         optout_package "$owner_id" "$owner" "$repo" "$package" "$table_version_name"
@@ -125,7 +128,7 @@ update_package() {
         [ -n "$(grep -Pzo 'Total downloads' <<<"$html" | tr -d '\0')" ] || return
         echo "Updating $owner/$package..."
         raw_downloads=$(grep -Pzo 'Total downloads[^"]*"\d*' <<<"$html" | grep -Pzo '\d*$' | tr -d '\0') # https://stackoverflow.com/a/74214537
-        sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name' where date >= '$BKG_BATCH_FIRST_STARTED';" | sort -u >"${table_version_name}"_already_updated
+        sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name' where date >= '$batch_first_started';" | sort -u >"${table_version_name}"_already_updated
         local max_version_pages=3
         local tag_cache_pages=3
         local page=1
@@ -226,14 +229,14 @@ update_package() {
     # calculate the overall downloads and size
     package_stats_row=$(sqlite3 "$BKG_INDEX_DB" "
         select
-            coalesce((select size from '$table_version_name' where size > 1 order by CAST(id as integer) desc, date desc limit 1), -1),
+            coalesce((select size from '$table_version_name' where size > 1 and date >= '$batch_first_started' order by CAST(id as integer) desc, date desc limit 1), -1),
             coalesce(sum(downloads), -1),
             coalesce(sum(downloads_month), -1),
             coalesce(sum(downloads_week), -1),
             coalesce(sum(downloads_day), -1),
             coalesce((select max(downloads) from '$BKG_INDEX_TBL_PKG' where owner_id='$owner_id' and package='$package'), -1)
         from '$table_version_name'
-        where date >= '$BKG_BATCH_FIRST_STARTED';
+        where date >= '$batch_first_started';
     ")
     size=$(cut -d'|' -f1 <<<"$package_stats_row")
     summed_raw_downloads=$(cut -d'|' -f2 <<<"$package_stats_row")
@@ -269,7 +272,7 @@ update_package() {
                 case when id regexp '^[0-9]+$' then CAST(id as integer) end as numeric_id,
                 replace(replace(replace(replace(coalesce(tags, ''), ' ', ''), char(9), ''), char(10), ''), char(13), '') as compact_tags
             from '$table_version_name'
-            where date >= '$BKG_BATCH_FIRST_STARTED'
+            where date >= '$batch_first_started'
         ),
         stats as (
             select

@@ -43,16 +43,16 @@ fi
 GITHUB_OWNER=${GITHUB_OWNER:-ipitio}
 GITHUB_REPO=${GITHUB_REPO:-backage}
 BKG_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"/../..
-BKG_ENV=env.env
-BKG_OWNERS=$BKG_ROOT/owners.txt
-BKG_OPTOUT=$BKG_ROOT/optout.txt
-BKG_INDEX_TBL_OWN=owners
-BKG_INDEX_TBL_PKG=packages
-BKG_INDEX_TBL_VER=versions
-BKG_MODE=0
-BKG_MAX_LEN=14400
-BKG_IS_FIRST=false
-BKG_PAGE_ALL=1
+BKG_ENV=${BKG_ENV:-env.env}
+BKG_OWNERS=${BKG_OWNERS:-$BKG_ROOT/owners.txt}
+BKG_OPTOUT=${BKG_OPTOUT:-$BKG_ROOT/optout.txt}
+BKG_INDEX_TBL_OWN=${BKG_INDEX_TBL_OWN:-owners}
+BKG_INDEX_TBL_PKG=${BKG_INDEX_TBL_PKG:-packages}
+BKG_INDEX_TBL_VER=${BKG_INDEX_TBL_VER:-versions}
+BKG_MODE=${BKG_MODE:-0}
+BKG_MAX_LEN=${BKG_MAX_LEN:-14400}
+BKG_IS_FIRST=${BKG_IS_FIRST:-false}
+BKG_PAGE_ALL=${BKG_PAGE_ALL:-1}
 
 # format numbers like 1000 to 1k
 numfmt() {
@@ -273,6 +273,20 @@ set_BKG() {
     sed -i '/^\s*$/d' "$BKG_ENV"
     echo >>"$BKG_ENV"
     rm -f "$BKG_ENV.lock"
+}
+
+current_batch_first_started() {
+    local batch_first_started
+
+    batch_first_started=$(get_BKG BKG_BATCH_FIRST_STARTED)
+    [ -n "$batch_first_started" ] || batch_first_started="${BKG_BATCH_FIRST_STARTED:-}"
+    printf '%s\n' "$batch_first_started"
+}
+
+ensure_pages_dotfiles_visible() {
+    [ -n "${1:-}" ] || return 1
+    mkdir -p "$1" || return 1
+    : >"$1/.nojekyll" || return 1
 }
 
 daily_gate_completed_today() {

@@ -81,9 +81,12 @@ owner_is_discovered_connection() {
 }
 
 remember_scanned_owner_without_packages() {
+	local batch_first_started=""
+
 	[ -n "${owner_id:-}" ] || return 0
 	[ -n "${owner:-}" ] || return 0
-	[ -n "${BKG_BATCH_FIRST_STARTED:-}" ] || return 0
+	batch_first_started=$(current_batch_first_started)
+	[ -n "$batch_first_started" ] || return 0
 	owner_is_discovered_connection || return 0
 
 	sqlite3 "$BKG_INDEX_DB" "create table if not exists '$BKG_INDEX_TBL_OWN' (
@@ -92,7 +95,7 @@ remember_scanned_owner_without_packages() {
 		date text not null,
 		primary key (owner_id, date)
 	);" >/dev/null || return $?
-	sqlite3 "$BKG_INDEX_DB" "insert or replace into '$BKG_INDEX_TBL_OWN' (owner_id, owner, date) values ('$(sqlite_escape_literal "$owner_id")', '$(sqlite_escape_literal "$owner")', '$(sqlite_escape_literal "$BKG_BATCH_FIRST_STARTED")');" >/dev/null
+	sqlite3 "$BKG_INDEX_DB" "insert or replace into '$BKG_INDEX_TBL_OWN' (owner_id, owner, date) values ('$(sqlite_escape_literal "$owner_id")', '$(sqlite_escape_literal "$owner")', '$(sqlite_escape_literal "$batch_first_started")');" >/dev/null
 }
 
 graphql_owner_lookup_query() {
@@ -279,10 +282,13 @@ update_owner() {
 	[ -d "$BKG_INDEX_DIR/$owner" ] || mkdir "$BKG_INDEX_DIR/$owner"
 	set_BKG BKG_PACKAGES_"$owner" ""
 	local start_page
+	local batch_first_started=""
 	start_page=$(get_BKG BKG_PAGE_"$owner_id")
+	batch_first_started=$(current_batch_first_started)
+	[ -n "$batch_first_started" ] || batch_first_started="0000-00-00"
 
 	if awk -F'|' -v owner_id_key="$owner_id" -v owner_key="$owner" '$1 == owner_id_key && $2 == owner_key { found = 1; exit } END { exit !found }' packages_already_updated && [ -z "$start_page" ]; then
-		run_parallel save_package "$(sqlite3 "$BKG_INDEX_DB" "select package_type, package, max(date) as max_date from '$BKG_INDEX_TBL_PKG' where owner_id = '$owner_id' group by package_type, package having max(date) < '$BKG_BATCH_FIRST_STARTED' order by max_date asc;" | awk -F'|' '{print "////"$1"//"$2}')"
+		run_parallel save_package "$(sqlite3 "$BKG_INDEX_DB" "select package_type, package, max(date) as max_date from '$BKG_INDEX_TBL_PKG' where owner_id = '$owner_id' group by package_type, package having max(date) < '$batch_first_started' order by max_date asc;" | awk -F'|' '{print "////"$1"//"$2}')"
 		(($? != 3)) || return 3
 		run_parallel update_package "$(get_BKG_set BKG_PACKAGES_"$owner")"
 		(($? != 3)) || return 3

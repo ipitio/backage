@@ -112,6 +112,7 @@ pushd "$BKG_INDEX" || exit 1
 index_sparse_set_root
 git reset --hard origin/"$BKG_INDEX"
 popd || exit 1
+ensure_pages_dotfiles_visible "$BKG_INDEX"
 [ -f "$BKG_INDEX"/.env ] && \cp "$BKG_INDEX"/.env src/env.env || touch src/env.env
 pushd src || exit 1
 log_update_startup_phase "prepare-index-worktree" "$UPDATE_STARTUP_PHASE_STARTED_AT"

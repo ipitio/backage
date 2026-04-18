@@ -97,6 +97,77 @@ test_parallel_async_default_max_jobs_is_tuned() {
 	unset BKG_PARALLEL_ASYNC_MAX_JOBS
 }
 
+test_parallel_shell_func_preserves_inherited_runtime_config() {
+	local fixture_file="$workdir/worker-config.sh"
+	local input_file="$workdir/worker-config-input.txt"
+	local output_file="$workdir/worker-config-output.txt"
+	local original_env_file="${BKG_ENV:-}"
+	local original_mode="${BKG_MODE:-}"
+	local original_max_len="${BKG_MAX_LEN:-}"
+	local original_page_all="${BKG_PAGE_ALL:-}"
+	local original_owners="${BKG_OWNERS:-}"
+
+	cat >"$fixture_file" <<EOF
+#!/bin/bash
+
+	source "$src_dir/lib/util.sh"
+
+worker_emit_runtime_config() {
+	printf '%s|%s|%s|%s|%s\n' "\$BKG_MODE" "\$BKG_MAX_LEN" "\$BKG_PAGE_ALL" "\$BKG_ENV" "\$BKG_OWNERS"
+}
+EOF
+
+	printf 'one\n' >"$input_file"
+	BKG_ENV="$workdir/custom-worker.env"
+	: >"$BKG_ENV"
+	BKG_MODE=5
+	BKG_MAX_LEN=123
+	BKG_PAGE_ALL=0
+	BKG_OWNERS="$workdir/custom-owners.txt"
+	: >"$BKG_OWNERS"
+
+	parallel_shell_func "$fixture_file" worker_emit_runtime_config --lb <"$input_file" >"$output_file"
+
+	assert_contains "$output_file" "5|123|0|$workdir/custom-worker.env|$workdir/custom-owners.txt"
+
+	BKG_ENV="$original_env_file"
+	BKG_MODE="$original_mode"
+	BKG_MAX_LEN="$original_max_len"
+	BKG_PAGE_ALL="$original_page_all"
+	BKG_OWNERS="$original_owners"
+}
+
+test_direct_bash_child_preserves_inherited_runtime_config() {
+	local fixture_file="$workdir/direct-child-config.sh"
+	local output_file="$workdir/direct-child-config-output.txt"
+
+	cat >"$fixture_file" <<EOF
+#!/bin/bash
+
+	source "$src_dir/lib/util.sh"
+printf '%s|%s|%s|%s|%s\n' "\$BKG_MODE" "\$BKG_MAX_LEN" "\$BKG_PAGE_ALL" "\$BKG_ENV" "\$BKG_OWNERS"
+EOF
+
+	BKG_ENV="$workdir/direct-child.env"
+	: >"$BKG_ENV"
+	BKG_MODE=4
+	BKG_MAX_LEN=321
+	BKG_PAGE_ALL=0
+	BKG_OWNERS="$workdir/direct-child-owners.txt"
+	: >"$BKG_OWNERS"
+
+	bash "$fixture_file" >"$output_file"
+
+	assert_contains "$output_file" "4|321|0|$workdir/direct-child.env|$workdir/direct-child-owners.txt"
+}
+
+test_ensure_pages_dotfiles_visible_writes_nojekyll() {
+	local site_root="$workdir/pages-site"
+
+	ensure_pages_dotfiles_visible "$site_root" || fail "Expected ensure_pages_dotfiles_visible to succeed"
+	assert_file_exists "$site_root/.nojekyll"
+}
+
 test_update_version_logs_sqlite_write_failure() {
 	local row
 	local fake_bin="$workdir/fake-sqlite-flush-bin"
@@ -526,6 +597,9 @@ source_project_script "bkg.sh"
 run_test test_sqlite_retries_transient_write_failure
 run_test test_parallel_async_wait_continues_after_non_timeout_failure
 run_test test_parallel_async_default_max_jobs_is_tuned
+run_test test_parallel_shell_func_preserves_inherited_runtime_config
+run_test test_direct_bash_child_preserves_inherited_runtime_config
+run_test test_ensure_pages_dotfiles_visible_writes_nojekyll
 run_test test_update_version_logs_sqlite_write_failure
 run_test test_update_package_warns_on_package_level_fallback
 run_test test_run_owner_page_discovery_stops_on_code_2
