@@ -1,4 +1,3 @@
-2388462/redpointventures
 2387152/saythink
 2387120/victorsouza91
 2387197/wimeme
@@ -26,11 +25,9 @@
 2390975/cliffglerup1127
 2390978/crakha
 2392432/dcentralize
-2393489/eXist-db
 2395723/eudemocracia
 2392039/fresh8gaming
 2391032/hardik852
-2391051/joejung
 2393126/jxsolucoes
 2395596/lainventoria
 2390988/lamb25bun
@@ -45,7 +42,6 @@
 2390977/oakleymorris38
 2390958/oilyarn03
 2390989/onion0mallet
-2393766/ooni
 2394763/openatlanta
 2392832/opencolour
 2391018/patrickviet
@@ -80,7 +76,6 @@
 2396100/coconutlabs
 2396392/RosalilaDarkSacrifice
 2396396/braddoro
-2396428/jump0edger
 2400020/1Projects
 2396684/0sandramark
 2396710/1ghostson
@@ -89,7 +84,6 @@
 2396706/4judgebowl
 2396720/5frameprofit
 2396701/62storekettle
-2396752/56sizebeet
 2396792/77fuelfifth
 2396698/8oystersearch
 2396697/8letterteeth
@@ -329,7 +323,6 @@
 2409717/dyfebuducysa
 2410582/eduinaction
 2409727/earlmcgowan310
-2409712/eligerodriqu717
 2410631/eq55
 2410146/eternalcon
 2409749/epalleva
@@ -346,10 +339,8 @@
 2411518/grischaandreew-test-organisation
 2414296/hexbright
 2412058/iiithyd-websec
-2409770/ilyaskey1231
 2410941/iritgo
 2414066/intip
-2414589/isletatech
 2409703/joyxian
 2409791/jeremyandy
 2409776/jongerund
@@ -362,7 +353,6 @@
 2409697/majiquin
 2411156/mandmss
 2414707/magoosh
-2409810/marianmoravcik
 2411300/meetings
 2409762/mbohaumilitzky
 2409796/michellelkx
@@ -372,8 +362,6 @@
 2409765/motaevns
 2409706/mujou0612
 2409769/muogufe848
-2409746/muffinist
-2409698/nicosticht
 2409812/nkranitz
 2409742/ojasicinaymu
 2409713/neswar86
@@ -385,10 +373,8 @@
 2409800/prasidjoshi
 2409753/poolsoft
 2409720/red-peppers
-2409793/salmon9double
 2409748/run03timer
 2414215/rldesigner
-2409795/screensystem6
 2409774/serjj
 2409747/sexiladpyke167
 2409716/sc-h
@@ -398,10 +384,8 @@
 2409736/sharo0331
 2409766/smoke7guitar
 2411626/sporttu
-2409722/sullyn
 2415252/studiopangea
 2413719/sushioda
-2415037/thesify
 2409710/thomassleet7
 2414549/vidaao
 2409806/vincentbonnet
@@ -418,3 +402,4 @@
 2415374/grupobfx
 2415413/UniversityDailyKansan
 2415414/forkstart36
+2415418/peckhae
