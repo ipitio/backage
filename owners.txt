@@ -1,9 +1,7 @@
-2393208/MakeMeReach
 2392819/OpenWaterAnalytics
 2392399/Patternslib
 2393852/PlatformDev
 2394601/Reassured
-2393810/SciSoftDays
 2391801/Tallknuserne
 2391037/TwistedOne
 2391020/WanliTian
@@ -54,7 +52,6 @@
 2394005/telemarq
 2395167/tigergraph
 2391023/trentonfield82
-2391014/tu-ROCKEFELLER
 2391015/tychogreenwo13
 2390996/vaibhao
 2394556/virtru
@@ -89,7 +86,6 @@
 2400122/Clobrdo
 2402951/Cuantile
 2404771/Delta3system
-2399074/CodeHaven9ja
 2401442/DetectiveYou
 2397890/EquestriaLA
 2404101/Di-TeC
@@ -301,7 +297,6 @@
 2409744/chanialug
 2414811/chicago-women-developers
 2414745/cloudburo
-2413544/chronotrigger
 2409801/chungtobiase49
 2410618/cloudsigma
 2412368/codestack
@@ -340,7 +335,6 @@
 2409737/kot095
 2409699/kianknapp819
 2411960/lion-team
-2409756/lumber79fold
 2409697/majiquin
 2411156/mandmss
 2414707/magoosh
@@ -364,7 +358,6 @@
 2409800/prasidjoshi
 2409753/poolsoft
 2409720/red-peppers
-2409748/run03timer
 2414215/rldesigner
 2409774/serjj
 2409747/sexiladpyke167
@@ -395,5 +388,5 @@
 2415414/forkstart36
 2415418/peckhae
 2415454/PrestoStore
-2415588/LastHomelyHouse
 2415589/LogisticsTrader
+2415698/ASSEVIM
