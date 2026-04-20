@@ -1,4 +1,3 @@
-2392634/LMAX-Exchange
 2393208/MakeMeReach
 2392819/OpenWaterAnalytics
 2392399/Patternslib
@@ -397,3 +396,4 @@
 2415418/peckhae
 2415454/PrestoStore
 2415588/LastHomelyHouse
+2415589/LogisticsTrader
