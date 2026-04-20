@@ -175,7 +175,7 @@ version_parse_page_html() {
                 $value //= q{};
                 $value =~ s/\\/\\\\/g;
                 $value =~ s/"/\\"/g;
-                $value =~ s/\n/\\n/g;
+                $value =~ s/([\x00-\x1f])/sprintf("\\u%04x", ord($1))/eg;
                 return $value;
             }
 

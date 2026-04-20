@@ -42,8 +42,8 @@ if [ -z "${BKG_UTIL_BOOTSTRAPPED:-}" ]; then
 fi
 GITHUB_OWNER=${GITHUB_OWNER:-ipitio}
 GITHUB_REPO=${GITHUB_REPO:-backage}
-BKG_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"/../..
-BKG_ENV=${BKG_ENV:-env.env}
+BKG_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+BKG_ENV=${BKG_ENV:-$BKG_ROOT/src/env.env}
 BKG_OWNERS=${BKG_OWNERS:-$BKG_ROOT/owners.txt}
 BKG_OPTOUT=${BKG_OPTOUT:-$BKG_ROOT/optout.txt}
 BKG_INDEX_TBL_OWN=${BKG_INDEX_TBL_OWN:-owners}
@@ -268,7 +268,7 @@ cleanup_generated_json_sidecars() {
 get_BKG() {
     [ -f "$BKG_ENV" ] || return
     while [ -f "$BKG_ENV.lock" ]; do sleep 0.05; done
-    grep "^$1=" "$BKG_ENV" | cut -d'=' -f2
+    grep "^$1=" "$BKG_ENV" 2>/dev/null | cut -d'=' -f2
 }
 
 set_BKG() {

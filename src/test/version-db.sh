@@ -227,11 +227,39 @@ test_update_package_uses_persisted_batch_start_when_shell_var_missing() {
 	)
 }
 
+test_version_parse_page_html_escapes_control_characters() {
+	local html
+	local parsed
+
+	(
+		cd "$workdir"
+		ln -s "$src_dir/lib" lib
+		export BKG_SKIP_DEP_VERIFY=1
+		source "$src_dir/lib/version.sh"
+		owner='Lazztech'
+		repo='Libre-Closet'
+		package='libre-closet'
+		owner_type='orgs'
+		package_type='container'
+
+		html=$(cat <<'EOF'
+<li class="Box-row">
+	<a href="/Lazztech/Libre-Closet/pkgs/container/libre-closet/123?tag=release%09tag"></a>
+  <input value="sha256:line%09name%0Dtest" />
+</li>
+EOF
+)
+		parsed=$(version_parse_page_html "$html")
+		jq -e '.[0].id == 123 and .[0].name == "sha256:line\tname\rtest" and .[0].tags == ["release\ttag"]' <<<"$parsed" >/dev/null || fail "Expected version_parse_page_html to escape control characters before jq parsing"
+	)
+}
+
 trap cleanup EXIT
 
 run_test test_update_version_batches_rows_until_flush
 run_test test_update_package_builds_version_array_from_db
 run_test test_update_package_handles_large_version_arrays
 run_test test_update_package_uses_persisted_batch_start_when_shell_var_missing
+run_test test_version_parse_page_html_escapes_control_characters
 
 echo "Version DB regression tests passed"

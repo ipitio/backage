@@ -161,6 +161,22 @@ EOF
 	assert_contains "$output_file" "4|321|0|$workdir/direct-child.env|$workdir/direct-child-owners.txt"
 }
 
+test_util_default_env_path_is_absolute() {
+	local fixture_file="$workdir/default-env-path.sh"
+	local output_file="$workdir/default-env-path.out"
+
+	cat >"$fixture_file" <<EOF
+#!/bin/bash
+
+unset BKG_ENV
+	source "$src_dir/lib/util.sh"
+printf '%s\n' "\$BKG_ENV"
+EOF
+
+	bash "$fixture_file" >"$output_file"
+		assert_contains "$output_file" "$src_dir/env.env"
+}
+
 test_ensure_pages_dotfiles_visible_writes_nojekyll() {
 	local site_root="$workdir/pages-site"
 
@@ -623,6 +639,7 @@ run_test test_parallel_async_wait_continues_after_non_timeout_failure
 run_test test_parallel_async_default_max_jobs_is_tuned
 run_test test_parallel_shell_func_preserves_inherited_runtime_config
 run_test test_direct_bash_child_preserves_inherited_runtime_config
+run_test test_util_default_env_path_is_absolute
 run_test test_ensure_pages_dotfiles_visible_writes_nojekyll
 run_test test_update_version_logs_sqlite_write_failure
 run_test test_update_package_warns_on_package_level_fallback
