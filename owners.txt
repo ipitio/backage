@@ -1,4 +1,3 @@
-2394601/Reassured
 2391801/Tallknuserne
 2391020/WanliTian
 2393232/VenueOne
@@ -9,13 +8,11 @@
 2391025/butanetwig8
 2390975/cliffglerup1127
 2390978/crakha
-2392432/dcentralize
 2395723/eudemocracia
 2392039/fresh8gaming
 2391032/hardik852
 2393126/jxsolucoes
 2395596/lainventoria
-2390988/lamb25bun
 2391042/leaflaw9
 2391043/mahof
 2391789/ludomotion
@@ -30,7 +27,6 @@
 2394763/openatlanta
 2392832/opencolour
 2391018/patrickviet
-2391002/pimplepair2
 2390999/pr0gramar
 2391022/pintneed56
 2390963/prasadkt
@@ -44,7 +40,6 @@
 2390994/song5harbor
 2391000/sidneyblanto24
 2390957/spavlovec
-2391019/tajammul
 2394005/telemarq
 2395167/tigergraph
 2391023/trentonfield82
@@ -304,7 +299,6 @@
 2413857/darkskyapp
 2409717/dyfebuducysa
 2410582/eduinaction
-2409727/earlmcgowan310
 2410631/eq55
 2410146/eternalcon
 2409749/epalleva
@@ -364,7 +358,6 @@
 2413719/sushioda
 2409710/thomassleet7
 2414549/vidaao
-2409806/vincentbonnet
 2412908/vivace-
 2415011/toplogic
 2412232/wesleyan-robotics
@@ -385,3 +378,4 @@
 2415877/agileglue
 2415970/IncidentTechnologies
 2416034/air-dreaming
+2416035/abuazzam
