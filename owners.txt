@@ -1,8 +1,6 @@
-2392399/Patternslib
 2393852/PlatformDev
 2394601/Reassured
 2391801/Tallknuserne
-2391037/TwistedOne
 2391020/WanliTian
 2393232/VenueOne
 2391001/abdulburris1229
@@ -336,7 +334,6 @@
 2411960/lion-team
 2409697/majiquin
 2411156/mandmss
-2414707/magoosh
 2411300/meetings
 2409762/mbohaumilitzky
 2409796/michellelkx
@@ -349,10 +346,8 @@
 2409812/nkranitz
 2409742/ojasicinaymu
 2409713/neswar86
-2409785/onepartscissors
 2409752/orderegg29
 2409787/pendrum7
-2413518/oxbowsoftware
 2409775/pettersolaas
 2409800/prasidjoshi
 2409753/poolsoft
@@ -360,7 +355,6 @@
 2414215/rldesigner
 2409774/serjj
 2409747/sexiladpyke167
-2409716/sc-h
 2413479/sgvhak
 2409794/smita30apr
 2411113/sharktube
@@ -390,3 +384,4 @@
 2415589/LogisticsTrader
 2415698/ASSEVIM
 2415877/agileglue
+2415970/IncidentTechnologies
