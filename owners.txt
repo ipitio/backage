@@ -1,4 +1,3 @@
-2391001/abdulburris1229
 2393944/agrinventory
 2392207/bonjourmodule
 2391025/butanetwig8
@@ -6,7 +5,6 @@
 2390978/crakha
 2395723/eudemocracia
 2392039/fresh8gaming
-2391032/hardik852
 2393126/jxsolucoes
 2395596/lainventoria
 2391042/leaflaw9
@@ -17,7 +15,6 @@
 2395241/mixinternet
 2393114/mkbm
 2390977/oakleymorris38
-2390958/oilyarn03
 2390989/onion0mallet
 2394763/openatlanta
 2391018/patrickviet
@@ -30,19 +27,16 @@
 2393454/sc3
 2391005/shawnfitzpatrick
 2390997/saltturret2
-2393993/simplify-it
 2390994/song5harbor
 2390957/spavlovec
 2394005/telemarq
 2395167/tigergraph
-2391023/trentonfield82
 2391015/tychogreenwo13
 2390996/vaibhao
 2394556/virtru
 2394160/volarvideo
 2390998/xCtt52
 2390950/xordspar0
-2395888/jamiewestell
 2396042/esrf-bliss
 2396043/5sealstudy
 2396100/coconutlabs
@@ -73,7 +67,6 @@
 2401442/DetectiveYou
 2397890/EquestriaLA
 2404101/Di-TeC
-2401595/EligibleAPI
 2402966/FMSInc
 2396851/G5
 2401122/INF1EECommerce
@@ -90,7 +83,6 @@
 2396773/OfficialMiguelN
 2396801/PetHero
 2404902/PTND
-2404863/PaiDui
 2396703/Phlamethrower
 2401316/PunchWolf
 2403964/Pistachitos
@@ -315,7 +307,6 @@
 2409780/julowobrahe649
 2409733/kittywalrus31
 2409737/kot095
-2409699/kianknapp819
 2411960/lion-team
 2409697/majiquin
 2411156/mandmss
@@ -350,7 +341,6 @@
 2412908/vivace-
 2415011/toplogic
 2412232/wesleyan-robotics
-2409707/yair-nergaon
 2409696/yidigun
 2409760/yridelate
 2409788/yusufkokholm24
@@ -370,3 +360,4 @@
 2416042/5pinetrail
 2416163/MindviewLLC
 2416290/rithvz
+2416328/LSADev
