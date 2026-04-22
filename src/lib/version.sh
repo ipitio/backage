@@ -278,12 +278,14 @@ version_merge_tags() {
 version_reset_pipeline() {
     local max_tag_pages=${1:-3}
 
-    unset VERSION_TAG_CACHE VERSION_SOURCE_LINES VERSION_SUBMITTED VERSION_PROVISIONAL_IDS VERSION_PAGE_IDS
+    unset VERSION_TAG_CACHE VERSION_SOURCE_LINES VERSION_SUBMITTED VERSION_PROVISIONAL_IDS VERSION_PAGE_IDS VERSION_TAGGED_IDS VERSION_TAGGED_IDS_SEEN
     declare -gA VERSION_TAG_CACHE=()
     declare -gA VERSION_SOURCE_LINES=()
     declare -gA VERSION_SUBMITTED=()
     declare -ga VERSION_PROVISIONAL_IDS=()
     declare -ga VERSION_PAGE_IDS=()
+    declare -ga VERSION_TAGGED_IDS=()
+    declare -gA VERSION_TAGGED_IDS_SEEN=()
     VERSION_PAGE_JSON="[]"
     VERSION_PAGE_COUNT=0
     VERSION_TAG_CACHE_MAX_PAGES=$max_tag_pages
@@ -308,41 +310,28 @@ version_load_tag_cache_page() {
     [ -n "$package" ] || return
     local html
     local tag_link_count=0
+    local tagged_versions_json="[]"
+    local version_line
+    local version_id
 
     html=$(curl "https://github.com/$owner/$repo/pkgs/$package_type/$package/versions?filters%5Bversion_type%5D=tagged&page=$1")
     (($? != 3)) || return 3
     tag_link_count=$(grep -Po '\?tag=' <<<"$html" | wc -l)
 
-    while IFS='|' read -r version_id version_tags; do
-        [ -n "$version_id" ] || continue
-        VERSION_TAG_CACHE["$version_id"]=$(version_merge_tags "${VERSION_TAG_CACHE[$version_id]}" "$version_tags")
-    done < <(VERSION_OWNER_PREFIX="$owner_type/$owner/packages/$package_type/$package" \
-        VERSION_REPO_PREFIX="$owner/$repo/pkgs/$package_type/$package" \
-        perl -0ne '
-            sub decode_text {
-                my ($value) = @_;
-                $value //= q{};
-                $value =~ s/\+/ /g;
-                $value =~ s/%([0-9A-Fa-f]{2})/chr(hex($1))/eg;
-                return $value;
-            }
+    tagged_versions_json=$(version_parse_page_html "$html")
+    (($? != 3)) || return 3
 
-            my $owner_prefix = quotemeta($ENV{VERSION_OWNER_PREFIX});
-            my $repo_prefix = quotemeta($ENV{VERSION_REPO_PREFIX});
-            my $prefix_pattern = qr/(?:$owner_prefix|$repo_prefix)/;
+    while IFS= read -r version_line; do
+        [ -n "$version_line" ] || continue
+        version_id=$(_jq "$version_line" '.id')
+        [[ "$version_id" =~ ^[0-9]+$ ]] || version_id=-1
+        version_cache_candidate "$version_line"
 
-            while (/href="\/$prefix_pattern\/([0-9]+)\?tag=([^"&]+)/g) {
-                my $tag = decode_text($2);
-                next if $tag eq q{} || $seen{$1}{$tag}++;
-                push @{$tags{$1}}, $tag;
-            }
-
-            END {
-                for my $id (keys %tags) {
-                    print "$id|" . join(q{,}, @{$tags{$id}}) . "\n";
-                }
-            }
-        ' <<<"$html")
+        if [ -z "${VERSION_TAGGED_IDS_SEEN[$version_id]+x}" ]; then
+            VERSION_TAGGED_IDS+=("$version_id")
+            VERSION_TAGGED_IDS_SEEN["$version_id"]=1
+        fi
+    done < <(jq -r '.[] | @base64' <<<"$tagged_versions_json")
 
     ((VERSION_TAG_CACHE_PAGES_FETCHED++))
     ((tag_link_count >= 30)) || VERSION_TAG_CACHE_EXHAUSTED=true
@@ -375,7 +364,7 @@ version_cache_candidate() {
     [[ "$version_id" =~ ^[0-9]+$ ]] || version_id=-1
     VERSION_SOURCE_LINES["$version_id"]="$1"
     version_tags=$(version_extract_tags "$1")
-    [ -n "$version_tags" ] && VERSION_TAG_CACHE["$version_id"]=$(version_merge_tags "${VERSION_TAG_CACHE[$version_id]}" "$version_tags")
+    [ -n "$version_tags" ] && VERSION_TAG_CACHE["$version_id"]=$(version_merge_tags "${VERSION_TAG_CACHE[$version_id]-}" "$version_tags")
 }
 
 version_hydrate_candidates() {
@@ -396,7 +385,7 @@ version_hydrate_candidates() {
         version_cache_candidate "$version_line"
         VERSION_PAGE_IDS+=("$version_id")
 
-        if [ -z "${VERSION_TAG_CACHE[$version_id]}" ]; then
+        if [ -z "${VERSION_TAG_CACHE[$version_id]-}" ]; then
             unresolved_ids+="$version_id"$'\n'
         fi
     done
@@ -407,14 +396,14 @@ version_hydrate_candidates() {
 
 version_candidate_is_tagged() {
     [ -n "$1" ] || return
-    [ -n "${VERSION_TAG_CACHE[$1]}" ]
+    [ -n "${VERSION_TAG_CACHE[$1]-}" ]
 }
 
 version_render_candidate() {
     [ -n "$1" ] || return
     [ -n "${VERSION_SOURCE_LINES[$1]+x}" ] || return
 
-    echo "${VERSION_SOURCE_LINES[$1]}" | base64 --decode | jq -c --arg tags "${VERSION_TAG_CACHE[$1]}" '{id, name, tags: $tags}' | base64 | tr -d '\n'
+    echo "${VERSION_SOURCE_LINES[$1]}" | base64 --decode | jq -c --arg tags "${VERSION_TAG_CACHE[$1]-}" '{id, name, tags: $tags}' | base64 | tr -d '\n'
 }
 
 version_submit_candidate() {
@@ -438,6 +427,21 @@ version_submit_candidate() {
 version_store_fallback_candidate() {
     VERSION_SOURCE_LINES["-1"]=$(printf '%s' '{"id":-1,"name":"latest"}' | base64 | tr -d '\n')
     VERSION_TAG_CACHE["-1"]=""
+}
+
+version_oldest_submitted_numeric_id() {
+    local oldest_id=""
+    local version_id
+
+    for version_id in "${!VERSION_SUBMITTED[@]}"; do
+        [[ "$version_id" =~ ^[0-9]+$ ]] || continue
+
+        if [ -z "$oldest_id" ] || ((version_id < oldest_id)); then
+            oldest_id=$version_id
+        fi
+    done
+
+    [ -z "$oldest_id" ] || printf '%s\n' "$oldest_id"
 }
 
 version_pop_provisional_slot() {
@@ -520,6 +524,37 @@ version_promote_current_page_candidates() {
     (($? != 3)) || return 3
     version_submit_current_page_candidates 0 true
     (($? != 3)) || return 3
+}
+
+version_append_older_tagged_candidates() {
+    local older_than_id=${1:-}
+    local append_limit=${2:-30}
+    local appended_count=0
+    local version_id
+    local loaded_page_count=0
+
+    [[ "$older_than_id" =~ ^[0-9]+$ ]] || return 0
+    ((append_limit > 0)) || return 0
+
+    while :; do
+        for version_id in "${VERSION_TAGGED_IDS[@]}"; do
+            [[ "$version_id" =~ ^[0-9]+$ ]] || continue
+            ((version_id < older_than_id)) || continue
+            [ -z "${VERSION_SUBMITTED[$version_id]+x}" ] || continue
+
+            version_submit_candidate "$version_id"
+            (($? != 3)) || return 3
+            ((appended_count++))
+            ((appended_count < append_limit)) || return 0
+        done
+
+        $VERSION_TAG_CACHE_EXHAUSTED && return 0
+        ((VERSION_TAG_CACHE_PAGES_FETCHED < VERSION_TAG_CACHE_MAX_PAGES)) || return 0
+        loaded_page_count=$VERSION_TAG_CACHE_PAGES_FETCHED
+        version_load_tag_cache_page "$((VERSION_TAG_CACHE_PAGES_FETCHED + 1))"
+        (($? != 3)) || return 3
+        ((VERSION_TAG_CACHE_PAGES_FETCHED > loaded_page_count)) || return 0
+    done
 }
 
 update_version() {

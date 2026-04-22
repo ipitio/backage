@@ -129,13 +129,19 @@ update_package() {
         echo "Updating $owner/$package..."
         raw_downloads=$(grep -Pzo 'Total downloads[^"]*"\d*' <<<"$html" | grep -Pzo '\d*$' | tr -d '\0') # https://stackoverflow.com/a/74214537
         sqlite3 "$BKG_INDEX_DB" "select id from '$table_version_name' where date >= '$batch_first_started';" | sort -u >"${table_version_name}"_already_updated
-        local max_version_pages=3
-        local tag_cache_pages=3
+        local max_version_pages=${BKG_MAX_VERSION_PAGES:-3}
+        local tag_cache_pages=${BKG_TAG_CACHE_PAGES:-3}
+        local append_tagged_limit=${BKG_APPEND_TAGGED_VERSIONS_LIMIT:-30}
         local page=1
         local pages_left=0
         local pipeline_status=0
         local update_versions_status=0
         local version_lines
+        local oldest_window_version_id=""
+
+        [[ "$max_version_pages" =~ ^[0-9]+$ ]] || max_version_pages=3
+        [[ "$tag_cache_pages" =~ ^[0-9]+$ ]] || tag_cache_pages=3
+        [[ "$append_tagged_limit" =~ ^[0-9]+$ ]] || append_tagged_limit=30
 
         version_reset_pipeline "$tag_cache_pages"
         version_stage_reset
@@ -204,6 +210,15 @@ update_package() {
                     pipeline_status=$?
                     ((pipeline_status != 3)) || break
                 done
+            fi
+
+            if ((pipeline_status != 3)); then
+                oldest_window_version_id=$(version_oldest_submitted_numeric_id)
+
+                if [[ "$oldest_window_version_id" =~ ^[0-9]+$ ]]; then
+                    version_append_older_tagged_candidates "$oldest_window_version_id" "$append_tagged_limit"
+                    pipeline_status=$?
+                fi
             fi
         fi
 
