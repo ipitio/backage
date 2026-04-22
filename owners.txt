@@ -1,4 +1,3 @@
-2390975/cliffglerup1127
 2395723/eudemocracia
 2392039/fresh8gaming
 2393126/jxsolucoes
@@ -22,16 +21,13 @@
 2391005/shawnfitzpatrick
 2390997/saltturret2
 2390994/song5harbor
-2390957/spavlovec
 2394005/telemarq
 2395167/tigergraph
-2391015/tychogreenwo13
 2390996/vaibhao
 2394556/virtru
 2394160/volarvideo
 2390998/xCtt52
 2390950/xordspar0
-2396042/esrf-bliss
 2396043/5sealstudy
 2396392/RosalilaDarkSacrifice
 2396396/braddoro
@@ -55,7 +51,6 @@
 2400122/Clobrdo
 2402951/Cuantile
 2404771/Delta3system
-2401442/DetectiveYou
 2397890/EquestriaLA
 2404101/Di-TeC
 2402966/FMSInc
@@ -70,7 +65,6 @@
 2397622/Nodejs-ar
 2401604/NoCheatPlus
 2396773/OfficialMiguelN
-2396801/PetHero
 2404902/PTND
 2396703/Phlamethrower
 2401316/PunchWolf
@@ -289,9 +283,7 @@
 2414296/hexbright
 2412058/iiithyd-websec
 2410941/iritgo
-2414066/intip
 2409703/joyxian
-2409791/jeremyandy
 2409776/jongerund
 2409780/julowobrahe649
 2409733/kittywalrus31
@@ -303,7 +295,6 @@
 2409762/mbohaumilitzky
 2409796/michellelkx
 2409702/moonminseul
-2409789/mirriamalvino235
 2409765/motaevns
 2409706/mujou0612
 2409812/nkranitz
@@ -321,7 +312,6 @@
 2411113/sharktube
 2409736/sharo0331
 2411626/sporttu
-2415252/studiopangea
 2409710/thomassleet7
 2414549/vidaao
 2412908/vivace-
@@ -349,3 +339,4 @@
 2416330/ARChess
 2416331/belief7way
 2416683/cnsharp
+2416685/cxfavj1821
