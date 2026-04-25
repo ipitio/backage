@@ -1,5 +1,3 @@
-2391005/shawnfitzpatrick
-2390997/saltturret2
 2390994/song5harbor
 2394005/telemarq
 2390996/vaibhao
@@ -33,7 +31,6 @@
 2402966/FMSInc
 2398176/IFCastle
 2397021/MarcusDesign
-2403442/LifeRPG
 2396780/MichaelRE
 2396773/OfficialMiguelN
 2404902/PTND
@@ -52,11 +49,9 @@
 2399239/arunodame
 2396735/alanashby923
 2396694/bengal09yew
-2401633/bejuno
 2396766/board31washer
 2396689/bookoption54
 2396755/bomb69kite
-2396848/bsscs
 2396745/cd2death
 2396688/cameloption34
 2396695/chesleyloomi1129
@@ -69,7 +64,6 @@
 2397788/csadvisor
 2396794/court11loss
 2400496/devudo
-2396746/dsavard
 2396743/elmkarami
 2396765/east1pest
 2396725/evertwhitfie410
@@ -91,7 +85,6 @@
 2397494/sveholding
 2396731/tasharahollinswort
 2396768/tillmananker616
-2396767/trevortomesh
 2403900/uhds
 2401042/ultramatrix69
 2396793/voidunknown
@@ -247,7 +240,6 @@
 2409697/majiquin
 2411156/mandmss
 2411300/meetings
-2409762/mbohaumilitzky
 2409702/moonminseul
 2409706/mujou0612
 2409812/nkranitz
@@ -263,7 +255,6 @@
 2409736/sharo0331
 2411626/sporttu
 2409710/thomassleet7
-2414549/vidaao
 2412908/vivace-
 2415011/toplogic
 2412232/wesleyan-robotics
@@ -301,3 +292,4 @@
 2417825/Attendly
 2417826/4tinfoam
 2417873/clubkoncepto
+2417945/ImagineaCloudFoundryUsergroups
