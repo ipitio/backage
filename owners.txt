@@ -1,9 +1,7 @@
-2394160/volarvideo
 2390998/xCtt52
 2390950/xordspar0
 2396392/RosalilaDarkSacrifice
 2396396/braddoro
-2400020/1Projects
 2396710/1ghostson
 2396717/28fuelmarket
 2396786/46grapecone
@@ -31,7 +29,6 @@
 2396773/OfficialMiguelN
 2404902/PTND
 2401316/PunchWolf
-2396771/PonySlaystation
 2404340/Rccteam
 2402232/Root-Box
 2396758/Shawnyall
@@ -53,7 +50,6 @@
 2396730/claudiourquh36
 2401312/codeheart
 2398900/cityknowledge
-2401308/colobot
 2402475/createinform
 2397788/csadvisor
 2396794/court11loss
@@ -85,7 +81,6 @@
 2396787/zaneboyd418
 2405484/DevInLive
 2405647/Richard-Chavez
-2405704/Basiges
 2405831/SEGaL-Group
 2405832/handspruce9
 2405903/Pwdremind
@@ -202,12 +197,9 @@
 2409797/brianvognsen511
 2409735/bureroger
 2409730/carolhb
-2409744/chanialug
 2414811/chicago-women-developers
 2414745/cloudburo
 2409801/chungtobiase49
-2410618/cloudsigma
-2409731/coast7event
 2409802/colorroll9
 2413857/darkskyapp
 2409717/dyfebuducysa
@@ -221,7 +213,6 @@
 2409768/helensor
 2409718/hillardsmidt13
 2411518/grischaandreew-test-organisation
-2414296/hexbright
 2410941/iritgo
 2409703/joyxian
 2409776/jongerund
@@ -233,7 +224,6 @@
 2411300/meetings
 2409702/moonminseul
 2409706/mujou0612
-2409812/nkranitz
 2409713/neswar86
 2409752/orderegg29
 2409775/pettersolaas
@@ -264,7 +254,6 @@
 2416035/abuazzam
 2416042/5pinetrail
 2416163/MindviewLLC
-2416290/rithvz
 2416328/LSADev
 2416330/ARChess
 2416331/belief7way
@@ -272,8 +261,6 @@
 2416799/redshiftrobotics
 2416805/MatrixOrbital
 2416843/recurio
-2416844/xurunb
-2416995/WeTheInternet
 2417032/PropioLS
 2417036/Voilaah
 2417371/Mobyus
@@ -285,3 +272,4 @@
 2417947/79groundparrot
 2418134/ChinaOSSCenter
 2418158/the-grid
+2418159/qukumybvyzi038
