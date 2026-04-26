@@ -1,4 +1,3 @@
-2396717/28fuelmarket
 2396786/46grapecone
 2396706/4judgebowl
 2396720/5frameprofit
@@ -76,8 +75,6 @@
 2405831/SEGaL-Group
 2405832/handspruce9
 2405903/Pwdremind
-2405883/sagnymine
-2405904/fact4switch
 2405965/arieyy1974
 2406205/coding-stories
 2406207/flag66porch
@@ -266,3 +263,4 @@
 2418174/auayporn
 2418245/GBM-HR
 2418274/adsa
+2418503/Predica
