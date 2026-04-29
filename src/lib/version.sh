@@ -526,6 +526,19 @@ version_promote_current_page_candidates() {
     (($? != 3)) || return 3
 }
 
+version_extract_download_metric() {
+    [ -n "$1" ] || return
+    [ -n "$2" ] || return
+
+    STAT_LABEL="$2" perl -0ne '
+        my $label = quotemeta($ENV{STAT_LABEL} // q{});
+        if (/$label<\/span>\s*<span[^>]*>([^<]+)/s) {
+            print $1;
+            exit 0;
+        }
+    ' <<<"$1" | tr -d '[:space:]' | fmtmetric_num
+}
+
 version_append_older_tagged_candidates() {
     local older_than_id=${1:-}
     local append_limit=${2:-30}
@@ -579,15 +592,14 @@ update_version() {
     echo "Updating $owner/$package/$version_id..."
     version_html=$(curl "https://github.com/$owner/$repo/pkgs/$package_type/$package/$version_id")
     (($? != 3)) || return 3
-    version_raw_downloads=$(echo "$version_html" | grep -Pzo 'Total downloads<[^<]*<[^<]*' | grep -Pzo '(,|\d)*$' | tr -d '\0' | tr -d ',')
-
-    if [[ "$version_raw_downloads" =~ ^[0-9]+$ ]]; then
-        version_raw_downloads_month=$(grep -Pzo 'Last 30 days<[^<]*<[^<]*' <<<"$version_html" | grep -Pzo '(,|\d)*$' | tr -d '\0' | tr -d ',')
-        version_raw_downloads_week=$(grep -Pzo 'Last week<[^<]*<[^<]*' <<<"$version_html" | grep -Pzo '(,|\d)*$' | tr -d '\0' | tr -d ',')
-        version_raw_downloads_day=$(grep -Pzo 'Today<[^<]*<[^<]*' <<<"$version_html" | grep -Pzo '(,|\d)*$' | tr -d '\0' | tr -d ',')
-    else
-        version_raw_downloads=-1
-    fi
+    version_raw_downloads=$(version_extract_download_metric "$version_html" "Total downloads")
+    version_raw_downloads_month=$(version_extract_download_metric "$version_html" "Last 30 days")
+    version_raw_downloads_week=$(version_extract_download_metric "$version_html" "Last week")
+    version_raw_downloads_day=$(version_extract_download_metric "$version_html" "Today")
+    [[ "$version_raw_downloads" =~ ^[0-9]+$ ]] || version_raw_downloads=-1
+    [[ "$version_raw_downloads_month" =~ ^[0-9]+$ ]] || version_raw_downloads_month=-1
+    [[ "$version_raw_downloads_week" =~ ^[0-9]+$ ]] || version_raw_downloads_week=-1
+    [[ "$version_raw_downloads_day" =~ ^[0-9]+$ ]] || version_raw_downloads_day=-1
 
     if [ "$package_type" = "container" ]; then
         # https://unix.stackexchange.com/q/550463, https://stackoverflow.com/q/45186440

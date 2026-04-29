@@ -67,6 +67,53 @@ EOF
 	)
 }
 
+test_update_version_parses_compact_download_metrics() {
+	local test_root="$workdir/version-compact-metrics"
+	local db_file="$test_root/test.db"
+	local row
+
+	mkdir -p "$test_root"
+
+	(
+		cd "$test_root"
+		ln -s "$src_dir/lib" lib
+		export BKG_SKIP_DEP_VERIFY=1
+		source "$src_dir/lib/version.sh"
+		init_bkg_state "$test_root/env.env"
+
+		BKG_INDEX_DB="$db_file"
+		owner='Lazztech'
+		repo='Libre-Closet'
+		package='libre-closet'
+		owner_type='orgs'
+		package_type='container'
+		lower_owner='lazztech'
+		lower_package='libre-closet'
+		table_version_name='versions_orgs_container_Lazztech_Libre-Closet_libre-closet'
+
+		sqlite3 "$BKG_INDEX_DB" "create table if not exists '$table_version_name' (id text not null, name text not null, size integer not null, downloads integer not null, downloads_month integer not null, downloads_week integer not null, downloads_day integer not null, date text not null, tags text, primary key (id, date));"
+		version_stage_reset
+
+		curl() {
+			cat <<'EOF'
+<span>Total downloads</span><span>1.45M</span><span>Last 30 days</span><span>217.9k</span><span>Last week</span><span>5.1k</span><span>Today</span><span>251</span><pre><code>{"schemaVersion":2,"layers":[{"size":123}]}</code></pre>
+EOF
+		}
+
+		docker_manifest_inspect() {
+			printf '%s' '{"schemaVersion":2,"layers":[{"size":123}]}'
+		}
+
+		row=$(printf '%s' '{"id":103,"name":"sha256:c","tags":"v1"}' | base64 -w0)
+
+		update_version "$row" >/dev/null
+		version_flush_staged_rows
+
+		compact_metrics=$(sqlite3 "$BKG_INDEX_DB" "select downloads || '|' || downloads_month || '|' || downloads_week || '|' || downloads_day from '$table_version_name' where id='103';")
+		[ "$compact_metrics" = "1450000|217900|5100|251" ] || fail "Expected update_version to parse compact GitHub metrics into raw integer downloads"
+	)
+}
+
 test_update_package_builds_version_array_from_db() {
 	local test_root="$workdir/package-refresh"
 	local db_file="$test_root/test.db"
@@ -505,6 +552,7 @@ test_update_package_honors_configured_tag_cache_pages() {
 trap cleanup EXIT
 
 run_test test_update_version_batches_rows_until_flush
+run_test test_update_version_parses_compact_download_metrics
 run_test test_update_package_builds_version_array_from_db
 run_test test_update_package_handles_large_version_arrays
 run_test test_update_package_uses_persisted_batch_start_when_shell_var_missing

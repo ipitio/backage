@@ -65,6 +65,28 @@ numfmt_size() {
     awk '{ split("kB MB GB TB PB EB ZB YB", v); s=0; while( $1>999.9 ) { $1/=1000; s++ } print int($1*10)/10 " " v[s] }' | sed 's/[[:blank:]]*$//'
 }
 
+fmtmetric_num() {
+    awk '
+    {
+        value = $0
+        gsub(/^[[:space:]]+|[[:space:]]+$/, "", value)
+        gsub(/,/, "", value)
+        if (value == "") next
+
+        suffix = substr(value, length(value), 1)
+        power = 0
+        if (suffix ~ /[[:alpha:]]/) {
+            value = substr(value, 1, length(value) - 1)
+            suffix = toupper(suffix)
+            power = index("KMBTPEZY", suffix)
+            if (power == 0) next
+        }
+
+        if (value !~ /^[0-9]+(\.[0-9]+)?$/) next
+        printf "%.0f", value * (1000 ^ power)
+    }'
+}
+
 fmtsize_num() {
     awk '{
         if ($2) {
