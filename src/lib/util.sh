@@ -409,6 +409,33 @@ save_and_exit() {
     return 3
 }
 
+check_script_timeout() {
+    local rate_limit_end
+    local rate_limit_start
+    local script_limit_diff
+
+    ((BKG_MAX_LEN > 0)) || return 0
+    rate_limit_end=$(date -u +%s)
+    rate_limit_start=$(get_BKG BKG_SCRIPT_START)
+
+    if [ -z "$rate_limit_start" ]; then
+        sleep 0.05
+        rate_limit_start=$(get_BKG BKG_SCRIPT_START)
+    fi
+
+    [ -n "$rate_limit_start" ] || rate_limit_start="${BKG_SCRIPT_START:-}"
+    [ -n "$rate_limit_start" ] || {
+        echo "BKG_SCRIPT_START empty!"
+        return 0
+    }
+
+    script_limit_diff=$((rate_limit_end - rate_limit_start))
+    CHECK_LIMIT_SCRIPT_START=$rate_limit_start
+    CHECK_LIMIT_SCRIPT_DIFF=$script_limit_diff
+    ((script_limit_diff < BKG_MAX_LEN)) || save_and_exit
+    (($? != 3)) || return 3
+}
+
 stop_requested() {
     [ "$(get_BKG BKG_TIMEOUT)" = "1" ]
 }
@@ -443,7 +470,10 @@ run_command_with_stop_check() {
     pid=$!
 
     while kill -0 "$pid" 2>/dev/null; do
-        if stop_requested; then
+        check_script_timeout
+        status=$?
+
+        if ((status == 3)) || stop_requested; then
             kill "$pid" 2>/dev/null || :
 
             for _ in 1 2 3 4 5; do
@@ -531,7 +561,6 @@ docker_manifest_inspect() {
 check_limit() {
     local total_calls
     local rate_limit_end
-    local script_limit_diff
     local rate_limit_diff
     local hours_passed
     local remaining_time
@@ -539,19 +568,12 @@ check_limit() {
     local sec_limit_diff
     local min_passed
     local rate_limit_start
+    local script_limit_diff
+
+    check_script_timeout || return $?
     rate_limit_end=$(date -u +%s)
-    rate_limit_start=$(get_BKG BKG_SCRIPT_START)
-
-    if [ -z "$rate_limit_start" ]; then
-        sleep 0.05
-        rate_limit_start=$(get_BKG BKG_SCRIPT_START)
-    fi
-
-    [ -n "$rate_limit_start" ] || rate_limit_start="${BKG_SCRIPT_START:-}"
-    [ -n "$rate_limit_start" ] || echo "BKG_SCRIPT_START empty!"
-    script_limit_diff=$((rate_limit_end - rate_limit_start))
-    ((script_limit_diff < BKG_MAX_LEN)) || save_and_exit
-    (($? != 3)) || return 3
+    rate_limit_start="${CHECK_LIMIT_SCRIPT_START:-${BKG_SCRIPT_START:-$rate_limit_end}}"
+    script_limit_diff=${CHECK_LIMIT_SCRIPT_DIFF:-$((rate_limit_end - rate_limit_start))}
     total_calls=$(get_BKG BKG_CALLS_TO_API)
     rate_limit_start=$(get_BKG BKG_RATE_LIMIT_START)
     [ -n "$rate_limit_start" ] || set_BKG BKG_RATE_LIMIT_START "$rate_limit_end"
@@ -603,6 +625,8 @@ curl() {
     local wait_time=1
     local result
     local status
+
+    check_limit || return $?
 
     while [ "$i" -lt "$max_attempts" ]; do
         stop_requested && return 3
@@ -919,6 +943,7 @@ query_api() {
     local calls_to_api
     local min_calls_to_api
 
+    check_limit || return $?
     res=$(curl_gh "https://api.github.com/$1")
     (($? != 3)) || return 3
     calls_to_api=$(get_BKG BKG_CALLS_TO_API)
@@ -954,6 +979,7 @@ query_graphql_api() {
 
     query_with_rate_limit=$(graphql_query_with_rate_limit "$query") || return 1
     payload=$(jq -cn --arg query "$query_with_rate_limit" '{query:$query}') || return 1
+    check_limit || return $?
     res=$(curl_gh -X POST "https://api.github.com/graphql" -d "$payload")
     (($? != 3)) || return 3
     graphql_cost=$(jq -r '.data.rateLimit.cost // 1' <<<"$res" 2>/dev/null)

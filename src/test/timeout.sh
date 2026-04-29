@@ -89,6 +89,46 @@ EOF
 	[ "$elapsed" -lt 10 ] || fail "Expected curl wrapper to interrupt a running request promptly"
 }
 
+test_curl_checks_elapsed_limit_before_successful_request() {
+	local fake_bin="$workdir/fake-curl-preflight-bin"
+	local fake_curl="$fake_bin/curl"
+	local attempts_file="$workdir/curl-preflight-attempts.txt"
+	local original_path="$PATH"
+	local status=0
+	local now
+
+	mkdir -p "$fake_bin"
+	cat >"$fake_curl" <<'EOF'
+#!/bin/bash
+printf '1\n' >"$TEST_CURL_PREFLIGHT_ATTEMPTS_FILE"
+printf 'ok\n'
+EOF
+	chmod +x "$fake_curl"
+
+	now=$(date -u +%s)
+	BKG_ENV="$workdir/env-curl-preflight.env"
+	: >"$BKG_ENV"
+	set_BKG BKG_SCRIPT_START "$((now - 5))"
+	set_BKG BKG_RATE_LIMIT_START "$now"
+	set_BKG BKG_MIN_RATE_LIMIT_START "$now"
+	set_BKG BKG_CALLS_TO_API 0
+	set_BKG BKG_MIN_CALLS_TO_API 0
+	BKG_MAX_LEN=1
+	TEST_CURL_PREFLIGHT_ATTEMPTS_FILE="$attempts_file"
+	export TEST_CURL_PREFLIGHT_ATTEMPTS_FILE BKG_ENV
+	PATH="$fake_bin:$original_path"
+
+	if curl "https://example.invalid" >/dev/null 2>&1; then
+		fail "Expected curl wrapper to stop before a successful request when the elapsed limit is exceeded"
+	else
+		status=$?
+	fi
+
+	PATH="$original_path"
+	[ "$status" -eq 3 ] || fail "Expected curl wrapper to return 3 after elapsed limit preflight, got $status"
+	[ ! -f "$attempts_file" ] || fail "Expected curl wrapper to avoid starting curl after elapsed limit preflight"
+}
+
 test_docker_manifest_inspect_stops_after_timeout() {
 	local fake_bin="$workdir/fake-docker-bin"
 	local fake_docker="$fake_bin/docker"
@@ -302,12 +342,73 @@ test_run_owner_updates_halts_on_timeout() {
 	assert_contains "$stdin_file" "2/beta"
 }
 
+test_query_api_checks_elapsed_limit_before_request() {
+	local status=0
+	local now
+
+	now=$(date -u +%s)
+	BKG_ENV="$workdir/env-query-api-preflight.env"
+	: >"$BKG_ENV"
+	set_BKG BKG_SCRIPT_START "$((now - 5))"
+	set_BKG BKG_RATE_LIMIT_START "$now"
+	set_BKG BKG_MIN_RATE_LIMIT_START "$now"
+	set_BKG BKG_CALLS_TO_API 0
+	set_BKG BKG_MIN_CALLS_TO_API 0
+	BKG_MAX_LEN=1
+	GITHUB_TOKEN=dummy
+
+	curl_gh() {
+		fail "Expected query_api to stop before calling curl_gh when the elapsed limit is exceeded"
+	}
+
+	if query_api "users/example" >/dev/null 2>&1; then
+		fail "Expected query_api to return 3 when the elapsed limit is exceeded before the request starts"
+	else
+		status=$?
+	fi
+
+	[ "$status" -eq 3 ] || fail "Expected query_api to return 3 after elapsed limit preflight, got $status"
+	unset -f curl_gh
+	GITHUB_TOKEN=""
+}
+
+test_query_graphql_api_checks_elapsed_limit_before_request() {
+	local status=0
+	local now
+
+	now=$(date -u +%s)
+	BKG_ENV="$workdir/env-query-graphql-preflight.env"
+	: >"$BKG_ENV"
+	set_BKG BKG_SCRIPT_START "$((now - 5))"
+	set_BKG BKG_RATE_LIMIT_START "$now"
+	set_BKG BKG_MIN_RATE_LIMIT_START "$now"
+	set_BKG BKG_CALLS_TO_API 0
+	set_BKG BKG_MIN_CALLS_TO_API 0
+	BKG_MAX_LEN=1
+	GITHUB_TOKEN=dummy
+
+	curl_gh() {
+		fail "Expected query_graphql_api to stop before calling curl_gh when the elapsed limit is exceeded"
+	}
+
+	if query_graphql_api 'query { viewer { login } }' >/dev/null 2>&1; then
+		fail "Expected query_graphql_api to return 3 when the elapsed limit is exceeded before the request starts"
+	else
+		status=$?
+	fi
+
+	[ "$status" -eq 3 ] || fail "Expected query_graphql_api to return 3 after elapsed limit preflight, got $status"
+	unset -f curl_gh
+	GITHUB_TOKEN=""
+}
+
 trap cleanup EXIT
 
 source_project_script "bkg.sh"
 
 run_test test_parallel_shell_func_timeout_fallback
 run_test test_curl_stops_retrying_after_timeout
+run_test test_curl_checks_elapsed_limit_before_successful_request
 run_test test_docker_manifest_inspect_stops_after_timeout
 run_test test_ytoxt_stops_after_timeout
 run_test test_run_parallel_kills_blocked_workers_after_timeout
@@ -315,5 +416,7 @@ run_test test_parallel_async_wait_kills_blocked_workers_after_timeout
 run_test test_owner_update_wait_notice_is_throttled
 run_test test_owner_update_force_stop_due_after_grace_period
 run_test test_run_owner_updates_halts_on_timeout
+run_test test_query_api_checks_elapsed_limit_before_request
+run_test test_query_graphql_api_checks_elapsed_limit_before_request
 
 echo "Timeout propagation regression tests passed"
