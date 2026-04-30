@@ -1,4 +1,3 @@
-2397890/EquestriaLA
 2404101/Di-TeC
 2402966/FMSInc
 2398176/IFCastle
@@ -8,10 +7,8 @@
 2401316/PunchWolf
 2402232/Root-Box
 2396758/Shawnyall
-2399080/SSGS
 2403809/Time-Keeper
 2400110/YAPOG
-2397674/WeTeam
 2399239/arunodame
 2396694/bengal09yew
 2396766/board31washer
@@ -40,8 +37,6 @@
 2396768/tillmananker616
 2403900/uhds
 2397069/yoolotto
-2405484/DevInLive
-2405647/Richard-Chavez
 2405831/SEGaL-Group
 2405832/handspruce9
 2405903/Pwdremind
@@ -59,7 +54,6 @@
 2407149/indelible
 2407397/fonteneo
 2407701/bitzeebot
-2408033/Dance-Marathon
 2408264/8pocketclimb
 2408441/IONCEE
 2408620/Pipex-Global
@@ -75,7 +69,6 @@
 2412393/16huodong
 2409799/89carebumper
 2411377/Aerial-Group
-2413074/AhmadNaserTurnkeySolutions
 2414754/AbleCommerce
 2413686/AmplifyLabs
 2410503/BISSELLUK
@@ -87,7 +80,6 @@
 2415113/DonohoDesignGroup
 2411355/Diroptim
 2414492/DrakunCorp
-2412537/Evisors
 2413889/FPRsite
 2412281/EntertechSystems
 2409704/EyesMintcode
@@ -331,12 +323,10 @@
 2419056/felisarmis
 2419096/gedegd
 2423822/genesismedia
-2419006/helen0oak
 2419045/hiapyo
 2419086/hbahia
 2419036/inmobi-katsu
 2419386/irrida
-2422751/interexchange
 2420487/iotap-center
 2419079/israel77phone
 2419057/j-t
@@ -357,7 +347,6 @@
 2422826/lisezmoi
 2419039/ledinhhuy88
 2419007/liboyu
-2422790/marketscape
 2419019/mogu00712
 2419063/mini-android
 2420601/mlba-team
@@ -386,7 +375,6 @@
 2422466/tempflux24
 2419012/town69male
 2419089/unufrii
-2421167/trainline
 2419098/utkucan28
 2419008/vincentharpe717
 2418988/uribolocycyb
@@ -404,3 +392,4 @@
 2425146/Beckersweet
 2425156/MiraiDenpa
 2425157/ballgreen97
+2425189/DigitalGyrl
