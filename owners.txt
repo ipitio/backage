@@ -1,7 +1,5 @@
-2397021/MarcusDesign
 2396773/OfficialMiguelN
 2404902/PTND
-2401316/PunchWolf
 2402232/Root-Box
 2396758/Shawnyall
 2403809/Time-Keeper
@@ -45,7 +43,6 @@
 2406512/flythecurtis
 2406669/BMKEG
 2406593/damienbolger
-2406670/advicegun14
 2406860/cestlaz
 2407031/liw937
 2407149/indelible
@@ -58,10 +55,8 @@
 2409027/Guanda
 2409518/CrazyDevelopers
 2409519/Inggo
-2409708/0catnode
 2409705/12breadtemple
 2409784/04marginpvc
-2409757/14winecement
 2409782/4crushnoise
 2412393/16huodong
 2409799/89carebumper
@@ -78,7 +73,6 @@
 2411355/Diroptim
 2414492/DrakunCorp
 2413889/FPRsite
-2412281/EntertechSystems
 2409704/EyesMintcode
 2409754/Frank79
 2415086/FsquaredR
@@ -319,7 +313,6 @@
 2420381/epfc-dev
 2419056/felisarmis
 2419096/gedegd
-2423822/genesismedia
 2419045/hiapyo
 2419086/hbahia
 2419036/inmobi-katsu
@@ -335,7 +328,6 @@
 2420087/jpm4j
 2419041/kandasoftware
 2419054/kongsonida
-2419002/kajetanmazur
 2419068/korial
 2418990/kxys422834
 2420473/langitweb
@@ -364,10 +356,8 @@
 2419038/rocket10income
 2423894/segterra
 2423923/shopscotch
-2424411/rubyco
 2419048/snicodix
 2423392/slaveryfootprint
-2419153/submarinemachine
 2420926/thecookiefactory
 2422466/tempflux24
 2419012/town69male
@@ -393,3 +383,4 @@
 2425372/2cubanjacket
 2425403/Marceloef
 2425697/BeesTransfer
+2425698/barber90edge
