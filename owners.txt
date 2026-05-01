@@ -1,5 +1,3 @@
-2396758/Shawnyall
-2403809/Time-Keeper
 2400110/YAPOG
 2399239/arunodame
 2396694/bengal09yew
@@ -17,7 +15,6 @@
 2396765/east1pest
 2396777/gurleen-zz
 2404283/kennycx-test
-2398870/makersdeck
 2396751/microonline
 2396784/mrskv
 2396719/notxreal
@@ -28,12 +25,10 @@
 2396768/tillmananker616
 2403900/uhds
 2397069/yoolotto
-2405831/SEGaL-Group
 2405832/handspruce9
 2405903/Pwdremind
 2406205/coding-stories
 2406207/flag66porch
-2406428/COGNIZANT-MOBILITY
 2406353/notepink11
 2406446/clever-girls
 2406512/flythecurtis
@@ -59,10 +54,8 @@
 2414754/AbleCommerce
 2413686/AmplifyLabs
 2410503/BISSELLUK
-2414216/BinghamtonUniversity
 2409759/CabezasWeick632
 2412636/Chochoch
-2410735/CallrestoSAS
 2412910/Deways
 2415113/DonohoDesignGroup
 2411355/Diroptim
@@ -284,7 +277,6 @@
 2419050/carrot8anger
 2419059/cfptoebc98
 2419095/check2ink
-2419027/chord7client
 2419030/circlelove78
 2419070/cnlinfeng
 2419307/code-orchestra
@@ -295,10 +287,8 @@
 2420390/devoralive
 2419010/depsast
 2419401/diginol
-2419024/dog3grain
 2424379/digitalindiateam
 2421286/divinityro
-2419066/dragon9woolen
 2418993/eclissato
 2421654/emitrom
 2418989/fashi
@@ -329,7 +319,6 @@
 2419007/liboyu
 2419019/mogu00712
 2419063/mini-android
-2420601/mlba-team
 2419077/morsentrnis46
 2422606/myrozicorp
 2421713/nowcomputing
@@ -376,3 +365,4 @@
 2425798/Toltendo
 2425992/codingwell
 2426037/CodeEd
+2426038/99divingsack
