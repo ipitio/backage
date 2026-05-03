@@ -1,6 +1,4 @@
 warreth
-2396777/gurleen-zz
-2396751/microonline
 2396784/mrskv
 2396719/notxreal
 2403581/phionsoft
@@ -9,7 +7,6 @@ warreth
 2403900/uhds
 2405832/handspruce9
 2405903/Pwdremind
-2406207/flag66porch
 2406353/notepink11
 2406446/clever-girls
 2406512/flythecurtis
@@ -47,7 +44,6 @@ warreth
 2414772/OregonStateUniversityFireTeam
 2410184/OpaGitHubTestOrg
 2412171/PerfectMemorials
-2410534/QPmedia
 2413094/Segmantics
 2411101/SoftwarePeople
 2410844/SpongeUK
@@ -235,12 +231,10 @@ warreth
 2420070/cposc
 2419986/ct-makkah
 2420390/devoralive
-2419010/depsast
 2419401/diginol
 2424379/digitalindiateam
 2421286/divinityro
 2418993/eclissato
-2420381/epfc-dev
 2419036/inmobi-katsu
 2419386/irrida
 2420487/iotap-center
@@ -251,7 +245,6 @@ warreth
 2419020/jianghan
 2419061/joke81rub
 2420087/jpm4j
-2419041/kandasoftware
 2419054/kongsonida
 2419068/korial
 2418990/kxys422834
@@ -264,9 +257,7 @@ warreth
 2419063/mini-android
 2419077/morsentrnis46
 2422606/myrozicorp
-2421713/nowcomputing
 2421254/pelkmanslab
-2421597/projectpulseburstspike
 2419097/petlathe9
 2418986/quitroom44
 2419080/raftbun6
@@ -278,8 +269,6 @@ warreth
 2419098/utkucan28
 2419008/vincentharpe717
 2418988/uribolocycyb
-2419001/wedgecell9
-2419015/xMarkos
 2419085/zero26123
 2419000/zhanhc
 2424797/damagedetail58
@@ -301,3 +290,5 @@ warreth
 2427138/Erinors
 2427139/doniaey
 2427174/sHff12
+2427269/Sonovate
+2427298/malibu-lib
