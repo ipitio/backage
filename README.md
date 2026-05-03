@@ -49,7 +49,7 @@ You can use GitHub-hosted runners or your own.
 This is an example for `systemd`; adapt it to your needs. Please note:
 
 - Docker needs to be installed
-- You don't need to set `GITHUB_TOKEN` if you first log in with `gh`
+- `GITHUB_TOKEN` can be `$(gh auth token)`
 - `-m 0` ensures only the public packages of the owners you've added are updated (default)
   - You'll need the proper permissions to update private packages
 - `-d 0` allows everything to be updated in one go
@@ -241,4 +241,4 @@ https://ipitio.github.io/backage?json=https://URL/ENCODED/JSON
 
 While this doesn't directly work with Shields, you can BYOJ to convert into XML.  Try it out in your browser:
 
-**<<https://ipitio.github.io/backage?json=https://raw.githubusercontent.com/>ipitio/backage/index/.json>**
+**<https://ipitio.github.io/backage?json=https://raw.githubusercontent.com/ipitio/backage/index/.json>**
