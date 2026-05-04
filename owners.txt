@@ -1,5 +1,3 @@
-warreth
-2396784/mrskv
 2396719/notxreal
 2403581/phionsoft
 2398444/phpforce
@@ -37,12 +35,10 @@ warreth
 2414885/JakeRoyPillarllc
 2412954/ITS-MINT
 2414198/Kansys
-2410603/LightSpeedWorks
 2411830/NiceSystems
 2413672/LocalData
 2413999/NorthShoreAutomation
 2414772/OregonStateUniversityFireTeam
-2410184/OpaGitHubTestOrg
 2412171/PerfectMemorials
 2413094/Segmantics
 2411101/SoftwarePeople
@@ -67,7 +63,6 @@ warreth
 2409808/body7wire
 2409735/bureroger
 2409730/carolhb
-2414811/chicago-women-developers
 2414745/cloudburo
 2409801/chungtobiase49
 2409802/colorroll9
@@ -76,7 +71,6 @@ warreth
 2410631/eq55
 2409724/evershinehostd
 2410666/fortisknight
-2413620/foundrycf
 2409750/frown72veil
 2409790/gabtoodev
 2409768/helensor
@@ -251,7 +245,6 @@ warreth
 2420473/langitweb
 2422797/kranford
 2422826/lisezmoi
-2419039/ledinhhuy88
 2419007/liboyu
 2419019/mogu00712
 2419063/mini-android
@@ -292,3 +285,4 @@ warreth
 2427174/sHff12
 2427269/Sonovate
 2427298/malibu-lib
+2427299/fatihsokmen
