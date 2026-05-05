@@ -1,10 +1,8 @@
-2406353/notepink11
 2406446/clever-girls
 2406593/damienbolger
 2406860/cestlaz
 2407397/fonteneo
 2408264/8pocketclimb
-2408441/IONCEE
 2408620/Pipex-Global
 2409027/Guanda
 2409518/CrazyDevelopers
@@ -29,7 +27,6 @@
 2412171/PerfectMemorials
 2413094/Segmantics
 2411101/SoftwarePeople
-2410844/SpongeUK
 2413296/Team-Blackout
 2414723/TempusMUD
 2414756/ThemisBar
@@ -40,7 +37,6 @@
 2409711/ahmetturan
 2409695/alextavgen
 2409701/andersonhens38
-2411988/artirix
 2409709/archielara49
 2414757/availo
 2409777/beadbeetle8
@@ -48,7 +44,6 @@
 2409735/bureroger
 2409730/carolhb
 2414745/cloudburo
-2409801/chungtobiase49
 2409802/colorroll9
 2413857/darkskyapp
 2410582/eduinaction
@@ -60,7 +55,6 @@
 2409768/helensor
 2411518/grischaandreew-test-organisation
 2410941/iritgo
-2409733/kittywalrus31
 2409737/kot095
 2411960/lion-team
 2411156/mandmss
@@ -84,7 +78,6 @@
 2415698/ASSEVIM
 2415970/IncidentTechnologies
 2416034/air-dreaming
-2416035/abuazzam
 2416042/5pinetrail
 2416163/MindviewLLC
 2416328/LSADev
@@ -207,7 +200,6 @@
 2419079/israel77phone
 2419057/j-t
 2424084/itemology
-2419071/jeremy-elgin
 2419020/jianghan
 2420087/jpm4j
 2419054/kongsonida
@@ -229,7 +221,6 @@
 2423392/slaveryfootprint
 2422466/tempflux24
 2419098/utkucan28
-2419008/vincentharpe717
 2418988/uribolocycyb
 2419085/zero26123
 2419000/zhanhc
@@ -258,6 +249,6 @@
 2427391/bluehands
 2427392/fogkitty24
 2427543/itisptyltd
-2427640/hexis-systems
 2427641/cagataytulun
 2427667/bacon6pest
+2427810/redding
