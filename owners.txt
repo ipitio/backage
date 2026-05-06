@@ -1,4 +1,3 @@
-2408620/Pipex-Global
 2409027/Guanda
 2409518/CrazyDevelopers
 2409705/12breadtemple
@@ -18,7 +17,6 @@
 2411830/NiceSystems
 2413999/NorthShoreAutomation
 2414772/OregonStateUniversityFireTeam
-2412171/PerfectMemorials
 2413094/Segmantics
 2411101/SoftwarePeople
 2414723/TempusMUD
@@ -85,7 +83,6 @@
 2418173/the-domains
 2418174/auayporn
 2418245/GBM-HR
-2418274/adsa
 2418503/Predica
 2418549/orange-hive
 2418816/HealthUnlocked
@@ -97,7 +94,6 @@
 2419087/10389290
 2419082/14ovenpond
 2419090/26floodbeech
-2419092/19burstflesh
 2424658/313dev
 2419533/3DprintFIT
 2422047/411blue
@@ -361,7 +357,6 @@
 2427939/kettle2quilt
 2430013/kogimbo
 2427977/lenolajakpn
-2427888/lorenzohay1127
 2427991/lyreguitar8
 2431428/makery
 2427947/matthieumota
@@ -435,3 +430,4 @@
 2430594/zaui
 2432766/DavisMakerspace
 2432835/Dubspot
+2432844/ElectricEasel
