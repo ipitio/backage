@@ -1,4 +1,3 @@
-2407397/fonteneo
 2408264/8pocketclimb
 2408620/Pipex-Global
 2409027/Guanda
@@ -23,7 +22,6 @@
 2412171/PerfectMemorials
 2413094/Segmantics
 2411101/SoftwarePeople
-2413296/Team-Blackout
 2414723/TempusMUD
 2414756/ThemisBar
 2414574/TeamRev
@@ -36,7 +34,6 @@
 2414757/availo
 2409777/beadbeetle8
 2409808/body7wire
-2409735/bureroger
 2409730/carolhb
 2414745/cloudburo
 2409802/colorroll9
@@ -50,7 +47,6 @@
 2411518/grischaandreew-test-organisation
 2410941/iritgo
 2411960/lion-team
-2411156/mandmss
 2411300/meetings
 2409713/neswar86
 2409752/orderegg29
@@ -79,7 +75,6 @@
 2416805/MatrixOrbital
 2416843/recurio
 2417032/PropioLS
-2417036/Voilaah
 2417372/5rabbitdish
 2417825/Attendly
 2417826/4tinfoam
@@ -438,5 +433,5 @@
 2427892/wishnecklace518
 2427987/windwings
 2427932/wing9cave
-2427899/ytotohafef
 2430594/zaui
+2432766/DavisMakerspace
