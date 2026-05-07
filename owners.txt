@@ -1,10 +1,8 @@
-2409763/GregorAra
 2412938/GreenKnollRS
 2414885/JakeRoyPillarllc
 2414198/Kansys
 2411830/NiceSystems
 2413999/NorthShoreAutomation
-2414772/OregonStateUniversityFireTeam
 2413094/Segmantics
 2411101/SoftwarePeople
 2414723/TempusMUD
@@ -19,7 +17,6 @@
 2414757/availo
 2409777/beadbeetle8
 2409808/body7wire
-2409730/carolhb
 2414745/cloudburo
 2409802/colorroll9
 2413857/darkskyapp
@@ -41,7 +38,6 @@
 2411113/sharktube
 2409736/sharo0331
 2409760/yridelate
-2415348/Playr
 2415413/UniversityDailyKansan
 2415414/forkstart36
 2415418/peckhae
@@ -52,7 +48,6 @@
 2416042/5pinetrail
 2416163/MindviewLLC
 2416328/LSADev
-2416331/belief7way
 2416685/cxfavj1821
 2416799/redshiftrobotics
 2416805/MatrixOrbital
@@ -351,7 +346,6 @@
 2431591/netbaiji
 2431350/nngroup
 2427940/neontent55
-2427938/nunommatos
 2428380/oxygine
 2431133/noctools
 2427983/ormannocrawf1127
@@ -363,7 +357,6 @@
 2431459/pyladies-poland
 2427926/qyzyguntobo947
 2431209/pubres
-2427955/rajeevdevi
 2429873/raysearchlabs
 2432699/raventools
 2432406/raamattu
@@ -403,7 +396,6 @@
 2427961/vanojt
 2427916/vylcans
 2430642/webnhanh
-2429562/websummit
 2427892/wishnecklace518
 2427987/windwings
 2427932/wing9cave
@@ -418,3 +410,4 @@
 2433064/Signal-to-Noise-Labs
 2433152/cybozu
 2433153/Davidatfords
+2433178/EgginkO90
