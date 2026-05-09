@@ -1,5 +1,3 @@
-2414574/TeamRev
-2413611/VersusProject
 2412629/WebStartUps
 2412125/Wesleyan-School-Robotics-teams
 2409711/ahmetturan
@@ -25,12 +23,9 @@
 2409736/sharo0331
 2409760/yridelate
 2415413/UniversityDailyKansan
-2415414/forkstart36
 2415418/peckhae
 2415589/LogisticsTrader
 2415970/IncidentTechnologies
-2416034/air-dreaming
-2416163/MindviewLLC
 2416328/LSADev
 2416685/cxfavj1821
 2416843/recurio
@@ -41,7 +36,6 @@
 2417945/ImagineaCloudFoundryUsergroups
 2418134/ChinaOSSCenter
 2418158/the-grid
-2418159/qukumybvyzi038
 2418174/auayporn
 2418245/GBM-HR
 2418503/Predica
@@ -50,7 +44,6 @@
 2418817/Liwoj
 2418884/createmultimedia
 2419084/0inputman
-2419058/18bargenurse
 2419090/26floodbeech
 2424658/313dev
 2419533/3DprintFIT
@@ -64,7 +57,6 @@
 2421989/AlgosProgramming
 2419898/BDSAMacGyvers
 2420233/BastiCambeo
-2419099/B-Abbasi
 2420382/BurfieldCreative
 2419900/CSCSI
 2422854/BeyondBits
@@ -76,9 +68,7 @@
 2421066/DFW-Clojure
 2423095/Dataray
 2419608/DFTGames
-2419413/DbyZ
 2420360/DilemmaApps
-2424423/Demeterr
 2423795/DigitalTouchSoft
 2424211/Dodecki
 2418997/GazouOrangina
@@ -91,13 +81,11 @@
 2419049/JuanLucas
 2419076/LanitamGray1
 2424267/MissionMarkets
-2419088/MindirBullock1
 2419395/Moonsite
 2422136/NWSTools
 2424104/NewOpportunity
 2422214/Nunesboomapps1st
 2420712/Phoebus-Software
-2422732/SecuraSeal
 2423119/PSUTechDev
 2423928/TenorEnterprises
 2424644/SwannInsurance
@@ -334,13 +322,10 @@
 2427975/samuel-kollat
 2427913/riceash3
 2427885/sassquad
-2427906/select4soy
-2427985/semiomant
 2427943/silbaughharrison
 2427980/smidhunraj
 2427894/sound49zone
 2428813/sindhweatherportal
-2427990/stankomix
 2429601/startee
 2429429/starapple-inc
 2427988/stitchalibi4
@@ -380,3 +365,4 @@
 2434179/arc-users-jp
 2434379/abcder
 2434380/77beautyscarf
+2434493/Ecognize
