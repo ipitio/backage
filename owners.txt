@@ -1,4 +1,3 @@
-2409794/smita30apr
 2409736/sharo0331
 2415413/UniversityDailyKansan
 2415418/peckhae
@@ -27,7 +26,6 @@
 2419392/ButterFree
 2418998/ChrisBBW
 2419029/CptBladd
-2421066/DFW-Clojure
 2419608/DFTGames
 2420360/DilemmaApps
 2423795/DigitalTouchSoft
@@ -215,7 +213,6 @@
 2427949/cratesing93
 2427965/danielhub1
 2428424/cpske
-2427960/donnasky00
 2427887/eakapyo
 2427954/dryerkick3
 2429325/duxca
@@ -254,7 +251,6 @@
 2428813/sindhweatherportal
 2429601/startee
 2429429/starapple-inc
-2427988/stitchalibi4
 2427972/sw00
 2427900/suitbaboon18
 2432193/sysadmin-fr
@@ -270,7 +266,6 @@
 2430642/webnhanh
 2427987/windwings
 2427932/wing9cave
-2430594/zaui
 2432986/DescartesMobile
 2433027/Symplexum
 2433028/chard58cotton
@@ -298,3 +293,4 @@
 2436291/JISENARE
 2436298/AdvertalisDevelopment
 2436299/marwils
+2436375/cracowyours
