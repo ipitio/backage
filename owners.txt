@@ -1,7 +1,5 @@
-2418134/ChinaOSSCenter
 2418158/the-grid
 2418174/auayporn
-2418245/GBM-HR
 2418816/HealthUnlocked
 2419090/26floodbeech
 2422047/411blue
@@ -17,7 +15,6 @@
 2419608/DFTGames
 2420360/DilemmaApps
 2423795/DigitalTouchSoft
-2418997/GazouOrangina
 2422110/GCRC
 2419043/HarmenM
 2419651/HostSuki
@@ -51,7 +48,6 @@
 2421286/divinityro
 2418993/eclissato
 2419386/irrida
-2419057/j-t
 2424084/itemology
 2419020/jianghan
 2420087/jpm4j
@@ -59,7 +55,6 @@
 2419068/korial
 2420473/langitweb
 2422797/kranford
-2422826/lisezmoi
 2419007/liboyu
 2419077/morsentrnis46
 2422606/myrozicorp
@@ -68,7 +63,6 @@
 2419080/raftbun6
 2423894/segterra
 2423392/slaveryfootprint
-2422466/tempflux24
 2419098/utkucan28
 2418988/uribolocycyb
 2419085/zero26123
@@ -193,10 +187,8 @@
 2427954/dryerkick3
 2429325/duxca
 2427933/farm59ramie
-2427944/emmax952
 2428158/fot
 2432594/franciscoRoa
-2427992/halisaha92
 2427905/ibrahimsen
 2428613/janati
 2430369/jsmess
@@ -212,7 +204,6 @@
 2432699/raventools
 2432406/raamattu
 2427989/remezen
-2427975/samuel-kollat
 2427943/silbaughharrison
 2427980/smidhunraj
 2427894/sound49zone
@@ -265,3 +256,4 @@
 2436735/KimgyeongMin
 2436790/CPJKU
 2436792/Girmii
+2436924/OrdnanceSurvey
