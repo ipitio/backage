@@ -1,4 +1,3 @@
-2418174/auayporn
 2418816/HealthUnlocked
 2419090/26floodbeech
 2422047/411blue
@@ -13,7 +12,6 @@
 2419029/CptBladd
 2419608/DFTGames
 2420360/DilemmaApps
-2423795/DigitalTouchSoft
 2422110/GCRC
 2419043/HarmenM
 2419651/HostSuki
@@ -21,10 +19,8 @@
 2423476/Hitcents
 2419049/JuanLucas
 2419076/LanitamGray1
-2424267/MissionMarkets
 2422136/NWSTools
 2420712/Phoebus-Software
-2423928/TenorEnterprises
 2422760/TopDownDigital
 2420575/ThemeTrust
 2420186/WarwickPARSE
@@ -48,7 +44,6 @@
 2418993/eclissato
 2419386/irrida
 2424084/itemology
-2419020/jianghan
 2420087/jpm4j
 2419054/kongsonida
 2419068/korial
@@ -62,7 +57,6 @@
 2419080/raftbun6
 2423894/segterra
 2423392/slaveryfootprint
-2419098/utkucan28
 2418988/uribolocycyb
 2419085/zero26123
 2419000/zhanhc
@@ -79,7 +73,6 @@
 2426290/Mexia
 2426659/Beezby
 2427088/TeamW
-2427104/ZooiLab
 2427138/Erinors
 2427139/doniaey
 2427174/sHff12
@@ -95,7 +88,6 @@
 2427818/trowel5bench
 2427953/0ariescelery
 2427962/16tyvekplow
-2427935/0cubandryer
 2428807/13brane
 2427895/24bonsaiwash
 2427993/64ironmusic
@@ -192,7 +184,6 @@
 2428613/janati
 2430369/jsmess
 2427952/keisiya
-2427924/kyouzzz
 2427991/lyreguitar8
 2431591/netbaiji
 2431350/nngroup
@@ -234,7 +225,6 @@
 2434380/77beautyscarf
 2434493/Ecognize
 2434634/WitchcraftLabs
-2434651/bdchina
 2434668/girlcar3g
 2435021/lhings
 2435263/MarionC
@@ -242,7 +232,6 @@
 2435689/Mampel
 2435798/dsgvienna
 2435803/GreatOMG
-2436030/trotup
 2436291/JISENARE
 2436298/AdvertalisDevelopment
 2436299/marwils
@@ -257,3 +246,4 @@
 2436792/Girmii
 2436924/OrdnanceSurvey
 2436947/RHoK-Bilbao
+2436948/deepak343
