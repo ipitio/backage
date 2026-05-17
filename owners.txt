@@ -1,4 +1,3 @@
-2419076/LanitamGray1
 2422136/NWSTools
 2420712/Phoebus-Software
 2422760/TopDownDigital
@@ -44,7 +43,6 @@
 2426037/CodeEd
 2426290/Mexia
 2426659/Beezby
-2427088/TeamW
 2427138/Erinors
 2427139/doniaey
 2427174/sHff12
@@ -53,16 +51,12 @@
 2427367/EzrealSu
 2427543/itisptyltd
 2427667/bacon6pest
-2427810/redding
 2427817/NLNOG
 2427818/trowel5bench
 2427953/0ariescelery
 2427962/16tyvekplow
 2427895/24bonsaiwash
-2427993/64ironmusic
 2427886/41frostkite
-2430659/6amStudios
-2427945/8flatbeach
 2429332/AccentDesign
 2428720/AltHub
 2427964/9coughvalue
@@ -395,7 +389,6 @@
 2441605/GDGDartKorea
 2441786/dynamic-horizons
 2441958/authorly
-2441989/MangTuyenDung
 2441990/russellcook814
 2442030/bighands
 2442301/Surfbreakorg
@@ -405,3 +398,4 @@
 2442948/AutomatedArchitecture
 2443104/study-org
 2443105/solaris1996
+2443582/cwacwa
