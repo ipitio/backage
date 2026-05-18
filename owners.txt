@@ -1,11 +1,9 @@
-2420575/ThemeTrust
 2420186/WarwickPARSE
 2419016/YongchaoTIAN
 2422467/Winguweb
 2420989/altralogica
 2419026/andyrleighton
 2419074/angerbranch42
-2423224/apruve
 2419091/boyradar99
 2419030/circlelove78
 2419070/cnlinfeng
@@ -38,7 +36,6 @@
 2425798/Toltendo
 2426037/CodeEd
 2426290/Mexia
-2426659/Beezby
 2427138/Erinors
 2427139/doniaey
 2427174/sHff12
@@ -46,7 +43,6 @@
 2427299/fatihsokmen
 2427367/EzrealSu
 2427543/itisptyltd
-2427817/NLNOG
 2427818/trowel5bench
 2427953/0ariescelery
 2427962/16tyvekplow
@@ -77,7 +73,6 @@
 2430687/GunnJerkens
 2427896/Henrik-Kjaergaard
 2428090/ICTM1E1
-2427921/IIreland
 2430002/HinterWelt-Enterprises
 2432610/ITBA-GEDA
 2427951/JulianitoxD
@@ -301,7 +296,6 @@
 2436992/dvdm
 2439963/dsbiolab
 2437016/ease2german
-2439558/enpnetwork
 2441198/eshsprogramming
 2437558/eazsoftware
 2437038/ffortine
@@ -387,7 +381,6 @@
 2442301/Surfbreakorg
 2442302/elftor
 2442627/hillsong
-2442628/kouiwaki
 2442948/AutomatedArchitecture
 2443104/study-org
 2443105/solaris1996
@@ -395,3 +388,4 @@
 2443688/couchpotatoes
 2443719/LearnUpon
 2443838/camunda
+2443839/MortenHe
