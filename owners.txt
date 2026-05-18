@@ -1,8 +1,6 @@
-2420989/altralogica
 2419026/andyrleighton
 2419074/angerbranch42
 2419091/boyradar99
-2419030/circlelove78
 2419070/cnlinfeng
 2420070/cposc
 2419986/ct-makkah
@@ -28,13 +26,11 @@
 2425157/ballgreen97
 2425189/DigitalGyrl
 2425403/Marceloef
-2425697/BeesTransfer
 2425698/barber90edge
 2425798/Toltendo
 2426037/CodeEd
 2426290/Mexia
 2427138/Erinors
-2427139/doniaey
 2427174/sHff12
 2427298/malibu-lib
 2427299/fatihsokmen
@@ -81,7 +77,6 @@
 2430615/MLTeem
 2431207/Mike-Newall
 2430031/PreDiabetes-Centers
-2427967/MrMkay
 2429823/OneMissionSociety
 2429864/Progether
 2428192/RTWWorld
@@ -308,7 +303,6 @@
 2437060/henriqueho
 2437027/hisdabuir59
 2437070/hyangdani
-2436991/ibtincan
 2438882/insideschools
 2437055/iveykokholm819
 2437066/jinkyu
@@ -340,7 +334,6 @@
 2437000/route1club
 2437778/rootboxcom
 2437081/samhwan
-2437044/sceneflag1
 2436969/scottsappen
 2441021/sharksandcupcakes
 2438329/sfgventures
@@ -372,7 +365,6 @@
 2441786/dynamic-horizons
 2441958/authorly
 2441990/russellcook814
-2442030/bighands
 2442301/Surfbreakorg
 2442302/elftor
 2442948/AutomatedArchitecture
@@ -386,3 +378,4 @@
 2443927/nodeside
 2444015/MediaSolutions
 2444300/XSALTO
+2444355/ox-cs
