@@ -1,4 +1,3 @@
-2419074/angerbranch42
 2419091/boyradar99
 2419070/cnlinfeng
 2420070/cposc
@@ -84,7 +83,6 @@
 2429930/SDCatPVCC
 2431347/Scripler
 2432316/SeattleOpenSourceJobs
-2427979/ScudamorWBiss132
 2431972/SolHealth
 2432305/Souplus
 2431833/SwarmGame
@@ -334,7 +332,6 @@
 2437778/rootboxcom
 2437081/samhwan
 2436969/scottsappen
-2441021/sharksandcupcakes
 2438329/sfgventures
 2440141/sorcode
 2437155/spcs
@@ -379,3 +376,4 @@
 2444300/XSALTO
 2444355/ox-cs
 2444356/steamaction76
+2444679/micbra
