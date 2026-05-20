@@ -1,4 +1,3 @@
-2424379/digitalindiateam
 2421286/divinityro
 2418993/eclissato
 2419386/irrida
@@ -69,7 +68,6 @@
 2430615/MLTeem
 2431207/Mike-Newall
 2430031/PreDiabetes-Centers
-2429823/OneMissionSociety
 2429864/Progether
 2428192/RTWWorld
 2429767/RevenueTrades
@@ -77,7 +75,6 @@
 2429930/SDCatPVCC
 2431347/Scripler
 2432316/SeattleOpenSourceJobs
-2431972/SolHealth
 2432305/Souplus
 2431833/SwarmGame
 2429539/SysMO-DB
@@ -274,7 +271,6 @@
 2437056/diellordielli
 2440795/discovermedia
 2436992/dvdm
-2439963/dsbiolab
 2437016/ease2german
 2441198/eshsprogramming
 2437558/eazsoftware
@@ -363,7 +359,7 @@
 2444355/ox-cs
 2444356/steamaction76
 2444679/micbra
-2444778/arganization1
 2444860/hayagreevtech
 2444861/alexyazvinsky
 2444970/botx-zz
+2445000/4vacuumlan
