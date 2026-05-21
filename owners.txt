@@ -1,15 +1,11 @@
-2419007/liboyu
 2422606/myrozicorp
 2421254/pelkmanslab
 2419097/petlathe9
-2419080/raftbun6
 2423894/segterra
 2418988/uribolocycyb
-2419000/zhanhc
 2424797/damagedetail58
 2424821/sweets08sheet
 2425157/ballgreen97
-2425189/DigitalGyrl
 2425403/Marceloef
 2425698/barber90edge
 2425798/Toltendo
@@ -26,7 +22,6 @@
 2427886/41frostkite
 2429332/AccentDesign
 2428720/AltHub
-2427964/9coughvalue
 2427956/AsadRUsmani
 2430800/BlackfyreStudio
 2431484/BusPatrol
@@ -42,11 +37,9 @@
 2432295/Factolabs
 2428861/Frotcom
 2430370/FreeRADIUS
-2430758/ForkSepha
 2427950/Gedesh
 2430793/HIMEX
 2430687/GunnJerkens
-2427896/Henrik-Kjaergaard
 2428090/ICTM1E1
 2430002/HinterWelt-Enterprises
 2432610/ITBA-GEDA
@@ -63,7 +56,6 @@
 2429767/RevenueTrades
 2429527/PureDiscovery
 2429930/SDCatPVCC
-2431347/Scripler
 2432316/SeattleOpenSourceJobs
 2432305/Souplus
 2431833/SwarmGame
@@ -291,7 +283,6 @@
 2436994/peppepalma
 2437079/pumpkin0529
 2437051/ph0en6
-2439204/reachlocal
 2436998/recesssock45
 2437773/rubikon
 2437000/route1club
@@ -302,7 +293,6 @@
 2440141/sorcode
 2437155/spcs
 2437076/ssadak2001
-2440237/steadyrain
 2437065/sumyat
 2437024/stemsalt74
 2437033/swimcapz2009
@@ -313,7 +303,6 @@
 2440077/tunespeak
 2437029/vessel8reason
 2437002/wizardone
-2437074/woobr
 2437764/warsawdatacenter
 2436986/wwwmonkey
 2437073/yhstory
@@ -330,7 +319,6 @@
 2443582/cwacwa
 2443688/couchpotatoes
 2443838/camunda
-2443927/nodeside
 2444015/MediaSolutions
 2444300/XSALTO
 2444355/ox-cs
@@ -343,6 +331,6 @@
 2445109/TreasureIsland
 2445110/fusionware
 2445208/UniShared
-2445237/Ingenoius
 2445334/BD-MCO-WEB
 2445410/Mesabesteroticma
+2445526/creditlaw64
