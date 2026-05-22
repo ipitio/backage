@@ -1,7 +1,5 @@
-2425157/ballgreen97
 2425403/Marceloef
 2425798/Toltendo
-2426037/CodeEd
 2426290/Mexia
 2427174/sHff12
 2427298/malibu-lib
@@ -88,7 +86,6 @@
 2427894/sound49zone
 2428813/sindhweatherportal
 2429601/startee
-2429429/starapple-inc
 2427900/suitbaboon18
 2432193/sysadmin-fr
 2428132/tdw
@@ -249,7 +246,6 @@
 2439503/koderhut
 2436990/krillin
 2437048/kishoreb23
-2439542/laboro
 2436972/llamaavenue5
 2437057/mafeg
 2437544/mehrwert
@@ -270,7 +266,6 @@
 2440141/sorcode
 2437076/ssadak2001
 2437065/sumyat
-2437024/stemsalt74
 2437033/swimcapz2009
 2438104/tagholic
 2436995/trainmass2
@@ -284,7 +279,6 @@
 2437073/yhstory
 2436974/wouttonnesen1230
 2437042/yq911122
-2441605/GDGDartKorea
 2441786/dynamic-horizons
 2441958/authorly
 2442301/Surfbreakorg
@@ -315,3 +309,4 @@
 2446276/jtvberg
 2446293/andeck
 2446375/miriagyjohi
+2446446/INTENT-TECHNOLOGIES
