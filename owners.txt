@@ -1,4 +1,3 @@
-2427299/fatihsokmen
 2427543/itisptyltd
 2427818/trowel5bench
 2427953/0ariescelery
@@ -24,7 +23,6 @@
 2430002/HinterWelt-Enterprises
 2432610/ITBA-GEDA
 2427927/InterraIT
-2427918/Janans
 2427915/KRav007
 2427958/LNEFrontend
 2430126/MappedIn
@@ -66,7 +64,6 @@
 2431350/nngroup
 2432150/pacs-course
 2429115/powderkegwebdesign
-2431459/pyladies-poland
 2431209/pubres
 2432699/raventools
 2432406/raamattu
@@ -216,7 +213,6 @@
 2437016/ease2german
 2436971/gauravv
 2436996/gatesw
-2437053/giobru
 2437064/goldbean24
 2437023/giammaweb
 2437046/gudbrandurorn
@@ -244,13 +240,11 @@
 2436998/recesssock45
 2437773/rubikon
 2437778/rootboxcom
-2437081/samhwan
 2436969/scottsappen
 2438329/sfgventures
 2440141/sorcode
 2437033/swimcapz2009
 2438104/tagholic
-2436995/trainmass2
 2437007/tratilai
 2437050/tuba6tire
 2440077/tunespeak
@@ -263,7 +257,6 @@
 2437042/yq911122
 2441786/dynamic-horizons
 2441958/authorly
-2442301/Surfbreakorg
 2442948/AutomatedArchitecture
 2443104/study-org
 2443582/cwacwa
