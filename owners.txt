@@ -1,9 +1,7 @@
-2427895/24bonsaiwash
 2427886/41frostkite
 2429332/AccentDesign
 2428720/AltHub
 2427956/AsadRUsmani
-2430800/BlackfyreStudio
 2432424/CCPPAstroparticle
 2429127/ConundrumIT
 2430592/CeDiAl
@@ -13,11 +11,9 @@
 2427908/Dethric
 2432295/Factolabs
 2428861/Frotcom
-2430370/FreeRADIUS
 2427950/Gedesh
 2430687/GunnJerkens
 2428090/ICTM1E1
-2430002/HinterWelt-Enterprises
 2432610/ITBA-GEDA
 2427927/InterraIT
 2427915/KRav007
@@ -91,9 +87,7 @@
 2434179/arc-users-jp
 2434379/abcder
 2434380/77beautyscarf
-2434493/Ecognize
 2434634/WitchcraftLabs
-2434668/girlcar3g
 2435021/lhings
 2435263/MarionC
 2435519/TMCYC
@@ -180,13 +174,11 @@
 2439562/VStudiosNASA
 2439017/UTN-GestionDePatos
 2439544/VStudiosVA
-2440157/WindowsAzure-TrainingKit-RU
 2438166/ZOMGClan
 2437025/Voodo133
 2437022/Zerc727
 2437047/ahmetaa
 2437019/advice8sand
-2437041/akaWolv
 2437058/anandkumar-sysad
 2437062/answergear4
 2436978/annaleah
