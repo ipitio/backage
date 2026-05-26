@@ -1,5 +1,3 @@
-2428861/Frotcom
-2427950/Gedesh
 2430687/GunnJerkens
 2428090/ICTM1E1
 2432610/ITBA-GEDA
@@ -8,13 +6,11 @@
 2427958/LNEFrontend
 2430126/MappedIn
 2430615/MLTeem
-2431207/Mike-Newall
 2430031/PreDiabetes-Centers
 2428192/RTWWorld
 2429767/RevenueTrades
 2429930/SDCatPVCC
 2432305/Souplus
-2431833/SwarmGame
 2429539/SysMO-DB
 2430514/TaxSlayer
 2427925/Tamnt3581
@@ -345,7 +341,6 @@
 2446526/harbordress0
 2446518/hebrewjr
 2446491/green56police
-2446484/hole10dinghy
 2446490/honey19church
 2446487/hockey54cook
 2446570/holmes225
@@ -361,7 +356,6 @@
 2446739/killbill
 2446571/knee6shock
 2446472/kidstuffg
-2446559/ktrajkov
 2446555/lampboot77
 2447795/lightbase
 2446524/leephipps
@@ -438,3 +432,4 @@
 2448013/zer03tech-v8
 2453483/fastlinemedia
 2453711/Tripper
+2453717/Elpis
