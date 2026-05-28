@@ -1,4 +1,3 @@
-2429840/Techometry
 2431297/UofT
 2430220/acidstudios
 2432154/amazingpenguins
@@ -8,7 +7,6 @@
 2427949/cratesing93
 2427965/danielhub1
 2428424/cpske
-2427954/dryerkick3
 2429325/duxca
 2428158/fot
 2432594/franciscoRoa
@@ -348,13 +346,11 @@
 2446481/riverscent86
 2450127/redmountainmakers
 2452860/robostalin
-2449297/rubylit
 2448026/seniorlivingdotnet
 2451415/silvernight
 2446476/skininch7
 2446514/shangbingHu
 2446469/skrasser
-2451085/slidingfox
 2446543/soap59locket
 2446737/slalom-hcsc-dev
 2446573/sofa62pepper
@@ -393,5 +389,5 @@
 2453943/aladwig06
 2454008/AudienseCo
 2454089/markmyword
-2454117/classconnected
 2454247/exequals
+2454248/floodkey88
