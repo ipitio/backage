@@ -1,7 +1,5 @@
-2429930/SDCatPVCC
 2432305/Souplus
 2429539/SysMO-DB
-2430514/TaxSlayer
 2427925/Tamnt3581
 2429840/Techometry
 2431297/UofT
@@ -20,9 +18,7 @@
 2427905/ibrahimsen
 2428613/janati
 2427991/lyreguitar8
-2431350/nngroup
 2432150/pacs-course
-2429115/powderkegwebdesign
 2432699/raventools
 2432406/raamattu
 2427989/remezen
@@ -36,7 +32,6 @@
 2427904/turtle29school
 2427942/use0smoke
 2427961/vanojt
-2427987/windwings
 2427932/wing9cave
 2432986/DescartesMobile
 2433027/Symplexum
@@ -58,7 +53,6 @@
 2436496/blumk
 2436568/lab7f
 2436577/Web-Star
-2436687/pyjamacross7
 2436735/KimgyeongMin
 2436790/CPJKU
 2436792/Girmii
@@ -336,13 +330,11 @@
 2452887/macoslib
 2447581/marquelmedia
 2452615/monstersarehere
-2449650/mpmedia
 2446548/maziaramini
 2446554/msalaj
 2446510/naturalism
 2446504/muscle87peanut
 2452804/mysql
-2452291/orangeapps
 2446513/oejyufoqo
 2446883/opengdp
 2446549/orestch
@@ -402,8 +394,6 @@
 2453799/LEZGROLLC
 2453800/base12attack
 2453842/SHOFLO
-2453902/E2EIT
 2453942/KarinaMobileSolutions
 2453943/aladwig06
 2454008/AudienseCo
-2454009/constantine2920
