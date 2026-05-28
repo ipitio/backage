@@ -1,4 +1,3 @@
-2429539/SysMO-DB
 2427925/Tamnt3581
 2429840/Techometry
 2431297/UofT
@@ -33,7 +32,6 @@
 2427961/vanojt
 2427932/wing9cave
 2432986/DescartesMobile
-2433027/Symplexum
 2433152/cybozu
 2433178/EgginkO90
 2434179/arc-users-jp
@@ -338,7 +336,6 @@
 2446883/opengdp
 2446549/orestch
 2446533/payamv
-2446501/pencilash52
 2451437/pamukeller
 2446558/peppervision92
 2446492/phrsouza
@@ -397,3 +394,4 @@
 2453943/aladwig06
 2454008/AudienseCo
 2454089/markmyword
+2454117/classconnected
