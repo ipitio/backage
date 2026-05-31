@@ -1,4 +1,3 @@
-2428613/janati
 2432150/pacs-course
 2432699/raventools
 2432406/raamattu
@@ -25,14 +24,12 @@
 2436291/JISENARE
 2436298/AdvertalisDevelopment
 2436299/marwils
-2436463/ArimaTakayuki
 2436496/blumk
 2436568/lab7f
 2436577/Web-Star
 2436735/KimgyeongMin
 2436790/CPJKU
 2436792/Girmii
-2436924/OrdnanceSurvey
 2436947/RHoK-Bilbao
 2436984/19drugbrace
 2437035/45voyagekorean
@@ -273,7 +270,6 @@
 2446521/fiberwire01
 2446563/flame0pike
 2446496/gandertruck9
-2446471/gate7cloudy
 2446564/gechterling
 2446491/green56police
 2446490/honey19church
@@ -311,7 +307,6 @@
 2446569/qienlin
 2450269/recentivize
 2446534/robinbech717
-2446481/riverscent86
 2450127/redmountainmakers
 2452860/robostalin
 2451415/silvernight
@@ -336,8 +331,6 @@
 2450392/trystackcn
 2453148/upTee
 2446506/vivianrogers1231
-2446508/wgausmann
-2452927/wired-in
 2448013/zer03tech-v8
 2453483/fastlinemedia
 2453764/otto-de
@@ -361,3 +354,4 @@
 2455421/Fightclub
 2455422/justfortesting
 2455589/CM10EF35L
+2455590/friday11baker
