@@ -1,7 +1,5 @@
-2432699/raventools
 2432406/raamattu
 2427989/remezen
-2428813/sindhweatherportal
 2432193/sysadmin-fr
 2428132/tdw
 2427919/tellertramp9
@@ -43,7 +41,6 @@
 2437030/Abandonlu
 2437783/AlereDevices
 2436968/Basab-cmedia
-2439961/Beco-Castelo
 2437015/BloomDeveloper
 2439420/Brandsafe
 2438404/CodeStory
@@ -92,7 +89,6 @@
 2437047/ahmetaa
 2437019/advice8sand
 2437058/anandkumar-sysad
-2437062/answergear4
 2436978/annaleah
 2437028/antondxw
 2441437/async7
@@ -296,7 +292,6 @@
 2452804/mysql
 2446513/oejyufoqo
 2446883/opengdp
-2446549/orestch
 2446533/payamv
 2451437/pamukeller
 2446558/peppervision92
@@ -330,7 +325,6 @@
 2450392/trystackcn
 2453148/upTee
 2446506/vivianrogers1231
-2448013/zer03tech-v8
 2453483/fastlinemedia
 2453764/otto-de
 2453799/LEZGROLLC
@@ -355,3 +349,4 @@
 2455589/CM10EF35L
 2455590/friday11baker
 2455652/CMPUT301F12T09
+2455654/gr33n240
