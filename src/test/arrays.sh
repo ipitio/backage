@@ -183,6 +183,124 @@ test_owner_arrays_stream_json_into_jq() {
 	assert_json_length "$owner_dir/.json" 2
 }
 
+test_owner_build_json_array_limits_versions_before_aggregate() {
+	local owner_dir="$workdir/project-array-limit/Lazztech/Libre-Closet"
+	local output_file="$workdir/project-array-limit.json"
+
+	mkdir -p "$owner_dir"
+	jq -nc '
+		{
+			owner: "Lazztech",
+			repo: "Libre-Closet",
+			package: "libre-closet",
+			raw_downloads: 1,
+			version: [
+				{id: 1, latest: true},
+				{id: 2},
+				{id: 3},
+				{id: 4},
+				{id: 5, newest: true}
+			]
+		}' >"$owner_dir/libre-closet.json"
+
+	source_project_script "lib/owner.sh"
+	init_bkg_runtime_state "$workdir/env-project-array-limit.env"
+	BKG_OWNER_ARRAY_VERSION_LIMIT=2
+	owner_build_json_array "$workdir/project-array-limit/Lazztech" >"$output_file"
+
+	assert_json_array "$output_file"
+	jq -e '.[0].version | map(.id) == [1,4,5]' "$output_file" >/dev/null || fail "Expected owner aggregate generation to keep latest/newest and a bounded recent version slice"
+	unset BKG_OWNER_ARRAY_VERSION_LIMIT
+}
+
+test_owner_build_json_array_adapts_to_byte_budget() {
+	local owner_dir="$workdir/project-array-budget/Lazztech/Libre-Closet"
+	local fixed_two_file="$workdir/project-array-budget-two.json"
+	local fixed_three_file="$workdir/project-array-budget-three.json"
+	local adaptive_file="$workdir/project-array-budget-adaptive.json"
+	local payload_file="$workdir/project-array-budget-payload.txt"
+	local target_size
+
+	mkdir -p "$owner_dir"
+	head -c 4000 /dev/zero | tr '\0' 'a' >"$payload_file"
+	jq -nc --rawfile payload "$payload_file" '
+		{
+			owner: "Lazztech",
+			repo: "Libre-Closet",
+			package: "libre-closet",
+			raw_downloads: 1,
+			version: [
+				{id: 1, latest: true, notes: $payload},
+				{id: 2, notes: $payload},
+				{id: 3, notes: $payload},
+				{id: 4, notes: $payload},
+				{id: 5, newest: true, notes: $payload}
+			]
+		}' >"$owner_dir/libre-closet.json"
+
+	source_project_script "lib/owner.sh"
+	init_bkg_runtime_state "$workdir/env-project-array-budget.env"
+	BKG_OWNER_ARRAY_VERSION_LIMIT=2
+	owner_build_json_array "$workdir/project-array-budget/Lazztech" >"$fixed_two_file"
+	BKG_OWNER_ARRAY_VERSION_LIMIT=3
+	owner_build_json_array "$workdir/project-array-budget/Lazztech" >"$fixed_three_file"
+	target_size=$(stat -c %s "$fixed_two_file")
+
+	unset BKG_OWNER_ARRAY_VERSION_LIMIT
+	BKG_OWNER_ARRAY_MAX_BYTES="$target_size"
+	owner_build_json_array "$workdir/project-array-budget/Lazztech" >"$adaptive_file"
+
+	assert_json_array "$adaptive_file"
+	assert_size_lt "$adaptive_file" "$((target_size + 1))"
+	jq -e '.[0].version | map(.id) == [1,4,5]' "$adaptive_file" >/dev/null || fail "Expected adaptive owner aggregate generation to choose the largest version slice within the byte budget"
+	[ "$(stat -c %s "$fixed_three_file")" -gt "$target_size" ] || fail "Expected fixed limit 3 fixture to exceed the adaptive byte budget"
+	unset BKG_OWNER_ARRAY_MAX_BYTES
+}
+
+test_owner_build_json_array_from_db_ignores_stale_package_json() {
+	local test_root="$workdir/project-array-db"
+	local db_file="$test_root/test.db"
+	local owner_dir="$test_root/index/Lazztech"
+	local output_file="$test_root/owner.json"
+	local repo_output_file="$test_root/repo.json"
+	local today="2026-03-30"
+
+	mkdir -p "$owner_dir/Libre-Closet" "$owner_dir/SideRepo"
+	jq -nc '{owner: "Stale", repo: "Libre-Closet", package: "stale-json", version: [{id: 999}]}' >"$owner_dir/Libre-Closet/stale.json"
+
+	(
+		source_project_script "lib/owner.sh"
+		init_bkg_runtime_state "$test_root/env.env"
+		BKG_INDEX_DB="$db_file"
+		BKG_INDEX_DIR="$test_root/index"
+		BKG_BATCH_FIRST_STARTED="$today"
+		BKG_OWNER_ARRAY_VERSION_LIMIT=-1
+		set_BKG BKG_BATCH_FIRST_STARTED "$today"
+
+		sqlite_ensure_index_schema >/dev/null
+		sqlite3 "$BKG_INDEX_DB" "insert into '$BKG_INDEX_TBL_PKG' (owner_id, owner_type, package_type, owner, repo, package, downloads, downloads_month, downloads_week, downloads_day, size, date) values ('69664378','orgs','container','Lazztech','Libre-Closet','libre-closet','2000','300','200','20','400','$today');"
+		sqlite3 "$BKG_INDEX_DB" "insert into '$BKG_INDEX_TBL_PKG' (owner_id, owner_type, package_type, owner, repo, package, downloads, downloads_month, downloads_week, downloads_day, size, date) values ('69664378','orgs','container','Lazztech','SideRepo','sidecar','3000','350','250','25','450','$today');"
+		sqlite3 "$BKG_INDEX_DB" "insert into '$BKG_INDEX_TBL_VER' (owner_id, owner_type, package_type, owner, repo, package, id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags) values ('69664378','orgs','container','Lazztech','Libre-Closet','libre-closet','10','sha256:b','456','985','985','455','3','$today','latest');"
+		sqlite3 "$BKG_INDEX_DB" "insert into '$BKG_INDEX_TBL_VER' (owner_id, owner_type, package_type, owner, repo, package, id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags) values ('69664378','orgs','container','Lazztech','Libre-Closet','libre-closet','2','sha256:a','123','984','984','454','2','$today','stable');"
+		sqlite3 "$BKG_INDEX_DB" "insert into '$BKG_INDEX_TBL_VER' (owner_id, owner_type, package_type, owner, repo, package, id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags) values ('69664378','orgs','container','Lazztech','SideRepo','sidecar','5','sha256:c','222','111','22','11','1','$today','latest');"
+
+		owner_build_json_array_from_db_to_file "69664378" "" "$owner_dir" "$output_file"
+		owner_build_json_array_from_db_to_file "69664378" "Libre-Closet" "$owner_dir/Libre-Closet" "$repo_output_file"
+	)
+
+	assert_json_array "$output_file"
+	assert_json_length "$output_file" 2
+	jq -e 'map(.package) | sort == ["libre-closet","sidecar"]' "$output_file" >/dev/null || fail "Expected DB-backed owner aggregate to render packages from SQLite"
+	jq -e 'all(.[]; .package != "stale-json")' "$output_file" >/dev/null || fail "Expected DB-backed owner aggregate to ignore stale package JSON files"
+	jq -e '.[] | select(.package == "libre-closet") | .version | map(.id) == [2,10]' "$output_file" >/dev/null || fail "Expected DB-backed owner aggregate to render normalized version rows"
+	jq -e '.[] | select(.package == "libre-closet") | .raw_owner_rank == 2 and .raw_repo_rank == 1' "$output_file" >/dev/null || fail "Expected DB-backed owner aggregate to use precomputed owner/repo ranks"
+
+	assert_json_array "$repo_output_file"
+	assert_json_length "$repo_output_file" 1
+	assert_repo_only "$repo_output_file" "Libre-Closet"
+	jq -e '.[0].package == "libre-closet" and (.[0].version | map(.id) == [2,10])' "$repo_output_file" >/dev/null || fail "Expected DB-backed repo aggregate to render only the requested repo"
+}
+
 test_large_array_trimming() {
 	local payload_file="$workdir/payload.txt"
 	local empty_payload="$workdir/empty-large.txt"
@@ -262,12 +380,49 @@ test_unsorted_version_arrays_still_trim_by_numeric_id() {
 	jq -e '.version | map(.id) == [4,5]' "$json_file" >/dev/null || fail "Expected ytoxt.sh to keep trimming by numeric version id even when input version arrays are unsorted"
 }
 
+test_ytoxt_trimming_preserves_latest_and_newest_versions() {
+	local payload_file="$workdir/payload-latest-newest.txt"
+	local json_file="$workdir/latest-newest-package.json"
+
+	head -c 2000 /dev/zero | tr '\0' 'a' >"$payload_file"
+
+	jq -nc \
+		--rawfile payload "$payload_file" \
+		--arg date "2026-03-30" '
+		{
+			owner: "Lazztech",
+			repo: "Libre-Closet",
+			package: "libre-closet",
+			downloads: "1",
+			raw_downloads: 1,
+			date: $date,
+			version: [
+				{id: 1, name: "v1", latest: true, downloads: "1", raw_downloads: 1, date: $date, notes: $payload},
+				{id: 2, name: "v2", downloads: "1", raw_downloads: 1, date: $date, notes: $payload},
+				{id: 3, name: "v3", downloads: "1", raw_downloads: 1, date: $date, notes: $payload},
+				{id: 4, name: "v4", downloads: "1", raw_downloads: 1, date: $date, notes: $payload},
+				{id: 5, name: "v5", downloads: "1", raw_downloads: 1, date: $date, notes: $payload},
+				{id: 6, name: "v6", newest: true, downloads: "1", raw_downloads: 1, date: $date, notes: $payload}
+			]
+		}' >"$json_file"
+
+	BKG_JSON_XML_MAX_BYTES=9000 BKG_JSON_XML_HARD_MAX_BYTES=200000 bash "$src_dir/lib/ytoxt.sh" "$json_file" >/dev/null
+
+	jq -e 'any(.version[]; .id == 1 and .latest == true) and any(.version[]; .id == 6 and .newest == true)' "$json_file" >/dev/null || fail "Expected ytoxt.sh trimming to preserve latest and newest versions"
+	assert_size_lt "$json_file" 9000
+	assert_size_lt "${json_file%.*}.xml" 9000
+}
+
 trap cleanup EXIT
 
 run_test test_small_owner_and_repo_arrays
 run_test test_owner_arrays_cleanup_stale_json_sidecars
 run_test test_owner_arrays_stream_json_into_jq
+run_test test_owner_build_json_array_limits_versions_before_aggregate
+run_test test_owner_build_json_array_adapts_to_byte_budget
+run_test test_owner_build_json_array_from_db_ignores_stale_package_json
 run_test test_large_array_trimming
 run_test test_unsorted_version_arrays_still_trim_by_numeric_id
+run_test test_ytoxt_trimming_preserves_latest_and_newest_versions
 
 echo "Array creation regression tests passed"

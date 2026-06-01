@@ -214,6 +214,44 @@ test_run_parallel_kills_blocked_workers_after_timeout() {
 	unset -f blocking_parallel_worker
 }
 
+test_run_parallel_enforces_elapsed_limit_for_blocked_workers() {
+	local started_file="$workdir/run-parallel-elapsed-started.txt"
+	local status=0
+	local started_at
+	local elapsed
+	local now
+
+	blocking_parallel_worker_without_timeout() {
+		printf '%s\n' "$1" >>"$started_file"
+		exec sleep 30
+	}
+
+	now=$(date -u +%s)
+	BKG_ENV="$workdir/env-run-parallel-elapsed.env"
+	: >"$BKG_ENV"
+	set_BKG BKG_SCRIPT_START "$now"
+	set_BKG BKG_RATE_LIMIT_START "$now"
+	set_BKG BKG_MIN_RATE_LIMIT_START "$now"
+	set_BKG BKG_CALLS_TO_API 0
+	set_BKG BKG_MIN_CALLS_TO_API 0
+	set_BKG BKG_TIMEOUT 0
+	BKG_MAX_LEN=3
+	: >"$started_file"
+	started_at=$(date +%s)
+
+	if run_parallel blocking_parallel_worker_without_timeout $'one\ntwo'; then
+		fail "Expected run_parallel to enforce the elapsed timeout"
+	else
+		status=$?
+	fi
+
+	elapsed=$(( $(date +%s) - started_at ))
+	[ "$status" -eq 3 ] || fail "Expected run_parallel to return 3 after elapsed timeout, got $status"
+	assert_contains "$started_file" "one"
+	[ "$elapsed" -lt 10 ] || fail "Expected run_parallel to terminate blocked workers after elapsed timeout"
+	unset -f blocking_parallel_worker_without_timeout
+}
+
 test_parallel_async_wait_kills_blocked_workers_after_timeout() {
 	local started_file="$workdir/parallel-async-started.txt"
 	local status=0
@@ -239,6 +277,57 @@ test_parallel_async_wait_kills_blocked_workers_after_timeout() {
 	assert_contains "$started_file" "one"
 	[ "$elapsed" -lt 10 ] || fail "Expected parallel_async_wait to terminate blocked workers promptly"
 	unset -f blocking_async_worker
+}
+
+test_owner_build_json_array_enforces_elapsed_limit() {
+	local fake_bin="$workdir/fake-owner-array-bin"
+	local fake_jq="$fake_bin/jq"
+	local owner_dir="$workdir/owner-array-elapsed"
+	local output_file="$workdir/owner-array-output.json"
+	local started_file="$workdir/owner-array-jq-started.txt"
+	local original_path="$PATH"
+	local status=0
+	local started_at
+	local elapsed
+	local now
+
+	mkdir -p "$fake_bin" "$owner_dir"
+	cat >"$fake_jq" <<'EOF'
+#!/bin/bash
+printf 'started\n' >"$TEST_OWNER_ARRAY_JQ_STARTED_FILE"
+exec sleep 30
+EOF
+	chmod +x "$fake_jq"
+
+	printf '%s\n' '{"id":1,"repo":"repo-one"}' >"$owner_dir/one.json"
+	printf '%s\n' '{"id":2,"repo":"repo-two"}' >"$owner_dir/two.json"
+
+	now=$(date -u +%s)
+	BKG_ENV="$workdir/env-owner-array-elapsed.env"
+	: >"$BKG_ENV"
+	set_BKG BKG_SCRIPT_START "$now"
+	set_BKG BKG_RATE_LIMIT_START "$now"
+	set_BKG BKG_MIN_RATE_LIMIT_START "$now"
+	set_BKG BKG_CALLS_TO_API 0
+	set_BKG BKG_MIN_CALLS_TO_API 0
+	set_BKG BKG_TIMEOUT 0
+	BKG_MAX_LEN=3
+	TEST_OWNER_ARRAY_JQ_STARTED_FILE="$started_file"
+	export TEST_OWNER_ARRAY_JQ_STARTED_FILE BKG_ENV
+	PATH="$fake_bin:$original_path"
+	started_at=$(date +%s)
+
+	if owner_build_json_array "$owner_dir" >"$output_file" 2>&1; then
+		fail "Expected owner_build_json_array to enforce the elapsed timeout"
+	else
+		status=$?
+	fi
+
+	PATH="$original_path"
+	elapsed=$(( $(date +%s) - started_at ))
+	[ "$status" -eq 3 ] || fail "Expected owner_build_json_array to return 3 after elapsed timeout, got $status"
+	assert_file_exists "$started_file"
+	[ "$elapsed" -lt 10 ] || fail "Expected owner_build_json_array to interrupt long jq aggregation promptly"
 }
 
 test_owner_update_wait_notice_is_throttled() {
@@ -412,7 +501,9 @@ run_test test_curl_checks_elapsed_limit_before_successful_request
 run_test test_docker_manifest_inspect_stops_after_timeout
 run_test test_ytoxt_stops_after_timeout
 run_test test_run_parallel_kills_blocked_workers_after_timeout
+run_test test_run_parallel_enforces_elapsed_limit_for_blocked_workers
 run_test test_parallel_async_wait_kills_blocked_workers_after_timeout
+run_test test_owner_build_json_array_enforces_elapsed_limit
 run_test test_owner_update_wait_notice_is_throttled
 run_test test_owner_update_force_stop_due_after_grace_period
 run_test test_run_owner_updates_halts_on_timeout

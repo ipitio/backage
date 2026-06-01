@@ -4,6 +4,16 @@ stop_requested() {
 	[ -n "${BKG_ENV:-}" ] && [ -f "$BKG_ENV" ] && grep -q '^BKG_TIMEOUT=1$' "$BKG_ENV" 2>/dev/null
 }
 
+ytoxt_byte_limit() {
+	local name=$1
+	local default=$2
+	local value
+
+	value=${!name:-$default}
+	[[ "$value" =~ ^[1-9][0-9]*$ ]] || value=$default
+	printf '%s\n' "$value"
+}
+
 ytox() {
 	local source_file
 	local xml_file
@@ -51,6 +61,9 @@ f="$1"
 del_n=1
 last_xml_size=-1
 xml_current=false
+limit_bytes=$(ytoxt_byte_limit BKG_JSON_XML_MAX_BYTES 50000000)
+hard_limit_bytes=$(ytoxt_byte_limit BKG_JSON_XML_HARD_MAX_BYTES 100000000)
+target_json_size=$limit_bytes
 
 [ -f "$f" ] || exit 1
 
@@ -61,17 +74,17 @@ while [ -f "$f" ]; do
 	stop_requested && exit 3
 	json_size=$(stat -c %s "$f" 2>/dev/null || echo -1)
 
-	if [ "$json_size" -lt 50000000 ]; then
-		# Only generate/check XML if JSON is already under limit.
+	if [ "$json_size" -lt "$target_json_size" ]; then
+		# Only generate/check XML if JSON is already under the current budget.
 		xml_size=$(ytox "$f" 2>/dev/null)
 		xml_status=$?
 		((xml_status != 3)) || exit 3
 		[ "$xml_status" -eq 0 ] || xml_size=-1
 		[ "$xml_status" -eq 0 ] && xml_current=true || xml_current=false
 		# If XML size can't be determined, treat it as oversized so we keep trimming.
-		[ "$xml_size" -ge 0 ] || xml_size=50000000
+		[ "$xml_size" -ge 0 ] || xml_size=$limit_bytes
 
-		if [ "$xml_size" -lt 50000000 ]; then
+		if [ "$xml_size" -lt "$limit_bytes" ]; then
 			break
 		fi
 
@@ -81,13 +94,20 @@ while [ -f "$f" ]; do
 		fi
 		last_xml_size="$xml_size"
 
+		if [ "$json_size" -gt 0 ] && [ "$xml_size" -gt 0 ]; then
+			next_target=$((limit_bytes * json_size / xml_size))
+			next_target=$((next_target * 95 / 100))
+			[ "$next_target" -gt 0 ] || next_target=1
+			[ "$next_target" -lt "$target_json_size" ] && target_json_size=$next_target
+		fi
+
 		# XML still too large: increase trimming aggressiveness as well.
 		if [ "$del_n" -lt 65536 ]; then
 			del_n=$((del_n * 2))
 		fi
 	else
-		# JSON is still too large: increase trimming aggressiveness.
-		if [ "$json_size" -ge 50000000 ]; then
+		# JSON is still too large for the current budget: increase trimming aggressiveness.
+		if [ "$json_size" -ge "$target_json_size" ]; then
 			if [ "$del_n" -lt 65536 ]; then
 				del_n=$((del_n * 2))
 			fi
@@ -116,9 +136,18 @@ while [ -f "$f" ]; do
 		def trim_version_holder($n):
 			if version_len > 0 then
 				if versions_sorted then
-					.version |= .[$n:]
+					.version |= (
+						([ .[] | select(.latest == true or .newest == true) ] + .[$n:])
+						| unique_by(.id | tostring)
+						| sort_by(.id | id_to_num)
+					)
 				else
-					.version |= (sort_by(.id | id_to_num) | .[$n:])
+					.version |= (
+						(sort_by(.id | id_to_num)) as $versions
+						| ([ $versions[] | select(.latest == true or .newest == true) ] + $versions[$n:])
+						| unique_by(.id | tostring)
+						| sort_by(.id | id_to_num)
+					)
 				end
 			else
 				.
@@ -274,5 +303,5 @@ if ! $xml_current; then
 fi
 
 # If either JSON or XML is > 100MB, there is a bug, but empty each one that is too large to allow others:
-[ "$(stat -c %s "$f" 2>/dev/null || echo -1)" -lt 100000000 ] || echo "{}" >"$f"
-[ "$(stat -c %s "${f%.*}.xml" 2>/dev/null || echo -1)" -lt 100000000 ] || echo "<?xml version=\"1.0\" encoding=\"UTF-8\"?><xml></xml>" >"${f%.*}.xml"
+[ "$(stat -c %s "$f" 2>/dev/null || echo -1)" -lt "$hard_limit_bytes" ] || echo "{}" >"$f"
+[ "$(stat -c %s "${f%.*}.xml" 2>/dev/null || echo -1)" -lt "$hard_limit_bytes" ] || echo "<?xml version=\"1.0\" encoding=\"UTF-8\"?><xml></xml>" >"${f%.*}.xml"

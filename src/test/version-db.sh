@@ -61,6 +61,7 @@ EOF
 		version_flush_staged_rows
 
 		[ "$(sqlite3 "$BKG_INDEX_DB" "select count(*) from '$table_version_name';")" = "2" ] || fail "Expected two persisted version rows after batch flush"
+		[ "$(sqlite3 "$BKG_INDEX_DB" "select count(*) from '$BKG_INDEX_TBL_VER';")" = "2" ] || fail "Expected two persisted normalized version rows after batch flush"
 		rows=$(sqlite3 "$BKG_INDEX_DB" "select id || '|' || downloads || '|' || downloads_month || '|' || downloads_week || '|' || downloads_day from '$table_version_name' order by id;")
 		grep -Fxq '101|984|984|454|2' <<<"$rows" || fail "Expected flushed batch row for version 101"
 		grep -Fxq '102|984|984|454|2' <<<"$rows" || fail "Expected flushed batch row for version 102"
@@ -167,6 +168,57 @@ test_update_package_builds_version_array_from_db() {
 		[ ! -f "$BKG_INDEX_DIR/$owner/$repo/$package.json.abs" ] || fail "Expected package refresh to remove stale .json.abs files"
 		[ ! -f "$BKG_INDEX_DIR/$owner/$repo/$package.json.tmp" ] || fail "Expected package refresh to remove stale .json.tmp files"
 		jq -e '.raw_versions == 2 and .raw_owner_rank == 2 and .raw_repo_rank == 1 and (.version | map(.id) == [2,10]) and any(.version[]; .id == 10 and .latest == true and .newest == true) and any(.version[]; .id == 2 and (.tags | index("stable")))' "$BKG_INDEX_DIR/$owner/$repo/$package.json" >/dev/null || fail "Expected package JSON to embed numerically ordered version rows and preserve owner/repo rank semantics"
+		[ "$(sqlite3 "$BKG_INDEX_DB" "select count(*) from sqlite_master where type='table' and name='$table_version_name';")" = "1" ] || fail "Expected legacy version table to remain when normalized replacement rows are unavailable"
+	)
+}
+
+test_update_package_builds_version_array_from_normalized_db() {
+	local test_root="$workdir/package-refresh-normalized"
+	local db_file="$test_root/test.db"
+	local today
+
+	mkdir -p "$test_root"
+	today=$(date -u +%Y-%m-%d)
+
+	(
+		cd "$test_root"
+		ln -s "$src_dir/lib" lib
+		export BKG_SKIP_DEP_VERIFY=1
+		source "$src_dir/lib/package.sh"
+		init_bkg_state "$test_root/env.env"
+
+		BKG_INDEX_DB="$db_file"
+		BKG_INDEX_DIR="$test_root/index"
+		BKG_OPTOUT="$test_root/optout.txt"
+		: >"$BKG_OPTOUT"
+		BKG_OWNERS="$test_root/owners.txt"
+		: >"$BKG_OWNERS"
+		BKG_BATCH_FIRST_STARTED="$today"
+		owner_id=69664378
+		owner='Lazztech'
+		repo='Libre-Closet'
+		package='libre-closet'
+		owner_type='orgs'
+		package_type='container'
+		fast_out=false
+		BKG_MODE=0
+		table_version_name='versions_orgs_container_Lazztech_Libre-Closet_libre-closet'
+		mkdir -p "$BKG_INDEX_DIR/$owner/$repo"
+
+		sqlite_ensure_index_schema >/dev/null
+		sqlite3 "$BKG_INDEX_DB" "create table if not exists '$table_version_name' (id text not null, name text not null, size integer not null, downloads integer not null, downloads_month integer not null, downloads_week integer not null, downloads_day integer not null, date text not null, tags text, primary key (id, date));"
+		sqlite3 "$BKG_INDEX_DB" "insert into '$BKG_INDEX_TBL_PKG' (owner_id, owner_type, package_type, owner, repo, package, downloads, downloads_month, downloads_week, downloads_day, size, date) values ('69664378','orgs','container','Lazztech','Libre-Closet','libre-closet','2000','300','200','20','400','$today');"
+		sqlite3 "$BKG_INDEX_DB" "insert into '$BKG_INDEX_TBL_VER' (owner_id, owner_type, package_type, owner, repo, package, id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags) values ('69664378','orgs','container','Lazztech','Libre-Closet','libre-closet','10','sha256:b','456','985','985','455','3','$today','latest');"
+		sqlite3 "$BKG_INDEX_DB" "insert into '$BKG_INDEX_TBL_VER' (owner_id, owner_type, package_type, owner, repo, package, id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags) values ('69664378','orgs','container','Lazztech','Libre-Closet','libre-closet','2','sha256:a','123','984','984','454','2','$today','stable');"
+		sqlite3 "$BKG_INDEX_DB" "insert into '$table_version_name' (id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags) values ('10','sha256:b','456','985','985','455','3','$today','latest');"
+		sqlite3 "$BKG_INDEX_DB" "insert into '$table_version_name' (id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags) values ('2','sha256:a','123','984','984','454','2','$today','stable');"
+		printf '69664378|Lazztech|Libre-Closet|libre-closet|%s\n' "$today" >packages_already_updated
+
+		update_package 'container/Libre-Closet/libre-closet' >/dev/null
+
+		assert_file_exists "$BKG_INDEX_DIR/$owner/$repo/$package.json"
+		jq -e '.raw_versions == 2 and (.version | map(.id) == [2,10]) and any(.version[]; .id == 10 and .latest == true and .newest == true)' "$BKG_INDEX_DIR/$owner/$repo/$package.json" >/dev/null || fail "Expected package JSON to read version rows from the normalized versions table"
+		[ "$(sqlite3 "$BKG_INDEX_DB" "select count(*) from sqlite_master where type='table' and name='$table_version_name';")" = "0" ] || fail "Expected fully replaced legacy version table to be dropped after package refresh"
 	)
 }
 
@@ -554,6 +606,7 @@ trap cleanup EXIT
 run_test test_update_version_batches_rows_until_flush
 run_test test_update_version_parses_compact_download_metrics
 run_test test_update_package_builds_version_array_from_db
+run_test test_update_package_builds_version_array_from_normalized_db
 run_test test_update_package_handles_large_version_arrays
 run_test test_update_package_uses_persisted_batch_start_when_shell_var_missing
 run_test test_version_parse_page_html_escapes_control_characters

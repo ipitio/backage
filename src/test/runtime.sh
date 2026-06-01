@@ -49,6 +49,61 @@ EOF
 	[ "$(cat "$attempts_file")" -eq 2 ] || fail "Expected sqlite3 wrapper to retry a transient write failure once"
 }
 
+test_sqlite_ensure_index_schema_adds_query_indexes() {
+	local original_db="${BKG_INDEX_DB:-}"
+	local indexes
+
+	BKG_INDEX_DB="$workdir/schema-indexes.db"
+	sqlite_ensure_index_schema >/dev/null
+	indexes=$(command sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='index' order by name;")
+	grep -Fq 'idx_bkg_owners_date_owner' <<<"$indexes" || fail "Expected owners date index"
+	grep -Fq 'idx_bkg_packages_owner_repo_package_date' <<<"$indexes" || fail "Expected owner/repo/package package index"
+	grep -Fq 'idx_bkg_packages_owner_date_downloads' <<<"$indexes" || fail "Expected owner downloads package index"
+	grep -Fq 'idx_bkg_packages_owner_repo_date_downloads' <<<"$indexes" || fail "Expected repo downloads package index"
+	grep -Fq 'idx_bkg_versions_package_date' <<<"$indexes" || fail "Expected normalized versions package index"
+	grep -Fq 'idx_bkg_versions_date' <<<"$indexes" || fail "Expected normalized versions date index"
+	BKG_INDEX_DB="$original_db"
+}
+
+test_drop_replaced_legacy_version_tables_keeps_unreplaced_fallbacks() {
+	local original_db="${BKG_INDEX_DB:-}"
+	local today="2026-03-30"
+	local yesterday="2026-03-29"
+	local replaced_table="versions_orgs_container_Lazztech_Repo_With_Underscore_libre_pkg"
+	local unreplaced_table="versions_orgs_container_Lazztech_OtherRepo_other_pkg"
+	local orphan_table="versions_orgs_container_Lazztech_OrphanRepo_orphan_pkg"
+	local table_count
+	local stale_count
+
+	BKG_INDEX_DB="$workdir/legacy-version-cleanup.db"
+	sqlite_ensure_index_schema >/dev/null
+	sqlite3 "$BKG_INDEX_DB" "create table '$replaced_table' (id text not null, name text not null, size integer not null, downloads integer not null, downloads_month integer not null, downloads_week integer not null, downloads_day integer not null, date text not null, tags text, primary key (id, date));"
+	sqlite3 "$BKG_INDEX_DB" "create table '$unreplaced_table' (id text not null, name text not null, size integer not null, downloads integer not null, downloads_month integer not null, downloads_week integer not null, downloads_day integer not null, date text not null, tags text, primary key (id, date));"
+	sqlite3 "$BKG_INDEX_DB" "create table '$orphan_table' (id text not null, name text not null, size integer not null, downloads integer not null, downloads_month integer not null, downloads_week integer not null, downloads_day integer not null, date text not null, tags text, primary key (id, date));"
+
+	sqlite3 "$BKG_INDEX_DB" "insert into '$BKG_INDEX_TBL_PKG' (owner_id, owner_type, package_type, owner, repo, package, downloads, downloads_month, downloads_week, downloads_day, size, date) values ('69664378','orgs','container','Lazztech','Repo_With_Underscore','libre_pkg','2000','300','200','20','400','$today');"
+	sqlite3 "$BKG_INDEX_DB" "insert into '$BKG_INDEX_TBL_PKG' (owner_id, owner_type, package_type, owner, repo, package, downloads, downloads_month, downloads_week, downloads_day, size, date) values ('69664378','orgs','container','Lazztech','OtherRepo','other_pkg','1000','100','50','5','300','$today');"
+
+	sqlite3 "$BKG_INDEX_DB" "insert into '$replaced_table' (id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags) values ('10','sha256:b','456','985','985','455','3','$today','latest');"
+	sqlite3 "$BKG_INDEX_DB" "insert into '$unreplaced_table' (id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags) values ('20','sha256:c','222','111','22','11','1','$today','latest');"
+	sqlite3 "$BKG_INDEX_DB" "insert into '$unreplaced_table' (id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags) values ('19','sha256:old','111','10','10','10','1','$yesterday','old');"
+	sqlite3 "$BKG_INDEX_DB" "insert into '$orphan_table' (id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags) values ('30','sha256:d','222','111','22','11','1','$today','latest');"
+	sqlite3 "$BKG_INDEX_DB" "insert into '$BKG_INDEX_TBL_VER' (owner_id, owner_type, package_type, owner, repo, package, id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags) values ('69664378','orgs','container','Lazztech','Repo_With_Underscore','libre_pkg','10','sha256:b','456','985','985','455','3','$today','latest');"
+
+	drop_replaced_legacy_version_tables "$today"
+
+	table_count=$(sqlite3 "$BKG_INDEX_DB" "select count(*) from sqlite_master where type='table' and name=$(sqlite_quote_literal "$replaced_table");")
+	[ "$table_count" = "0" ] || fail "Expected replaced legacy version table to be dropped during cleanup"
+	table_count=$(sqlite3 "$BKG_INDEX_DB" "select count(*) from sqlite_master where type='table' and name=$(sqlite_quote_literal "$unreplaced_table");")
+	[ "$table_count" = "1" ] || fail "Expected unreplaced legacy version table to remain as fallback"
+	table_count=$(sqlite3 "$BKG_INDEX_DB" "select count(*) from sqlite_master where type='table' and name=$(sqlite_quote_literal "$orphan_table");")
+	[ "$table_count" = "0" ] || fail "Expected orphaned legacy version table to be dropped during cleanup"
+	stale_count=$(sqlite3 "$BKG_INDEX_DB" "select count(*) from '$unreplaced_table' where date < $(sqlite_quote_literal "$today");")
+	[ "$stale_count" = "0" ] || fail "Expected stale rows in kept legacy version tables to be pruned"
+
+	BKG_INDEX_DB="$original_db"
+}
+
 test_parallel_async_wait_continues_after_non_timeout_failure() {
 	local status=0
 	local completed_file="$workdir/parallel-async-completed.txt"
@@ -635,6 +690,8 @@ trap cleanup EXIT
 source_project_script "bkg.sh"
 
 run_test test_sqlite_retries_transient_write_failure
+run_test test_sqlite_ensure_index_schema_adds_query_indexes
+run_test test_drop_replaced_legacy_version_tables_keeps_unreplaced_fallbacks
 run_test test_parallel_async_wait_continues_after_non_timeout_failure
 run_test test_parallel_async_default_max_jobs_is_tuned
 run_test test_parallel_shell_func_preserves_inherited_runtime_config

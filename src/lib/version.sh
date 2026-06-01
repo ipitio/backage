@@ -21,6 +21,88 @@ version_stage_row_file() {
     mktemp "$VERSION_STAGE_DIR/row.XXXXXX.sql"
 }
 
+version_normalized_package_filter_sql() {
+    printf 'owner_id = %s and owner_type = %s and package_type = %s and owner = %s and repo = %s and package = %s' \
+        "$(sqlite_quote_literal "${owner_id:-}")" \
+        "$(sqlite_quote_literal "${owner_type:-}")" \
+        "$(sqlite_quote_literal "${package_type:-}")" \
+        "$(sqlite_quote_literal "${owner:-}")" \
+        "$(sqlite_quote_literal "${repo:-}")" \
+        "$(sqlite_quote_literal "${package:-}")"
+}
+
+version_normalized_rows_available() {
+    local batch_first_started=${1:-0000-00-00}
+    local versions_table_sql
+    local normalized_filter_sql
+
+    versions_table_sql=$(sqlite_quote_identifier "$BKG_INDEX_TBL_VER")
+    normalized_filter_sql=$(version_normalized_package_filter_sql)
+    [ "$(sqlite3 "$BKG_INDEX_DB" "select 1 from $versions_table_sql where $normalized_filter_sql and date >= $(sqlite_quote_literal "$batch_first_started") limit 1;" 2>/dev/null || :)" = "1" ]
+}
+
+version_legacy_table_exists() {
+    [ -n "${table_version_name:-}" ] || return 1
+    [ "$(sqlite3 "$BKG_INDEX_DB" "select 1 from sqlite_master where type='table' and name=$(sqlite_quote_literal "$table_version_name") limit 1;" 2>/dev/null || :)" = "1" ]
+}
+
+version_select_source_sql() {
+    local batch_first_started=${1:-0000-00-00}
+
+    VERSION_SOURCE_TABLE_SQL=$(sqlite_quote_identifier "$BKG_INDEX_TBL_VER")
+    VERSION_SOURCE_WHERE_SQL="$(version_normalized_package_filter_sql) and date >= $(sqlite_quote_literal "$batch_first_started")"
+
+    if version_normalized_rows_available "$batch_first_started"; then
+        return 0
+    fi
+
+    if version_legacy_table_exists; then
+        VERSION_SOURCE_TABLE_SQL=$(sqlite_quote_identifier "$table_version_name")
+        VERSION_SOURCE_WHERE_SQL="date >= $(sqlite_quote_literal "$batch_first_started")"
+    fi
+}
+
+version_drop_legacy_table_if_replaced() {
+    local batch_first_started=${1:-0000-00-00}
+    local legacy_table_sql
+    local legacy_current_count
+    local missing_replacement_count
+    local versions_table_sql
+    local normalized_filter_sql
+
+    version_legacy_table_exists || return 0
+    legacy_table_sql=$(sqlite_quote_identifier "$table_version_name")
+    versions_table_sql=$(sqlite_quote_identifier "$BKG_INDEX_TBL_VER")
+    normalized_filter_sql=$(version_normalized_package_filter_sql)
+
+    sqlite3 "$BKG_INDEX_DB" "delete from $legacy_table_sql where date < $(sqlite_quote_literal "$batch_first_started");" >/dev/null || return 0
+    legacy_current_count=$(sqlite3 "$BKG_INDEX_DB" "select count(*) from $legacy_table_sql where date >= $(sqlite_quote_literal "$batch_first_started");" 2>/dev/null || :)
+    [[ "$legacy_current_count" =~ ^[0-9]+$ ]] || return 0
+
+    if ((legacy_current_count == 0)); then
+        sqlite3 "$BKG_INDEX_DB" "drop table if exists $legacy_table_sql;" >/dev/null || :
+        return 0
+    fi
+
+    missing_replacement_count=$(sqlite3 "$BKG_INDEX_DB" "
+        select count(*)
+        from $legacy_table_sql legacy
+        where legacy.date >= $(sqlite_quote_literal "$batch_first_started")
+          and not exists (
+            select 1
+            from $versions_table_sql normalized
+            where $normalized_filter_sql
+              and normalized.id = legacy.id
+              and normalized.date = legacy.date
+          );
+    " 2>/dev/null || :)
+    [[ "$missing_replacement_count" =~ ^[0-9]+$ ]] || return 0
+
+    if ((missing_replacement_count == 0)); then
+        sqlite3 "$BKG_INDEX_DB" "drop table if exists $legacy_table_sql;" >/dev/null || :
+    fi
+}
+
 version_stage_queue_row() {
     [ -n "$package" ] || return
     [ -n "${VERSION_STAGE_DIR:-}" ] || {
@@ -30,21 +112,33 @@ version_stage_queue_row() {
 
     local row_file
     local table_name_sql
+    local versions_table_sql
     local version_id_sql
     local version_name_sql
     local version_tags_sql
     local version_date_sql
+    local write_legacy_table=${VERSION_WRITE_LEGACY_TABLE:-}
 
     row_file=$(version_stage_row_file) || return 1
     table_name_sql=$(sqlite_escape_identifier "$table_version_name")
+    versions_table_sql=$(sqlite_quote_identifier "$BKG_INDEX_TBL_VER")
     version_id_sql=$(sqlite_escape_literal "$1")
     version_name_sql=$(sqlite_escape_literal "$2")
     version_tags_sql=$(sqlite_escape_literal "$9")
     version_date_sql=$(sqlite_escape_literal "$8")
 
     cat >"$row_file" <<EOF
-insert or replace into "$table_name_sql" (id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags) values ('$version_id_sql', '$version_name_sql', $3, $4, $5, $6, $7, '$version_date_sql', '$version_tags_sql');
+insert or replace into $versions_table_sql (owner_id, owner_type, package_type, owner, repo, package, id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags) values ($(sqlite_quote_literal "${owner_id:-}"), $(sqlite_quote_literal "${owner_type:-}"), $(sqlite_quote_literal "${package_type:-}"), $(sqlite_quote_literal "${owner:-}"), $(sqlite_quote_literal "${repo:-}"), $(sqlite_quote_literal "${package:-}"), '$version_id_sql', '$version_name_sql', $3, $4, $5, $6, $7, '$version_date_sql', '$version_tags_sql');
 EOF
+
+    if [ -z "$write_legacy_table" ]; then
+        version_legacy_table_exists && write_legacy_table=true || write_legacy_table=false
+    fi
+
+    if [ "$write_legacy_table" = "true" ]; then
+        printf 'insert or replace into "%s" (id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags) values (' "$table_name_sql" >>"$row_file"
+        printf "'%s', '%s', %s, %s, %s, %s, %s, '%s', '%s');\n" "$version_id_sql" "$version_name_sql" "$3" "$4" "$5" "$6" "$7" "$version_date_sql" "$version_tags_sql" >>"$row_file"
+    fi
 }
 
 version_flush_staged_rows() {
@@ -57,6 +151,7 @@ version_flush_staged_rows() {
 
     mapfile -t row_files < <(find "$VERSION_STAGE_DIR" -maxdepth 1 -type f -name '*.sql' | sort)
     ((${#row_files[@]} > 0)) || return 0
+    sqlite_ensure_index_schema >/dev/null || return $?
     sql_file=$(mktemp) || return 1
 
     {
@@ -77,12 +172,17 @@ version_build_array_json() {
     [ -n "$package" ] || return
     local newest_version_id="${1:-}"
     local latest_version_id="${2:-}"
+    local version_limit=${3:--1}
+    local version_since_date=${4:-}
     local batch_first_started
 
+    [[ "$version_limit" =~ ^-?[0-9]+$ ]] || version_limit=-1
     batch_first_started=$(current_batch_first_started)
+    [ -z "$version_since_date" ] || batch_first_started=$version_since_date
     [ -n "$batch_first_started" ] || batch_first_started="0000-00-00"
+    version_select_source_sql "$batch_first_started"
 
-    sqlite3 -json "$BKG_INDEX_DB" "select * from '$table_version_name' where date >= '$batch_first_started';" | jq -c --arg newest "$newest_version_id" --arg latest "$latest_version_id" '
+    sqlite3 -json "$BKG_INDEX_DB" "select id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags from $VERSION_SOURCE_TABLE_SQL where $VERSION_SOURCE_WHERE_SQL;" | jq -c --arg newest "$newest_version_id" --arg latest "$latest_version_id" --argjson version_limit "$version_limit" '
         def human_units($units; $spaced):
             . as $value
             | (if type == "number" then . else (tonumber? // .) end) as $n
@@ -149,6 +249,16 @@ version_build_array_json() {
                 )
             }
         )
+        | if $version_limit < 0 then
+            .
+          else
+            (
+                [ .[] | select(.latest == true or .newest == true) ]
+                + (if $version_limit == 0 then [] else (sort_by(sort_id_key) | .[-$version_limit:]) end)
+            )
+            | unique_by(.id | tostring)
+            | sort_by(sort_id_key)
+          end
     '
 }
 

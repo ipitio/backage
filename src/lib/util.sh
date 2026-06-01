@@ -280,11 +280,92 @@ sqlite_escape_identifier() {
     printf '%s' "$1" | sed 's/"/""/g'
 }
 
+sqlite_quote_literal() {
+    printf "'%s'" "$(sqlite_escape_literal "$1")"
+}
+
+sqlite_quote_identifier() {
+    printf '"%s"' "$(sqlite_escape_identifier "$1")"
+}
+
+sqlite_ensure_index_schema() {
+    [ -n "${BKG_INDEX_DB:-}" ] || return 1
+    local schema_key="${BKG_INDEX_DB}|${BKG_INDEX_TBL_OWN}|${BKG_INDEX_TBL_PKG}|${BKG_INDEX_TBL_VER}"
+    local owners_table_sql
+    local packages_table_sql
+    local versions_table_sql
+
+    [ "${BKG_INDEX_SCHEMA_READY_FOR:-}" != "$schema_key" ] || return 0
+
+    owners_table_sql=$(sqlite_quote_identifier "$BKG_INDEX_TBL_OWN")
+    packages_table_sql=$(sqlite_quote_identifier "$BKG_INDEX_TBL_PKG")
+    versions_table_sql=$(sqlite_quote_identifier "$BKG_INDEX_TBL_VER")
+
+    sqlite3 "$BKG_INDEX_DB" "
+        create table if not exists $owners_table_sql (
+            owner_id text not null,
+            owner text not null,
+            date text not null,
+            primary key (owner_id, date)
+        );
+        create table if not exists $packages_table_sql (
+            owner_id text,
+            owner_type text not null,
+            package_type text not null,
+            owner text not null,
+            repo text not null,
+            package text not null,
+            downloads integer not null,
+            downloads_month integer not null,
+            downloads_week integer not null,
+            downloads_day integer not null,
+            size integer not null,
+            date text not null,
+            primary key (owner_id, package, date)
+        );
+        create table if not exists $versions_table_sql (
+            owner_id text not null,
+            owner_type text not null,
+            package_type text not null,
+            owner text not null,
+            repo text not null,
+            package text not null,
+            id text not null,
+            name text not null,
+            size integer not null,
+            downloads integer not null,
+            downloads_month integer not null,
+            downloads_week integer not null,
+            downloads_day integer not null,
+            date text not null,
+            tags text,
+            primary key (owner_id, package_type, repo, package, id, date)
+        );
+        create index if not exists \"idx_bkg_owners_date_owner\" on $owners_table_sql (date, owner);
+        create index if not exists \"idx_bkg_packages_owner_repo_package_date\" on $packages_table_sql (owner_id, owner, repo, package, date);
+        create index if not exists \"idx_bkg_packages_owner_name_date\" on $packages_table_sql (owner_id, owner, date);
+        create index if not exists \"idx_bkg_packages_owner_date_downloads\" on $packages_table_sql (owner_id, date, downloads desc, package);
+        create index if not exists \"idx_bkg_packages_owner_repo_date_downloads\" on $packages_table_sql (owner_id, repo, date, downloads desc, package);
+        create index if not exists \"idx_bkg_versions_package_date\" on $versions_table_sql (owner_id, package_type, repo, package, date);
+        create index if not exists \"idx_bkg_versions_date\" on $versions_table_sql (date);
+        pragma auto_vacuum = full;
+    " || return $?
+    BKG_INDEX_SCHEMA_READY_FOR=$schema_key
+}
+
 cleanup_generated_json_sidecars() {
     [ -n "$1" ] || return
     [ -e "$1" ] || return 0
 
     find "$1" -type f \( -name '*.json.tmp' -o -name '*.json.abs' -o -name '*.json.rel' \) -delete
+}
+
+ytoxt_script_path() {
+    if [ -f "$BKG_ROOT/src/lib/ytoxt.sh" ]; then
+        printf '%s\n' "$BKG_ROOT/src/lib/ytoxt.sh"
+    else
+        printf '%s\n' "lib/ytoxt.sh"
+    fi
 }
 
 get_BKG() {
@@ -496,15 +577,7 @@ run_command_with_stop_check() {
         status=$?
 
         if ((status == 3)) || stop_requested; then
-            kill "$pid" 2>/dev/null || :
-
-            for _ in 1 2 3 4 5; do
-                kill -0 "$pid" 2>/dev/null || break
-                sleep 1
-            done
-
-            kill -9 "$pid" 2>/dev/null || :
-            wait "$pid" 2>/dev/null || :
+            terminate_process_tree "$pid"
             rm -f "$stdout_file" "$stderr_file"
             return 3
         fi
@@ -524,6 +597,55 @@ run_command_with_stop_check() {
 
     rm -f "$stdout_file" "$stderr_file"
     return "$status"
+}
+
+run_command_to_file_with_stop_check() {
+    local output_file=$1
+    local stderr_file
+    local pid
+    local status
+
+    [ -n "$output_file" ] || return 1
+    shift
+
+    stderr_file=$(mktemp)
+
+    "$@" >"$output_file" 2>"$stderr_file" &
+    pid=$!
+
+    while kill -0 "$pid" 2>/dev/null; do
+        check_script_timeout
+        status=$?
+
+        if ((status == 3)) || stop_requested; then
+            terminate_process_tree "$pid"
+            rm -f "$stderr_file"
+            return 3
+        fi
+
+        sleep 1
+    done
+
+    wait "$pid"
+    status=$?
+    cat "$stderr_file" >&2
+
+    rm -f "$stderr_file"
+    return "$status"
+}
+
+collect_child_pids() {
+    local root_pid=$1
+    local child_pid
+
+    [ -n "$root_pid" ] || return
+
+    while IFS= read -r child_pid; do
+        child_pid=$(awk '{print $1}' <<<"$child_pid")
+        [ -n "$child_pid" ] || continue
+        printf '%s\n' "$child_pid"
+        collect_child_pids "$child_pid"
+    done < <(ps -o pid= --ppid "$root_pid" 2>/dev/null)
 }
 
 filter_running_pids() {
@@ -558,6 +680,38 @@ terminate_pids_with_grace() {
     for pid in "$@"; do
         wait "$pid" 2>/dev/null || :
     done
+}
+
+terminate_process_tree() {
+    local root_pid
+    local pid
+    local -a pids=()
+
+    (("$#" > 0)) || return
+
+    for root_pid in "$@"; do
+        [ -n "$root_pid" ] || continue
+        while IFS= read -r pid; do
+            [ -n "$pid" ] || continue
+            pids+=("$pid")
+        done < <(collect_child_pids "$root_pid")
+
+        pids+=("$root_pid")
+    done
+
+    ((${#pids[@]} > 0)) || return
+    terminate_pids_with_grace "${pids[@]}"
+}
+
+script_stop_requested() {
+    local timeout_status=0
+
+    stop_requested && return 0
+    [ -n "$(get_BKG BKG_SCRIPT_START)" ] || [ -n "${BKG_SCRIPT_START:-}" ] || return 1
+    check_script_timeout
+    timeout_status=$?
+    ((timeout_status == 3)) && return 0
+    stop_requested
 }
 
 curl_single_attempt() {
@@ -682,9 +836,9 @@ run_parallel() {
         [ -n "$item" ] || continue
         code=$(cat "$exit_code")
 
-        if grep -q "3" <<<"$code" || stop_requested; then
+        if grep -q "3" <<<"$code" || script_stop_requested; then
             printf '%s\n' 3 >>"$exit_code"
-            terminate_pids_with_grace "${active_pids[@]}"
+            terminate_process_tree "${active_pids[@]}"
             active_pids=()
             stop_now=true
             break
@@ -696,9 +850,9 @@ run_parallel() {
             mapfile -t active_pids < <(filter_running_pids "${active_pids[@]}")
             code=$(cat "$exit_code")
 
-            if grep -q "3" <<<"$code" || stop_requested; then
+            if grep -q "3" <<<"$code" || script_stop_requested; then
                 printf '%s\n' 3 >>"$exit_code"
-                terminate_pids_with_grace "${active_pids[@]}"
+                terminate_process_tree "${active_pids[@]}"
                 active_pids=()
                 stop_now=true
                 break
@@ -718,9 +872,9 @@ run_parallel() {
         mapfile -t active_pids < <(filter_running_pids "${active_pids[@]}")
         code=$(cat "$exit_code")
 
-        if grep -q "3" <<<"$code" || stop_requested; then
+        if grep -q "3" <<<"$code" || script_stop_requested; then
             printf '%s\n' 3 >>"$exit_code"
-            terminate_pids_with_grace "${active_pids[@]}"
+            terminate_process_tree "${active_pids[@]}"
             active_pids=()
             break
         fi
@@ -741,20 +895,39 @@ parallel_shell_func() {
     local function_name=$2
     local status
     local stderr_file
+    local stdin_file
+    local parallel_pid
     shift 2
 
     stderr_file=$(mktemp)
-    parallel "$@" bash "$BKG_ROOT/src/lib/parallel-worker.sh" "$source_file" "$function_name" 2>"$stderr_file"
-    status=$?
+    stdin_file=$(mktemp)
+    cat >"$stdin_file"
+    parallel "$@" bash "$BKG_ROOT/src/lib/parallel-worker.sh" "$source_file" "$function_name" <"$stdin_file" 2>"$stderr_file" &
+    parallel_pid=$!
+
+    while kill -0 "$parallel_pid" 2>/dev/null; do
+        if script_stop_requested; then
+            terminate_process_tree "$parallel_pid"
+            status=3
+            break
+        fi
+
+        sleep 1
+    done
+
+    if [ -z "${status:-}" ]; then
+        wait "$parallel_pid"
+        status=$?
+    fi
 
     if ((status == 2 || status == 3)) && [ "$(get_BKG BKG_TIMEOUT)" = "1" ]; then
         grep -Ev '^parallel: This job failed:$|^bash .*/parallel-worker\.sh .*$|^parallel: Starting no more jobs\. Waiting for [0-9]+ jobs to finish\.$' "$stderr_file" >&2 || :
-        rm -f "$stderr_file"
+        rm -f "$stderr_file" "$stdin_file"
         return 3
     fi
 
     cat "$stderr_file" >&2
-    rm -f "$stderr_file"
+    rm -f "$stderr_file" "$stdin_file"
     return "$status"
 }
 
@@ -805,7 +978,7 @@ parallel_async_submit() {
         PARALLEL_ASYNC_RUNNING=${#PARALLEL_ASYNC_PIDS[@]}
         parallel_async_status || {
             async_status=$?
-            terminate_pids_with_grace "${PARALLEL_ASYNC_PIDS[@]}"
+            terminate_process_tree "${PARALLEL_ASYNC_PIDS[@]}"
             PARALLEL_ASYNC_PIDS=()
             PARALLEL_ASYNC_RUNNING=0
             return "$async_status"
@@ -815,9 +988,9 @@ parallel_async_submit() {
             :
         fi
 
-        if stop_requested; then
+        if script_stop_requested; then
             printf '%s\n' 3 >>"$PARALLEL_ASYNC_EXIT_CODE"
-            terminate_pids_with_grace "${PARALLEL_ASYNC_PIDS[@]}"
+            terminate_process_tree "${PARALLEL_ASYNC_PIDS[@]}"
             PARALLEL_ASYNC_PIDS=()
             PARALLEL_ASYNC_RUNNING=0
             return 3
@@ -842,9 +1015,9 @@ parallel_async_wait() {
         mapfile -t PARALLEL_ASYNC_PIDS < <(filter_running_pids "${PARALLEL_ASYNC_PIDS[@]}")
         PARALLEL_ASYNC_RUNNING=${#PARALLEL_ASYNC_PIDS[@]}
 
-        if stop_requested; then
+        if script_stop_requested; then
             printf '%s\n' 3 >>"$PARALLEL_ASYNC_EXIT_CODE"
-            terminate_pids_with_grace "${PARALLEL_ASYNC_PIDS[@]}"
+            terminate_process_tree "${PARALLEL_ASYNC_PIDS[@]}"
             PARALLEL_ASYNC_PIDS=()
             PARALLEL_ASYNC_RUNNING=0
             status=3
@@ -854,7 +1027,7 @@ parallel_async_wait() {
         parallel_async_status || {
             async_status=$?
             status=$async_status
-            terminate_pids_with_grace "${PARALLEL_ASYNC_PIDS[@]}"
+            terminate_process_tree "${PARALLEL_ASYNC_PIDS[@]}"
             PARALLEL_ASYNC_PIDS=()
             PARALLEL_ASYNC_RUNNING=0
             break

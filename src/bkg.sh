@@ -109,7 +109,7 @@ run_owner_updates() {
 		while kill -0 "$updates_pid" 2>/dev/null; do
 			sleep 30
 			kill -0 "$updates_pid" 2>/dev/null || break
-			[ "$(get_BKG BKG_TIMEOUT)" = "1" ] || continue
+			script_stop_requested || continue
 			owner_update_wait_notice "$stop_wait_started" "$last_wait_notice"
 			stop_wait_started=$OWNER_UPDATE_WAIT_STARTED
 			last_wait_notice=$OWNER_UPDATE_WAIT_LAST_NOTICE
@@ -280,6 +280,87 @@ checkpoint_database_for_archive() {
 	command sqlite3 "$BKG_INDEX_DB" 'pragma wal_checkpoint(truncate);' >/dev/null 2>&1 || sqlite3 "$BKG_INDEX_DB" 'pragma wal_checkpoint(truncate);' >/dev/null 2>&1 || :
 }
 
+drop_replaced_legacy_version_tables() {
+	local batch_first_started=${1:-}
+	local batch_first_started_sql
+	local package_ref
+	local legacy_current_count
+	local missing_replacement_count
+	local owner_id_key
+	local owner_type_key
+	local package_type_key
+	local owner_key
+	local repo_key
+	local package_key
+	local legacy_table_sql
+	local versions_table_sql
+	local packages_table_sql
+	local legacy_prefix_sql
+	local table_name
+
+	[ -n "${BKG_INDEX_DB:-}" ] || return 0
+	[ -n "$batch_first_started" ] || batch_first_started=$(current_batch_first_started)
+	[ -n "$batch_first_started" ] || batch_first_started="0000-00-00"
+
+	batch_first_started_sql=$(sqlite_quote_literal "$batch_first_started")
+	versions_table_sql=$(sqlite_quote_identifier "$BKG_INDEX_TBL_VER")
+	packages_table_sql=$(sqlite_quote_identifier "$BKG_INDEX_TBL_PKG")
+	legacy_prefix_sql=$(sqlite_quote_literal "${BKG_INDEX_TBL_VER}_")
+
+	while IFS= read -r table_name; do
+		[ -n "$table_name" ] || continue
+		[ "$table_name" != "$BKG_INDEX_TBL_VER" ] || continue
+		legacy_table_sql=$(sqlite_quote_identifier "$table_name")
+
+		sqlite3 "$BKG_INDEX_DB" "delete from $legacy_table_sql where date < $batch_first_started_sql;" >/dev/null || continue
+		legacy_current_count=$(sqlite3 "$BKG_INDEX_DB" "select count(*) from $legacy_table_sql where date >= $batch_first_started_sql;" 2>/dev/null || :)
+		[[ "$legacy_current_count" =~ ^[0-9]+$ ]] || continue
+
+		if ((legacy_current_count == 0)); then
+			sqlite3 "$BKG_INDEX_DB" "drop table if exists $legacy_table_sql;" >/dev/null || :
+			continue
+		fi
+
+		package_ref=$(sqlite3 "$BKG_INDEX_DB" "
+			select owner_id, owner_type, package_type, owner, repo, package
+			from $packages_table_sql
+			where date >= $batch_first_started_sql
+			  and ($legacy_prefix_sql || owner_type || '_' || package_type || '_' || owner || '_' || repo || '_' || package) = $(sqlite_quote_literal "$table_name")
+			order by date desc
+			limit 1;
+		" 2>/dev/null || :)
+
+		if [ -z "$package_ref" ]; then
+			sqlite3 "$BKG_INDEX_DB" "drop table if exists $legacy_table_sql;" >/dev/null || :
+			continue
+		fi
+
+		IFS='|' read -r owner_id_key owner_type_key package_type_key owner_key repo_key package_key <<<"$package_ref"
+		missing_replacement_count=$(sqlite3 "$BKG_INDEX_DB" "
+			select count(*)
+			from $legacy_table_sql legacy
+			where legacy.date >= $batch_first_started_sql
+			  and not exists (
+				select 1
+				from $versions_table_sql normalized
+				where normalized.owner_id = $(sqlite_quote_literal "$owner_id_key")
+				  and normalized.owner_type = $(sqlite_quote_literal "$owner_type_key")
+				  and normalized.package_type = $(sqlite_quote_literal "$package_type_key")
+				  and normalized.owner = $(sqlite_quote_literal "$owner_key")
+				  and normalized.repo = $(sqlite_quote_literal "$repo_key")
+				  and normalized.package = $(sqlite_quote_literal "$package_key")
+				  and normalized.id = legacy.id
+				  and normalized.date = legacy.date
+			  );
+		" 2>/dev/null || :)
+		[[ "$missing_replacement_count" =~ ^[0-9]+$ ]] || continue
+
+		if ((missing_replacement_count == 0)); then
+			sqlite3 "$BKG_INDEX_DB" "drop table if exists $legacy_table_sql;" >/dev/null || :
+		fi
+	done < <(sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name like $(sqlite_quote_literal "${BKG_INDEX_TBL_VER}_%") order by name;" 2>/dev/null || :)
+}
+
 main() {
 	local rotated=false
 	local owners
@@ -298,6 +379,10 @@ main() {
 	local rest_first
 	local request_limit=100
 	local phase_started_at=0
+	local owners_table_sql
+	local packages_table_sql
+	local versions_table_sql
+	local batch_first_started_sql
 	connections=$(mktemp) || exit 1
 	temp_connections=$(mktemp) || exit 1
 
@@ -358,30 +443,14 @@ main() {
 		[ -f "$BKG_INDEX_DB".bak ] && mv "$BKG_INDEX_DB".bak "$BKG_INDEX_DB" || sqlite3 "$BKG_INDEX_DB" ""
 	}
 	phase_started_at=$(startup_phase_started_at)
-	sqlite3 "$BKG_INDEX_DB" "create table if not exists '$BKG_INDEX_TBL_OWN' (
-		owner_id text not null,
-		owner text not null,
-		date text not null,
-		primary key (owner_id, date)
-	);"
-	sqlite3 "$BKG_INDEX_DB" "create table if not exists '$BKG_INDEX_TBL_PKG' (
-        owner_id text,
-        owner_type text not null,
-        package_type text not null,
-        owner text not null,
-        repo text not null,
-        package text not null,
-        downloads integer not null,
-        downloads_month integer not null,
-        downloads_week integer not null,
-        downloads_day integer not null,
-        size integer not null,
-        date text not null,
-        primary key (owner_id, package, date)
-    ); pragma auto_vacuum = full;"
-	sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, repo, package, max(date) as max_date from '$BKG_INDEX_TBL_PKG' group by owner_id, owner, repo, package having max(date) >= '$BKG_BATCH_FIRST_STARTED' order by max_date asc;" >packages_already_updated
-	sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, repo, package, max(date) as max_date from '$BKG_INDEX_TBL_PKG' group by owner_id, owner, repo, package order by date asc;" >packages_all
-	sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, max(date) as max_date from '$BKG_INDEX_TBL_PKG' group by owner_id, owner order by date asc;" | awk -F'|' '{print $2}' >all_owners_in_db
+	sqlite_ensure_index_schema || return $?
+	owners_table_sql=$(sqlite_quote_identifier "$BKG_INDEX_TBL_OWN")
+	packages_table_sql=$(sqlite_quote_identifier "$BKG_INDEX_TBL_PKG")
+	versions_table_sql=$(sqlite_quote_identifier "$BKG_INDEX_TBL_VER")
+	batch_first_started_sql=$(sqlite_quote_literal "$BKG_BATCH_FIRST_STARTED")
+	sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, repo, package, max(date) as max_date from $packages_table_sql group by owner_id, owner, repo, package having max(date) >= $batch_first_started_sql order by max_date asc;" >packages_already_updated
+	sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, repo, package, max(date) as max_date from $packages_table_sql group by owner_id, owner, repo, package order by date asc;" >packages_all
+	sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, max(date) as max_date from $packages_table_sql group by owner_id, owner order by date asc;" | awk -F'|' '{print $2}' >all_owners_in_db
 	grep -vFxf packages_already_updated packages_all >packages_to_update
 	pkg_done=$(wc -l <packages_already_updated)
 	pkg_left=$(wc -l <packages_to_update)
@@ -482,7 +551,8 @@ main() {
 				grep -vFxf owners_updated all_owners_tu >owners_stale
 				sort "$connections" | uniq -c | sort -nr | awk '{print $2}' >"$connections".bak
 				mv "$connections".bak "$connections"
-				sqlite3 "$BKG_INDEX_DB" "select owner from '$BKG_INDEX_TBL_OWN' where date >= '$BKG_BATCH_FIRST_STARTED' order by owner asc;" >owners_scanned_without_packages
+				batch_first_started_sql=$(sqlite_quote_literal "$BKG_BATCH_FIRST_STARTED")
+				sqlite3 "$BKG_INDEX_DB" "select owner from $owners_table_sql where date >= $batch_first_started_sql order by owner asc;" >owners_scanned_without_packages
 				grep -vFxf owners_scanned_without_packages "$connections" >"$connections".filtered || :
 				mv "$connections".filtered "$connections"
 				clean_owners "$BKG_OWNERS"
@@ -582,7 +652,7 @@ main() {
 		fi
 
 		set_BKG BKG_OUT "$(wc -l <"$BKG_OPTOUT")"
-		sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, repo, package from '$BKG_INDEX_TBL_PKG';" | sort -u >packages_all
+		sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, repo, package from $packages_table_sql;" | sort -u >packages_all
 		echo "Preparing the database snapshot..."
 		checkpoint_database_for_archive
 		db_archive_file=$(db_snapshot_archive_file)
@@ -602,8 +672,10 @@ main() {
 					zstd -22 --ultra --long -T0 "$db_archive_file" -o "$older_db"
 					rm -f "$db_archive_file"
 				fi
-				sqlite3 "$BKG_INDEX_DB" "delete from '$BKG_INDEX_TBL_PKG' where date < '$BKG_BATCH_FIRST_STARTED';"
-				sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name like '${BKG_INDEX_TBL_VER}_%';" | parallel --lb "sqlite3 '$BKG_INDEX_DB' 'delete from {} where date < \"$BKG_BATCH_FIRST_STARTED\";'"
+				batch_first_started_sql=$(sqlite_quote_literal "$BKG_BATCH_FIRST_STARTED")
+				sqlite3 "$BKG_INDEX_DB" "delete from $packages_table_sql where date < $batch_first_started_sql;"
+				sqlite3 "$BKG_INDEX_DB" "delete from $versions_table_sql where date < $batch_first_started_sql;"
+				drop_replaced_legacy_version_tables "$BKG_BATCH_FIRST_STARTED"
 				sqlite3 "$BKG_INDEX_DB" "vacuum;"
 				checkpoint_database_for_archive
 				rm -f "$db_archive_tmp"
