@@ -175,6 +175,9 @@ version_build_array_json() {
     local version_limit=${3:--1}
     local version_since_date=${4:-}
     local batch_first_started
+    local version_rows_sql
+    local newest_version_id_sql
+    local latest_version_id_sql
 
     [[ "$version_limit" =~ ^-?[0-9]+$ ]] || version_limit=-1
     batch_first_started=$(current_batch_first_started)
@@ -182,7 +185,79 @@ version_build_array_json() {
     [ -n "$batch_first_started" ] || batch_first_started="0000-00-00"
     version_select_source_sql "$batch_first_started"
 
-    sqlite3 -json "$BKG_INDEX_DB" "select id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags from $VERSION_SOURCE_TABLE_SQL where $VERSION_SOURCE_WHERE_SQL;" | jq -c --arg newest "$newest_version_id" --arg latest "$latest_version_id" --argjson version_limit "$version_limit" '
+    if ((version_limit < 0)); then
+        version_rows_sql="select id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags from $VERSION_SOURCE_TABLE_SQL where $VERSION_SOURCE_WHERE_SQL;"
+    else
+        newest_version_id_sql=$(sqlite_quote_literal "$newest_version_id")
+        latest_version_id_sql=$(sqlite_quote_literal "$latest_version_id")
+        version_rows_sql="
+            with version_candidates as (
+                select
+                    id,
+                    name,
+                    size,
+                    downloads,
+                    downloads_month,
+                    downloads_week,
+                    downloads_day,
+                    date,
+                    tags,
+                    case when id regexp '^[0-9]+$' then cast(id as integer) end as numeric_id,
+                    row_number() over (
+                        partition by id
+                        order by date desc
+                    ) as version_date_rank
+                from $VERSION_SOURCE_TABLE_SQL
+                where $VERSION_SOURCE_WHERE_SQL
+            ),
+            version_rows as (
+                select
+                    id,
+                    name,
+                    size,
+                    downloads,
+                    downloads_month,
+                    downloads_week,
+                    downloads_day,
+                    date,
+                    tags,
+                    numeric_id
+                from version_candidates
+                where version_date_rank = 1
+            ),
+            ranked_versions as (
+                select
+                    id,
+                    name,
+                    size,
+                    downloads,
+                    downloads_month,
+                    downloads_week,
+                    downloads_day,
+                    date,
+                    tags,
+                    row_number() over (
+                        order by
+                            case when numeric_id is null then 1 else 0 end desc,
+                            coalesce(numeric_id, 0) desc,
+                            id desc
+                    ) as tail_rank,
+                    case
+                        when id = $newest_version_id_sql
+                          or id = $latest_version_id_sql
+                        then 1
+                        else 0
+                    end as mandatory
+                from version_rows
+            )
+            select id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags
+            from ranked_versions
+            where mandatory = 1
+               or ($version_limit > 0 and tail_rank <= $version_limit);
+        "
+    fi
+
+    sqlite3 -json "$BKG_INDEX_DB" "$version_rows_sql" | jq -c --arg newest "$newest_version_id" --arg latest "$latest_version_id" --argjson version_limit "$version_limit" '
         def human_units($units; $spaced):
             . as $value
             | (if type == "number" then . else (tonumber? // .) end) as $n

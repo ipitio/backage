@@ -269,6 +269,218 @@ owner_array_source_json_size() {
 	find "$1" -type f -name '*.json' ! -name '.*' -printf '%s\n' | awk '{s += $1; n++} END {print s + n + 2}'
 }
 
+owner_array_db_fallback_version_limit() {
+	local version_limit=${BKG_OWNER_ARRAY_DB_FALLBACK_VERSION_LIMIT:-2}
+
+	[[ "$version_limit" =~ ^-?[0-9]+$ ]] || version_limit=2
+	printf '%s\n' "$version_limit"
+}
+
+owner_array_db_estimated_version_limit() {
+	[ -n "$1" ] || return
+	local owner_id_filter=$1
+	local repo_filter=${2:-}
+	local target_bytes=${3:-$(owner_array_target_bytes)}
+	local owner_id_sql
+	local repo_filter_sql=""
+	local packages_table_sql
+	local versions_table_sql
+	local legacy_prefix_sql
+	local effective_target
+	local headroom_percent=${BKG_OWNER_ARRAY_DB_ESTIMATE_HEADROOM_PERCENT:-75}
+	local fallback_limit
+	local estimated_limit
+
+	[[ "$target_bytes" =~ ^[1-9][0-9]*$ ]] || target_bytes=$(owner_array_target_bytes)
+	[[ "$headroom_percent" =~ ^[1-9][0-9]*$ ]] || headroom_percent=75
+	((headroom_percent <= 100)) || headroom_percent=100
+	effective_target=$((target_bytes * headroom_percent / 100))
+	((effective_target > 0)) || effective_target=$target_bytes
+
+	fallback_limit=$(owner_array_db_fallback_version_limit)
+	owner_id_sql=$(sqlite_quote_literal "$owner_id_filter")
+	packages_table_sql=$(sqlite_quote_identifier "$BKG_INDEX_TBL_PKG")
+	versions_table_sql=$(sqlite_quote_identifier "$BKG_INDEX_TBL_VER")
+	legacy_prefix_sql=$(sqlite_quote_literal "${BKG_INDEX_TBL_VER}_")
+	if [ -n "$repo_filter" ]; then
+		repo_filter_sql="and p.repo = $(sqlite_quote_literal "$repo_filter")"
+	fi
+
+	estimated_limit=$(sqlite3 "$BKG_INDEX_DB" "
+		with latest_dates as (
+			select owner_id, package, max(date) as latest_date
+			from $packages_table_sql
+			where owner_id = $owner_id_sql
+			group by owner_id, package
+		),
+		latest_packages as (
+			select
+				p.owner_id,
+				p.owner_type,
+				p.package_type,
+				p.owner,
+				p.repo,
+				p.package,
+				p.date
+			from $packages_table_sql p
+			join latest_dates l
+			  on p.owner_id = l.owner_id
+			 and p.package = l.package
+			 and p.date = l.latest_date
+			where p.owner_id = $owner_id_sql
+			  $repo_filter_sql
+		),
+		version_candidates as (
+			select
+				v.owner_id,
+				v.owner_type,
+				v.package_type,
+				v.owner,
+				v.repo,
+				v.package,
+				v.id,
+				v.name,
+				v.size,
+				v.downloads,
+				v.downloads_month,
+				v.downloads_week,
+				v.downloads_day,
+				v.date,
+				v.tags,
+				case when v.id regexp '^[0-9]+$' then cast(v.id as integer) end as numeric_id,
+				replace(replace(replace(replace(coalesce(v.tags, ''), ' ', ''), char(9), ''), char(10), ''), char(13), '') as compact_tags,
+				row_number() over (
+					partition by v.owner_id, v.package_type, v.repo, v.package, v.id
+					order by v.date desc
+				) as version_date_rank
+			from $versions_table_sql v
+			join latest_packages p
+			  on v.owner_id = p.owner_id
+			 and v.owner_type = p.owner_type
+			 and v.package_type = p.package_type
+			 and v.owner = p.owner
+			 and v.repo = p.repo
+			 and v.package = p.package
+			 and v.date >= p.date
+		),
+		version_rows as (
+			select *
+			from version_candidates
+			where version_date_rank = 1
+		),
+		legacy_fallback_packages as (
+			select 1
+			from latest_packages p
+			where not exists (
+				select 1
+				from $versions_table_sql v
+				where v.owner_id = p.owner_id
+				  and v.owner_type = p.owner_type
+				  and v.package_type = p.package_type
+				  and v.owner = p.owner
+				  and v.repo = p.repo
+				  and v.package = p.package
+				  and v.date >= p.date
+				limit 1
+			)
+			  and exists (
+				select 1
+				from sqlite_master sm
+				where sm.type = 'table'
+				  and sm.name = ($legacy_prefix_sql || p.owner_type || '_' || p.package_type || '_' || p.owner || '_' || p.repo || '_' || p.package)
+				limit 1
+			)
+		),
+		package_marks as (
+			select
+				owner_id,
+				owner_type,
+				package_type,
+				owner,
+				repo,
+				package,
+				max(numeric_id) as newest_numeric_id,
+				coalesce(
+					max(case when numeric_id is not null and tags is not null and tags != '' and (',' || compact_tags || ',') like '%,latest,%' then numeric_id end),
+					max(case when numeric_id is not null and tags is not null and tags != '' and instr(tags, '^') = 0 and instr(tags, '~') = 0 and instr(tags, '-') = 0 then numeric_id end),
+					max(case when numeric_id is not null and tags is not null and tags != '' and instr(tags, '^') = 0 and instr(tags, '~') = 0 then numeric_id end),
+					max(case when numeric_id is not null and tags is not null and tags != '' and instr(tags, '^') = 0 then numeric_id end),
+					max(case when numeric_id is not null and tags is not null and tags != '' then numeric_id end)
+				) as latest_numeric_id
+			from version_rows
+			group by owner_id, owner_type, package_type, owner, repo, package
+		),
+		ranked_versions as (
+			select
+				v.*,
+				(
+					240
+					+ length(coalesce(v.id, ''))
+					+ length(coalesce(v.name, ''))
+					+ length(coalesce(v.date, ''))
+					+ length(coalesce(v.tags, ''))
+					+ length(cast(coalesce(v.size, -1) as text))
+					+ length(cast(coalesce(v.downloads, -1) as text))
+					+ length(cast(coalesce(v.downloads_month, -1) as text))
+					+ length(cast(coalesce(v.downloads_week, -1) as text))
+					+ length(cast(coalesce(v.downloads_day, -1) as text))
+				) as estimated_version_bytes,
+				row_number() over (
+					partition by v.owner_id, v.package_type, v.repo, v.package
+					order by
+						case when v.numeric_id is null then 1 else 0 end desc,
+						coalesce(v.numeric_id, 0) desc,
+						v.id desc
+				) as tail_rank,
+				case
+					when v.numeric_id is not null
+					 and (
+						v.numeric_id = m.newest_numeric_id
+						or v.numeric_id = m.latest_numeric_id
+					 )
+					then 1
+					else 0
+				end as mandatory
+			from version_rows v
+			join package_marks m
+			  on v.owner_id = m.owner_id
+			 and v.owner_type = m.owner_type
+			 and v.package_type = m.package_type
+			 and v.owner = m.owner
+			 and v.repo = m.repo
+			 and v.package = m.package
+		),
+		base_estimate as (
+			select
+				coalesce((select count(*) from latest_packages), 0) * 900 + 2 as package_bytes,
+				coalesce((select sum(estimated_version_bytes) from ranked_versions where mandatory = 1), 0) as mandatory_version_bytes
+		),
+		optional_rank_costs as (
+			select tail_rank, sum(estimated_version_bytes) as rank_bytes
+			from ranked_versions
+			where mandatory = 0
+			group by tail_rank
+		),
+		candidates as (
+			select
+				tail_rank as version_limit,
+				(select package_bytes + mandatory_version_bytes from base_estimate)
+					+ sum(rank_bytes) over (order by tail_rank rows between unbounded preceding and current row) as estimated_bytes
+			from optional_rank_costs
+		)
+		select
+			case
+				when (select count(*) from latest_packages) = 0 then 0
+				when (select package_bytes + mandatory_version_bytes from base_estimate) >= $effective_target then 0
+				when (select count(*) from legacy_fallback_packages) > 0 then $fallback_limit
+				else coalesce((select max(version_limit) from candidates where estimated_bytes <= $effective_target), 0)
+			end;
+	" 2>/dev/null || :)
+
+	[[ "$estimated_limit" =~ ^[0-9]+$ ]] || estimated_limit=$fallback_limit
+	printf '%s\n' "$estimated_limit"
+}
+
 owner_build_json_array_limit_to_file() {
 	[ -n "$1" ] || return
 	[ -n "$2" ] || return
@@ -505,15 +717,6 @@ owner_build_json_array_from_db_limit_to_file() {
 	run_command_to_file_with_stop_check "$3" owner_build_json_array_from_db_once "$1" "$2" "$4"
 }
 
-owner_build_json_array_from_db_try_limit() {
-	[ -n "$1" ] || return
-	[ -n "$3" ] || return
-	[ -n "$4" ] || return
-
-	owner_build_json_array_from_db_limit_to_file "$1" "$2" "$3" "$4" || return $?
-	OWNER_ARRAY_LAST_SIZE=$(stat -c %s "$3" 2>/dev/null || echo 0)
-}
-
 owner_build_json_array_from_db_to_file() {
 	[ -n "$1" ] || return
 	[ -n "$4" ] || return
@@ -524,16 +727,7 @@ owner_build_json_array_from_db_to_file() {
 	local target_bytes
 	local source_size=0
 	local source_count=0
-	local tmp_file=""
-	local best_file=""
-	local current_size=0
-	local status=0
-	local low=0
-	local high=1
-	local mid
-	local max_probe=${BKG_OWNER_ARRAY_ADAPTIVE_MAX_PROBE:-65536}
-
-	[[ "$max_probe" =~ ^[1-9][0-9]*$ ]] || max_probe=65536
+	local version_limit
 
 	if [ -n "${BKG_OWNER_ARRAY_VERSION_LIMIT+x}" ]; then
 		owner_build_json_array_from_db_limit_to_file "$owner_id_filter" "$repo_filter" "$output_file" "$BKG_OWNER_ARRAY_VERSION_LIMIT"
@@ -550,68 +744,13 @@ owner_build_json_array_from_db_to_file() {
 		return $?
 	fi
 
-	best_file=$(mktemp "$(dirname "$output_file")/.${output_file##*/}.best.XXXXXX") || return 1
-	owner_build_json_array_from_db_try_limit "$owner_id_filter" "$repo_filter" "$best_file" "0" || {
-		status=$?
-		rm -f "$best_file"
-		return "$status"
-	}
-	current_size=$OWNER_ARRAY_LAST_SIZE
-
-	if ((current_size > target_bytes)); then
-		echo "Aggregate minimum size ${current_size} exceeds target ${target_bytes}; publishing latest/newest slice" >&2
-		mv -f "$best_file" "$output_file"
-		return 0
+	if [ -n "${BKG_OWNER_ARRAY_DB_VERSION_LIMIT+x}" ]; then
+		version_limit=$BKG_OWNER_ARRAY_DB_VERSION_LIMIT
+		[[ "$version_limit" =~ ^-?[0-9]+$ ]] || version_limit=$(owner_array_db_fallback_version_limit)
+	else
+		version_limit=$(owner_array_db_estimated_version_limit "$owner_id_filter" "$repo_filter" "$target_bytes")
 	fi
-
-	while ((high <= max_probe)); do
-		tmp_file=$(mktemp "$(dirname "$output_file")/.${output_file##*/}.try.XXXXXX") || {
-			rm -f "$best_file"
-			return 1
-		}
-		owner_build_json_array_from_db_try_limit "$owner_id_filter" "$repo_filter" "$tmp_file" "$high" || {
-			status=$?
-			rm -f "$tmp_file" "$best_file"
-			return "$status"
-		}
-		current_size=$OWNER_ARRAY_LAST_SIZE
-
-		if ((current_size <= target_bytes)); then
-			mv -f "$tmp_file" "$best_file"
-			low=$high
-			((high *= 2))
-			continue
-		fi
-
-		rm -f "$tmp_file"
-		break
-	done
-
-	if ((high <= max_probe)); then
-		while ((low + 1 < high)); do
-			mid=$(((low + high) / 2))
-			tmp_file=$(mktemp "$(dirname "$output_file")/.${output_file##*/}.try.XXXXXX") || {
-				rm -f "$best_file"
-				return 1
-			}
-			owner_build_json_array_from_db_try_limit "$owner_id_filter" "$repo_filter" "$tmp_file" "$mid" || {
-				status=$?
-				rm -f "$tmp_file" "$best_file"
-				return "$status"
-			}
-			current_size=$OWNER_ARRAY_LAST_SIZE
-
-			if ((current_size <= target_bytes)); then
-				mv -f "$tmp_file" "$best_file"
-				low=$mid
-			else
-				rm -f "$tmp_file"
-				high=$mid
-			fi
-		done
-	fi
-
-	mv -f "$best_file" "$output_file"
+	owner_build_json_array_from_db_limit_to_file "$owner_id_filter" "$repo_filter" "$output_file" "$version_limit"
 }
 
 owner_build_repo_json_arrays_from_db() {

@@ -697,6 +697,7 @@ main() {
 	fi
 
 	echo "Hydrating templates and cleaning up..."
+	cleanup_generated_json_sidecars "$BKG_INDEX_DIR"
 	[ ! -f "$BKG_ROOT"/CHANGELOG.md ] || rm -f "$BKG_ROOT"/CHANGELOG.md
 	\cp templates/.CHANGELOG.md "$BKG_ROOT"/CHANGELOG.md
 	owners=$(awk -F'|' '{print $1}' packages_all | sort -u | wc -l)

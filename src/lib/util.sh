@@ -357,7 +357,11 @@ cleanup_generated_json_sidecars() {
     [ -n "$1" ] || return
     [ -e "$1" ] || return 0
 
-    find "$1" -type f \( -name '*.json.tmp' -o -name '*.json.abs' -o -name '*.json.rel' \) -delete
+    find "$1" -type f \( \
+        -name '*.json.tmp' -o -name '*.json.tmp.*' -o \
+        -name '*.json.abs' -o -name '*.json.abs.*' -o \
+        -name '*.json.rel' -o -name '*.json.rel.*' \
+    \) -delete
 }
 
 ytoxt_script_path() {

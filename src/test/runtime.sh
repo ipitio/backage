@@ -65,6 +65,31 @@ test_sqlite_ensure_index_schema_adds_query_indexes() {
 	BKG_INDEX_DB="$original_db"
 }
 
+test_cleanup_generated_json_sidecars_removes_adaptive_retry_artifacts() {
+	local sidecar_dir="$workdir/sidecar-cleanup"
+
+	mkdir -p "$sidecar_dir/repo"
+	printf '{}\n' >"$sidecar_dir/repo/package.json"
+	printf 'tmp\n' >"$sidecar_dir/repo/package.json.tmp"
+	printf 'abs\n' >"$sidecar_dir/repo/package.json.abs"
+	printf 'rel\n' >"$sidecar_dir/repo/package.json.rel"
+	printf 'best\n' >"$sidecar_dir/repo/..json.tmp.best.xuScLK"
+	printf 'try\n' >"$sidecar_dir/repo/..json.tmp.try.LwARKH"
+	printf 'abs retry\n' >"$sidecar_dir/repo/package.json.abs.retry"
+	printf 'rel retry\n' >"$sidecar_dir/repo/package.json.rel.retry"
+
+	cleanup_generated_json_sidecars "$sidecar_dir"
+
+	assert_file_exists "$sidecar_dir/repo/package.json"
+	[ ! -e "$sidecar_dir/repo/package.json.tmp" ] || fail "Expected .json.tmp sidecar to be removed"
+	[ ! -e "$sidecar_dir/repo/package.json.abs" ] || fail "Expected .json.abs sidecar to be removed"
+	[ ! -e "$sidecar_dir/repo/package.json.rel" ] || fail "Expected .json.rel sidecar to be removed"
+	[ ! -e "$sidecar_dir/repo/..json.tmp.best.xuScLK" ] || fail "Expected adaptive best sidecar to be removed"
+	[ ! -e "$sidecar_dir/repo/..json.tmp.try.LwARKH" ] || fail "Expected adaptive try sidecar to be removed"
+	[ ! -e "$sidecar_dir/repo/package.json.abs.retry" ] || fail "Expected .json.abs.* sidecar to be removed"
+	[ ! -e "$sidecar_dir/repo/package.json.rel.retry" ] || fail "Expected .json.rel.* sidecar to be removed"
+}
+
 test_drop_replaced_legacy_version_tables_keeps_unreplaced_fallbacks() {
 	local original_db="${BKG_INDEX_DB:-}"
 	local today="2026-03-30"
@@ -691,6 +716,7 @@ source_project_script "bkg.sh"
 
 run_test test_sqlite_retries_transient_write_failure
 run_test test_sqlite_ensure_index_schema_adds_query_indexes
+run_test test_cleanup_generated_json_sidecars_removes_adaptive_retry_artifacts
 run_test test_drop_replaced_legacy_version_tables_keeps_unreplaced_fallbacks
 run_test test_parallel_async_wait_continues_after_non_timeout_failure
 run_test test_parallel_async_default_max_jobs_is_tuned

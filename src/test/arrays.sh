@@ -301,6 +301,86 @@ test_owner_build_json_array_from_db_ignores_stale_package_json() {
 	jq -e '.[0].package == "libre-closet" and (.[0].version | map(.id) == [2,10])' "$repo_output_file" >/dev/null || fail "Expected DB-backed repo aggregate to render only the requested repo"
 }
 
+test_owner_build_json_array_from_db_adapts_large_hints_from_estimate() {
+	local test_root="$workdir/project-array-db-bounded"
+	local db_file="$test_root/test.db"
+	local owner_dir="$test_root/index/Lazztech"
+	local tight_output_file="$test_root/owner-tight.json"
+	local roomy_output_file="$test_root/owner-roomy.json"
+	local today="2026-03-30"
+
+	mkdir -p "$owner_dir/Libre-Closet"
+	head -c 20000 /dev/zero | tr '\0' 'a' >"$owner_dir/Libre-Closet/stale.json"
+
+	(
+		source_project_script "lib/owner.sh"
+		init_bkg_runtime_state "$test_root/env.env"
+		BKG_INDEX_DB="$db_file"
+		BKG_INDEX_DIR="$test_root/index"
+		BKG_BATCH_FIRST_STARTED="$today"
+		unset BKG_OWNER_ARRAY_VERSION_LIMIT
+		unset BKG_OWNER_ARRAY_DB_VERSION_LIMIT
+		set_BKG BKG_BATCH_FIRST_STARTED "$today"
+
+		sqlite_ensure_index_schema >/dev/null
+		sqlite3 "$BKG_INDEX_DB" "insert into '$BKG_INDEX_TBL_PKG' (owner_id, owner_type, package_type, owner, repo, package, downloads, downloads_month, downloads_week, downloads_day, size, date) values ('69664378','orgs','container','Lazztech','Libre-Closet','libre-closet','2000','300','200','20','400','$today');"
+		sqlite3 "$BKG_INDEX_DB" "insert into '$BKG_INDEX_TBL_VER' (owner_id, owner_type, package_type, owner, repo, package, id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags) values ('69664378','orgs','container','Lazztech','Libre-Closet','libre-closet','1','sha256:a','111','100','10','5','1','$today','latest');"
+		sqlite3 "$BKG_INDEX_DB" "insert into '$BKG_INDEX_TBL_VER' (owner_id, owner_type, package_type, owner, repo, package, id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags) values ('69664378','orgs','container','Lazztech','Libre-Closet','libre-closet','2','sha256:b','222','200','20','10','2','$today','stable');"
+		sqlite3 "$BKG_INDEX_DB" "insert into '$BKG_INDEX_TBL_VER' (owner_id, owner_type, package_type, owner, repo, package, id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags) values ('69664378','orgs','container','Lazztech','Libre-Closet','libre-closet','3','sha256:c','333','300','30','15','3','$today','');"
+		sqlite3 "$BKG_INDEX_DB" "insert into '$BKG_INDEX_TBL_VER' (owner_id, owner_type, package_type, owner, repo, package, id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags) values ('69664378','orgs','container','Lazztech','Libre-Closet','libre-closet','4','sha256:d','444','400','40','20','4','$today','');"
+		sqlite3 "$BKG_INDEX_DB" "insert into '$BKG_INDEX_TBL_VER' (owner_id, owner_type, package_type, owner, repo, package, id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags) values ('69664378','orgs','container','Lazztech','Libre-Closet','libre-closet','5','sha256:e','555','500','50','25','5','$today','');"
+
+		BKG_OWNER_ARRAY_MAX_BYTES=10
+		owner_build_json_array_from_db_to_file "69664378" "" "$owner_dir" "$tight_output_file"
+		BKG_OWNER_ARRAY_MAX_BYTES=10000
+		owner_build_json_array_from_db_to_file "69664378" "" "$owner_dir" "$roomy_output_file"
+	)
+
+	assert_json_array "$tight_output_file"
+	assert_json_array "$roomy_output_file"
+	jq -e '.[0].version | map(.id) == [1,5]' "$tight_output_file" >/dev/null || fail "Expected tight DB-backed aggregate budgets to keep latest/newest versions"
+	jq -e '.[0].version | map(.id) == [1,2,3,4,5]' "$roomy_output_file" >/dev/null || fail "Expected roomy DB-backed aggregate budgets to adapt above the fallback slice"
+	[ -z "$(find "$owner_dir" -type f \( -name '*.json.tmp.*' -o -name '*.json.abs.*' -o -name '*.json.rel.*' \) -print -quit)" ] || fail "Expected DB aggregate generation to avoid adaptive retry sidecars"
+}
+
+test_owner_build_json_array_from_db_falls_back_for_legacy_version_tables() {
+	local test_root="$workdir/project-array-db-legacy-fallback"
+	local db_file="$test_root/test.db"
+	local owner_dir="$test_root/index/Lazztech"
+	local output_file="$test_root/owner.json"
+	local legacy_table="versions_orgs_container_Lazztech_LegacyRepo_legacy-only"
+	local today="2026-03-30"
+
+	mkdir -p "$owner_dir/LegacyRepo"
+	head -c 20000 /dev/zero | tr '\0' 'a' >"$owner_dir/LegacyRepo/stale.json"
+
+	(
+		source_project_script "lib/owner.sh"
+		init_bkg_runtime_state "$test_root/env.env"
+		BKG_INDEX_DB="$db_file"
+		BKG_INDEX_DIR="$test_root/index"
+		BKG_BATCH_FIRST_STARTED="$today"
+		unset BKG_OWNER_ARRAY_VERSION_LIMIT
+		unset BKG_OWNER_ARRAY_DB_VERSION_LIMIT
+		set_BKG BKG_BATCH_FIRST_STARTED "$today"
+
+		sqlite_ensure_index_schema >/dev/null
+		sqlite3 "$BKG_INDEX_DB" "insert into '$BKG_INDEX_TBL_PKG' (owner_id, owner_type, package_type, owner, repo, package, downloads, downloads_month, downloads_week, downloads_day, size, date) values ('69664378','orgs','container','Lazztech','LegacyRepo','legacy-only','2000','300','200','20','400','$today');"
+		sqlite3 "$BKG_INDEX_DB" "create table if not exists '$legacy_table' (id text not null, name text not null, size integer not null, downloads integer not null, downloads_month integer not null, downloads_week integer not null, downloads_day integer not null, date text not null, tags text, primary key (id, date));"
+		sqlite3 "$BKG_INDEX_DB" "insert into '$legacy_table' (id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags) values ('1','sha256:a','111','100','10','5','1','$today','latest');"
+		sqlite3 "$BKG_INDEX_DB" "insert into '$legacy_table' (id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags) values ('2','sha256:b','222','200','20','10','2','$today','stable');"
+		sqlite3 "$BKG_INDEX_DB" "insert into '$legacy_table' (id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags) values ('3','sha256:c','333','300','30','15','3','$today','');"
+		sqlite3 "$BKG_INDEX_DB" "insert into '$legacy_table' (id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags) values ('4','sha256:d','444','400','40','20','4','$today','');"
+		sqlite3 "$BKG_INDEX_DB" "insert into '$legacy_table' (id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags) values ('5','sha256:e','555','500','50','25','5','$today','');"
+
+		BKG_OWNER_ARRAY_MAX_BYTES=10000
+		owner_build_json_array_from_db_to_file "69664378" "" "$owner_dir" "$output_file"
+	)
+
+	assert_json_array "$output_file"
+	jq -e '.[0].raw_versions == 5 and (.[0].version | map(.id) == [1,4,5])' "$output_file" >/dev/null || fail "Expected legacy-table DB aggregates to use the conservative fallback limit"
+}
+
 test_large_array_trimming() {
 	local payload_file="$workdir/payload.txt"
 	local empty_payload="$workdir/empty-large.txt"
@@ -421,6 +501,8 @@ run_test test_owner_arrays_stream_json_into_jq
 run_test test_owner_build_json_array_limits_versions_before_aggregate
 run_test test_owner_build_json_array_adapts_to_byte_budget
 run_test test_owner_build_json_array_from_db_ignores_stale_package_json
+run_test test_owner_build_json_array_from_db_adapts_large_hints_from_estimate
+run_test test_owner_build_json_array_from_db_falls_back_for_legacy_version_tables
 run_test test_large_array_trimming
 run_test test_unsorted_version_arrays_still_trim_by_numeric_id
 run_test test_ytoxt_trimming_preserves_latest_and_newest_versions
