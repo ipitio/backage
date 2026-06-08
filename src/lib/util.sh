@@ -142,21 +142,21 @@ resolve_release_snapshot_asset() {
 
     db_asset_name=$(db_snapshot_asset_name 2>/dev/null || echo "index.db")
     status_code=$(curl -o /dev/null --silent -Iw '%{http_code}' "https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/download/$latest/$db_asset_name")
-    if [ "$status_code" != "404" ]; then
+    if [[ "$status_code" =~ ^[23][0-9][0-9]$ ]]; then
         printf 'db|%s\n' "$db_asset_name"
         return 0
     fi
 
     legacy_db_asset_name=$(legacy_db_snapshot_asset_name 2>/dev/null || echo "index.db.zst")
     status_code=$(curl -o /dev/null --silent -Iw '%{http_code}' "https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/download/$latest/$legacy_db_asset_name")
-    if [ "$status_code" != "404" ]; then
+    if [[ "$status_code" =~ ^[23][0-9][0-9]$ ]]; then
         printf 'db-zst|%s\n' "$legacy_db_asset_name"
         return 0
     fi
 
     legacy_asset_name=$(legacy_sql_snapshot_asset_name 2>/dev/null || echo "index.sql.zst")
     status_code=$(curl -o /dev/null --silent -Iw '%{http_code}' "https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/download/$latest/$legacy_asset_name")
-    if [ "$status_code" != "404" ]; then
+    if [[ "$status_code" =~ ^[23][0-9][0-9]$ ]]; then
         printf 'sql|%s\n' "$legacy_asset_name"
         return 0
     fi
@@ -1137,6 +1137,10 @@ curl_gh() {
     curl -H "Accept: application/vnd.github+json" -H "Authorization: Bearer $GITHUB_TOKEN" -H "X-GitHub-Api-Version: 2022-11-28" "$@"
 }
 
+curl_gh_direct() {
+    command curl -H "Accept: application/vnd.github+json" -H "Authorization: Bearer $GITHUB_TOKEN" -H "X-GitHub-Api-Version: 2022-11-28" "$@"
+}
+
 query_api() {
     local res
     local calls_to_api
@@ -1415,17 +1419,50 @@ graphql_owner_discovery_nodes() {
     esac
 }
 
+release_has_snapshot_asset() {
+    local release=$1
+    local db_asset_name
+    local legacy_db_asset_name
+    local legacy_sql_asset_name
+
+    db_asset_name=$(db_snapshot_asset_name 2>/dev/null || echo "index.db")
+    legacy_db_asset_name=$(legacy_db_snapshot_asset_name 2>/dev/null || echo "index.db.zst")
+    legacy_sql_asset_name=$(legacy_sql_snapshot_asset_name 2>/dev/null || echo "index.sql.zst")
+
+    jq -e \
+        --arg db "$db_asset_name" \
+        --arg legacy_db "$legacy_db_asset_name" \
+        --arg legacy_sql "$legacy_sql_asset_name" \
+        'any(.assets[]?; .name == $db or .name == $legacy_db or .name == $legacy_sql)' \
+        <<<"$release" >/dev/null 2>&1
+}
+
 check_db() {
     local release
+    local release_id
     local latest
-    release=$(query_api "repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest")
-    latest=$(jq -r '.tag_name' <<<"$release")
 
-    until dldb "$latest" "1"; do
+    while true; do
+        release=$(curl_gh_direct --fail-with-body --silent --show-error "https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest") || {
+            echo "Failed to get the latest release metadata" >&2
+            return 1
+        }
+        release_id=$(jq -er '.id | select(type == "number" and . > 0)' <<<"$release" 2>/dev/null) || {
+            echo "Latest release metadata has no valid release ID" >&2
+            return 1
+        }
+        latest=$(jq -er '.tag_name | select(type == "string" and length > 0)' <<<"$release" 2>/dev/null) || {
+            echo "Latest release metadata has no valid tag" >&2
+            return 1
+        }
+
+        release_has_snapshot_asset "$release" && return 0
+
         echo "Deleting the latest release..."
-        curl_gh -X DELETE "https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases/$(jq -r '.id' <<<"$release")"
-        release=$(query_api "repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest")
-        latest=$(jq -r '.tag_name' <<<"$release")
+        curl_gh_direct --fail-with-body --silent --show-error --output /dev/null -X DELETE "https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases/$release_id" || {
+            echo "Failed to delete latest release $latest" >&2
+            return 1
+        }
     done
 }
 

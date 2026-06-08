@@ -544,6 +544,81 @@ EOF
 	GITHUB_TOKEN=""
 }
 
+test_resolve_release_snapshot_asset_rejects_http_errors() {
+	local calls_file="$workdir/release-asset-probe-calls.txt"
+
+	BKG_INDEX_DB="$workdir/index.db"
+	: >"$calls_file"
+
+	curl() {
+		printf '%s\n' "$*" >>"$calls_file"
+		printf '403\n'
+	}
+
+	if resolve_release_snapshot_asset "v2026.6.0" >/dev/null; then
+		fail "Expected HTTP errors to be rejected as missing release assets"
+	fi
+	[ "$(wc -l <"$calls_file")" -eq 3 ] || fail "Expected every supported snapshot name to be probed"
+}
+
+test_check_db_deletes_missing_release_despite_stale_runtime_state() {
+	local calls_file="$workdir/check-db-calls.txt"
+	local latest_calls_file="$workdir/check-db-latest-calls.txt"
+
+	BKG_ENV="$workdir/env-check-db.env"
+	: >"$BKG_ENV"
+	set_BKG BKG_SCRIPT_START "$(( $(date -u +%s) - BKG_MAX_LEN - 1 ))"
+	set_BKG BKG_TIMEOUT "1"
+	BKG_INDEX_DB="$workdir/index.db"
+	GITHUB_OWNER="ipitio"
+	GITHUB_REPO="backage"
+	: >"$calls_file"
+	printf '0\n' >"$latest_calls_file"
+
+	curl_gh_direct() {
+		local latest_calls
+
+		printf '%s\n' "$*" >>"$calls_file"
+		if [[ " $* " == *" -X DELETE "* ]]; then
+			return 0
+		fi
+
+		latest_calls=$(cat "$latest_calls_file")
+		latest_calls=$((latest_calls + 1))
+		printf '%s\n' "$latest_calls" >"$latest_calls_file"
+		if [ "$latest_calls" -eq 1 ]; then
+			printf '%s\n' '{"id":332248762,"tag_name":"v2026.6.0","assets":[]}'
+		else
+			printf '%s\n' '{"id":331227112,"tag_name":"v2026.5.2","assets":[{"name":"index.db"}]}'
+		fi
+	}
+
+	check_db >/dev/null
+
+	[ "$(cat "$latest_calls_file")" -eq 2 ] || fail "Expected check_db to verify the release after deletion"
+	assert_contains "$calls_file" "releases/332248762"
+}
+
+test_check_db_reports_delete_failure() {
+	local output_file="$workdir/check-db-delete-failure.txt"
+
+	BKG_INDEX_DB="$workdir/index.db"
+	GITHUB_OWNER="ipitio"
+	GITHUB_REPO="backage"
+
+	curl_gh_direct() {
+		if [[ " $* " == *" -X DELETE "* ]]; then
+			return 22
+		fi
+		printf '%s\n' '{"id":332248762,"tag_name":"v2026.6.0","assets":[]}'
+	}
+
+	if check_db >"$output_file" 2>&1; then
+		fail "Expected check_db to fail when GitHub rejects release deletion"
+	fi
+	assert_contains "$output_file" "Failed to delete latest release v2026.6.0"
+}
+
 test_resolve_owner_ids_uses_run_cache_before_live_lookup() {
 	local candidates_file="$workdir/owner-candidates-cache.txt"
 	local output_file="$workdir/owner-ids-cache.txt"
@@ -734,6 +809,9 @@ run_test test_daily_gate_skip_resets_on_new_batch_marker
 run_test test_daily_gate_skip_resets_on_rest_to_top_change
 run_test test_check_limit_retries_missing_script_start_once
 run_test test_query_graphql_api_tracks_cost_and_remaining
+run_test test_resolve_release_snapshot_asset_rejects_http_errors
+run_test test_check_db_deletes_missing_release_despite_stale_runtime_state
+run_test test_check_db_reports_delete_failure
 run_test test_resolve_owner_ids_uses_run_cache_before_live_lookup
 run_test test_resolve_owner_ids_preserves_ids_and_batches_live_lookup
 run_test test_restore_db_from_snapshot_skips_when_signature_matches
