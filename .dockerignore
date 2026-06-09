@@ -1,0 +1,16 @@
+.git
+.bkg
+.snapshot
+.env
+src/env.env
+
+index
+index-*
+*.db
+*.db-*
+*.db.*
+*.sql
+*.sql.*
+
+**/__pycache__
+**/*.py[cod]

@@ -347,7 +347,7 @@ owner_array_db_estimated_version_limit() {
 				v.downloads_day,
 				v.date,
 				v.tags,
-				case when v.id regexp '^[0-9]+$' then cast(v.id as integer) end as numeric_id,
+				case when v.id != '' and v.id not glob '*[^0-9]*' then cast(v.id as integer) end as numeric_id,
 				replace(replace(replace(replace(coalesce(v.tags, ''), ' ', ''), char(9), ''), char(10), ''), char(13), '') as compact_tags,
 				row_number() over (
 					partition by v.owner_id, v.package_type, v.repo, v.package, v.id
@@ -689,6 +689,8 @@ owner_build_json_array_from_db_once() {
 	[[ "$version_limit" =~ ^-?[0-9]+$ ]] || version_limit=-1
 
 	printf '['
+	# Fields and table_version_name are consumed through Bash dynamic scope.
+	# shellcheck disable=SC2034
 	while IFS='|' read -r owner_id owner_type package_type owner repo package raw_downloads raw_downloads_month raw_downloads_week raw_downloads_day size package_date package_owner_rank package_repo_rank; do
 		[ -n "$owner_id" ] || continue
 		script_stop_requested && return 3

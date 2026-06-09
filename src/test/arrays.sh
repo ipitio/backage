@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Test configuration is consumed through Bash dynamic scope.
+# shellcheck disable=SC1091,SC2034
+
 set -euo pipefail
 
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"

@@ -29,12 +29,14 @@ assert_not_contains() {
 
 run_test() {
 	[ -n "${1:-}" ] || fail "Expected a test function name"
+	local status
 
 	if ("$1"); then
 		return 0
+	else
+		status=$?
 	fi
 
-	local status=$?
 	echo "Test failed: $1" >&2
 	return "$status"
 }

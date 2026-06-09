@@ -90,7 +90,10 @@ package_render_json_from_db_context() {
     package_sql=$(sqlite_quote_literal "$package")
 
     version_select_source_sql "$render_since_date"
+    # version_select_source_sql sets these shared SQL fragments.
+    # shellcheck disable=SC2153
     version_source_table_sql=$VERSION_SOURCE_TABLE_SQL
+    # shellcheck disable=SC2153
     version_source_where_sql=$VERSION_SOURCE_WHERE_SQL
 
     version_stats_row=$(sqlite3 "$BKG_INDEX_DB" "
@@ -98,7 +101,7 @@ package_render_json_from_db_context() {
             select
                 id,
                 tags,
-                case when id regexp '^[0-9]+$' then CAST(id as integer) end as numeric_id,
+                case when id != '' and id not glob '*[^0-9]*' then CAST(id as integer) end as numeric_id,
                 replace(replace(replace(replace(coalesce(tags, ''), ' ', ''), char(9), ''), char(10), ''), char(13), '') as compact_tags
             from $version_source_table_sql
             where $version_source_where_sql
@@ -335,7 +338,10 @@ update_package() {
     repo_sql=$(sqlite_quote_literal "$repo")
     package_sql=$(sqlite_quote_literal "$package")
     sqlite_ensure_index_schema >/dev/null || return $?
+    # version_stage_queue_row reads this through Bash dynamic scope.
+    # shellcheck disable=SC2034
     VERSION_WRITE_LEGACY_TABLE=false
+    # shellcheck disable=SC2034
     version_legacy_table_exists && VERSION_WRITE_LEGACY_TABLE=true
 
     if grep -qP "^$owner(?=/$repo(?=/$package$|$)|$)" "$BKG_OPTOUT"; then
@@ -532,7 +538,7 @@ update_package() {
             select
                 id,
                 tags,
-                case when id regexp '^[0-9]+$' then CAST(id as integer) end as numeric_id,
+                case when id != '' and id not glob '*[^0-9]*' then CAST(id as integer) end as numeric_id,
                 replace(replace(replace(replace(coalesce(tags, ''), ' ', ''), char(9), ''), char(10), ''), char(13), '') as compact_tags
             from $version_source_table_sql
             where $version_source_where_sql

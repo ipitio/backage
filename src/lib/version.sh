@@ -202,7 +202,7 @@ version_build_array_json() {
                     downloads_day,
                     date,
                     tags,
-                    case when id regexp '^[0-9]+$' then cast(id as integer) end as numeric_id,
+                    case when id != '' and id not glob '*[^0-9]*' then cast(id as integer) end as numeric_id,
                     row_number() over (
                         partition by id
                         order by date desc

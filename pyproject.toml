@@ -1,0 +1,53 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "backage"
+dynamic = ["version"]
+description = "Generate self-hosted GitHub Packages metadata indexes."
+readme = "README.md"
+requires-python = ">=3.12"
+license = { file = "LICENSE" }
+authors = [
+    { name = "ipitio", email = "ipitio@users.noreply.github.com" },
+]
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "black==26.5.1",
+    "pylint==4.0.5",
+    "pyright==1.1.410",
+]
+
+[project.urls]
+Repository = "https://github.com/ipitio/backage"
+
+[project.scripts]
+bkg = "bkg_py.__main__:entrypoint"
+
+[tool.setuptools.dynamic]
+version = { attr = "bkg_py.__version__" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["bkg_py*"]
+
+[tool.black]
+line-length = 88
+target-version = ["py312"]
+
+[tool.pylint.main]
+persistent = false
+py-version = "3.12"
+source-roots = ["src"]
+
+[tool.pylint.format]
+max-line-length = 88
+
+[tool.pyright]
+include = ["src/bkg_py", "src/test"]
+pythonVersion = "3.12"
+pythonPlatform = "Linux"
+typeCheckingMode = "standard"

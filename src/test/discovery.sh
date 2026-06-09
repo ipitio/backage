@@ -1,6 +1,7 @@
 #!/bin/bash
 
-# shellcheck disable=SC1091,SC2034
+# Test doubles are invoked indirectly by sourced production functions.
+# shellcheck disable=SC1091,SC2034,SC2317
 
 set -euo pipefail
 

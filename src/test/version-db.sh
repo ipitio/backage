@@ -1,6 +1,7 @@
 #!/bin/bash
 
-# shellcheck disable=SC1091,SC2034
+# Test doubles are invoked indirectly, and each subshell owns its runtime state.
+# shellcheck disable=SC1091,SC2030,SC2031,SC2034,SC2317
 
 set -euo pipefail
 

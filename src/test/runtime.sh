@@ -1,6 +1,8 @@
 #!/bin/bash
 
-# shellcheck disable=SC1091,SC2034
+# Test doubles are invoked indirectly by functions sourced from production.
+# Subshell-local runtime settings are intentionally separate from later tests.
+# shellcheck disable=SC1091,SC2030,SC2031,SC2034,SC2317
 
 set -euo pipefail
 
@@ -63,6 +65,25 @@ test_sqlite_ensure_index_schema_adds_query_indexes() {
 	grep -Fq 'idx_bkg_versions_package_date' <<<"$indexes" || fail "Expected normalized versions package index"
 	grep -Fq 'idx_bkg_versions_date' <<<"$indexes" || fail "Expected normalized versions date index"
 	BKG_INDEX_DB="$original_db"
+}
+
+test_sqlite_numeric_version_ids_use_builtin_glob() {
+	local rows
+
+	rows=$(sqlite3 ':memory:' "
+		with ids(id) as (
+			values ('1'), ('001'), ('1a'), ('a1'), (''), ('12-3')
+		)
+		select id || '|' || (
+			case
+				when id != '' and id not glob '*[^0-9]*' then cast(id as integer)
+				else 'not-numeric'
+			end
+		)
+		from ids;
+	")
+
+	[ "$rows" = $'1|1\n001|1\n1a|not-numeric\na1|not-numeric\n|not-numeric\n12-3|not-numeric' ] || fail "Expected stock SQLite GLOB to classify numeric version IDs without a REGEXP extension"
 }
 
 test_cleanup_generated_json_sidecars_removes_adaptive_retry_artifacts() {
@@ -791,6 +812,7 @@ source_project_script "bkg.sh"
 
 run_test test_sqlite_retries_transient_write_failure
 run_test test_sqlite_ensure_index_schema_adds_query_indexes
+run_test test_sqlite_numeric_version_ids_use_builtin_glob
 run_test test_cleanup_generated_json_sidecars_removes_adaptive_retry_artifacts
 run_test test_drop_replaced_legacy_version_tables_keeps_unreplaced_fallbacks
 run_test test_parallel_async_wait_continues_after_non_timeout_failure

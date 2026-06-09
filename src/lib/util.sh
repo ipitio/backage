@@ -1,7 +1,7 @@
 #!/bin/bash
 # Backage library
 # Usage: ./lib.sh
-# Dependencies: git curl jq parallel sqlite3 sqlite3-pcre zstd libxml2-utils, yq
+# Dependencies: git curl jq parallel python3 sqlite3 zstd libxml2-utils
 # Copyright (c) ipitio
 #
 # shellcheck disable=SC1090,SC1091,SC2015,SC2034
@@ -24,17 +24,10 @@ apt_install() {
     fi
 }
 
-yq_install() {
-    [ ! -f /usr/bin/yq ] || sudonot mv -f /usr/bin/yq /usr/bin/yq.bak
-    sudonot curl -LNZo /usr/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
-    sudonot chmod +x /usr/bin/yq
-}
-
 if [ -z "${BKG_UTIL_BOOTSTRAPPED:-}" ]; then
     if [ "${BKG_SKIP_DEP_VERIFY:-0}" != "1" ]; then
         echo "Verifying dependencies..."
-        apt_install git curl jq parallel sqlite3 sqlite3-pcre zstd libxml2-utils
-        yq -V | grep -q mikefarah 2>/dev/null || yq_install
+        apt_install git curl jq parallel python3 sqlite3 zstd libxml2-utils
         echo "Dependencies verified!"
     fi
 
@@ -42,7 +35,11 @@ if [ -z "${BKG_UTIL_BOOTSTRAPPED:-}" ]; then
 fi
 GITHUB_OWNER=${GITHUB_OWNER:-ipitio}
 GITHUB_REPO=${GITHUB_REPO:-backage}
-BKG_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+BKG_ROOT="$(
+    cd -P "$(dirname "${BASH_SOURCE[0]}")" &&
+        cd ../.. &&
+        pwd -P
+)"
 BKG_ENV=${BKG_ENV:-$BKG_ROOT/src/env.env}
 BKG_OWNERS=${BKG_OWNERS:-$BKG_ROOT/owners.txt}
 BKG_OPTOUT=${BKG_OPTOUT:-$BKG_ROOT/optout.txt}
@@ -232,7 +229,6 @@ sqlite3() {
     cat >"$init_file" <<EOF
 .output /dev/null
 .timeout $busy_timeout_ms
-.load /usr/lib/sqlite3/pcre.so
 PRAGMA busy_timeout = $busy_timeout_ms;
 PRAGMA synchronous = NORMAL;
 PRAGMA foreign_keys = ON;
@@ -1129,8 +1125,8 @@ dldb() {
         echo "Failed to get the latest database"
     fi
 
-    [ -f "$BKG_ROOT/.gitignore" ] || echo "*.db*" >>$BKG_ROOT/.gitignore
-    grep -q "\*.db" "$BKG_ROOT/.gitignore" || echo "*.db*" >>$BKG_ROOT/.gitignore
+    [ -f "$BKG_ROOT/.gitignore" ] || echo "*.db*" >>"$BKG_ROOT/.gitignore"
+    grep -q "\*.db" "$BKG_ROOT/.gitignore" || echo "*.db*" >>"$BKG_ROOT/.gitignore"
 }
 
 curl_gh() {
@@ -1706,12 +1702,9 @@ get_membership() {
 }
 
 ytox() {
-    echo "<?xml version=\"1.0\" encoding=\"UTF-8\"?><xml>$(yq -ox -I0 "$1" | sed 's/"/\\"/g')</xml>" >"${1%.*}.xml" 2>/dev/null
-    stat -c %s "${1%.*}.xml" || echo -1
-}
-
-ytoy() {
-    yq -oy "$1" | sed 's/"/\\"/g' >"${1%.*}.yml"
+    PYTHONDONTWRITEBYTECODE=1 \
+        PYTHONPATH="$BKG_ROOT/src${PYTHONPATH:+:$PYTHONPATH}" \
+        python3 -m bkg_py json-to-xml "$1"
 }
 
 clean_owners() {

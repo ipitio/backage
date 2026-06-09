@@ -573,6 +573,8 @@ main() {
 					rm -f "$owner_candidates_file"
 					return 1
 				}
+				# BKG_INDEX_DIR is initialized by the update.sh entrypoint.
+				# shellcheck disable=SC2153
 				bash lib/get.sh "$rest_first" "$connections" $request_limit "$GITHUB_OWNER" "$owners_queue_source" "$BKG_INDEX_DIR" >"$owner_candidates_file"
 				phase_status=$?
 				((phase_status != 3)) || return_code=3
@@ -727,7 +729,7 @@ main() {
         \"raw_packages\":$packages,
         \"date\":\"$today\"
     }" | tr -d '\n' | jq -c . >"$BKG_INDEX_DIR"/.json
-	ytox "$BKG_INDEX_DIR"/.json
+	ytox "$BKG_INDEX_DIR"/.json || return $?
 	echo "Done!"
 	return $return_code
 }
