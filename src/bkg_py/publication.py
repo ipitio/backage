@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterator
-from dataclasses import dataclass
 import json
 import math
 import os
+from collections.abc import Callable, Iterator
+from dataclasses import dataclass
 from pathlib import Path
 
 from .files import atomic_path
@@ -16,6 +16,7 @@ _XML_SUFFIX = "</xml>"
 _EMPTY_XML = f"{_XML_PREFIX}{_XML_SUFFIX}\n".encode()
 _WRITE_CHUNK_SIZE = 1024 * 1024
 _MAX_TRIM_COUNT = 65536
+_CONTROL_CHARACTER_LIMIT = 32
 
 JsonValue = dict[str, "JsonValue"] | list["JsonValue"] | str | int | float | bool | None
 StopCheck = Callable[[], None]
@@ -33,7 +34,7 @@ class PublicationLimits:
     hard_maximum_bytes: int = 100_000_000
 
     @classmethod
-    def from_env(cls) -> "PublicationLimits":
+    def from_env(cls) -> PublicationLimits:
         """Read positive byte limits from the current environment."""
 
         return cls(
@@ -125,7 +126,11 @@ def _xml_text(value: str) -> str:
 
     for index, character in enumerate(value):
         replacement = replacements.get(character)
-        if replacement is None and ord(character) < 32 and character != "\n":
+        if (
+            replacement is None
+            and ord(character) < _CONTROL_CHARACTER_LIMIT
+            and character != "\n"
+        ):
             replacement = "\ufffd"
         if replacement is None:
             continue

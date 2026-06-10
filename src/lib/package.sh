@@ -55,7 +55,7 @@ optout_package() {
     sqlite3 "$BKG_INDEX_DB" "drop table if exists $version_table_sql;"
 }
 
-package_render_json_from_db_context() {
+legacy_package_render_json_from_db_context() {
     [ -n "$1" ] || return
     local output_file=$1
     local render_since_date=${2:-}
@@ -285,6 +285,23 @@ EOF
     local render_status=$?
     rm -f "$version_array_file"
     return "$render_status"
+}
+
+package_render_json_from_db_context() {
+    [ -n "$1" ] || return
+    local output_file=$1
+    local render_since_date=${2:-}
+    local version_limit=${3:--1}
+    local output_date=${4:-$render_since_date}
+
+    [ -n "$render_since_date" ] || render_since_date=$(current_batch_first_started)
+    [ -n "$render_since_date" ] || render_since_date="0000-00-00"
+    [ -n "$output_date" ] || output_date="-"
+    [[ "$version_limit" =~ ^-?[0-9]+$ ]] || version_limit=-1
+    bkg_python render package \
+        "$owner_id" "$owner_type" "$package_type" "$owner" "$repo" "$package" \
+        "$table_version_name" "$render_since_date" "$output_date" \
+        "$version_limit" "$output_file"
 }
 
 update_package() {
@@ -532,6 +549,21 @@ update_package() {
             echo "Failed to write package row for $owner/$package; continuing with existing package data" >&2
         fi
     fi
+
+    local render_status=0
+    package_render_json_from_db_context \
+        "$json_file".abs "$batch_first_started" -1 "$(date -u +%Y-%m-%d)" \
+        || render_status=$?
+    if ((render_status == 0)); then
+        [[ ! -f "$json_file".abs || ! -s "$json_file".abs ]] || mv "$json_file".abs "$json_file"
+        version_drop_legacy_table_if_replaced "$batch_first_started"
+        run_command_with_stop_check bash "$(ytoxt_script_path)" "$json_file" || return $?
+        echo "Refreshed $owner/$package"
+        return 0
+    elif ((render_status == 3)); then
+        return 3
+    fi
+    echo "Python package rendering failed for $owner/$package; using the comparison renderer" >&2
 
     version_stats_row=$(sqlite3 "$BKG_INDEX_DB" "
         with version_rows as (

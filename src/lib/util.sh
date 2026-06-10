@@ -284,68 +284,54 @@ sqlite_quote_identifier() {
     printf '"%s"' "$(sqlite_escape_identifier "$1")"
 }
 
+bkg_python() {
+    local -a python_env=(
+        "GITHUB_OWNER=$GITHUB_OWNER"
+        "GITHUB_REPO=$GITHUB_REPO"
+        "BKG_ROOT=$BKG_ROOT"
+        "BKG_ENV=$BKG_ENV"
+        "BKG_OWNERS=$BKG_OWNERS"
+        "BKG_OPTOUT=$BKG_OPTOUT"
+        "BKG_MODE=$BKG_MODE"
+        "BKG_MAX_LEN=$BKG_MAX_LEN"
+        "BKG_IS_FIRST=$BKG_IS_FIRST"
+        "BKG_PAGE_ALL=$BKG_PAGE_ALL"
+        "BKG_INDEX_DB=${BKG_INDEX_DB:-}"
+        "BKG_INDEX_TBL_OWN=$BKG_INDEX_TBL_OWN"
+        "BKG_INDEX_TBL_PKG=$BKG_INDEX_TBL_PKG"
+        "BKG_INDEX_TBL_VER=$BKG_INDEX_TBL_VER"
+        "BKG_SQLITE_BUSY_TIMEOUT_MS=${BKG_SQLITE_BUSY_TIMEOUT_MS:-300000}"
+        "BKG_SQLITE_MAX_ATTEMPTS=${BKG_SQLITE_MAX_ATTEMPTS:-3}"
+        "BKG_SQLITE_RETRY_DELAY_SECS=${BKG_SQLITE_RETRY_DELAY_SECS:-1}"
+        "PYTHONDONTWRITEBYTECODE=1"
+        "PYTHONPATH=$BKG_ROOT/src${PYTHONPATH:+:$PYTHONPATH}"
+    )
+    local name
+
+    for name in \
+        GITHUB_BRANCH \
+        BKG_INDEX \
+        BKG_INDEX_SQL \
+        BKG_INDEX_DIR \
+        BKG_OWNER_ARRAY_VERSION_LIMIT \
+        BKG_OWNER_ARRAY_MAX_BYTES \
+        BKG_OWNER_ARRAY_ADAPTIVE_MAX_PROBE \
+        BKG_OWNER_ARRAY_DB_ESTIMATE_HEADROOM_PERCENT \
+        BKG_OWNER_ARRAY_DB_FALLBACK_VERSION_LIMIT \
+        BKG_OWNER_ARRAY_DB_VERSION_LIMIT; do
+        [ -z "${!name+x}" ] || python_env+=("$name=${!name}")
+    done
+
+    env "${python_env[@]}" python3 -m bkg_py "$@"
+}
+
 sqlite_ensure_index_schema() {
     [ -n "${BKG_INDEX_DB:-}" ] || return 1
     local schema_key="${BKG_INDEX_DB}|${BKG_INDEX_TBL_OWN}|${BKG_INDEX_TBL_PKG}|${BKG_INDEX_TBL_VER}"
-    local owners_table_sql
-    local packages_table_sql
-    local versions_table_sql
 
     [ "${BKG_INDEX_SCHEMA_READY_FOR:-}" != "$schema_key" ] || return 0
 
-    owners_table_sql=$(sqlite_quote_identifier "$BKG_INDEX_TBL_OWN")
-    packages_table_sql=$(sqlite_quote_identifier "$BKG_INDEX_TBL_PKG")
-    versions_table_sql=$(sqlite_quote_identifier "$BKG_INDEX_TBL_VER")
-
-    sqlite3 "$BKG_INDEX_DB" "
-        create table if not exists $owners_table_sql (
-            owner_id text not null,
-            owner text not null,
-            date text not null,
-            primary key (owner_id, date)
-        );
-        create table if not exists $packages_table_sql (
-            owner_id text,
-            owner_type text not null,
-            package_type text not null,
-            owner text not null,
-            repo text not null,
-            package text not null,
-            downloads integer not null,
-            downloads_month integer not null,
-            downloads_week integer not null,
-            downloads_day integer not null,
-            size integer not null,
-            date text not null,
-            primary key (owner_id, package, date)
-        );
-        create table if not exists $versions_table_sql (
-            owner_id text not null,
-            owner_type text not null,
-            package_type text not null,
-            owner text not null,
-            repo text not null,
-            package text not null,
-            id text not null,
-            name text not null,
-            size integer not null,
-            downloads integer not null,
-            downloads_month integer not null,
-            downloads_week integer not null,
-            downloads_day integer not null,
-            date text not null,
-            tags text,
-            primary key (owner_id, package_type, repo, package, id, date)
-        );
-        create index if not exists \"idx_bkg_owners_date_owner\" on $owners_table_sql (date, owner);
-        create index if not exists \"idx_bkg_packages_owner_repo_package_date\" on $packages_table_sql (owner_id, owner, repo, package, date);
-        create index if not exists \"idx_bkg_packages_owner_name_date\" on $packages_table_sql (owner_id, owner, date);
-        create index if not exists \"idx_bkg_packages_owner_date_downloads\" on $packages_table_sql (owner_id, date, downloads desc, package);
-        create index if not exists \"idx_bkg_packages_owner_repo_date_downloads\" on $packages_table_sql (owner_id, repo, date, downloads desc, package);
-        create index if not exists \"idx_bkg_versions_package_date\" on $versions_table_sql (owner_id, package_type, repo, package, date);
-        create index if not exists \"idx_bkg_versions_date\" on $versions_table_sql (date);
-        pragma auto_vacuum = full;
-    " || return $?
+    bkg_python database ensure-schema || return $?
     BKG_INDEX_SCHEMA_READY_FOR=$schema_key
 }
 
@@ -1702,9 +1688,7 @@ get_membership() {
 }
 
 ytox() {
-    PYTHONDONTWRITEBYTECODE=1 \
-        PYTHONPATH="$BKG_ROOT/src${PYTHONPATH:+:$PYTHONPATH}" \
-        python3 -m bkg_py json-to-xml "$1"
+    bkg_python json-to-xml "$1"
 }
 
 clean_owners() {

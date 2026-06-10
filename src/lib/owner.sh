@@ -498,7 +498,7 @@ owner_build_json_array_try_limit() {
 	OWNER_ARRAY_LAST_SIZE=$(stat -c %s "$2" 2>/dev/null || echo 0)
 }
 
-owner_build_json_array_to_file() {
+legacy_owner_build_json_array_to_file() {
 	[ -n "$1" ] || return
 	[ -n "$2" ] || return
 	local owner_dir=$1
@@ -662,7 +662,7 @@ owner_package_rows_from_db() {
 	"
 }
 
-owner_repo_names_from_db() {
+legacy_owner_repo_names_from_db() {
 	[ -n "$1" ] || return
 	local owner_id_sql
 	local packages_table_sql
@@ -719,7 +719,7 @@ owner_build_json_array_from_db_limit_to_file() {
 	run_command_to_file_with_stop_check "$3" owner_build_json_array_from_db_once "$1" "$2" "$4"
 }
 
-owner_build_json_array_from_db_to_file() {
+legacy_owner_build_json_array_from_db_to_file() {
 	[ -n "$1" ] || return
 	[ -n "$4" ] || return
 	local owner_id_filter=$1
@@ -755,7 +755,7 @@ owner_build_json_array_from_db_to_file() {
 	owner_build_json_array_from_db_limit_to_file "$owner_id_filter" "$repo_filter" "$output_file" "$version_limit"
 }
 
-owner_build_repo_json_arrays_from_db() {
+legacy_owner_build_repo_json_arrays_from_db() {
 	[ -n "$1" ] || return
 	[ -n "$2" ] || return
 	local owner_id_filter=$1
@@ -771,7 +771,7 @@ owner_build_repo_json_arrays_from_db() {
 	done <<<"$owner_repos"
 }
 
-owner_build_json_array() {
+legacy_owner_build_json_array() {
 	[ -n "$1" ] || return
 	local output_file
 	local status=0
@@ -787,7 +787,7 @@ owner_build_json_array() {
 	return "$status"
 }
 
-owner_build_repo_json_arrays() {
+legacy_owner_build_repo_json_arrays() {
 	[ -n "$1" ] || return
 	[ -n "$2" ] || return
 	local owner_name=$1
@@ -800,6 +800,74 @@ owner_build_repo_json_arrays() {
 		owner_build_json_array_to_file "$BKG_INDEX_DIR/$owner_name/$owner_repo" "$BKG_INDEX_DIR/$owner_name/$owner_repo/.json.tmp" || return $?
 	done <<<"$owner_repos"
 
+}
+
+owner_repo_names_from_db() {
+    [ -n "$1" ] || return
+    bkg_python render repositories "$1"
+}
+
+owner_build_json_array_to_file() {
+    [ -n "$1" ] || return
+    [ -n "$2" ] || return
+    bkg_python render aggregate-files "$1" "$2"
+}
+
+owner_build_json_array_from_db_to_file() {
+    [ -n "$1" ] || return
+    [ -n "$4" ] || return
+    local repo_filter=${2:--}
+    local size_hint_dir=${3:--}
+
+    [ -n "$repo_filter" ] || repo_filter="-"
+    [ -n "$size_hint_dir" ] || size_hint_dir="-"
+    bkg_python render aggregate-database \
+        "$1" "$repo_filter" "$size_hint_dir" "$4"
+}
+
+owner_build_repo_json_arrays_from_db() {
+    [ -n "$1" ] || return
+    [ -n "$2" ] || return
+    local owner_repo
+
+    while IFS= read -r owner_repo; do
+        [ -n "$owner_repo" ] || continue
+        script_stop_requested && return 3
+        mkdir -p "$BKG_INDEX_DIR/$2/$owner_repo" || return $?
+        owner_build_json_array_from_db_to_file \
+            "$1" "$owner_repo" "$BKG_INDEX_DIR/$2/$owner_repo" \
+            "$BKG_INDEX_DIR/$2/$owner_repo/.json.tmp" || return $?
+    done <<<"$3"
+}
+
+owner_build_json_array() {
+    [ -n "$1" ] || return
+    local output_file
+    local status=0
+
+    check_script_timeout || return $?
+    stop_requested && return 3
+    output_file=$(mktemp) || return 1
+    owner_build_json_array_to_file "$1" "$output_file" || status=$?
+    if ((status == 0)); then
+        cat "$output_file"
+    fi
+    rm -f "$output_file"
+    return "$status"
+}
+
+owner_build_repo_json_arrays() {
+    [ -n "$1" ] || return
+    [ -n "$2" ] || return
+    local owner_repo
+
+    while IFS= read -r owner_repo; do
+        [ -n "$owner_repo" ] || continue
+        script_stop_requested && return 3
+        owner_build_json_array_to_file \
+            "$BKG_INDEX_DIR/$1/$owner_repo" \
+            "$BKG_INDEX_DIR/$1/$owner_repo/.json.tmp" || return $?
+    done <<<"$2"
 }
 
 page_owner() {

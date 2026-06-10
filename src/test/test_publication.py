@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 import tempfile
-import unittest
+from pathlib import Path
+
+import pytest
 
 from bkg_py.publication import (
+    JsonValue,
     PublicationError,
     PublicationLimits,
     publish_json_file,
@@ -21,35 +23,34 @@ def _never_stop() -> None:
     pass
 
 
-class PublicationTests(unittest.TestCase):
+class TestPublication:
     """Verify serialization, trimming, limits, and interruption behavior."""
 
     def test_xml_serialization_preserves_endpoint_shape_and_escaping(self) -> None:
         """Objects, repeated lists, empty values, and scalars retain their shape."""
 
-        value = {
+        value: JsonValue = {
             "text": "A&B<>\"'\t\r\n\u0001",
             "values": [1, True, None],
             "empty_list": [],
             "empty_object": {},
         }
 
-        self.assertEqual(
-            "".join(xml_chunks(value)),
-            '<?xml version="1.0" encoding="UTF-8"?><xml>'
+        assert (
+            "".join(xml_chunks(value)) == '<?xml version="1.0" encoding="UTF-8"?><xml>'
             "<text>A&amp;B&lt;&gt;&#34;&#39;&#x9;&#xD;\n\ufffd</text>"
             "<values>1</values><values>true</values><values>null</values>"
-            "<empty_object></empty_object></xml>",
+            "<empty_object></empty_object></xml>"
         )
 
     def test_root_array_uses_repeated_package_elements(self) -> None:
         """Top-level aggregate arrays remain package-shaped XML."""
 
-        self.assertEqual(
-            "".join(xml_chunks([{"name": "one"}, {"name": "two"}])),
-            '<?xml version="1.0" encoding="UTF-8"?><xml>'
+        assert (
+            "".join(xml_chunks([{"name": "one"}, {"name": "two"}]))
+            == '<?xml version="1.0" encoding="UTF-8"?><xml>'
             "<package><name>one</name></package>"
-            "<package><name>two</name></package></xml>",
+            "<package><name>two</name></package></xml>"
         )
 
     def test_small_publication_preserves_original_json_bytes(self) -> None:
@@ -62,12 +63,12 @@ class PublicationTests(unittest.TestCase):
 
             result = publish_json_file(source, _never_stop)
 
-            self.assertFalse(result.trimmed)
-            self.assertEqual(source.read_bytes(), original)
-            self.assertEqual(
-                source.with_suffix(".xml").read_text(encoding="utf-8"),
-                '<?xml version="1.0" encoding="UTF-8"?><xml>'
-                "<name>demo</name><tags>latest</tags><tags>edge</tags></xml>",
+            assert not result.trimmed
+            assert source.read_bytes() == original
+            assert (
+                source.with_suffix(".xml").read_text(encoding="utf-8")
+                == '<?xml version="1.0" encoding="UTF-8"?><xml>'
+                "<name>demo</name><tags>latest</tags><tags>edge</tags></xml>"
             )
 
     def test_dot_json_aggregate_publishes_dot_xml_endpoint(self) -> None:
@@ -79,8 +80,8 @@ class PublicationTests(unittest.TestCase):
 
             publish_json_file(source, _never_stop)
 
-            self.assertTrue((Path(directory) / ".xml").is_file())
-            self.assertFalse((Path(directory) / ".json.xml").exists())
+            assert (Path(directory) / ".xml").is_file()
+            assert not (Path(directory) / ".json.xml").exists()
 
     def test_adaptive_trimming_preserves_protected_versions(self) -> None:
         """Oversized version lists retain latest/newest entries and numeric order."""
@@ -109,12 +110,12 @@ class PublicationTests(unittest.TestCase):
             published = json.loads(source.read_bytes())
             identifiers = [version["id"] for version in published["version"]]
 
-            self.assertTrue(result.trimmed)
-            self.assertLess(result.json_size, limits.maximum_bytes)
-            self.assertLess(result.xml_size, limits.maximum_bytes)
-            self.assertEqual(identifiers, sorted(identifiers))
-            self.assertIn(1, identifiers)
-            self.assertIn(6, identifiers)
+            assert result.trimmed
+            assert result.json_size < limits.maximum_bytes
+            assert result.xml_size < limits.maximum_bytes
+            assert identifiers == sorted(identifiers)
+            assert 1 in identifiers
+            assert 6 in identifiers
 
     def test_hard_limits_replace_independently_oversized_formats(self) -> None:
         """Hard caps always leave valid minimal JSON and XML endpoints."""
@@ -135,11 +136,11 @@ class PublicationTests(unittest.TestCase):
                 ),
             )
 
-            self.assertEqual(source.read_bytes(), b"{}\n")
+            assert source.read_bytes() == b"{}\n"
             empty_xml = b'<?xml version="1.0" encoding="UTF-8"?><xml></xml>\n'
-            self.assertEqual(source.with_suffix(".xml").read_bytes(), empty_xml)
-            self.assertEqual(result.json_size, 3)
-            self.assertEqual(result.xml_size, len(empty_xml))
+            assert source.with_suffix(".xml").read_bytes() == empty_xml
+            assert result.json_size == 3
+            assert result.xml_size == len(empty_xml)
 
     def test_interruption_preserves_previous_pair_and_cleans_temporary_files(
         self,
@@ -165,7 +166,7 @@ class PublicationTests(unittest.TestCase):
                 ):
                     raise GracefulStop("test")
 
-            with self.assertRaises(GracefulStop):
+            with pytest.raises(GracefulStop):
                 publish_json_file(
                     source,
                     stop_after_staging,
@@ -175,10 +176,10 @@ class PublicationTests(unittest.TestCase):
                     ),
                 )
 
-            self.assertEqual(source.read_bytes(), original_json)
-            self.assertEqual(xml_path.read_bytes(), original_xml)
-            self.assertEqual(list(root.glob(".package.json.*")), [])
-            self.assertEqual(list(root.glob(".package.xml.*")), [])
+            assert source.read_bytes() == original_json
+            assert xml_path.read_bytes() == original_xml
+            assert not list(root.glob(".package.json.*"))
+            assert not list(root.glob(".package.xml.*"))
 
     def test_invalid_json_does_not_replace_existing_xml(self) -> None:
         """Malformed input fails without disturbing a previous XML endpoint."""
@@ -189,11 +190,7 @@ class PublicationTests(unittest.TestCase):
             source.write_text('{"broken":', encoding="utf-8")
             xml_path.write_text("<xml>old</xml>", encoding="utf-8")
 
-            with self.assertRaises(PublicationError):
+            with pytest.raises(PublicationError):
                 write_xml_file(source, _never_stop)
 
-            self.assertEqual(xml_path.read_text(encoding="utf-8"), "<xml>old</xml>")
-
-
-if __name__ == "__main__":
-    unittest.main()
+            assert xml_path.read_text(encoding="utf-8") == "<xml>old</xml>"

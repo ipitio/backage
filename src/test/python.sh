@@ -4,6 +4,7 @@ set -euo pipefail
 
 test_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 src_dir=$(cd "$test_dir/.." && pwd)
+repo_dir=$(cd "$src_dir/.." && pwd)
 workdir=$(mktemp -d)
 
 cleanup() {
@@ -17,12 +18,19 @@ if ! command -v python3 >/dev/null 2>&1; then
 	exit 1
 fi
 
-PYTHONPATH="$src_dir" PYTHONDONTWRITEBYTECODE=1 \
-	python3 -m unittest discover -s "$test_dir" -p 'test_*.py'
+(
+	cd "$repo_dir"
+	uv sync --locked --quiet --no-install-project
+	PYTHONPATH="$src_dir" PYTHONDONTWRITEBYTECODE=1 \
+		uv run --locked --no-sync pytest -q "$test_dir"
+)
+python_bin="$repo_dir/.venv/bin/python"
+export PATH="$repo_dir/.venv/bin:$PATH"
 
 config_json=$(
 	cd "$src_dir"
-	env -i PATH="$PATH" PYTHONPATH="$src_dir" PYTHONDONTWRITEBYTECODE=1 python3 -m bkg_py config
+	env -i PATH="$PATH" PYTHONPATH="$src_dir" PYTHONDONTWRITEBYTECODE=1 \
+		"$python_bin" -m bkg_py config
 )
 
 jq -e '
@@ -33,7 +41,8 @@ jq -e '
 
 branch_config_json=$(
 	cd "$src_dir"
-	env -i PATH="$PATH" PYTHONPATH="$src_dir" PYTHONDONTWRITEBYTECODE=1 GITHUB_BRANCH=feature python3 -m bkg_py config
+	env -i PATH="$PATH" PYTHONPATH="$src_dir" PYTHONDONTWRITEBYTECODE=1 \
+		GITHUB_BRANCH=feature "$python_bin" -m bkg_py config
 )
 
 jq -e '
@@ -61,7 +70,7 @@ git -C "$queue_repo" commit -qm init
 owner_candidates=$(
 	cd "$queue_dir"
 	PYTHONPATH="$src_dir" PYTHONDONTWRITEBYTECODE=1 \
-		python3 -m bkg_py select-owners \
+		"$python_bin" -m bkg_py select-owners \
 			0 "$queue_dir/connections" 10 current "$queue_dir/manual" "$queue_repo"
 )
 [ "$owner_candidates" = $'manual\ncurrent\nalpha' ] || {

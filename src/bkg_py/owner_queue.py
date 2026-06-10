@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from pathlib import Path
 import random
 import subprocess
+from dataclasses import dataclass
+from pathlib import Path
+
+from .runtime import resolve_executable
 
 
 def _read_lines(path: Path) -> list[str]:
@@ -84,9 +86,11 @@ class OwnerQueueSelector:
         """Return indexed owners ordered from least to most recently changed."""
 
         try:
-            result = subprocess.run(
+            git = resolve_executable("git")
+            # Git is resolved before argv is passed without a shell.
+            result = subprocess.run(  # noqa: S603
                 [
-                    "git",
+                    git,
                     "-C",
                     str(self.index_dir),
                     "log",
@@ -97,6 +101,7 @@ class OwnerQueueSelector:
                 ],
                 check=False,
                 capture_output=True,
+                shell=False,
                 text=True,
             )
         except OSError:

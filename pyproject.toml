@@ -7,7 +7,7 @@ name = "backage"
 dynamic = ["version"]
 description = "Generate self-hosted GitHub Packages metadata indexes."
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 license = { file = "LICENSE" }
 authors = [
     { name = "ipitio", email = "ipitio@users.noreply.github.com" },
@@ -16,9 +16,10 @@ dependencies = []
 
 [dependency-groups]
 dev = [
-    "black==26.5.1",
     "pylint==4.0.5",
     "pyright==1.1.410",
+    "pytest==9.0.3",
+    "ruff==0.15.16",
 ]
 
 [project.urls]
@@ -34,20 +35,67 @@ version = { attr = "bkg_py.__version__" }
 where = ["src"]
 include = ["bkg_py*"]
 
-[tool.black]
-line-length = 88
-target-version = ["py310"]
-
 [tool.pylint.main]
 persistent = false
-py-version = "3.10"
+py-version = "3.12"
 source-roots = ["src"]
 
 [tool.pylint.format]
 max-line-length = 88
 
+[tool.pylint.similarities]
+min-similarity-lines = 12
+
+[tool.ruff]
+line-length = 88
+src = ["src"]
+target-version = "py312"
+
+[tool.ruff.lint]
+select = [
+    "E4",
+    "E7",
+    "E9",
+    "F",
+    "I",
+    "B",
+    "UP",
+    "RUF",
+    "SIM",
+    "C4",
+    "PIE",
+    "RSE",
+    "RET",
+    "PERF",
+    "FURB",
+    "ARG",
+    "BLE",
+    "PTH",
+    "DTZ",
+    "ASYNC",
+    "LOG",
+    "C90",
+    "PL",
+    "PGH",
+    "T10",
+    "PT",
+    "S",
+    "T20",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"src/bkg_py/__main__.py" = ["T201"]
+"src/bkg_py/validation.py" = ["S314", "T201"]
+"src/test/test_*.py" = ["PLR2004", "S101"]
+"src/test/test_database.py" = ["S608"]
+"src/test/test_rendering.py" = ["S608"]
+"src/test/test_state.py" = ["S603", "S607"]
+
 [tool.pyright]
 include = ["src/bkg_py", "src/test"]
-pythonVersion = "3.10"
+pythonVersion = "3.12"
 pythonPlatform = "Linux"
-typeCheckingMode = "standard"
+venvPath = "."
+venv = ".venv"
+typeCheckingMode = "strict"
+reportDeprecated = "error"

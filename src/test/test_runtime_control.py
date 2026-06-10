@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import os
-from pathlib import Path
 import signal
 import sys
 import tempfile
 import threading
 import time
-import unittest
+from pathlib import Path
+
+import pytest
 
 from bkg_py.result import ExitStatus
 from bkg_py.runtime import (
@@ -46,7 +47,7 @@ def _is_running(pid: int) -> bool:
     return status != "Z"
 
 
-class RuntimeControlTests(unittest.TestCase):
+class TestRuntimeControl:
     """Exercise elapsed, persisted, signal, and child-process stop paths."""
 
     def test_elapsed_limit_persists_graceful_stop(self) -> None:
@@ -64,11 +65,11 @@ class RuntimeControlTests(unittest.TestCase):
 
             clock.advance(5)
 
-            with self.assertRaises(GracefulStop) as raised:
+            with pytest.raises(GracefulStop) as raised:
                 controller.check()
-            self.assertEqual(raised.exception.status, ExitStatus.GRACEFUL_STOP)
-            self.assertEqual(StateStore(state_path).get("BKG_TIMEOUT"), "1")
-            self.assertEqual(controller.reason, "elapsed")
+            assert raised.value.status == ExitStatus.GRACEFUL_STOP
+            assert StateStore(state_path).get("BKG_TIMEOUT") == "1"
+            assert controller.reason == "elapsed"
 
     def test_persisted_stop_is_observed_immediately(self) -> None:
         """A stop requested by another process is visible to Python work."""
@@ -78,9 +79,9 @@ class RuntimeControlTests(unittest.TestCase):
             state_path.write_text("BKG_TIMEOUT=1\n\n", encoding="utf-8")
             controller = StopController(StateStore(state_path), max_duration=0)
 
-            with self.assertRaises(GracefulStop):
+            with pytest.raises(GracefulStop):
                 controller.check()
-            self.assertEqual(controller.reason, "persisted")
+            assert controller.reason == "persisted"
 
     def test_signal_requests_and_persists_stop(self) -> None:
         """SIGTERM becomes a graceful stop instead of terminating the process."""
@@ -92,11 +93,11 @@ class RuntimeControlTests(unittest.TestCase):
 
             with controller.signal_handlers((signal.SIGTERM,)):
                 os.kill(os.getpid(), signal.SIGTERM)
-                with self.assertRaises(GracefulStop):
+                with pytest.raises(GracefulStop):
                     controller.check()
 
-            self.assertEqual(StateStore(state_path).get("BKG_TIMEOUT"), "1")
-            self.assertEqual(controller.reason, f"signal-{signal.SIGTERM}")
+            assert StateStore(state_path).get("BKG_TIMEOUT") == "1"
+            assert controller.reason == f"signal-{signal.SIGTERM}"
 
     def test_sleep_observes_external_stop(self) -> None:
         """Interruptible sleep notices a persisted request without waiting fully."""
@@ -116,11 +117,11 @@ class RuntimeControlTests(unittest.TestCase):
             )
             requester.start()
             started_at = time.monotonic()
-            with self.assertRaises(GracefulStop):
+            with pytest.raises(GracefulStop):
                 controller.sleep(10)
             requester.join()
 
-            self.assertLess(time.monotonic() - started_at, 1)
+            assert time.monotonic() - started_at < 1
 
     def test_process_runner_captures_output(self) -> None:
         """Successful commands return separate or combined byte streams."""
@@ -143,12 +144,36 @@ class RuntimeControlTests(unittest.TestCase):
                 options=CommandOptions(combine_output=True),
             )
 
-            self.assertEqual(separate.returncode, 0)
-            self.assertEqual(separate.stdout, b"out\n")
-            self.assertEqual(separate.stderr, b"err\n")
-            self.assertIn(b"out\n", combined.stdout)
-            self.assertIn(b"err\n", combined.stdout)
-            self.assertEqual(combined.stderr, b"")
+            assert separate.returncode == 0
+            assert separate.stdout == b"out\n"
+            assert separate.stderr == b"err\n"
+            assert b"out\n" in combined.stdout
+            assert b"err\n" in combined.stdout
+            assert combined.stderr == b""
+
+    def test_process_runner_resolves_executable_from_child_path(self) -> None:
+        """Command lookup honors the child environment and records an absolute path."""
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            state_path = root / "env.env"
+            executable = root / "bin" / "test-command"
+            executable.parent.mkdir()
+            executable.write_text("#!/bin/sh\nprintf 'resolved\\n'\n", encoding="utf-8")
+            executable.chmod(0o755)
+            state_path.touch()
+            runner = ProcessRunner(
+                StopController(StateStore(state_path), max_duration=0)
+            )
+
+            result = runner.run(
+                ["test-command"],
+                options=CommandOptions(env={"PATH": str(executable.parent)}),
+            )
+
+            assert result.returncode == 0
+            assert result.args[0] == str(executable.resolve())
+            assert result.stdout == b"resolved\n"
 
     def test_process_runner_publishes_only_successful_output(self) -> None:
         """Failed commands cannot replace the last complete destination."""
@@ -166,18 +191,15 @@ class RuntimeControlTests(unittest.TestCase):
                 [sys.executable, "-c", "print('partial'); raise SystemExit(7)"],
                 destination,
             )
-            self.assertEqual(failed.returncode, 7)
-            self.assertEqual(destination.read_text(encoding="utf-8"), "old\n")
+            assert failed.returncode == 7
+            assert destination.read_text(encoding="utf-8") == "old\n"
 
             succeeded = runner.run_to_file(
                 [sys.executable, "-c", "print('complete')"],
                 destination,
             )
-            self.assertEqual(succeeded.returncode, 0)
-            self.assertEqual(
-                destination.read_text(encoding="utf-8"),
-                "complete\n",
-            )
+            assert succeeded.returncode == 0
+            assert destination.read_text(encoding="utf-8") == "complete\n"
 
     def test_process_runner_kills_blocked_process_group(self) -> None:
         """A stop terminates both a blocked command and its child."""
@@ -219,16 +241,16 @@ class RuntimeControlTests(unittest.TestCase):
             requester = threading.Thread(target=request_stop)
             requester.start()
             started_at = time.monotonic()
-            with self.assertRaises(GracefulStop):
+            with pytest.raises(GracefulStop):
                 runner.run([sys.executable, "-c", script])
             requester.join()
 
-            self.assertLess(time.monotonic() - started_at, 2)
+            assert time.monotonic() - started_at < 2
             child_pid = int(child_pid_path.read_text(encoding="utf-8"))
             deadline = time.monotonic() + 1
             while _is_running(child_pid) and time.monotonic() < deadline:
                 time.sleep(0.01)
-            self.assertFalse(_is_running(child_pid))
+            assert not _is_running(child_pid)
 
     def test_phase_timer_uses_monotonic_time(self) -> None:
         """Phase messages report stable elapsed time."""
@@ -237,9 +259,5 @@ class RuntimeControlTests(unittest.TestCase):
         timer = PhaseTimer("aggregate", clock=clock)
         clock.advance(1.25)
 
-        self.assertEqual(timer.elapsed, 1.25)
-        self.assertEqual(timer.message(), "aggregate completed in 1.2s")
-
-
-if __name__ == "__main__":
-    unittest.main()
+        assert timer.elapsed == 1.25
+        assert timer.message() == "aggregate completed in 1.2s"

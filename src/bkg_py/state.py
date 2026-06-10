@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
-from contextlib import contextmanager
 import os
-from pathlib import Path
 import re
 import time
-from typing import Generator
+from collections.abc import Generator, Iterable, Mapping
+from contextlib import contextmanager, suppress
+from pathlib import Path
 
 from .files import atomic_text_output
 
@@ -68,10 +67,8 @@ class StateStore:
         try:
             yield
         finally:
-            try:
+            with suppress(FileNotFoundError):
                 lock_path.unlink()
-            except FileNotFoundError:
-                pass
 
     def _read_lines(self, *, wait_for_unlock: bool = True) -> list[str]:
         if wait_for_unlock:
@@ -92,11 +89,12 @@ class StateStore:
         """Return a scalar using the same value subset read by Bash."""
 
         _validate_key(key)
-        values: list[str] = []
         prefix = f"{key}="
-        for line in self._read_lines():
-            if line.startswith(prefix):
-                values.append(line.split("=", maxsplit=2)[1])
+        values = [
+            line.split("=", maxsplit=2)[1]
+            for line in self._read_lines()
+            if line.startswith(prefix)
+        ]
         return "\n".join(values) if values else default
 
     def get_int(self, key: str, default: int = 0) -> int:
@@ -190,25 +188,27 @@ class StateStore:
         if not item or r"\n" in item:
             raise StateValueError("state set items cannot be empty or contain '\\n'")
 
-        with self._lock(self._key_lock_path(key)):
-            with self._lock(self._global_lock_path):
-                lines = self._read_lines(wait_for_unlock=False)
-                prefix = f"{key}="
-                raw_values = [
-                    line.split("=", maxsplit=2)[1]
-                    for line in lines
-                    if line.startswith(prefix)
-                ]
-                current_raw = "\n".join(raw_values)
-                current = self._decode_set_value(current_raw)
-                unique = list(dict.fromkeys(current))
-                if item in unique:
-                    return False
-                unique.append(item)
-                encoded = r"\n".join(unique)
-                retained = [line for line in lines if not line.startswith(prefix)]
-                retained.append(f"{key}={encoded}")
-                self._atomic_write(retained)
+        with (
+            self._lock(self._key_lock_path(key)),
+            self._lock(self._global_lock_path),
+        ):
+            lines = self._read_lines(wait_for_unlock=False)
+            prefix = f"{key}="
+            raw_values = [
+                line.split("=", maxsplit=2)[1]
+                for line in lines
+                if line.startswith(prefix)
+            ]
+            current_raw = "\n".join(raw_values)
+            current = self._decode_set_value(current_raw)
+            unique = list(dict.fromkeys(current))
+            if item in unique:
+                return False
+            unique.append(item)
+            encoded = r"\n".join(unique)
+            retained = [line for line in lines if not line.startswith(prefix)]
+            retained.append(f"{key}={encoded}")
+            self._atomic_write(retained)
         return True
 
     def increment(self, key: str, amount: int = 1, *, default: int = 0) -> int:
@@ -237,9 +237,6 @@ class StateStore:
     def _decode_set_value(value: str) -> list[str]:
         if not value:
             return []
-        if value.startswith(r"\n"):
-            value = value[2:]
-        if value.endswith(r"\n"):
-            value = value[:-2]
+        value = value.removeprefix(r"\n").removesuffix(r"\n")
         value = value.replace(r"\n\n", r"\n", 1)
         return value.replace(r"\n", "\n").split("\n")

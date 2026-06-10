@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-from contextlib import contextmanager
 import os
-from pathlib import Path
 import stat
 import tempfile
-from typing import BinaryIO, Generator, TextIO
+from collections.abc import Generator
+from contextlib import contextmanager, suppress
+from pathlib import Path
+from typing import BinaryIO, TextIO
 
 
 def _destination_mode(path: Path, default_mode: int) -> int:
@@ -41,17 +42,15 @@ def atomic_path(
     os.close(descriptor)
 
     try:
-        os.chmod(temporary_path, _destination_mode(destination, default_mode))
+        temporary_path.chmod(_destination_mode(destination, default_mode))
         yield temporary_path
         with temporary_path.open("rb") as file:
             os.fsync(file.fileno())
-        os.replace(temporary_path, destination)
+        temporary_path.replace(destination)
         _sync_directory(destination.parent)
     finally:
-        try:
+        with suppress(FileNotFoundError):
             temporary_path.unlink()
-        except FileNotFoundError:
-            pass
 
 
 @contextmanager
@@ -64,15 +63,17 @@ def atomic_text_output(
 ) -> Generator[TextIO, None, None]:
     """Yield a text stream that atomically replaces its destination."""
 
-    with atomic_path(destination, default_mode=default_mode) as temporary_path:
-        with temporary_path.open(
+    with (
+        atomic_path(destination, default_mode=default_mode) as temporary_path,
+        temporary_path.open(
             "w",
             encoding=encoding,
             newline=newline,
-        ) as file:
-            yield file
-            file.flush()
-            os.fsync(file.fileno())
+        ) as file,
+    ):
+        yield file
+        file.flush()
+        os.fsync(file.fileno())
 
 
 @contextmanager
@@ -83,8 +84,10 @@ def atomic_binary_output(
 ) -> Generator[BinaryIO, None, None]:
     """Yield a binary stream that atomically replaces its destination."""
 
-    with atomic_path(destination, default_mode=default_mode) as temporary_path:
-        with temporary_path.open("wb") as file:
-            yield file
-            file.flush()
-            os.fsync(file.fileno())
+    with (
+        atomic_path(destination, default_mode=default_mode) as temporary_path,
+        temporary_path.open("wb") as file,
+    ):
+        yield file
+        file.flush()
+        os.fsync(file.fileno())

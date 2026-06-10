@@ -4,10 +4,10 @@ set -euo pipefail
 
 test_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 repo_dir=$(cd "$test_dir/../.." && pwd)
-black_args=()
+ruff_args=()
 
 if [ "${1:-}" = "--check" ]; then
-	black_args+=(--check)
+	ruff_args+=(--check)
 	shift
 fi
 
@@ -21,18 +21,6 @@ if ! command -v uv >/dev/null 2>&1; then
 	exit 1
 fi
 
-mapfile -d '' -t python_files < <(
-	cd "$repo_dir"
-	find src -type f -name '*.py' -print0 | sort -z
-)
-
-((${#python_files[@]} > 0)) || {
-	echo "No Python files found" >&2
-	exit 1
-}
-
 cd "$repo_dir"
-uv sync --locked --quiet
-for file in "${python_files[@]}"; do
-	uv run --locked --no-sync black "${black_args[@]}" "$file"
-done
+uv sync --locked --quiet --no-install-project
+uv run --locked --no-sync ruff format "${ruff_args[@]}" src

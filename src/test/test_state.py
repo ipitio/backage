@@ -1,11 +1,12 @@
 """Tests for the shell-compatible persisted state store."""
 
-from concurrent.futures import ThreadPoolExecutor
-from pathlib import Path
 import subprocess
 import tempfile
-import unittest
-from unittest import mock
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+from unittest.mock import patch
+
+import pytest
 
 from bkg_py.state import StateStore, StateValueError
 
@@ -13,7 +14,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 _UTIL_SH = _REPO_ROOT / "src" / "lib" / "util.sh"
 
 
-class StateStoreTests(unittest.TestCase):
+class TestStateStore:
     """Exercise state compatibility, locking, and atomic file replacement."""
 
     def test_scalar_updates_preserve_unknown_records(self) -> None:
@@ -29,12 +30,12 @@ class StateStoreTests(unittest.TestCase):
 
             store.set("KNOWN", "new")
 
-            self.assertEqual(store.get("KNOWN"), "new")
-            self.assertEqual(store.get("UNKNOWN"), "keep")
+            assert store.get("KNOWN") == "new"
+            assert store.get("UNKNOWN") == "keep"
             text = path.read_text(encoding="utf-8")
-            self.assertIn("# retained\n", text)
-            self.assertIn("unrecognized line\n", text)
-            self.assertTrue(text.endswith("KNOWN=new\n\n"))
+            assert "# retained\n" in text
+            assert "unrecognized line\n" in text
+            assert text.endswith("KNOWN=new\n\n")
 
     def test_set_operations_are_ordered_and_unique(self) -> None:
         """Newline-backed sets retain insertion order and reject duplicates."""
@@ -44,15 +45,12 @@ class StateStoreTests(unittest.TestCase):
             path.touch()
             store = StateStore(path)
 
-            self.assertTrue(store.add_to_set("BKG_QUEUE", "alpha"))
-            self.assertTrue(store.add_to_set("BKG_QUEUE", "beta"))
-            self.assertFalse(store.add_to_set("BKG_QUEUE", "alpha"))
+            assert store.add_to_set("BKG_QUEUE", "alpha")
+            assert store.add_to_set("BKG_QUEUE", "beta")
+            assert not store.add_to_set("BKG_QUEUE", "alpha")
 
-            self.assertEqual(store.get_set("BKG_QUEUE"), ["alpha", "beta"])
-            self.assertIn(
-                r"BKG_QUEUE=alpha\nbeta",
-                path.read_text(encoding="utf-8"),
-            )
+            assert store.get_set("BKG_QUEUE") == ["alpha", "beta"]
+            assert r"BKG_QUEUE=alpha\nbeta" in path.read_text(encoding="utf-8")
 
     def test_concurrent_updates_do_not_lose_unrelated_values(self) -> None:
         """The shared hard-link lock serializes complete file replacements."""
@@ -62,17 +60,15 @@ class StateStoreTests(unittest.TestCase):
             path.touch()
             store = StateStore(path, lock_poll_interval=0.001)
 
+            def set_value(number: int) -> None:
+                store.set(f"BKG_VALUE_{number}", number)
+
             with ThreadPoolExecutor(max_workers=8) as executor:
-                list(
-                    executor.map(
-                        lambda number: store.set(f"BKG_VALUE_{number}", number),
-                        range(32),
-                    )
-                )
+                list(executor.map(set_value, range(32)))
 
             snapshot = store.snapshot()
             for number in range(32):
-                self.assertEqual(snapshot[f"BKG_VALUE_{number}"], str(number))
+                assert snapshot[f"BKG_VALUE_{number}"] == str(number)
 
     def test_increment_is_atomic_across_threads(self) -> None:
         """Counters use one read-modify-write operation under the global lock."""
@@ -82,10 +78,13 @@ class StateStoreTests(unittest.TestCase):
             path.touch()
             store = StateStore(path, lock_poll_interval=0.001)
 
-            with ThreadPoolExecutor(max_workers=8) as executor:
-                list(executor.map(lambda _: store.increment("BKG_COUNT"), range(40)))
+            def increment(_: int) -> int:
+                return store.increment("BKG_COUNT")
 
-            self.assertEqual(store.get_int("BKG_COUNT"), 40)
+            with ThreadPoolExecutor(max_workers=8) as executor:
+                list(executor.map(increment, range(40)))
+
+            assert store.get_int("BKG_COUNT") == 40
 
     def test_delete_matching_supports_final_state_pruning(self) -> None:
         """Transient families can be removed without dropping durable keys."""
@@ -109,16 +108,13 @@ class StateStoreTests(unittest.TestCase):
                 prefixes=("BKG_PACKAGES_", "BKG_VERSIONS_", "BKG_OWNERS_"),
             )
 
-            self.assertEqual(
-                deleted,
-                {
-                    "BKG_PACKAGES_alpha",
-                    "BKG_VERSIONS_alpha",
-                    "BKG_OWNERS_QUEUE",
-                    "BKG_TIMEOUT",
-                },
-            )
-            self.assertEqual(store.snapshot(), {"BKG_BATCH_MARKER": "durable"})
+            assert deleted == {
+                "BKG_PACKAGES_alpha",
+                "BKG_VERSIONS_alpha",
+                "BKG_OWNERS_QUEUE",
+                "BKG_TIMEOUT",
+            }
+            assert store.snapshot() == {"BKG_BATCH_MARKER": "durable"}
 
     def test_failed_replace_keeps_original_and_cleans_temporary_file(self) -> None:
         """A failed atomic replacement leaves the previous state readable."""
@@ -128,13 +124,19 @@ class StateStoreTests(unittest.TestCase):
             path.write_text("BKG_VALUE=old\n\n", encoding="utf-8")
             store = StateStore(path)
 
-            with mock.patch("bkg_py.state.os.replace", side_effect=OSError):
-                with self.assertRaises(OSError):
-                    store.set("BKG_VALUE", "new")
+            with (
+                patch.object(
+                    Path,
+                    "replace",
+                    side_effect=OSError("replace failed"),
+                ),
+                pytest.raises(OSError, match="replace failed"),
+            ):
+                store.set("BKG_VALUE", "new")
 
-            self.assertEqual(path.read_text(encoding="utf-8"), "BKG_VALUE=old\n\n")
-            self.assertEqual(list(path.parent.glob(f".{path.name}.*")), [])
-            self.assertFalse(Path(f"{path}.lock").exists())
+            assert path.read_text(encoding="utf-8") == "BKG_VALUE=old\n\n"
+            assert not list(path.parent.glob(f".{path.name}.*"))
+            assert not Path(f"{path}.lock").exists()
 
     def test_unrepresentable_values_are_rejected(self) -> None:
         """Values that Bash would split or truncate cannot be persisted."""
@@ -144,11 +146,11 @@ class StateStoreTests(unittest.TestCase):
             path.touch()
             store = StateStore(path)
 
-            with self.assertRaises(StateValueError):
+            with pytest.raises(StateValueError):
                 store.set("BKG_VALUE", "line one\nline two")
-            with self.assertRaises(StateValueError):
+            with pytest.raises(StateValueError):
                 store.set("BKG_VALUE", "left=right")
-            with self.assertRaises(StateValueError):
+            with pytest.raises(StateValueError):
                 store.set("not-a-shell-name", "value")
 
     def test_bash_and_python_read_each_others_updates(self) -> None:
@@ -174,8 +176,8 @@ set_BKG_set BKG_QUEUE alpha || :
             )
 
             store = StateStore(path)
-            self.assertEqual(store.get("BKG_SCALAR"), "from-bash")
-            self.assertEqual(store.get_set("BKG_QUEUE"), ["alpha", "beta"])
+            assert store.get("BKG_SCALAR") == "from-bash"
+            assert store.get_set("BKG_QUEUE") == ["alpha", "beta"]
             store.set("BKG_SCALAR", "from-python")
             store.add_to_set("BKG_QUEUE", "gamma")
             store.delete("BKG_UNKNOWN")
@@ -195,11 +197,4 @@ printf 'unknown=%s\n' "$(get_BKG BKG_UNKNOWN)"
                 capture_output=True,
                 text=True,
             )
-            self.assertEqual(
-                result.stdout,
-                "from-python\nalpha\nbeta\ngamma\nunknown=\n",
-            )
-
-
-if __name__ == "__main__":
-    unittest.main()
+            assert result.stdout == "from-python\nalpha\nbeta\ngamma\nunknown=\n"

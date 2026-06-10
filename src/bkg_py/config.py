@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
 import os
+from dataclasses import asdict, dataclass
 from pathlib import Path
 
 
@@ -45,7 +45,7 @@ class RuntimeConfig:  # pylint: disable=too-many-instance-attributes
     index_dir: str | None
 
     @classmethod
-    def from_env(cls) -> "RuntimeConfig":
+    def from_env(cls) -> RuntimeConfig:
         """Build a runtime configuration from the current process environment."""
 
         root = Path(os.environ.get("BKG_ROOT", _repo_root())).resolve()

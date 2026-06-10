@@ -1,13 +1,14 @@
 """Tests for atomic durable-output helpers."""
 
-from pathlib import Path
 import tempfile
-import unittest
+from pathlib import Path
+
+import pytest
 
 from bkg_py.files import atomic_binary_output, atomic_text_output
 
 
-class AtomicOutputTests(unittest.TestCase):
+class TestAtomicOutput:
     """Verify successful replacement and failure cleanup."""
 
     def test_text_output_replaces_destination_after_success(self) -> None:
@@ -20,8 +21,8 @@ class AtomicOutputTests(unittest.TestCase):
             with atomic_text_output(destination) as file:
                 file.write("new\n")
 
-            self.assertEqual(destination.read_text(encoding="utf-8"), "new\n")
-            self.assertEqual(list(destination.parent.glob(".output.txt.*")), [])
+            assert destination.read_text(encoding="utf-8") == "new\n"
+            assert not list(destination.parent.glob(".output.txt.*"))
 
     def test_binary_output_preserves_destination_after_failure(self) -> None:
         """An interrupted binary write leaves the previous file intact."""
@@ -30,14 +31,13 @@ class AtomicOutputTests(unittest.TestCase):
             destination = Path(directory) / "output.bin"
             destination.write_bytes(b"old")
 
-            with self.assertRaisesRegex(RuntimeError, "interrupted"):
+            def interrupted_write() -> None:
                 with atomic_binary_output(destination) as file:
                     file.write(b"partial")
                     raise RuntimeError("interrupted")
 
-            self.assertEqual(destination.read_bytes(), b"old")
-            self.assertEqual(list(destination.parent.glob(".output.bin.*")), [])
+            with pytest.raises(RuntimeError, match="interrupted"):
+                interrupted_write()
 
-
-if __name__ == "__main__":
-    unittest.main()
+            assert destination.read_bytes() == b"old"
+            assert not list(destination.parent.glob(".output.bin.*"))

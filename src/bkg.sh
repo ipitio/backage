@@ -282,83 +282,11 @@ checkpoint_database_for_archive() {
 
 drop_replaced_legacy_version_tables() {
 	local batch_first_started=${1:-}
-	local batch_first_started_sql
-	local package_ref
-	local legacy_current_count
-	local missing_replacement_count
-	local owner_id_key
-	local owner_type_key
-	local package_type_key
-	local owner_key
-	local repo_key
-	local package_key
-	local legacy_table_sql
-	local versions_table_sql
-	local packages_table_sql
-	local legacy_prefix_sql
-	local table_name
 
 	[ -n "${BKG_INDEX_DB:-}" ] || return 0
 	[ -n "$batch_first_started" ] || batch_first_started=$(current_batch_first_started)
 	[ -n "$batch_first_started" ] || batch_first_started="0000-00-00"
-
-	batch_first_started_sql=$(sqlite_quote_literal "$batch_first_started")
-	versions_table_sql=$(sqlite_quote_identifier "$BKG_INDEX_TBL_VER")
-	packages_table_sql=$(sqlite_quote_identifier "$BKG_INDEX_TBL_PKG")
-	legacy_prefix_sql=$(sqlite_quote_literal "${BKG_INDEX_TBL_VER}_")
-
-	while IFS= read -r table_name; do
-		[ -n "$table_name" ] || continue
-		[ "$table_name" != "$BKG_INDEX_TBL_VER" ] || continue
-		legacy_table_sql=$(sqlite_quote_identifier "$table_name")
-
-		sqlite3 "$BKG_INDEX_DB" "delete from $legacy_table_sql where date < $batch_first_started_sql;" >/dev/null || continue
-		legacy_current_count=$(sqlite3 "$BKG_INDEX_DB" "select count(*) from $legacy_table_sql where date >= $batch_first_started_sql;" 2>/dev/null || :)
-		[[ "$legacy_current_count" =~ ^[0-9]+$ ]] || continue
-
-		if ((legacy_current_count == 0)); then
-			sqlite3 "$BKG_INDEX_DB" "drop table if exists $legacy_table_sql;" >/dev/null || :
-			continue
-		fi
-
-		package_ref=$(sqlite3 "$BKG_INDEX_DB" "
-			select owner_id, owner_type, package_type, owner, repo, package
-			from $packages_table_sql
-			where date >= $batch_first_started_sql
-			  and ($legacy_prefix_sql || owner_type || '_' || package_type || '_' || owner || '_' || repo || '_' || package) = $(sqlite_quote_literal "$table_name")
-			order by date desc
-			limit 1;
-		" 2>/dev/null || :)
-
-		if [ -z "$package_ref" ]; then
-			sqlite3 "$BKG_INDEX_DB" "drop table if exists $legacy_table_sql;" >/dev/null || :
-			continue
-		fi
-
-		IFS='|' read -r owner_id_key owner_type_key package_type_key owner_key repo_key package_key <<<"$package_ref"
-		missing_replacement_count=$(sqlite3 "$BKG_INDEX_DB" "
-			select count(*)
-			from $legacy_table_sql legacy
-			where legacy.date >= $batch_first_started_sql
-			  and not exists (
-				select 1
-				from $versions_table_sql normalized
-				where normalized.owner_id = $(sqlite_quote_literal "$owner_id_key")
-				  and normalized.owner_type = $(sqlite_quote_literal "$owner_type_key")
-				  and normalized.package_type = $(sqlite_quote_literal "$package_type_key")
-				  and normalized.owner = $(sqlite_quote_literal "$owner_key")
-				  and normalized.repo = $(sqlite_quote_literal "$repo_key")
-				  and normalized.package = $(sqlite_quote_literal "$package_key")
-				  and normalized.id = legacy.id
-				  and normalized.date = legacy.date
-			  );
-		" 2>/dev/null || :)
-		[[ "$missing_replacement_count" =~ ^[0-9]+$ ]] || continue
-
-		if ((missing_replacement_count == 0)); then
-			sqlite3 "$BKG_INDEX_DB" "drop table if exists $legacy_table_sql;" >/dev/null || :
-		fi
-	done < <(sqlite3 "$BKG_INDEX_DB" "select name from sqlite_master where type='table' and name like $(sqlite_quote_literal "${BKG_INDEX_TBL_VER}_%") order by name;" 2>/dev/null || :)
+	bkg_python database cleanup-legacy-all "$batch_first_started" >/dev/null
 }
 
 main() {

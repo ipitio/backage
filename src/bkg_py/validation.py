@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 import xml.etree.ElementTree as element_tree
+from pathlib import Path
 
 from .result import ExitStatus
 

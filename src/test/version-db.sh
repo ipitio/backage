@@ -56,7 +56,7 @@ EOF
 		update_version "$row_a" >/dev/null
 		update_version "$row_b" >/dev/null
 
-		[ "$(find "$VERSION_STAGE_DIR" -maxdepth 1 -type f -name '*.sql' | wc -l)" -eq 2 ] || fail "Expected two staged version rows before flush"
+		[ "$(find "$VERSION_STAGE_DIR" -maxdepth 1 -type f -name 'row.*.json' | wc -l)" -eq 2 ] || fail "Expected two staged version rows before flush"
 		[ "$(sqlite3 "$BKG_INDEX_DB" "select count(*) from '$table_version_name';")" = "0" ] || fail "Expected no persisted version rows before batch flush"
 
 		version_flush_staged_rows
