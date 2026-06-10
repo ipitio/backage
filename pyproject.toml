@@ -7,7 +7,7 @@ name = "backage"
 dynamic = ["version"]
 description = "Generate self-hosted GitHub Packages metadata indexes."
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.10"
 license = { file = "LICENSE" }
 authors = [
     { name = "ipitio", email = "ipitio@users.noreply.github.com" },
@@ -36,11 +36,11 @@ include = ["bkg_py*"]
 
 [tool.black]
 line-length = 88
-target-version = ["py312"]
+target-version = ["py310"]
 
 [tool.pylint.main]
 persistent = false
-py-version = "3.12"
+py-version = "3.10"
 source-roots = ["src"]
 
 [tool.pylint.format]
@@ -48,6 +48,6 @@ max-line-length = 88
 
 [tool.pyright]
 include = ["src/bkg_py", "src/test"]
-pythonVersion = "3.12"
+pythonVersion = "3.10"
 pythonPlatform = "Linux"
 typeCheckingMode = "standard"

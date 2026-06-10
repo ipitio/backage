@@ -95,76 +95,56 @@ grep -Fxq manual <<<"$manual_bypass_candidates" || {
 	exit 1
 }
 
-legacy_validate_generated_file() {
-	local file=$1
-
-	if [ ! -s "$file" ]; then
-		echo "Empty file: $file"
-		rm -f "$file"
-	elif [[ "$file" == *.json ]]; then
-		jq -e . "$file" &>/dev/null || echo "Invalid json: $file"
-	else
-		xmllint --noout "$file" &>/dev/null || echo "Invalid xml: $file"
-	fi
-}
-
-compare_validation_case() {
+check_validation_case() {
 	local name=$1
 	local extension=$2
 	local content=${3-}
 	local create_file=${4:-true}
-	local legacy_file="$workdir/legacy-$name$extension"
-	local python_file="$workdir/python-$name$extension"
-	local legacy_output
-	local python_output
-	local legacy_status
-	local python_status
+	local expected_output=${5-}
+	local expected_exists=${6:-true}
+	local file="$workdir/$name$extension"
+	local original_file="$workdir/$name.original"
+	local output
+	local status
 
 	if $create_file; then
-		printf '%s' "$content" >"$legacy_file"
-		printf '%s' "$content" >"$python_file"
+		printf '%s' "$content" >"$file"
+		cp "$file" "$original_file"
 	fi
 
 	set +e
-	legacy_output=$(legacy_validate_generated_file "$legacy_file" 2>&1)
-	legacy_status=$?
-	python_output=$(bash "$src_dir/index.sh" "$python_file" 2>&1)
-	python_status=$?
+	output=$(bash "$src_dir/index.sh" "$file" 2>&1)
+	status=$?
 	set -e
 
-	legacy_output=${legacy_output//"$legacy_file"/<file>}
-	python_output=${python_output//"$python_file"/<file>}
-	[ "$legacy_status" -eq "$python_status" ] || {
-		echo "Validation status mismatch for $name: shell=$legacy_status python=$python_status" >&2
+	[ "$status" -eq 0 ] || {
+		echo "Validation returned status $status for $name" >&2
 		exit 1
 	}
-	[ "$legacy_output" = "$python_output" ] || {
-		echo "Validation output mismatch for $name" >&2
-		printf 'shell: %s\npython: %s\n' "$legacy_output" "$python_output" >&2
+	[ "$output" = "${expected_output//<file>/$file}" ] || {
+		echo "Unexpected validation output for $name" >&2
+		printf 'expected: %s\nactual: %s\n' "$expected_output" "${output//$file/<file>}" >&2
 		exit 1
 	}
-	[ -e "$legacy_file" ] && legacy_exists=true || legacy_exists=false
-	[ -e "$python_file" ] && python_exists=true || python_exists=false
-	[ "$legacy_exists" = "$python_exists" ] || {
-		echo "Validation file-retention mismatch for $name" >&2
+	[ -e "$file" ] && actual_exists=true || actual_exists=false
+	if [ "$actual_exists" != "$expected_exists" ]; then
+		echo "Unexpected validation file retention for $name" >&2
 		exit 1
-	}
-	if $legacy_exists; then
-		cmp -s "$legacy_file" "$python_file" || {
-			echo "Validation changed file contents for $name" >&2
-			exit 1
-		}
+	fi
+	if $create_file && $expected_exists && ! cmp -s "$original_file" "$file"; then
+		echo "Validation changed file contents for $name" >&2
+		exit 1
 	fi
 }
 
-compare_validation_case valid-json .json '{"ok":true}'
-compare_validation_case sequential-json .json $'{"first":true}\n[1,2,3]\n'
-compare_validation_case false-json .json 'false'
-compare_validation_case invalid-json .json '{"broken":'
-compare_validation_case empty-json .json ''
-compare_validation_case missing-json .json '' false
-compare_validation_case valid-xml .xml '<root><value>ok</value></root>'
-compare_validation_case invalid-xml .xml '<root>'
-compare_validation_case valid-other .data '<root/>'
+check_validation_case valid-json .json '{"ok":true}'
+check_validation_case sequential-json .json $'{"first":true}\n[1,2,3]\n'
+check_validation_case false-json .json 'false' true 'Invalid json: <file>'
+check_validation_case invalid-json .json '{"broken":' true 'Invalid json: <file>'
+check_validation_case empty-json .json '' true 'Empty file: <file>' false
+check_validation_case missing-json .json '' false 'Empty file: <file>' false
+check_validation_case valid-xml .xml '<root><value>ok</value></root>'
+check_validation_case invalid-xml .xml '<root>' true 'Invalid xml: <file>'
+check_validation_case valid-other .data '<root/>'
 
 echo "Python migration tests passed"

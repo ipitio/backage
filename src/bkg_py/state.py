@@ -83,7 +83,8 @@ class StateStore:
 
     def _atomic_write(self, lines: Iterable[str]) -> None:
         retained_lines = [line for line in lines if line.strip()]
-        content = f"{'\n'.join(retained_lines)}\n\n" if retained_lines else "\n"
+        content = "\n".join(retained_lines)
+        content = f"{content}\n\n" if content else "\n"
         with atomic_text_output(self.path) as file:
             file.write(content)
 
