@@ -12,7 +12,9 @@ license = { file = "LICENSE" }
 authors = [
     { name = "ipitio", email = "ipitio@users.noreply.github.com" },
 ]
-dependencies = []
+dependencies = [
+    "httpx>=0.26,<1",
+]
 
 [dependency-groups]
 dev = [
@@ -26,7 +28,7 @@ dev = [
 Repository = "https://github.com/ipitio/backage"
 
 [project.scripts]
-bkg = "bkg_py.__main__:entrypoint"
+bkg = "bkg_py.cli:entrypoint"
 
 [tool.setuptools.dynamic]
 version = { attr = "bkg_py.__version__" }
@@ -84,10 +86,11 @@ select = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"src/bkg_py/__main__.py" = ["T201"]
+"src/bkg_py/commands.py" = ["T201"]
 "src/bkg_py/validation.py" = ["S314", "T201"]
 "src/test/test_*.py" = ["PLR2004", "S101"]
 "src/test/test_database.py" = ["S608"]
+"src/test/test_github.py" = ["S105"]
 "src/test/test_rendering.py" = ["S608"]
 "src/test/test_state.py" = ["S603", "S607"]
 

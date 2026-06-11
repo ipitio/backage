@@ -275,7 +275,28 @@ printf '%s\n' "\$BKG_ENV"
 EOF
 
 	bash "$fixture_file" >"$output_file"
-		assert_contains "$output_file" "$src_dir/env.env"
+	assert_contains "$output_file" "$src_dir/env.env"
+}
+
+test_bkg_python_forwards_unexported_http_settings() {
+	local fake_python="$workdir/fake-python"
+	local output_file="$workdir/python-http-env.out"
+
+	cat >"$fake_python" <<'EOF'
+#!/bin/bash
+printf '%s|%s|%s\n' "$GITHUB_TOKEN" "$BKG_HTTP_TOTAL_TIMEOUT" "$*"
+EOF
+	chmod +x "$fake_python"
+
+	(
+		GITHUB_TOKEN="local-token"
+		BKG_HTTP_TOTAL_TIMEOUT=45
+		export -n GITHUB_TOKEN BKG_HTTP_TOTAL_TIMEOUT
+		BKG_PYTHON="$fake_python"
+		bkg_python github rest users/ipitio
+	) >"$output_file"
+
+	assert_contains "$output_file" "local-token|45|-m bkg_py github rest users/ipitio"
 }
 
 test_ensure_pages_dotfiles_visible_writes_nojekyll() {
@@ -530,30 +551,45 @@ test_check_limit_retries_missing_script_start_once() {
 	[ "$(cat "$reads_file")" -eq 2 ] || fail "Expected check_limit to retry BKG_SCRIPT_START exactly once"
 }
 
-test_query_graphql_api_tracks_cost_and_remaining() {
-	BKG_ENV="$workdir/env-graphql.env"
-	: >"$BKG_ENV"
-	set_BKG BKG_CALLS_TO_API 5
-	set_BKG BKG_MIN_CALLS_TO_API 7
+test_query_graphql_api_delegates_query_to_python() {
+	local response
+
+	init_bkg_runtime_state "$workdir/env-graphql.env"
 	GITHUB_TOKEN=dummy
 
-	curl_gh() {
-		[ "$1" = "-X" ] || fail "Expected query_graphql_api to call curl_gh with -X POST"
-		[ "$2" = "POST" ] || fail "Expected query_graphql_api to use POST"
-		assert_contains <(printf '%s\n' "$5") 'rateLimit { cost remaining resetAt }'
+	bkg_python() {
+		[ "$1" = "github" ] || fail "Expected query_graphql_api to use the GitHub Python command"
+		[ "$2" = "graphql" ] || fail "Expected query_graphql_api to use the GraphQL Python command"
+		[ "$(cat)" = 'query { viewer { login } }' ] || fail "Expected query_graphql_api to pass the original query on standard input"
 		cat <<'EOF'
 {"data":{"viewer":{"login":"ipitio"},"rateLimit":{"cost":17,"remaining":4321,"resetAt":"2026-04-10T23:59:59Z"}}}
 EOF
 	}
 
-	query_graphql_api 'query { viewer { login } }' >/tmp/query-graphql.out
+	response=$(query_graphql_api 'query { viewer { login } }')
 
-	[ "$(get_BKG BKG_CALLS_TO_API)" = "22" ] || fail "Expected query_graphql_api to add GraphQL cost to BKG_CALLS_TO_API"
-	[ "$(get_BKG BKG_MIN_CALLS_TO_API)" = "24" ] || fail "Expected query_graphql_api to add GraphQL cost to BKG_MIN_CALLS_TO_API"
-	[ "$(get_BKG BKG_GRAPHQL_LAST_COST)" = "17" ] || fail "Expected query_graphql_api to persist the last GraphQL cost"
-	[ "$(get_BKG BKG_GRAPHQL_REMAINING)" = "4321" ] || fail "Expected query_graphql_api to persist GraphQL remaining budget"
-	[ "$(get_BKG BKG_GRAPHQL_RESET_AT)" = "2026-04-10T23:59:59Z" ] || fail "Expected query_graphql_api to persist the GraphQL reset time"
-	unset -f curl_gh
+	jq -e '.data.viewer.login == "ipitio"' <<<"$response" >/dev/null || fail "Expected query_graphql_api to preserve Python JSON output"
+	unset -f bkg_python
+	GITHUB_TOKEN=""
+}
+
+test_query_api_delegates_path_to_python() {
+	local response
+
+	init_bkg_runtime_state "$workdir/env-rest.env"
+	GITHUB_TOKEN=dummy
+
+	bkg_python() {
+		[ "$1" = "github" ] || fail "Expected query_api to use the GitHub Python command"
+		[ "$2" = "rest" ] || fail "Expected query_api to use the REST Python command"
+		[ "$3" = "users/ipitio" ] || fail "Expected query_api to preserve the REST path"
+		printf '%s\n' '{"login":"ipitio"}'
+	}
+
+	response=$(query_api "users/ipitio")
+
+	jq -e '.login == "ipitio"' <<<"$response" >/dev/null || fail "Expected query_api to preserve Python JSON output"
+	unset -f bkg_python
 	GITHUB_TOKEN=""
 }
 
@@ -812,6 +848,7 @@ run_test test_parallel_async_default_max_jobs_is_tuned
 run_test test_parallel_shell_func_preserves_inherited_runtime_config
 run_test test_direct_bash_child_preserves_inherited_runtime_config
 run_test test_util_default_env_path_is_absolute
+run_test test_bkg_python_forwards_unexported_http_settings
 run_test test_ensure_pages_dotfiles_visible_writes_nojekyll
 run_test test_update_version_logs_sqlite_write_failure
 run_test test_update_package_warns_on_package_level_fallback
@@ -822,7 +859,8 @@ run_test test_daily_gate_skip_depends_on_master_commit_today
 run_test test_daily_gate_skip_resets_on_new_batch_marker
 run_test test_daily_gate_skip_resets_on_rest_to_top_change
 run_test test_check_limit_retries_missing_script_start_once
-run_test test_query_graphql_api_tracks_cost_and_remaining
+run_test test_query_graphql_api_delegates_query_to_python
+run_test test_query_api_delegates_path_to_python
 run_test test_resolve_release_snapshot_asset_rejects_http_errors
 run_test test_check_db_deletes_missing_release_despite_stale_runtime_state
 run_test test_check_db_reports_delete_failure

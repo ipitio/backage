@@ -434,8 +434,8 @@ test_query_api_checks_elapsed_limit_before_request() {
 	BKG_MAX_LEN=1
 	GITHUB_TOKEN=dummy
 
-	curl_gh() {
-		fail "Expected query_api to stop before calling curl_gh when the elapsed limit is exceeded"
+	bkg_python() {
+		fail "Expected query_api to stop before calling Python when the elapsed limit is exceeded"
 	}
 
 	if query_api "users/example" >/dev/null 2>&1; then
@@ -445,7 +445,7 @@ test_query_api_checks_elapsed_limit_before_request() {
 	fi
 
 	[ "$status" -eq 3 ] || fail "Expected query_api to return 3 after elapsed limit preflight, got $status"
-	unset -f curl_gh
+	unset -f bkg_python
 	GITHUB_TOKEN=""
 }
 
@@ -464,8 +464,8 @@ test_query_graphql_api_checks_elapsed_limit_before_request() {
 	BKG_MAX_LEN=1
 	GITHUB_TOKEN=dummy
 
-	curl_gh() {
-		fail "Expected query_graphql_api to stop before calling curl_gh when the elapsed limit is exceeded"
+	bkg_python() {
+		fail "Expected query_graphql_api to stop before calling Python when the elapsed limit is exceeded"
 	}
 
 	if query_graphql_api 'query { viewer { login } }' >/dev/null 2>&1; then
@@ -475,7 +475,7 @@ test_query_graphql_api_checks_elapsed_limit_before_request() {
 	fi
 
 	[ "$status" -eq 3 ] || fail "Expected query_graphql_api to return 3 after elapsed limit preflight, got $status"
-	unset -f curl_gh
+	unset -f bkg_python
 	GITHUB_TOKEN=""
 }
 

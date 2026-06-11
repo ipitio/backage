@@ -5,6 +5,11 @@ script_dir=$(
 	pwd -P
 ) || exit 1
 script_dir=${script_dir%/*}
+python_bin=${BKG_PYTHON:-}
+
+[ -n "$python_bin" ] || [ ! -x "$script_dir/../.venv/bin/python" ] || \
+	python_bin="$script_dir/../.venv/bin/python"
+[ -n "$python_bin" ] || python_bin=python3
 export PYTHONDONTWRITEBYTECODE=1
 export PYTHONPATH="$script_dir${PYTHONPATH:+:$PYTHONPATH}"
-exec python3 -m bkg_py publish "${1:-}"
+exec "$python_bin" -m bkg_py publish "${1:-}"

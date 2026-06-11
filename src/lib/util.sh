@@ -1,7 +1,7 @@
 #!/bin/bash
 # Backage library
 # Usage: ./lib.sh
-# Dependencies: git curl jq parallel python3 sqlite3 zstd libxml2-utils
+# Dependencies: git curl jq parallel python3 python3-httpx sqlite3 zstd libxml2-utils
 # Copyright (c) ipitio
 #
 # shellcheck disable=SC1090,SC1091,SC2015,SC2034
@@ -27,7 +27,7 @@ apt_install() {
 if [ -z "${BKG_UTIL_BOOTSTRAPPED:-}" ]; then
     if [ "${BKG_SKIP_DEP_VERIFY:-0}" != "1" ]; then
         echo "Verifying dependencies..."
-        apt_install git curl jq parallel python3 sqlite3 zstd libxml2-utils
+        apt_install git curl jq parallel python3 python3-httpx sqlite3 zstd libxml2-utils
         echo "Dependencies verified!"
     fi
 
@@ -288,6 +288,7 @@ bkg_python() {
     local -a python_env=(
         "GITHUB_OWNER=$GITHUB_OWNER"
         "GITHUB_REPO=$GITHUB_REPO"
+        "GITHUB_TOKEN=${GITHUB_TOKEN:-}"
         "BKG_ROOT=$BKG_ROOT"
         "BKG_ENV=$BKG_ENV"
         "BKG_OWNERS=$BKG_OWNERS"
@@ -307,12 +308,28 @@ bkg_python() {
         "PYTHONPATH=$BKG_ROOT/src${PYTHONPATH:+:$PYTHONPATH}"
     )
     local name
+    local python_bin=${BKG_PYTHON:-}
+
+    if [ -z "$python_bin" ] && [ -x "$BKG_ROOT/.venv/bin/python" ]; then
+        python_bin="$BKG_ROOT/.venv/bin/python"
+    fi
+    [ -n "$python_bin" ] || python_bin=python3
 
     for name in \
         GITHUB_BRANCH \
         BKG_INDEX \
         BKG_INDEX_SQL \
         BKG_INDEX_DIR \
+        BKG_GITHUB_API_URL \
+        BKG_HTTP_CONNECT_TIMEOUT \
+        BKG_HTTP_READ_TIMEOUT \
+        BKG_HTTP_WRITE_TIMEOUT \
+        BKG_HTTP_POOL_TIMEOUT \
+        BKG_HTTP_TOTAL_TIMEOUT \
+        BKG_HTTP_MAX_ATTEMPTS \
+        BKG_HTTP_INITIAL_BACKOFF \
+        BKG_HTTP_MAX_BACKOFF \
+        BKG_HTTP_USER_AGENT \
         BKG_OWNER_ARRAY_VERSION_LIMIT \
         BKG_OWNER_ARRAY_MAX_BYTES \
         BKG_OWNER_ARRAY_ADAPTIVE_MAX_PROBE \
@@ -322,7 +339,7 @@ bkg_python() {
         [ -z "${!name+x}" ] || python_env+=("$name=${!name}")
     done
 
-    env "${python_env[@]}" python3 -m bkg_py "$@"
+    env "${python_env[@]}" "$python_bin" -m bkg_py "$@"
 }
 
 sqlite_ensure_index_schema() {
@@ -1115,74 +1132,20 @@ dldb() {
     grep -q "\*.db" "$BKG_ROOT/.gitignore" || echo "*.db*" >>"$BKG_ROOT/.gitignore"
 }
 
-curl_gh() {
-    curl -H "Accept: application/vnd.github+json" -H "Authorization: Bearer $GITHUB_TOKEN" -H "X-GitHub-Api-Version: 2022-11-28" "$@"
-}
-
 curl_gh_direct() {
     command curl -H "Accept: application/vnd.github+json" -H "Authorization: Bearer $GITHUB_TOKEN" -H "X-GitHub-Api-Version: 2022-11-28" "$@"
 }
 
 query_api() {
-    local res
-    local calls_to_api
-    local min_calls_to_api
-
     check_limit || return $?
-    res=$(curl_gh "https://api.github.com/$1")
-    (($? != 3)) || return 3
-    calls_to_api=$(get_BKG BKG_CALLS_TO_API)
-    min_calls_to_api=$(get_BKG BKG_MIN_CALLS_TO_API)
-    ((calls_to_api++))
-    ((min_calls_to_api++))
-    set_BKG BKG_CALLS_TO_API "$calls_to_api"
-    set_BKG BKG_MIN_CALLS_TO_API "$min_calls_to_api"
-    echo "$res"
-}
-
-graphql_query_with_rate_limit() {
-    [ -n "$1" ] || return
-
-    if grep -q 'rateLimit' <<<"$1"; then
-        printf '%s\n' "$1"
-        return 0
-    fi
-
-    perl -0pe 's/\}\s*$/ rateLimit { cost remaining resetAt } }/' <<<"$1"
+    bkg_python github rest "$1"
 }
 
 query_graphql_api() {
     local query=$1
-    local query_with_rate_limit
-    local payload
-    local res
-    local calls_to_api
-    local min_calls_to_api
-    local graphql_cost=1
-    local graphql_remaining=""
-    local graphql_reset_at=""
 
-    query_with_rate_limit=$(graphql_query_with_rate_limit "$query") || return 1
-    payload=$(jq -cn --arg query "$query_with_rate_limit" '{query:$query}') || return 1
     check_limit || return $?
-    res=$(curl_gh -X POST "https://api.github.com/graphql" -d "$payload")
-    (($? != 3)) || return 3
-    graphql_cost=$(jq -r '.data.rateLimit.cost // 1' <<<"$res" 2>/dev/null)
-    [[ "$graphql_cost" =~ ^[0-9]+$ ]] || graphql_cost=1
-    graphql_remaining=$(jq -r '.data.rateLimit.remaining // empty' <<<"$res" 2>/dev/null)
-    graphql_reset_at=$(jq -r '.data.rateLimit.resetAt // empty' <<<"$res" 2>/dev/null)
-    calls_to_api=$(get_BKG BKG_CALLS_TO_API)
-    min_calls_to_api=$(get_BKG BKG_MIN_CALLS_TO_API)
-    [ -n "$calls_to_api" ] || calls_to_api=0
-    [ -n "$min_calls_to_api" ] || min_calls_to_api=0
-    ((calls_to_api += graphql_cost))
-    ((min_calls_to_api += graphql_cost))
-    set_BKG BKG_CALLS_TO_API "$calls_to_api"
-    set_BKG BKG_MIN_CALLS_TO_API "$min_calls_to_api"
-    set_BKG BKG_GRAPHQL_LAST_COST "$graphql_cost"
-    [[ "$graphql_remaining" =~ ^[0-9]+$ ]] && set_BKG BKG_GRAPHQL_REMAINING "$graphql_remaining"
-    [ -n "$graphql_reset_at" ] && set_BKG BKG_GRAPHQL_RESET_AT "$graphql_reset_at"
-    echo "$res"
+    printf '%s' "$query" | bkg_python github graphql
 }
 
 graphql_escape_string() {
