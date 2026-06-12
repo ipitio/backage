@@ -501,6 +501,11 @@ main() {
 					rm -f "$owner_candidates_file"
 					return 1
 				}
+				local missing_owners_file
+				missing_owners_file=$(mktemp) || {
+					rm -f "$owner_candidates_file" "$owner_ids_file"
+					return 1
+				}
 				# BKG_INDEX_DIR is initialized by the update.sh entrypoint.
 				# shellcheck disable=SC2153
 				bash lib/get.sh "$rest_first" "$connections" $request_limit "$GITHUB_OWNER" "$owners_queue_source" "$BKG_INDEX_DIR" >"$owner_candidates_file"
@@ -508,7 +513,7 @@ main() {
 				((phase_status != 3)) || return_code=3
 				if ((return_code != 3)); then
 					if [ -s "$owner_candidates_file" ]; then
-						resolve_owner_ids "$owner_candidates_file" >"$owner_ids_file"
+						resolve_owner_ids "$owner_candidates_file" "$missing_owners_file" >"$owner_ids_file"
 					else
 						: >"$owner_ids_file"
 					fi
@@ -527,8 +532,20 @@ main() {
 					phase_status=$?
 					((phase_status != 3)) || return_code=3
 				fi
+				if ((return_code != 3)) && [ -s "$missing_owners_file" ]; then
+					while IFS= read -r owner_name; do
+						[ -n "$owner_name" ] || continue
+						retire_missing_owner "$owner_name" || {
+							phase_status=$?
+							((phase_status != 3)) || return_code=3
+							((phase_status == 3)) || return "$phase_status"
+							break
+						}
+					done < <(sort -u "$missing_owners_file")
+				fi
 				rm -f "$owner_candidates_file"
 				rm -f "$owner_ids_file"
+				rm -f "$missing_owners_file"
 				if [ "$owners_queue_source" != "/dev/null" ] && ((return_code != 3)); then
 					mark_daily_gate_completed BKG_LAST_OWNERS_QUEUE_DATE "$today"
 				fi

@@ -87,6 +87,21 @@ class OwnerQueueSelector:
 
         try:
             git = resolve_executable("git")
+            current_result = subprocess.run(  # noqa: S603
+                [
+                    git,
+                    "-C",
+                    str(self.index_dir),
+                    "ls-tree",
+                    "-d",
+                    "--name-only",
+                    "HEAD",
+                ],
+                check=False,
+                capture_output=True,
+                shell=False,
+                text=True,
+            )
             # Git is resolved before argv is passed without a shell.
             result = subprocess.run(  # noqa: S603
                 [
@@ -107,6 +122,9 @@ class OwnerQueueSelector:
         except OSError:
             return []
 
+        if current_result.returncode != 0 or result.returncode != 0:
+            return []
+        current_owners = set(current_result.stdout.splitlines())
         latest_timestamps: dict[str, int] = {}
         timestamp: int | None = None
         for line in result.stdout.splitlines():
@@ -124,6 +142,7 @@ class OwnerQueueSelector:
                 latest_timestamps.items(),
                 key=lambda item: (item[1], item[0]),
             )
+            if owner in current_owners
         ]
 
     def select(self, generator: random.Random | None = None) -> list[str]:

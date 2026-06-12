@@ -11,6 +11,7 @@ import pytest
 from bkg_py.github import (
     GitHubClient,
     GitHubDecodeError,
+    GitHubGraphQLError,
     GitHubRateAccounting,
     GitHubResponseError,
     GitHubRuntime,
@@ -153,6 +154,35 @@ def test_rest_pagination_reuses_client() -> None:
         "https://api.github.com/items?page=1",
         "https://api.github.com/items?page=2",
     ]
+
+
+def test_optional_rest_returns_none_only_for_not_found() -> None:
+    """Callers can explicitly treat HTTP 404 as an absent resource."""
+
+    client = _client(httpx.MockTransport(lambda _request: httpx.Response(404, json={})))
+
+    assert client.rest_json_optional("users/missing") is None
+    with pytest.raises(GitHubResponseError, match="HTTP 404"):
+        client.rest_json("users/missing")
+
+
+def test_graphql_errors_are_not_treated_as_missing_data() -> None:
+    """A successful HTTP response with GraphQL errors still fails."""
+
+    client = _client(
+        httpx.MockTransport(
+            lambda _request: httpx.Response(
+                200,
+                json={
+                    "data": {"owner": None},
+                    "errors": [{"message": "Something went wrong"}],
+                },
+            )
+        )
+    )
+
+    with pytest.raises(GitHubGraphQLError, match="Something went wrong"):
+        client.graphql('query { owner: repositoryOwner(login: "example") { id } }')
 
 
 def test_transient_response_retries_with_exponential_backoff(

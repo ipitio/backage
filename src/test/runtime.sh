@@ -593,6 +593,27 @@ test_query_api_delegates_path_to_python() {
 	GITHUB_TOKEN=""
 }
 
+test_query_api_optional_allows_only_missing_responses() {
+	local response
+
+	init_bkg_runtime_state "$workdir/env-rest-optional.env"
+	GITHUB_TOKEN=dummy
+
+	bkg_python() {
+		[ "$1" = "github" ] || fail "Expected query_api_optional to use the GitHub Python command"
+		[ "$2" = "rest" ] || fail "Expected query_api_optional to use the REST Python command"
+		[ "$3" = "users/missing" ] || fail "Expected query_api_optional to preserve the REST path"
+		[ "$4" = "--missing-ok" ] || fail "Expected query_api_optional to allow HTTP 404 explicitly"
+		printf '%s\n' 'null'
+	}
+
+	response=$(query_api_optional "users/missing")
+
+	[ "$response" = "null" ] || fail "Expected query_api_optional to preserve the null response"
+	unset -f bkg_python
+	GITHUB_TOKEN=""
+}
+
 test_resolve_release_snapshot_asset_rejects_http_errors() {
 	local calls_file="$workdir/release-asset-probe-calls.txt"
 
@@ -699,9 +720,10 @@ EOF
 	unset -f owner_get_id
 }
 
-test_resolve_owner_ids_preserves_ids_and_batches_live_lookup() {
+test_resolve_owner_ids_preserves_ids_and_records_graphql_misses() {
 	local candidates_file="$workdir/owner-candidates.txt"
 	local output_file="$workdir/owner-ids.txt"
+	local missing_file="$workdir/missing-owner-ids.txt"
 	local query_log="$workdir/graphql-query.txt"
 
 	cat >"$candidates_file" <<'EOF'
@@ -719,27 +741,85 @@ EOF
 	query_graphql_api() {
 		printf '%s\n' "$1" >"$query_log"
 		cat <<'EOF'
-{"data":{"o0":{"login":"beta","databaseId":200},"o1":{"login":"gamma","databaseId":300},"o2":null}}
+{"data":{"o0":{"login":"Beta","databaseId":200},"o1":{"login":"gamma","databaseId":300},"o2":null}}
 EOF
 	}
 
 	owner_get_id() {
-		[ "$1" = "delta" ] || fail "Expected only unresolved delta to fall back to owner_get_id"
-		printf '%s\n' '400/delta'
+		fail "Expected a successful GraphQL null to avoid redundant REST and HTML probes"
 	}
 
-	resolve_owner_ids "$candidates_file" >"$output_file"
+	resolve_owner_ids "$candidates_file" "$missing_file" >"$output_file"
 
 	assert_contains "$output_file" "123/alpha"
-	assert_contains "$output_file" "200/beta"
+	assert_contains "$output_file" "200/Beta"
 	assert_contains "$output_file" "300/gamma"
-	assert_contains "$output_file" "400/delta"
+	assert_contains "$missing_file" "delta"
 	assert_contains "$query_log" 'repositoryOwner(login:"beta")'
 	assert_contains "$query_log" 'repositoryOwner(login:"gamma")'
 	assert_contains "$query_log" 'repositoryOwner(login:"delta")'
 	unset -f query_graphql_api
 	unset -f owner_get_id
 	GITHUB_TOKEN=""
+}
+
+test_resolve_owner_ids_falls_back_when_graphql_fails() {
+	local candidates_file="$workdir/owner-candidates-fallback.txt"
+	local output_file="$workdir/owner-ids-fallback.txt"
+	local missing_file="$workdir/missing-owner-ids-fallback.txt"
+
+	printf '%s\n' fallback >"$candidates_file"
+	BKG_ENV="$workdir/env-owner-fallback.env"
+	: >"$BKG_ENV"
+	reset_owner_id_cache
+	GITHUB_TOKEN=dummy
+
+	query_graphql_api() {
+		return 1
+	}
+
+	owner_get_id() {
+		[ "$1" = "fallback" ] || fail "Expected the unresolved owner to use the fallback"
+		printf '%s\n' '400/fallback'
+	}
+
+	resolve_owner_ids "$candidates_file" "$missing_file" >"$output_file"
+
+	assert_contains "$output_file" "400/fallback"
+	[ ! -s "$missing_file" ] || fail "Expected a failed GraphQL request not to mark the owner missing"
+	unset -f query_graphql_api
+	unset -f owner_get_id
+	GITHUB_TOKEN=""
+}
+
+test_retire_missing_owner_removes_sparse_tree_and_manual_entry() {
+	local index_repo="$workdir/retire-index"
+	local database_calls="$workdir/retire-database-calls.txt"
+
+	BKG_INDEX_DIR="$index_repo"
+	BKG_OWNERS="$workdir/retire-owners.txt"
+	mkdir -p "$index_repo/missing/repo"
+	printf '%s\n' '[]' >"$index_repo/missing/repo/.json"
+	git -C "$index_repo" init -q
+	git -C "$index_repo" config user.name test
+	git -C "$index_repo" config user.email test@example.com
+	git -C "$index_repo" add .
+	git -C "$index_repo" commit -qm init
+	printf '%s\n' missing keep >"$BKG_OWNERS"
+	: >"$database_calls"
+
+	bkg_python() {
+		printf '%s\n' "$*" >>"$database_calls"
+	}
+
+	retire_missing_owner missing >/dev/null
+
+	[ ! -e "$index_repo/missing" ] || fail "Expected the unavailable owner's generated tree to be removed"
+	! grep -Fxq missing "$BKG_OWNERS" || fail "Expected the unavailable owner to be removed from owners.txt"
+	grep -Fxq keep "$BKG_OWNERS" || fail "Expected unrelated owners.txt entries to remain"
+	assert_contains "$database_calls" "database retire-owner missing"
+	git -C "$index_repo" diff --cached --quiet && fail "Expected sparse owner retirement to stage the tree deletion"
+	unset -f bkg_python
 }
 
 test_restore_db_from_snapshot_skips_when_signature_matches() {
@@ -861,11 +941,14 @@ run_test test_daily_gate_skip_resets_on_rest_to_top_change
 run_test test_check_limit_retries_missing_script_start_once
 run_test test_query_graphql_api_delegates_query_to_python
 run_test test_query_api_delegates_path_to_python
+run_test test_query_api_optional_allows_only_missing_responses
 run_test test_resolve_release_snapshot_asset_rejects_http_errors
 run_test test_check_db_deletes_missing_release_despite_stale_runtime_state
 run_test test_check_db_reports_delete_failure
 run_test test_resolve_owner_ids_uses_run_cache_before_live_lookup
-run_test test_resolve_owner_ids_preserves_ids_and_batches_live_lookup
+run_test test_resolve_owner_ids_preserves_ids_and_records_graphql_misses
+run_test test_resolve_owner_ids_falls_back_when_graphql_fails
+run_test test_retire_missing_owner_removes_sparse_tree_and_manual_entry
 run_test test_restore_db_from_snapshot_skips_when_signature_matches
 run_test test_restore_db_from_snapshot_rebuilds_when_signature_changes
 run_test test_restore_db_from_legacy_compressed_snapshot

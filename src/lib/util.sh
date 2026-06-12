@@ -50,6 +50,7 @@ BKG_MODE=${BKG_MODE:-0}
 BKG_MAX_LEN=${BKG_MAX_LEN:-14400}
 BKG_IS_FIRST=${BKG_IS_FIRST:-false}
 BKG_PAGE_ALL=${BKG_PAGE_ALL:-1}
+BKG_OWNER_NOT_FOUND_STATUS=4
 
 # format numbers like 1000 to 1k
 numfmt() {
@@ -1141,6 +1142,11 @@ query_api() {
     bkg_python github rest "$1"
 }
 
+query_api_optional() {
+    check_limit || return $?
+    bkg_python github rest "$1" --missing-ok
+}
+
 query_graphql_api() {
     local query=$1
 
@@ -1426,6 +1432,8 @@ docker_manifest_size() {
 owner_get_id() {
     local owner
     local owner_id=""
+    local response
+    local status=0
     owner=$(echo "$1" | tr -d '[:space:]')
     [ -n "$owner" ] || return
 
@@ -1438,19 +1446,24 @@ owner_get_id() {
         owner_id=$(curl "https://github.com/$owner" | grep -zoP 'meta.*?u\/\d+' | tr -d '\0' | grep -oP 'u\/\d+' | sort -u | head -n1 | grep -oP '\d+')
 
         if [[ ! "$owner_id" =~ ^[1-9] && -n "$GITHUB_TOKEN" ]]; then
-            owner_id=$(query_api "users/$owner")
-            (($? != 3)) || return 3
-            owner_id=$(jq -r '.id' <<<"$owner_id")
+            response=$(query_api_optional "users/$owner")
+            status=$?
+            ((status != 3)) || return 3
+            ((status == 0)) || return "$status"
+            owner_id=$(jq -er '.id | numbers | select(. > 0)' <<<"$response" 2>/dev/null || :)
 
             if [[ ! "$owner_id" =~ ^[1-9] ]]; then
-                owner_id=$(query_api "orgs/$owner")
-                (($? != 3)) || return 3
-                owner_id=$(jq -r '.id' <<<"$owner_id") || return 1
+                response=$(query_api_optional "orgs/$owner")
+                status=$?
+                ((status != 3)) || return 3
+                ((status == 0)) || return "$status"
+                owner_id=$(jq -er '.id | numbers | select(. > 0)' <<<"$response" 2>/dev/null || :)
             fi
         fi
     fi
 
-    echo "$owner_id/$owner"
+    [[ "$owner_id" =~ ^[1-9][0-9]*$ ]] || return "$BKG_OWNER_NOT_FOUND_STATUS"
+    printf '%s/%s\n' "$owner_id" "$owner"
 }
 
 owner_has_packages() {

@@ -8,12 +8,17 @@ request_owner() {
 	local owner=""
 	local id=""
 	local return_code=0
+	local status=0
 	local paging=true
 	owner=$(_jq "$1" '.login' 2>/dev/null)
 	[ -n "$owner" ] && id=$(_jq "$1" '.id' 2>/dev/null) || paging=false
 
 	if [ -z "$id" ]; then
 		owner=$(owner_get_id "$1")
+		status=$?
+		((status != 3)) || return 3
+		((status != BKG_OWNER_NOT_FOUND_STATUS)) || return 0
+		((status == 0)) || return "$status"
 		id=$(cut -d'/' -f1 <<<"$owner")
 		owner=$(cut -d'/' -f2 <<<"$owner")
 	fi
@@ -41,7 +46,12 @@ request_owner() {
 save_owner() {
 	[ -n "$1" ] || return
 	local owner_id
-	owner_id=$(resolve_owner_id "$1") || return
+	local status=0
+	owner_id=$(resolve_owner_id "$1") || {
+		status=$?
+		((status != BKG_OWNER_NOT_FOUND_STATUS)) || return 0
+		return "$status"
+	}
 	queue_owner_id "$owner_id"
 }
 
@@ -114,17 +124,25 @@ graphql_owner_lookup_query() {
 resolve_owner_ids() {
 	[ -n "$1" ] || return 0
 	[ -s "$1" ] || return 0
+	local missing_file=${2:-}
 	local candidate
 	local owner_name
 	local owner_id
+	local resolved_login
 	local query
 	local response
+	local status=0
 	local batch_file=""
+	local lookup_file=""
 	local unresolved_file=""
 	local resolved=""
 	local -a candidates=()
 	local -a unresolved=()
+	local -A emitted_refs=()
+	local -A missing_by_owner=()
 	local -A resolved_by_owner=()
+
+	[ -z "$missing_file" ] || : >"$missing_file"
 
 	while IFS= read -r candidate; do
 		[ -n "$candidate" ] || continue
@@ -158,21 +176,37 @@ resolve_owner_ids() {
 				return 1
 			}
 			head -n 50 "$unresolved_file" >"$batch_file"
+			lookup_file="$batch_file.lookup"
 			query=$(graphql_owner_lookup_query "$batch_file")
 			response=$(query_graphql_api "$query")
-			(($? != 3)) || {
-				rm -f "$batch_file" "$unresolved_file"
+			status=$?
+			((status != 3)) || {
+				rm -f "$batch_file" "$lookup_file" "$unresolved_file"
 				return 3
 			}
-			while IFS=$'\t' read -r owner_name owner_id; do
-				[ -n "$owner_name" ] || continue
-				[ -n "$owner_id" ] || continue
-				resolved_by_owner["$owner_name"]="$owner_id/$owner_name"
-				cache_owner_ref "$owner_id/$owner_name"
-			done < <(jq -r '.data | to_entries[] | select(.value != null and .value.login != null and .value.databaseId != null) | "\(.value.login)\t\(.value.databaseId)"' <<<"$response" 2>/dev/null)
+			if ((status == 0)) && jq -r '
+				.data
+				| to_entries
+				| map(select(.key | test("^o[0-9]+$")))
+				| sort_by(.key[1:] | tonumber)
+				| .[]
+				| [(.value.login // ""), (.value.databaseId // "")]
+				| @tsv
+			' <<<"$response" >"$lookup_file" 2>/dev/null &&
+				[ "$(wc -l <"$lookup_file")" -eq "$(wc -l <"$batch_file")" ]; then
+				while IFS=$'\t' read -r owner_name resolved_login owner_id; do
+					[ -n "$owner_name" ] || continue
+					if [[ "$owner_id" =~ ^[1-9][0-9]*$ ]] && [ -n "$resolved_login" ]; then
+						resolved_by_owner["$owner_name"]="$owner_id/$resolved_login"
+						cache_owner_ref "$owner_id/$resolved_login"
+					else
+						missing_by_owner["$owner_name"]=1
+					fi
+				done < <(paste "$batch_file" "$lookup_file")
+			fi
 			tail -n +51 "$unresolved_file" >"$unresolved_file.next"
 			mv "$unresolved_file.next" "$unresolved_file"
-			rm -f "$batch_file"
+			rm -f "$batch_file" "$lookup_file"
 		done
 
 		rm -f "$unresolved_file"
@@ -187,14 +221,50 @@ resolve_owner_ids() {
 		owner_name=${candidate#*/}
 		resolved=${resolved_by_owner[$owner_name]:-}
 
+		if [[ -n "${missing_by_owner[$owner_name]:-}" ]]; then
+			[ -z "$missing_file" ] || printf '%s\n' "$owner_name" >>"$missing_file"
+			continue
+		fi
+
 		if [ -z "$resolved" ]; then
 			resolved=$(owner_get_id "$owner_name")
-			(($? != 3)) || return 3
+			status=$?
+			((status != 3)) || return 3
+			if ((status == BKG_OWNER_NOT_FOUND_STATUS)); then
+				[ -z "$missing_file" ] || printf '%s\n' "$owner_name" >>"$missing_file"
+				continue
+			fi
+			((status == 0)) || continue
 			cache_owner_ref "$resolved"
 		fi
 
-		[ -z "$resolved" ] || printf '%s\n' "$resolved"
-	done | awk 'NF && $0 !~ /^\// && !seen[$0]++'
+		[[ "$resolved" =~ ^[1-9][0-9]*/.+$ ]] || continue
+		[[ -z "${emitted_refs[$resolved]:-}" ]] || continue
+		emitted_refs["$resolved"]=1
+		printf '%s\n' "$resolved"
+	done
+}
+
+retire_missing_owner() {
+	[ -n "$1" ] || return 0
+	local owner_name=${1#*/}
+	local temp_file
+
+	[[ "$owner_name" =~ ^[A-Za-z0-9][A-Za-z0-9-]{0,38}$ ]] || {
+		echo "Refusing to retire invalid owner name: $owner_name" >&2
+		return 1
+	}
+
+	bkg_python database retire-owner "$owner_name" || return $?
+	if index_worktree_is_git_repo; then
+		git -C "$BKG_INDEX_DIR" rm -r --sparse --ignore-unmatch -- "$owner_name" >/dev/null || return 1
+	fi
+	rm -rf -- "${BKG_INDEX_DIR:?}/$owner_name"
+
+	temp_file=$(mktemp) || return 1
+	awk -F'/' -v owner_key="$owner_name" '$NF != owner_key' "$BKG_OWNERS" >"$temp_file"
+	mv "$temp_file" "$BKG_OWNERS"
+	echo "Retired unavailable owner $owner_name"
 }
 
 owner_merge_pages_json() {

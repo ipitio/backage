@@ -84,6 +84,8 @@ def _run_database(
                 )
             elif args.database_command == "cleanup-legacy-all":
                 application.database.cleanup_replaced_legacy_tables(since=args.since)
+            elif args.database_command == "retire-owner":
+                application.database.retire_owner(args.owner)
             else:
                 raise DatabaseError(
                     f"unknown database command: {args.database_command}"
@@ -194,7 +196,12 @@ def _run_github(
     try:
         with application.stop.signal_handlers(), application.github_client() as client:
             if args.github_command == "rest":
-                print(dump_json(client.rest_json(args.path).value))
+                response = (
+                    client.rest_json_optional(args.path)
+                    if args.missing_ok
+                    else client.rest_json(args.path)
+                )
+                print(dump_json(None if response is None else response.value))
             elif args.github_command == "graphql":
                 print(dump_json(client.graphql(sys.stdin.read()).value))
             elif args.github_command == "download":

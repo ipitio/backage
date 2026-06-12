@@ -20,6 +20,7 @@ from .state import StateStore
 
 _RETRYABLE_STATUS_CODES = frozenset({408, 429, 500, 502, 503, 504})
 _FORBIDDEN_STATUS = 403
+_NOT_FOUND_STATUS = 404
 _ERROR_BODY_LIMIT = 500
 _ERROR_BODY_PREFIX = 497
 _SECONDARY_LIMIT_MARKERS = (
@@ -40,6 +41,14 @@ class GitHubTransportError(GitHubError):
 
 class GitHubResponseError(GitHubError):
     """GitHub returned a non-success response."""
+
+
+class GitHubNotFoundError(GitHubResponseError):
+    """GitHub reported that the requested resource does not exist."""
+
+
+class GitHubGraphQLError(GitHubError):
+    """GitHub returned one or more GraphQL errors."""
 
 
 class GitHubDecodeError(GitHubError):
@@ -223,6 +232,14 @@ class GitHubClient:
 
         return self._request_json(_JsonRequest("GET", self._api_url(path)))
 
+    def rest_json_optional(self, path: str) -> GitHubJsonResponse | None:
+        """Request one REST path, returning None only for HTTP 404."""
+
+        try:
+            return self.rest_json(path)
+        except GitHubNotFoundError:
+            return None
+
     def rest_pages(self, path: str) -> Iterator[GitHubJsonResponse]:
         """Yield REST pages until GitHub no longer provides a next link."""
 
@@ -236,7 +253,7 @@ class GitHubClient:
         """Execute a GraphQL query and retain its reported rate cost."""
 
         query = _with_rate_limit(query)
-        return self._request_json(
+        response = self._request_json(
             _JsonRequest(
                 "POST",
                 self._api_url("graphql"),
@@ -244,6 +261,8 @@ class GitHubClient:
                 graphql=True,
             )
         )
+        self._raise_for_graphql_errors(response.value)
+        return response
 
     def download(
         self,
@@ -402,11 +421,37 @@ class GitHubClient:
         if len(body) > _ERROR_BODY_LIMIT:
             body = f"{body[:_ERROR_BODY_PREFIX]}..."
         detail = f": {body}" if body else ""
-        raise GitHubResponseError(
+        error_type = (
+            GitHubNotFoundError
+            if response.status_code == _NOT_FOUND_STATUS
+            else GitHubResponseError
+        )
+        raise error_type(
             self._redact(
                 f"GitHub returned HTTP {response.status_code} for "
                 f"{response.request.method} {response.request.url}{detail}"
             )
+        )
+
+    def _raise_for_graphql_errors(self, value: object) -> None:
+        if not isinstance(value, dict):
+            return
+        errors = cast(dict[str, object], value).get("errors")
+        if not isinstance(errors, list) or not errors:
+            return
+
+        messages: list[str] = []
+        for error in cast(list[object], errors):
+            if not isinstance(error, dict):
+                continue
+            message = cast(dict[str, object], error).get("message")
+            if isinstance(message, str) and message:
+                messages.append(message)
+        detail = "; ".join(messages) or "unknown GraphQL error"
+        if len(detail) > _ERROR_BODY_LIMIT:
+            detail = f"{detail[:_ERROR_BODY_PREFIX]}..."
+        raise GitHubGraphQLError(
+            self._redact(f"GitHub GraphQL returned errors: {detail}")
         )
 
     def _transport_error(

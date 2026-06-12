@@ -77,6 +77,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="clean verified and orphaned legacy tables during rotation",
     )
     cleanup_all_parser.add_argument("since")
+    retire_owner_parser = database_commands.add_parser(
+        "retire-owner",
+        help="remove database data for one unavailable owner",
+    )
+    retire_owner_parser.add_argument("owner")
     _add_render_parsers(subparsers)
     _add_github_parsers(subparsers)
     return parser
@@ -153,6 +158,11 @@ def _add_github_parsers(subparsers: Any) -> None:
         help="request one REST API path as JSON",
     )
     rest_parser.add_argument("path")
+    rest_parser.add_argument(
+        "--missing-ok",
+        action="store_true",
+        help="print null instead of failing when GitHub returns HTTP 404",
+    )
     github_commands.add_parser(
         "graphql",
         help="execute a GraphQL query read from standard input",

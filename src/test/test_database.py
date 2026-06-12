@@ -482,3 +482,54 @@ class TestDatabaseRepository:
                 }
             assert legacy_table not in tables
             assert orphan_table not in tables
+
+    def test_retire_owner_removes_normalized_rows_and_known_legacy_tables(
+        self,
+    ) -> None:
+        """Unavailable owners leave no database rows or package legacy tables."""
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "index.db"
+            repository = DatabaseRepository(DatabaseSettings(path))
+            package = _package()
+            legacy_table = _legacy_table(package)
+            repository.write_owner(OwnerRecord(package.owner_id, package.owner, _TODAY))
+            repository.write_package(
+                PackageRecord(
+                    package_ref=package,
+                    downloads=1,
+                    downloads_month=1,
+                    downloads_week=1,
+                    downloads_day=1,
+                    size=1,
+                    date=_TODAY,
+                )
+            )
+            repository.flush_version_stage(
+                VersionStage(
+                    package_ref=package,
+                    legacy_table=legacy_table,
+                    write_legacy=False,
+                    rows=(_version("1"),),
+                )
+            )
+            with sqlite3.connect(path) as connection:
+                _create_legacy_table(connection, legacy_table)
+
+            assert repository.retire_owner(package.owner) == 3
+            with sqlite3.connect(path) as connection:
+                for table in ("owners", "packages", "versions"):
+                    assert (
+                        connection.execute(
+                            f"select count(*) from {table} where owner = ?",
+                            (package.owner,),
+                        ).fetchone()[0]
+                        == 0
+                    )
+                tables = {
+                    str(row[0])
+                    for row in connection.execute(
+                        "select name from sqlite_master where type = 'table'"
+                    )
+                }
+            assert legacy_table not in tables

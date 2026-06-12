@@ -104,6 +104,31 @@ grep -Fxq manual <<<"$manual_bypass_candidates" || {
 	exit 1
 }
 
+mkdir -p "$queue_repo/kept-owner/repo" "$queue_repo/deleted-owner/repo"
+printf '%s\n' '[]' >"$queue_repo/kept-owner/repo/.json"
+printf '%s\n' '[]' >"$queue_repo/deleted-owner/repo/.json"
+git -C "$queue_repo" add .
+git -C "$queue_repo" commit -qm owners
+rm -rf "$queue_repo/deleted-owner"
+git -C "$queue_repo" add -A
+git -C "$queue_repo" commit -qm delete-owner
+: >"$queue_dir/connections"
+: >"$queue_dir/manual"
+printf '%s\n' current >"$queue_dir/all_owners_in_db"
+history_candidates=$(
+	cd "$queue_dir"
+	bash "$src_dir/lib/get.sh" \
+		0 "$queue_dir/connections" 10 current "$queue_dir/manual" "$queue_repo"
+)
+grep -Fxq kept-owner <<<"$history_candidates" || {
+	echo "Current index owners must remain eligible through history ordering" >&2
+	exit 1
+}
+! grep -Fxq deleted-owner <<<"$history_candidates" || {
+	echo "Deleted index owners must not be rediscovered from old commits" >&2
+	exit 1
+}
+
 check_validation_case() {
 	local name=$1
 	local extension=$2
