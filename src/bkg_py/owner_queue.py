@@ -48,6 +48,39 @@ def _not_matching(patterns: list[str], lines: list[str]) -> list[str]:
     return [line for line in lines if line not in pattern_set]
 
 
+def _owner_name(value: str) -> str:
+    return value.split("/", maxsplit=1)[-1]
+
+
+def _owner_key(value: str) -> str:
+    return _owner_name(value).casefold()
+
+
+def _available_candidates(
+    candidates: list[str],
+    deferred: set[str],
+    requested_manual: set[str],
+    limit: int,
+) -> list[str]:
+    return [
+        candidate
+        for candidate in _unique(candidates)
+        if _owner_key(candidate) not in deferred
+        or _owner_key(candidate) in requested_manual
+    ][:limit]
+
+
+def _queue_reason(
+    candidate: str,
+    reason_sources: tuple[tuple[str, set[str]], ...],
+) -> str:
+    owner = _owner_key(candidate)
+    return next(
+        (reason for reason, source in reason_sources if owner in source),
+        "discovered",
+    )
+
+
 def _insert_into(
     base: list[str],
     inserted: list[str],
@@ -148,12 +181,27 @@ class OwnerQueueSelector:
     def select(self, generator: random.Random | None = None) -> list[str]:
         """Return the bounded, de-duplicated owner candidate queue."""
 
+        return [owner for owner, _reason in self.select_with_reasons(generator)]
+
+    def select_with_reasons(
+        self,
+        generator: random.Random | None = None,
+    ) -> list[tuple[str, str]]:
+        """Return owner candidates paired with their highest-priority reason."""
+
         generator = generator or random.SystemRandom()
         connections = _read_lines(self.connections_file)
         manual = _read_lines(self.manual_file)
         known_owners = _read_lines(self.state_dir / "all_owners_in_db")
         stale = _read_lines(self.state_dir / "owners_stale")
         partially_updated = _read_lines(self.state_dir / "owners_partially_updated")
+        deferred = {
+            _owner_key(line.split("\t", maxsplit=1)[0])
+            for line in _read_lines(self.state_dir / "owners_deferred")
+            if line
+        }
+        history = self.history_owners()
+        requested_manual = {_owner_key(value) for value in _requests(manual)}
 
         def remaining(source: list[str], extra_requests: int = 0) -> list[str]:
             result = _requests(manual)
@@ -179,7 +227,7 @@ class OwnerQueueSelector:
         candidates.extend(
             _not_matching(
                 known_owners,
-                remaining(self.history_owners()),
+                remaining(history),
             )
         )
         if self.rest_first != "0":
@@ -192,5 +240,21 @@ class OwnerQueueSelector:
             )
         )
 
-        limit = max(0, 4 * self.request_limit)
-        return _unique(candidates)[:limit]
+        selected = _available_candidates(
+            candidates,
+            deferred,
+            requested_manual,
+            max(0, 4 * self.request_limit),
+        )
+        reason_sources = (
+            ("manual", requested_manual),
+            ("partially-updated", {_owner_key(value) for value in partially_updated}),
+            ("stale", {_owner_key(value) for value in stale}),
+            ("service-owner", {_owner_key(self.current_owner)}),
+            ("connection", {_owner_key(value) for value in connections}),
+            ("index-history", {_owner_key(value) for value in history}),
+        )
+        return [
+            (candidate, _queue_reason(candidate, reason_sources))
+            for candidate in selected
+        ]

@@ -33,6 +33,10 @@ def build_parser() -> argparse.ArgumentParser:
     select_parser.add_argument("current_owner")
     select_parser.add_argument("manual_file")
     select_parser.add_argument("index_dir")
+    select_parser.add_argument(
+        "--reasons-file",
+        help="write selected owner names and queue reasons as tab-separated rows",
+    )
     publish_parser = subparsers.add_parser(
         "publish",
         help="trim and publish a JSON file with its XML representation",
@@ -43,6 +47,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="publish an XML representation of one JSON file",
     )
     xml_parser.add_argument("file")
+    _add_database_parsers(subparsers)
+    _add_render_parsers(subparsers)
+    _add_github_parsers(subparsers)
+    return parser
+
+
+def _add_database_parsers(subparsers: Any) -> None:
     database_parser = subparsers.add_parser(
         "database",
         help="run a migrated SQLite repository operation",
@@ -82,9 +93,57 @@ def build_parser() -> argparse.ArgumentParser:
         help="remove database data for one unavailable owner",
     )
     retire_owner_parser.add_argument("owner")
-    _add_render_parsers(subparsers)
-    _add_github_parsers(subparsers)
-    return parser
+    begin_scan_parser = database_commands.add_parser(
+        "begin-owner-scan",
+        help="start a fresh resumable owner package-listing scan",
+    )
+    begin_scan_parser.add_argument("owner_id")
+    begin_scan_parser.add_argument("owner")
+    begin_scan_parser.add_argument("marker")
+    begin_scan_parser.add_argument("started_at", type=int)
+    observe_scan_parser = database_commands.add_parser(
+        "observe-owner-scan",
+        help="stage package identities parsed from an owner listing page",
+    )
+    observe_scan_parser.add_argument("owner_id")
+    observe_scan_parser.add_argument("marker")
+    observe_scan_parser.add_argument("packages_file")
+    observe_scan_parser.add_argument("observed_at", type=int)
+    missing_scan_parser = database_commands.add_parser(
+        "missing-owner-scan-packages",
+        help="print known packages absent from the staged owner listing",
+    )
+    missing_scan_parser.add_argument("owner_id")
+    missing_scan_parser.add_argument("marker")
+    complete_scan_parser = database_commands.add_parser(
+        "complete-owner-scan",
+        help="transactionally reconcile one verified owner listing scan",
+    )
+    complete_scan_parser.add_argument("owner_id")
+    complete_scan_parser.add_argument("marker")
+    complete_scan_parser.add_argument("scan_date")
+    complete_scan_parser.add_argument("completed_at", type=int)
+    fail_scan_parser = database_commands.add_parser(
+        "fail-owner-scan",
+        help="record owner retry backoff after failed scan or refresh work",
+    )
+    fail_scan_parser.add_argument("owner_id")
+    fail_scan_parser.add_argument("owner")
+    fail_scan_parser.add_argument("marker")
+    fail_scan_parser.add_argument("error")
+    fail_scan_parser.add_argument("failed_at", type=int)
+    clear_backoff_parser = database_commands.add_parser(
+        "clear-owner-backoff",
+        help="clear owner retry state after successful direct refresh work",
+    )
+    clear_backoff_parser.add_argument("owner_id")
+    clear_backoff_parser.add_argument("owner")
+    clear_backoff_parser.add_argument("completed_at", type=int)
+    deferred_parser = database_commands.add_parser(
+        "deferred-owners",
+        help="print owners whose retry time has not arrived",
+    )
+    deferred_parser.add_argument("now", type=int)
 
 
 def _add_render_parsers(subparsers: Any) -> None:

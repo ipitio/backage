@@ -39,6 +39,36 @@ class OwnerRecord:
 
 
 @dataclass(frozen=True)
+class OwnerScanPackage:
+    """One package identity observed during a complete owner listing scan."""
+
+    owner_type: str
+    package_type: str
+    repo: str
+    package: str
+
+
+@dataclass(frozen=True)
+class OwnerScanResult:
+    """The reconciliation result for one completed owner listing scan."""
+
+    removed: tuple[PackageRef, ...]
+    pending_count: int
+    retry_after: int
+
+
+@dataclass(frozen=True)
+class OwnerScanFailure:
+    """One failed owner scan or direct refresh attempt."""
+
+    owner_id: str
+    owner: str
+    marker: str | None
+    error: str
+    failed_at: int
+
+
+@dataclass(frozen=True)
 class PackageRecord:
     """One normalized package metadata record."""
 

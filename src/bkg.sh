@@ -181,6 +181,12 @@ log_prequeue_elapsed_once() {
 	log_startup_phase "pre-queue-work" "${BKG_STARTUP_STARTED_AT:-0}"
 }
 
+batch_should_reset() {
+	local remaining=${1:-0}
+
+	((remaining == 0))
+}
+
 db_restore_signature_file() {
 	printf '%s\n' "${BKG_INDEX_DB}.snapshot.sha256"
 }
@@ -378,7 +384,21 @@ main() {
 	batch_first_started_sql=$(sqlite_quote_literal "$BKG_BATCH_FIRST_STARTED")
 	sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, repo, package, max(date) as max_date from $packages_table_sql group by owner_id, owner, repo, package having max(date) >= $batch_first_started_sql order by max_date asc;" >packages_already_updated
 	sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, repo, package, max(date) as max_date from $packages_table_sql group by owner_id, owner, repo, package order by date asc;" >packages_all
-	sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, max(date) as max_date from $packages_table_sql group by owner_id, owner order by date asc;" | awk -F'|' '{print $2}' >all_owners_in_db
+	sqlite3 "$BKG_INDEX_DB" "
+		select owner
+		from (
+			select owner, min(date) as first_date
+			from $packages_table_sql
+			group by owner
+			union all
+			select owner, min(date) as first_date
+			from $owners_table_sql
+			where date >= $batch_first_started_sql
+			group by owner
+		)
+		group by owner
+		order by min(first_date), owner;
+	" >all_owners_in_db
 	grep -vFxf packages_already_updated packages_all >packages_to_update
 	pkg_done=$(wc -l <packages_already_updated)
 	pkg_left=$(wc -l <packages_to_update)
@@ -462,7 +482,7 @@ main() {
 				if ((return_code == 3)); then
 					echo "Reached BKG_MAX_LEN, stopping after persisting state..."
 				else
-				if (( 9999 < pkg_done )) || (( pkg_left < 4 )) || [[ "${db_size_curr::-4}" == "${db_size_prev::-4}" ]]; then
+				if batch_should_reset "$pkg_left"; then
 					# reset the batch
 					BKG_BATCH_FIRST_STARTED=$today
 					set_BKG BKG_BATCH_FIRST_STARTED "$today"
@@ -470,13 +490,17 @@ main() {
 					rm -f packages_to_update
 					\cp packages_all packages_to_update
 					: >packages_already_updated
-					[ "${db_size_curr::-4}" != "${db_size_prev::-4}" ] || echo "Database size unchanged! Previous: $db_size_prev; Current: $db_size_curr"
 				fi
 
 				awk -F'|' '{print $2}' packages_already_updated | awk '!seen[$0]++' >owners_updated
 				awk -F'|' '{print $2}' packages_to_update | awk '!seen[$0]++' >all_owners_tu
 				grep -Fxf owners_updated all_owners_tu >owners_partially_updated
 				grep -vFxf owners_updated all_owners_tu >owners_stale
+				bkg_python database deferred-owners "$(date -u +%s)" >owners_deferred || return $?
+				while IFS=$'\t' read -r deferred_owner retry_after; do
+					[ -n "$deferred_owner" ] || continue
+					echo "Deferred $deferred_owner until $(date -u -d "@$retry_after" +%Y-%m-%dT%H:%M:%SZ)"
+				done <owners_deferred
 				sort "$connections" | uniq -c | sort -nr | awk '{print $2}' >"$connections".bak
 				mv "$connections".bak "$connections"
 				batch_first_started_sql=$(sqlite_quote_literal "$BKG_BATCH_FIRST_STARTED")
@@ -506,9 +530,15 @@ main() {
 					rm -f "$owner_candidates_file" "$owner_ids_file"
 					return 1
 				}
+				local owner_reasons_file
+				owner_reasons_file=$(mktemp) || {
+					rm -f "$owner_candidates_file" "$owner_ids_file" "$missing_owners_file"
+					return 1
+				}
+				export BKG_OWNER_QUEUE_REASONS_FILE=$owner_reasons_file
 				# BKG_INDEX_DIR is initialized by the update.sh entrypoint.
 				# shellcheck disable=SC2153
-				bash lib/get.sh "$rest_first" "$connections" $request_limit "$GITHUB_OWNER" "$owners_queue_source" "$BKG_INDEX_DIR" >"$owner_candidates_file"
+				bash lib/get.sh "$rest_first" "$connections" $request_limit "$GITHUB_OWNER" "$owners_queue_source" "$BKG_INDEX_DIR" "$owner_reasons_file" >"$owner_candidates_file"
 				phase_status=$?
 				((phase_status != 3)) || return_code=3
 				if ((return_code != 3)); then
@@ -546,11 +576,13 @@ main() {
 				rm -f "$owner_candidates_file"
 				rm -f "$owner_ids_file"
 				rm -f "$missing_owners_file"
+				rm -f "$owner_reasons_file"
+				unset BKG_OWNER_QUEUE_REASONS_FILE
 				if [ "$owners_queue_source" != "/dev/null" ] && ((return_code != 3)); then
 					mark_daily_gate_completed BKG_LAST_OWNERS_QUEUE_DATE "$today"
 				fi
 				log_startup_phase "queue-discovered-owners" "$phase_started_at"
-				rm -f all_owners_in_db all_owners_tu owners_updated owners_partially_updated owners_stale owners_scanned_without_packages
+				rm -f all_owners_in_db all_owners_tu owners_updated owners_partially_updated owners_stale owners_deferred owners_scanned_without_packages
 				set_BKG BKG_DIFF "$db_size_curr"
 				set_BKG BKG_REST_TO_TOP "$((1 - rest_first))"
 				fi

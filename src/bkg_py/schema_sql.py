@@ -47,6 +47,33 @@ SCHEMA_SQL = (
     )
     """,
     """
+    create table if not exists "bkg_owner_scans" (
+        owner_id text primary key,
+        owner text not null,
+        marker text not null,
+        status text not null,
+        started_at integer not null,
+        updated_at integer not null,
+        completed_at integer,
+        failure_count integer not null default 0,
+        retry_after integer not null default 0,
+        last_error text not null default ''
+    )
+    """,
+    """
+    create table if not exists "bkg_owner_scan_packages" (
+        owner_id text not null,
+        marker text not null,
+        owner_type text not null,
+        package_type text not null,
+        repo text not null,
+        package text not null,
+        primary key (
+            owner_id, marker, owner_type, package_type, repo, package
+        )
+    )
+    """,
+    """
     create index if not exists "idx_bkg_owners_date_owner"
     on {owners} (date, owner)
     """,
@@ -73,6 +100,10 @@ SCHEMA_SQL = (
     """
     create index if not exists "idx_bkg_versions_date"
     on {versions} (date)
+    """,
+    """
+    create index if not exists "idx_bkg_owner_scans_retry"
+    on "bkg_owner_scans" (status, retry_after, owner)
     """,
     "pragma auto_vacuum = full",
 )

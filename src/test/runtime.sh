@@ -67,6 +67,13 @@ test_sqlite_ensure_index_schema_adds_query_indexes() {
 	BKG_INDEX_DB="$original_db"
 }
 
+test_batch_reset_uses_explicit_progress_only() {
+	batch_should_reset 0 || fail "Expected exhausted work queue to reset"
+	! batch_should_reset 35815 || fail "Database allocation stability must not reset an active batch"
+	! batch_should_reset 500 || fail "A completion-count threshold must not reset an unfinished batch"
+	! batch_should_reset 1 || fail "A small nonempty tail must remain eligible for completion"
+}
+
 test_sqlite_numeric_version_ids_use_builtin_glob() {
 	local rows
 
@@ -920,6 +927,7 @@ source_project_script "bkg.sh"
 
 run_test test_sqlite_retries_transient_write_failure
 run_test test_sqlite_ensure_index_schema_adds_query_indexes
+run_test test_batch_reset_uses_explicit_progress_only
 run_test test_sqlite_numeric_version_ids_use_builtin_glob
 run_test test_cleanup_generated_json_sidecars_removes_adaptive_retry_artifacts
 run_test test_drop_replaced_legacy_version_tables_keeps_unreplaced_fallbacks

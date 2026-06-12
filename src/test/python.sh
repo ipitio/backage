@@ -104,6 +104,47 @@ grep -Fxq manual <<<"$manual_bypass_candidates" || {
 	exit 1
 }
 
+printf '%s\n' alpha beta >"$queue_dir/connections"
+: >"$queue_dir/manual"
+: >"$queue_dir/all_owners_in_db"
+: >"$queue_dir/owners_partially_updated"
+: >"$queue_dir/owners_stale"
+printf '%s\t%s\n' alpha 9999999999 >"$queue_dir/owners_deferred"
+reasons_file="$queue_dir/reasons"
+deferred_candidates=$(
+	cd "$queue_dir"
+	bash "$src_dir/lib/get.sh" \
+		0 "$queue_dir/connections" 10 current "$queue_dir/manual" "$queue_repo" \
+		"$reasons_file"
+)
+! grep -Fxq alpha <<<"$deferred_candidates" || {
+	echo "Deferred automatic owners must not consume queue slots" >&2
+	exit 1
+}
+grep -Fxq beta <<<"$deferred_candidates" || {
+	echo "Available connection owners must remain eligible" >&2
+	exit 1
+}
+grep -Fxq $'beta\tconnection' "$reasons_file" || {
+	echo "Owner queue reasons must identify connection candidates" >&2
+	exit 1
+}
+printf '%s\n' 1/alpha >"$queue_dir/manual"
+manual_retry_candidates=$(
+	cd "$queue_dir"
+	bash "$src_dir/lib/get.sh" \
+		0 "$queue_dir/connections" 10 current "$queue_dir/manual" "$queue_repo" \
+		"$reasons_file"
+)
+grep -Eq '(^|/)alpha$' <<<"$manual_retry_candidates" || {
+	echo "Manual owner requests must override automatic retry backoff" >&2
+	exit 1
+}
+grep -Fxq $'alpha\tmanual' "$reasons_file" || {
+	echo "Owner queue reasons must identify manual overrides" >&2
+	exit 1
+}
+
 mkdir -p "$queue_repo/kept-owner/repo" "$queue_repo/deleted-owner/repo"
 printf '%s\n' '[]' >"$queue_repo/kept-owner/repo/.json"
 printf '%s\n' '[]' >"$queue_repo/deleted-owner/repo/.json"
@@ -114,6 +155,7 @@ git -C "$queue_repo" add -A
 git -C "$queue_repo" commit -qm delete-owner
 : >"$queue_dir/connections"
 : >"$queue_dir/manual"
+: >"$queue_dir/owners_deferred"
 printf '%s\n' current >"$queue_dir/all_owners_in_db"
 history_candidates=$(
 	cd "$queue_dir"

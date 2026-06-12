@@ -16,10 +16,10 @@ from bkg_py.database import (
     DatabaseSettings,
     PackageRecord,
     PackageRef,
-    VersionMetrics,
     VersionRecord,
     VersionStage,
 )
+from bkg_py.database_models import VersionMetrics
 from bkg_py.rendering import (
     AggregateSettings,
     DatabaseAggregateOptions,

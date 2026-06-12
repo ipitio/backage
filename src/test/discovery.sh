@@ -115,6 +115,155 @@ EOF
     grep -Fxq 'container/Libre-Closet/libre-closet' <<<"$(get_BKG_set BKG_PACKAGES_Lazztech)" || fail "Expected queued package list to include Lazztech/libre-closet"
 }
 
+test_page_package_distinguishes_transport_failure_from_empty_listing() {
+    local status
+
+    setup_discovery_fixture
+    init_bkg_state
+
+    pushd "$workdir" >/dev/null
+    owner_id=556677
+    owner=Lazztech
+    owner_type=orgs
+
+    curl() {
+        return 1
+    }
+
+    set +e
+    page_package 1 >/dev/null
+    status=$?
+    set -e
+    popd >/dev/null
+
+    [ "$status" -eq 1 ] || fail "Expected failed owner listing transport to remain non-authoritative"
+}
+
+test_partial_owner_refresh_uses_known_package_identity() {
+    local captured="$workdir/refreshed-package"
+    local today
+    local yesterday
+
+    setup_discovery_fixture
+    init_bkg_state
+    BKG_INDEX_DB="$workdir/partial-owner.db"
+    today=$(date -u +%Y-%m-%d)
+    yesterday=$(date -u -d yesterday +%Y-%m-%d)
+    BKG_BATCH_FIRST_STARTED=$today
+    set_BKG BKG_BATCH_FIRST_STARTED "$today"
+    set_BKG BKG_BATCH_MARKER test-batch
+    sqlite_ensure_index_schema >/dev/null
+    command sqlite3 "$BKG_INDEX_DB" "
+        insert into '$BKG_INDEX_TBL_PKG' (
+            owner_id, owner_type, package_type, owner, repo, package,
+            downloads, downloads_month, downloads_week, downloads_day,
+            size, date
+        ) values
+            ('556677', 'orgs', 'container', 'KnownOwner', 'FreshRepo', 'fresh', 1, 1, 1, 1, 1, '$today'),
+            ('556677', 'orgs', 'container', 'KnownOwner', 'StaleRepo', 'stale', 1, 1, 1, 1, 1, '$yesterday');
+    "
+
+    pushd "$workdir" >/dev/null
+    printf '%s\n' "556677|KnownOwner|FreshRepo|fresh|$today" >packages_already_updated
+
+    curl() {
+        printf '%s\n' '<a href="/orgs/KnownOwner/people">people</a>'
+    }
+
+    run_parallel() {
+        local function_name=$1
+        local items=$2
+        local item
+
+        while IFS= read -r item; do
+            [ -n "$item" ] || continue
+            "$function_name" "$item"
+        done <<<"$items"
+    }
+
+    update_package() {
+        printf '%s\n' "$1" >"$captured"
+        command sqlite3 "$BKG_INDEX_DB" "
+            update '$BKG_INDEX_TBL_PKG'
+            set date = '$today'
+            where owner_id = '556677' and package = 'stale';
+        "
+    }
+
+    owner_repo_names_from_db() {
+        :
+    }
+
+    update_owner '556677/KnownOwner' >/dev/null || fail "Expected partial owner refresh to complete"
+    popd >/dev/null
+
+    [ "$(cat "$captured")" = 'container/StaleRepo/stale' ] || fail "Expected partial refresh to use the stored repository identity"
+}
+
+test_unresolved_partial_owner_refresh_reconciles_complete_listing() {
+    local today
+    local yesterday
+
+    setup_discovery_fixture
+    init_bkg_state
+    BKG_INDEX_DB="$workdir/partial-owner-reconcile.db"
+    today=$(date -u +%Y-%m-%d)
+    yesterday=$(date -u -d yesterday +%Y-%m-%d)
+    BKG_BATCH_FIRST_STARTED=$today
+    set_BKG BKG_BATCH_FIRST_STARTED "$today"
+    set_BKG BKG_BATCH_MARKER test-batch
+    sqlite_ensure_index_schema >/dev/null
+    command sqlite3 "$BKG_INDEX_DB" "
+        insert into '$BKG_INDEX_TBL_PKG' (
+            owner_id, owner_type, package_type, owner, repo, package,
+            downloads, downloads_month, downloads_week, downloads_day,
+            size, date
+        ) values
+            ('556677', 'orgs', 'container', 'KnownOwner', 'FreshRepo', 'fresh', 1, 1, 1, 1, 1, '$today'),
+            ('556677', 'orgs', 'container', 'KnownOwner', 'DeletedRepo', 'deleted', 1, 1, 1, 1, 1, '$yesterday');
+    "
+
+    pushd "$workdir" >/dev/null
+    printf '%s\n' "556677|KnownOwner|FreshRepo|fresh|$today" >packages_already_updated
+
+    curl() {
+        printf '%s\n' '<a href="/orgs/KnownOwner/people">people</a>'
+    }
+
+    run_parallel() {
+        local function_name=$1
+        local items=$2
+        local item
+
+        while IFS= read -r item; do
+            [ -n "$item" ] || continue
+            "$function_name" "$item"
+        done <<<"$items"
+    }
+
+    update_package() {
+        :
+    }
+
+    page_package() {
+        return 2
+    }
+
+    query_api_optional() {
+        printf '%s\n' null
+    }
+
+    owner_repo_names_from_db() {
+        :
+    }
+
+    update_owner '556677/KnownOwner' >/dev/null || fail "Expected unresolved partial refresh to reconcile"
+    popd >/dev/null
+
+    [ "$(command sqlite3 "$BKG_INDEX_DB" "select count(*) from '$BKG_INDEX_TBL_PKG' where package = 'deleted';")" -eq 0 ] ||
+        fail "Expected a confirmed deleted package to be reconciled after direct refresh failed"
+}
+
 test_page_owner_merges_deduplicated_api_pages() {
     setup_discovery_fixture
     init_bkg_state
@@ -281,6 +430,9 @@ run_test test_discovered_second_hop_org_survives_owner_admission
 run_test test_discovered_owner_admission_includes_all_candidates_below_cap
 run_test test_save_owner_queues_resolved_owner_id
 run_test test_page_package_enqueues_package
+run_test test_page_package_distinguishes_transport_failure_from_empty_listing
+run_test test_partial_owner_refresh_uses_known_package_identity
+run_test test_unresolved_partial_owner_refresh_reconciles_complete_listing
 run_test test_page_owner_merges_deduplicated_api_pages
 run_test test_graphql_discovery_paths_avoid_html_scraping
 run_test test_remembered_no_package_connection_owner_is_filtered_but_manual_owner_is_not

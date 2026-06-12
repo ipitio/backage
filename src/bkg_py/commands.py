@@ -9,7 +9,15 @@ from pathlib import Path
 
 from .application import ApplicationContext
 from .config import RuntimeConfig
-from .database import DatabaseError, PackageRef, VersionStage
+from .database import (
+    DatabaseError,
+    DatabaseRepository,
+    OwnerScanFailure,
+    OwnerScanPackage,
+    OwnerScanResult,
+    PackageRef,
+    VersionStage,
+)
 from .github import GitHubError, dump_json
 from .owner_queue import OwnerQueueSelector
 from .publication import PublicationError, publish_json_file, write_xml_file
@@ -40,6 +48,45 @@ def _package_ref(args: argparse.Namespace) -> PackageRef:
 
 def _optional_argument(value: str) -> str | None:
     return None if value == "-" else value
+
+
+_OWNER_SCAN_PACKAGE_FIELDS = 4
+
+
+def _owner_scan_packages(path: Path) -> tuple[OwnerScanPackage, ...]:
+    packages: list[OwnerScanPackage] = []
+    for line_number, line in enumerate(
+        path.read_text(encoding="utf-8").splitlines(),
+        start=1,
+    ):
+        if not line:
+            continue
+        fields = line.split("\t")
+        if len(fields) != _OWNER_SCAN_PACKAGE_FIELDS or not all(fields):
+            raise DatabaseError(f"invalid owner scan package at {path}:{line_number}")
+        packages.append(OwnerScanPackage(*fields))
+    return tuple(packages)
+
+
+def _print_owner_scan_result(result: OwnerScanResult) -> None:
+    print(
+        json.dumps(
+            {
+                "removed": [
+                    {
+                        "owner_type": package.owner_type,
+                        "package_type": package.package_type,
+                        "repo": package.repo,
+                        "package": package.package,
+                    }
+                    for package in result.removed
+                ],
+                "pending_count": result.pending_count,
+                "retry_after": result.retry_after,
+            },
+            separators=(",", ":"),
+        )
+    )
 
 
 def _run_publication(
@@ -86,6 +133,8 @@ def _run_database(
                 application.database.cleanup_replaced_legacy_tables(since=args.since)
             elif args.database_command == "retire-owner":
                 application.database.retire_owner(args.owner)
+            elif _run_owner_scan_database(args, application.database):
+                pass
             else:
                 raise DatabaseError(
                     f"unknown database command: {args.database_command}"
@@ -96,6 +145,72 @@ def _run_database(
         print(error, file=sys.stderr)
         return ExitStatus.NON_FATAL
     return ExitStatus.SUCCESS
+
+
+def _run_owner_scan_database(
+    args: argparse.Namespace,
+    database: DatabaseRepository,
+) -> bool:
+    command = args.database_command
+    if command == "begin-owner-scan":
+        database.begin_owner_scan(
+            args.owner_id,
+            args.owner,
+            args.marker,
+            args.started_at,
+        )
+    elif command == "observe-owner-scan":
+        database.observe_owner_scan(
+            args.owner_id,
+            args.marker,
+            _owner_scan_packages(Path(args.packages_file)),
+            args.observed_at,
+        )
+    elif command == "missing-owner-scan-packages":
+        for package in database.missing_owner_scan_packages(
+            args.owner_id,
+            args.marker,
+        ):
+            print(
+                package.owner_type,
+                package.package_type,
+                package.repo,
+                package.package,
+                sep="\t",
+            )
+    elif command == "complete-owner-scan":
+        _print_owner_scan_result(
+            database.complete_owner_scan(
+                args.owner_id,
+                args.marker,
+                args.scan_date,
+                args.completed_at,
+            )
+        )
+    elif command == "fail-owner-scan":
+        print(
+            database.fail_owner_scan(
+                OwnerScanFailure(
+                    args.owner_id,
+                    args.owner,
+                    _optional_argument(args.marker),
+                    args.error,
+                    args.failed_at,
+                )
+            )
+        )
+    elif command == "clear-owner-backoff":
+        database.clear_owner_backoff(
+            args.owner_id,
+            args.owner,
+            args.completed_at,
+        )
+    elif command == "deferred-owners":
+        for owner, retry_after in database.deferred_owners(args.now):
+            print(owner, retry_after, sep="\t")
+    else:
+        return False
+    return True
 
 
 def _run_render(
@@ -242,7 +357,16 @@ def run_command(
             index_dir=Path(args.index_dir),
             state_dir=Path.cwd(),
         )
-        sys.stdout.writelines(f"{owner}\n" for owner in selector.select())
+        selected = selector.select_with_reasons()
+        sys.stdout.writelines(f"{owner}\n" for owner, _reason in selected)
+        if args.reasons_file:
+            Path(args.reasons_file).write_text(
+                "".join(
+                    f"{owner.split('/', maxsplit=1)[-1]}\t{reason}\n"
+                    for owner, reason in selected
+                ),
+                encoding="utf-8",
+            )
         status = ExitStatus.SUCCESS
     else:
         application = ApplicationContext.from_env()

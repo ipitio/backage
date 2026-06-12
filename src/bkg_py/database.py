@@ -5,20 +5,23 @@ from __future__ import annotations
 import os
 import sqlite3
 import time
-from collections.abc import Callable, Generator, Iterable, Sequence
+from collections.abc import Callable, Generator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from . import database_owner_scans
 from .database_models import (
     OwnerRecord,
+    OwnerScanFailure,
+    OwnerScanPackage,
+    OwnerScanResult,
     PackageRecord,
     PackageRef,
     PackageSnapshot,
     RankedPackage,
     VersionLimitEstimate,
-    VersionMetrics,
     VersionRecord,
     VersionSource,
     VersionStage,
@@ -27,6 +30,27 @@ from .database_support import (
     DatabaseError,
     nonnegative_env_float,
     positive_env_int,
+)
+from .database_values import (
+    legacy_version_values as _legacy_version_values,
+)
+from .database_values import (
+    normalized_version_values as _normalized_version_values,
+)
+from .database_values import (
+    package_sort_key as _package_sort_key,
+)
+from .database_values import (
+    package_values as _package_values,
+)
+from .database_values import (
+    ranked_package as _ranked_package,
+)
+from .database_values import (
+    version_record as _version_record,
+)
+from .database_values import (
+    version_records as _version_records,
 )
 from .render_sql import (
     OWNER_VERSION_LIMIT_SQL,
@@ -57,7 +81,7 @@ class _SqlIdentifier(str):
 
 
 @dataclass(frozen=True)
-class DatabaseSettings:
+class DatabaseSettings:  # pylint: disable=too-many-instance-attributes
     """Database path, table names, and retry behavior."""
 
     path: Path
@@ -67,6 +91,8 @@ class DatabaseSettings:
     busy_timeout_ms: int = 300_000
     max_attempts: int = 3
     retry_delay_seconds: float = 1.0
+    owner_retry_initial_seconds: int = 3_600
+    owner_retry_max_seconds: int = 86_400
 
     @classmethod
     def from_env(cls) -> DatabaseSettings:
@@ -88,6 +114,14 @@ class DatabaseSettings:
             retry_delay_seconds=nonnegative_env_float(
                 "BKG_SQLITE_RETRY_DELAY_SECS",
                 1.0,
+            ),
+            owner_retry_initial_seconds=positive_env_int(
+                "BKG_OWNER_RETRY_INITIAL_SECONDS",
+                3_600,
+            ),
+            owner_retry_max_seconds=positive_env_int(
+                "BKG_OWNER_RETRY_MAX_SECONDS",
+                86_400,
             ),
         )
 
@@ -484,6 +518,124 @@ class DatabaseRepository:
 
         return self._run_write(cleanup)
 
+    def begin_owner_scan(
+        self,
+        owner_id: str,
+        owner: str,
+        marker: str,
+        started_at: int,
+    ) -> None:
+        """Start a fresh resumable owner listing scan."""
+
+        self.ensure_schema()
+        self._run_write(
+            lambda connection: database_owner_scans.begin(
+                connection, owner_id, owner, marker, started_at
+            )
+        )
+
+    def observe_owner_scan(
+        self,
+        owner_id: str,
+        marker: str,
+        packages: Sequence[OwnerScanPackage],
+        observed_at: int,
+    ) -> None:
+        """Persist package identities parsed from one owner listing page."""
+
+        self.ensure_schema()
+        self._run_write(
+            lambda connection: database_owner_scans.observe(
+                connection, owner_id, marker, packages, observed_at
+            )
+        )
+
+    def missing_owner_scan_packages(
+        self,
+        owner_id: str,
+        marker: str,
+    ) -> tuple[PackageRef, ...]:
+        """Return known packages absent from the staged owner listing."""
+
+        self.ensure_schema()
+        return self._run_read(
+            lambda connection: database_owner_scans.missing(
+                connection, owner_id, marker, self.settings.packages_table
+            )
+        )
+
+    def fail_owner_scan(
+        self,
+        failure: OwnerScanFailure,
+    ) -> int:
+        """Persist owner retry backoff after a failed scan or refresh."""
+
+        self.ensure_schema()
+        return self._run_write(
+            lambda connection: database_owner_scans.fail(
+                connection,
+                failure,
+                database_owner_scans.OwnerRetryPolicy(
+                    self.settings.owner_retry_initial_seconds,
+                    self.settings.owner_retry_max_seconds,
+                ),
+            )
+        )
+
+    def clear_owner_backoff(
+        self,
+        owner_id: str,
+        owner: str,
+        completed_at: int,
+    ) -> None:
+        """Clear owner retry state after successful direct refresh work."""
+
+        self.ensure_schema()
+        self._run_write(
+            lambda connection: database_owner_scans.clear_backoff(
+                connection, owner_id, owner, completed_at
+            )
+        )
+
+    def complete_owner_scan(
+        self,
+        owner_id: str,
+        marker: str,
+        scan_date: str,
+        completed_at: int,
+    ) -> OwnerScanResult:
+        """Reconcile one verified complete owner listing scan."""
+
+        self.ensure_schema()
+        return self._run_write(
+            lambda connection: database_owner_scans.complete(
+                connection,
+                database_owner_scans.OwnerScanCompletion(
+                    owner_id,
+                    marker,
+                    scan_date,
+                    completed_at,
+                ),
+                database_owner_scans.OwnerScanTables(
+                    self.settings.owners_table,
+                    self.settings.packages_table,
+                    self.settings.versions_table,
+                ),
+                database_owner_scans.OwnerRetryPolicy(
+                    self.settings.owner_retry_initial_seconds,
+                    self.settings.owner_retry_max_seconds,
+                ),
+            )
+        )
+
+    def deferred_owners(self, now: int) -> tuple[tuple[str, int], ...]:
+        """Return owners still waiting for their retry time."""
+
+        self.ensure_schema()
+        return self._run_read(
+            lambda connection: database_owner_scans.deferred(connection, now)
+        )
+
     def retire_owner(self, owner: str) -> int:
         """Remove one unavailable owner's normalized and legacy database data."""
 
@@ -526,6 +678,19 @@ class DatabaseRepository:
                         (owner,),
                     )
                     deleted += cursor.rowcount
+                connection.execute(
+                    """
+                    delete from "bkg_owner_scan_packages"
+                    where owner_id in (
+                        select owner_id from "bkg_owner_scans" where owner = ?
+                    )
+                    """,
+                    (owner,),
+                )
+                connection.execute(
+                    'delete from "bkg_owner_scans" where owner = ?',
+                    (owner,),
+                )
             return deleted
 
         return self._run_write(retire)
@@ -778,88 +943,6 @@ class DatabaseRepository:
 
 def _sql(statement: str, /, **identifiers: _SqlIdentifier) -> str:
     return statement.format_map(identifiers)
-
-
-def _package_values(package: PackageRef) -> tuple[str, ...]:
-    return (
-        package.owner_id,
-        package.owner_type,
-        package.package_type,
-        package.owner,
-        package.repo,
-        package.package,
-    )
-
-
-def _package_sort_key(values: Sequence[str]) -> tuple[str, ...]:
-    owner_id, owner_type, package_type, owner, repo, package = values
-    return owner, repo, package_type, package, owner_type, owner_id
-
-
-def _ranked_package(row: Sequence[Any]) -> RankedPackage:
-    package = PackageRef(
-        owner_id=str(row[0]),
-        owner_type=str(row[1]),
-        package_type=str(row[2]),
-        owner=str(row[3]),
-        repo=str(row[4]),
-        package=str(row[5]),
-    )
-    return RankedPackage(
-        record=PackageRecord(
-            package_ref=package,
-            downloads=int(row[6]),
-            downloads_month=int(row[7]),
-            downloads_week=int(row[8]),
-            downloads_day=int(row[9]),
-            size=int(row[10]),
-            date=str(row[11]),
-        ),
-        owner_rank=int(row[12]),
-        repo_rank=int(row[13]),
-    )
-
-
-def _normalized_version_values(
-    package: PackageRef,
-    version: VersionRecord,
-) -> tuple[str | int, ...]:
-    return (*_package_values(package), *_legacy_version_values(version))
-
-
-def _legacy_version_values(version: VersionRecord) -> tuple[str | int, ...]:
-    metrics = version.metrics
-    return (
-        version.version_id,
-        version.name,
-        metrics.size,
-        metrics.downloads,
-        metrics.downloads_month,
-        metrics.downloads_week,
-        metrics.downloads_day,
-        version.date,
-        version.tags,
-    )
-
-
-def _version_records(rows: Iterable[Sequence[Any]]) -> tuple[VersionRecord, ...]:
-    return tuple(_version_record(row) for row in rows)
-
-
-def _version_record(row: Sequence[Any]) -> VersionRecord:
-    return VersionRecord(
-        version_id=str(row[0]),
-        name=str(row[1]),
-        metrics=VersionMetrics(
-            size=int(row[2]),
-            downloads=int(row[3]),
-            downloads_month=int(row[4]),
-            downloads_week=int(row[5]),
-            downloads_day=int(row[6]),
-        ),
-        date=str(row[7]),
-        tags="" if row[8] is None else str(row[8]),
-    )
 
 
 def _table_exists(connection: sqlite3.Connection, table_name: str) -> bool:
