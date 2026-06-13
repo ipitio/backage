@@ -1,4 +1,3 @@
-2439599/ClimateData
 2438877/CompleteMerchantSolutions
 2440649/ConveyInsight
 2437006/Dartmoor
@@ -29,7 +28,6 @@
 2440137/Tyneo
 2439559/VStudios007
 2439562/VStudiosNASA
-2439544/VStudiosVA
 2438166/ZOMGClan
 2437025/Voodo133
 2437022/Zerc727
@@ -87,7 +85,6 @@
 2437042/yq911122
 2441786/dynamic-horizons
 2441958/authorly
-2442948/AutomatedArchitecture
 2443104/study-org
 2443582/cwacwa
 2443688/couchpotatoes
@@ -334,7 +331,6 @@
 2458893/LateralView
 2458755/rubenminarro
 2458895/Yasual
-2458911/cocomans
 2459049/AnimaVitae
 2458912/LaZZer010
 2459134/BabyPhoenix
@@ -358,3 +354,4 @@
 2460484/SergeyKhlybov
 2460684/Elilink
 2460489/xvschneider
+2460699/Cluep
