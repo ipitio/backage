@@ -140,14 +140,21 @@ owner_scan_begin() {
 	marker_key=$(owner_scan_marker_key) || return 1
 	started_at=$(date -u +%s)
 	OWNER_SCAN_MARKER="$(get_BKG "$marker_key")"
-	if [ -z "${start_page:-}" ] || [ -z "$OWNER_SCAN_MARKER" ]; then
-		OWNER_SCAN_MARKER="$(get_BKG BKG_BATCH_MARKER):$owner_id:$started_at:$BASHPID"
-		set_BKG "$marker_key" "$OWNER_SCAN_MARKER"
-		set_BKG BKG_PAGE_"$owner_id" ""
-		del_BKG BKG_PAGE_"$owner_id"
-		bkg_python database begin-owner-scan \
-			"$owner_id" "$owner" "$OWNER_SCAN_MARKER" "$started_at"
+	if [ -n "${start_page:-}" ] && [ -n "$OWNER_SCAN_MARKER" ]; then
+		if bkg_python database active-owner-scan "$owner_id" "$OWNER_SCAN_MARKER" >/dev/null 2>&1; then
+			return 0
+		fi
+		echo "Discarding stale owner scan marker for $owner; restarting from page 1"
+		owner_scan_clear_runtime_state
+		start_page=1
 	fi
+
+	OWNER_SCAN_MARKER="$(get_BKG BKG_BATCH_MARKER):$owner_id:$started_at:$BASHPID"
+	set_BKG "$marker_key" "$OWNER_SCAN_MARKER"
+	set_BKG BKG_PAGE_"$owner_id" ""
+	del_BKG BKG_PAGE_"$owner_id"
+	bkg_python database begin-owner-scan \
+		"$owner_id" "$owner" "$OWNER_SCAN_MARKER" "$started_at"
 }
 
 owner_scan_observe_file() {

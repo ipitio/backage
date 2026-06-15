@@ -137,6 +137,23 @@ run_owner_updates() {
 	return "$status"
 }
 
+handle_owner_update_status() {
+	local phase_status=${1:-0}
+
+	if ((phase_status == 3)); then
+		return_code=3
+		echo "Reached BKG_MAX_LEN, stopping after persisting state..."
+		return 0
+	fi
+
+	if ((phase_status != 0)); then
+		echo "Owner updates failed with status $phase_status; stopping before snapshot publication." >&2
+		return "$phase_status"
+	fi
+
+	return 0
+}
+
 run_owner_page_discovery() {
 	local page=1
 	local max_pages=${BKG_OWNER_DISCOVERY_MAX_PAGES:-1}
@@ -624,10 +641,7 @@ main() {
 
 			run_owner_updates
 			phase_status=$?
-			if ((phase_status == 3)); then
-				return_code=3
-				echo "Reached BKG_MAX_LEN, stopping after persisting state..."
-			fi
+			handle_owner_update_status "$phase_status" || return $?
 		fi
 
 		set_BKG BKG_OUT "$(wc -l <"$BKG_OPTOUT")"

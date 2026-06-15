@@ -363,7 +363,7 @@ class DatabaseRepository:
                         )
                     source = self._legacy_version_source(
                         connection,
-                        self.legacy_version_table(package),
+                        self._legacy_version_table(package),
                         ranked.record.date,
                     )
                 visit(
@@ -443,7 +443,7 @@ class DatabaseRepository:
 
         return self._run_read(read)
 
-    def legacy_version_table(self, package: PackageRef) -> str:
+    def _legacy_version_table(self, package: PackageRef) -> str:
         """Return the legacy per-package version table name."""
 
         return (
@@ -532,6 +532,14 @@ class DatabaseRepository:
             lambda connection: database_owner_scans.begin(
                 connection, owner_id, owner, marker, started_at
             )
+        )
+
+    def owner_scan_active(self, owner_id: str, marker: str) -> bool:
+        """Return whether an owner scan marker can be resumed."""
+
+        self.ensure_schema()
+        return self._run_read(
+            lambda connection: database_owner_scans.active(connection, owner_id, marker)
         )
 
     def observe_owner_scan(

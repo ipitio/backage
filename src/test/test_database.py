@@ -581,6 +581,8 @@ class TestDatabaseRepository:
                 "scan-1",
                 100,
             )
+            assert repository.owner_scan_active(retained.owner_id, "scan-1")
+            assert not repository.owner_scan_active(retained.owner_id, "scan-old")
             repository.observe_owner_scan(
                 retained.owner_id,
                 "scan-1",
@@ -609,6 +611,7 @@ class TestDatabaseRepository:
             assert result.removed == (removed,)
             assert result.pending_count == 0
             assert result.retry_after == 0
+            assert not repository.owner_scan_active(retained.owner_id, "scan-1")
             with sqlite3.connect(path) as connection:
                 packages = connection.execute(
                     "select repo, package from packages order by repo"

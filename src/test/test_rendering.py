@@ -43,6 +43,13 @@ def _package(number: int = 1, *, repo: str = "Repo") -> PackageRef:
     )
 
 
+def _legacy_table(package: PackageRef) -> str:
+    return (
+        f"versions_{package.owner_type}_{package.package_type}_{package.owner}_"
+        f"{package.repo}_{package.package}"
+    )
+
+
 def _package_record(
     package: PackageRef,
     *,
@@ -86,7 +93,7 @@ def _write_package(
     repository.flush_version_stage(
         VersionStage(
             package_ref=package,
-            legacy_table=repository.legacy_version_table(package),
+            legacy_table=_legacy_table(package),
             write_legacy=False,
             rows=versions,
         )
@@ -124,7 +131,7 @@ class TestRendering:
         snapshot = repository.package_snapshot(
             package,
             since=_TODAY,
-            legacy_table=repository.legacy_version_table(package),
+            legacy_table=_legacy_table(package),
         )
 
         assert snapshot is not None
@@ -209,7 +216,7 @@ class TestRendering:
         repository = DatabaseRepository(DatabaseSettings(tmp_path / "index.db"))
         package = _package(repo="LegacyRepo")
         repository.write_package(_package_record(package))
-        legacy_table = repository.legacy_version_table(package)
+        legacy_table = _legacy_table(package)
         quoted = legacy_table.replace('"', '""')
         with sqlite3.connect(repository.settings.path) as connection:
             connection.execute(

@@ -151,6 +151,16 @@ def _run_owner_scan_database(
     args: argparse.Namespace,
     database: DatabaseRepository,
 ) -> bool:
+    return _run_owner_scan_lifecycle(args, database) or _run_owner_scan_retry(
+        args,
+        database,
+    )
+
+
+def _run_owner_scan_lifecycle(
+    args: argparse.Namespace,
+    database: DatabaseRepository,
+) -> bool:
     command = args.database_command
     if command == "begin-owner-scan":
         database.begin_owner_scan(
@@ -159,6 +169,11 @@ def _run_owner_scan_database(
             args.marker,
             args.started_at,
         )
+    elif command == "active-owner-scan":
+        if not database.owner_scan_active(args.owner_id, args.marker):
+            raise DatabaseError(
+                f"owner scan {args.owner_id}/{args.marker} is not active"
+            )
     elif command == "observe-owner-scan":
         database.observe_owner_scan(
             args.owner_id,
@@ -187,7 +202,17 @@ def _run_owner_scan_database(
                 args.completed_at,
             )
         )
-    elif command == "fail-owner-scan":
+    else:
+        return False
+    return True
+
+
+def _run_owner_scan_retry(
+    args: argparse.Namespace,
+    database: DatabaseRepository,
+) -> bool:
+    command = args.database_command
+    if command == "fail-owner-scan":
         print(
             database.fail_owner_scan(
                 OwnerScanFailure(

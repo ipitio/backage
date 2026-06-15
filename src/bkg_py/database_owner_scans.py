@@ -68,12 +68,22 @@ def _require_active(
     owner_id: str,
     marker: str,
 ) -> None:
+    if not active(connection, owner_id, marker):
+        raise DatabaseError(f"owner scan {owner_id}/{marker} is not active")
+
+
+def active(
+    connection: sqlite3.Connection,
+    owner_id: str,
+    marker: str,
+) -> bool:
+    """Return whether an owner scan marker is still resumable."""
+
     row = connection.execute(
         f"select marker, status from {_SCANS} where owner_id = ?",
         (owner_id,),
     ).fetchone()
-    if row is None or row[0] != marker or row[1] != "running":
-        raise DatabaseError(f"owner scan {owner_id}/{marker} is not active")
+    return row is not None and row[0] == marker and row[1] == "running"
 
 
 def begin(

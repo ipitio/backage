@@ -93,6 +93,12 @@ def _add_database_parsers(subparsers: Any) -> None:
         help="remove database data for one unavailable owner",
     )
     retire_owner_parser.add_argument("owner")
+    _add_owner_scan_database_parsers(database_commands)
+
+
+def _add_owner_scan_database_parsers(database_commands: Any) -> None:
+    """Add owner scan database subcommands."""
+
     begin_scan_parser = database_commands.add_parser(
         "begin-owner-scan",
         help="start a fresh resumable owner package-listing scan",
@@ -101,6 +107,12 @@ def _add_database_parsers(subparsers: Any) -> None:
     begin_scan_parser.add_argument("owner")
     begin_scan_parser.add_argument("marker")
     begin_scan_parser.add_argument("started_at", type=int)
+    active_scan_parser = database_commands.add_parser(
+        "active-owner-scan",
+        help="check whether an owner scan marker is still resumable",
+    )
+    active_scan_parser.add_argument("owner_id")
+    active_scan_parser.add_argument("marker")
     observe_scan_parser = database_commands.add_parser(
         "observe-owner-scan",
         help="stage package identities parsed from an owner listing page",

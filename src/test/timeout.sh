@@ -419,6 +419,30 @@ test_run_owner_updates_halts_on_timeout() {
 	assert_contains "$stdin_file" "2/beta"
 }
 
+test_owner_update_status_keeps_graceful_timeout_publishable() {
+	local output_file="$workdir/owner-timeout-status.out"
+	local status=0
+
+	return_code=0
+	handle_owner_update_status 3 >"$output_file" 2>&1 || status=$?
+
+	[ "$status" -eq 0 ] || fail "Expected graceful owner timeout to keep publishing path available"
+	[ "$return_code" -eq 3 ] || fail "Expected graceful owner timeout to persist return_code 3"
+	assert_contains "$output_file" "Reached BKG_MAX_LEN"
+}
+
+test_owner_update_status_aborts_unexpected_failure() {
+	local output_file="$workdir/owner-failure-status.out"
+	local status=0
+
+	return_code=0
+	handle_owner_update_status 1 >"$output_file" 2>&1 || status=$?
+
+	[ "$status" -eq 1 ] || fail "Expected unexpected owner failure to abort with status 1"
+	[ "$return_code" -eq 0 ] || fail "Expected unexpected owner failure not to mark graceful timeout"
+	assert_contains "$output_file" "stopping before snapshot publication"
+}
+
 test_query_api_checks_elapsed_limit_before_request() {
 	local status=0
 	local now
@@ -495,6 +519,8 @@ run_test test_owner_build_json_array_to_file_enforces_elapsed_limit
 run_test test_owner_update_wait_notice_is_throttled
 run_test test_owner_update_force_stop_due_after_grace_period
 run_test test_run_owner_updates_halts_on_timeout
+run_test test_owner_update_status_keeps_graceful_timeout_publishable
+run_test test_owner_update_status_aborts_unexpected_failure
 run_test test_query_api_checks_elapsed_limit_before_request
 run_test test_query_graphql_api_checks_elapsed_limit_before_request
 

@@ -264,6 +264,79 @@ test_unresolved_partial_owner_refresh_reconciles_complete_listing() {
         fail "Expected a confirmed deleted package to be reconciled after direct refresh failed"
 }
 
+test_stale_owner_scan_marker_restarts_from_first_page() {
+    local marker_key
+    local observed_marker_file="$workdir/observed-marker"
+    local observed_page_file="$workdir/observed-page"
+    local output
+    local today
+
+    setup_discovery_fixture
+    init_bkg_state
+    BKG_INDEX_DB="$workdir/stale-owner-scan.db"
+    today=$(date -u +%Y-%m-%d)
+    BKG_BATCH_FIRST_STARTED=$today
+    set_BKG BKG_BATCH_FIRST_STARTED "$today"
+    set_BKG BKG_BATCH_MARKER test-batch
+    sqlite_ensure_index_schema >/dev/null
+
+    pushd "$workdir" >/dev/null
+    : >packages_already_updated
+    owner_id=556677
+    marker_key=$(owner_scan_marker_key)
+    set_BKG BKG_PAGE_"$owner_id" 7
+    set_BKG "$marker_key" stale-marker
+
+    curl() {
+        printf '%s\n' '<a href="/orgs/KnownOwner/people">people</a>'
+    }
+
+    page_package() {
+        [ "$1" = "1" ] || fail "Expected stale owner scan to restart at page 1"
+        [ "$OWNER_SCAN_MARKER" != "stale-marker" ] || fail "Expected stale owner scan marker to be replaced"
+        case "$OWNER_SCAN_MARKER" in
+        test-batch:556677:*) ;;
+        *) fail "Expected replacement owner scan marker to include the current batch" ;;
+        esac
+        printf '%s\n' "$OWNER_SCAN_MARKER" >"$observed_marker_file"
+        printf '%s\n' "$1" >"$observed_page_file"
+        return 2
+    }
+
+    run_parallel() {
+        local function_name=$1
+        local items=$2
+        local item
+
+        while IFS= read -r item; do
+            [ -n "$item" ] || continue
+            "$function_name" "$item"
+        done <<<"$items"
+    }
+
+    update_package() {
+        :
+    }
+
+    query_api_optional() {
+        printf '%s\n' null
+    }
+
+    owner_repo_names_from_db() {
+        :
+    }
+
+    output=$(update_owner '556677/KnownOwner') || fail "Expected stale owner scan restart to complete"
+    popd >/dev/null
+
+    grep -Fq "Discarding stale owner scan marker for KnownOwner" <<<"$output" ||
+        fail "Expected stale owner scan marker warning"
+    [ "$(cat "$observed_page_file")" = "1" ] || fail "Expected restarted scan to visit page 1"
+    [ -s "$observed_marker_file" ] || fail "Expected restarted scan to use a replacement marker"
+    [ -z "$(get_BKG BKG_PAGE_556677)" ] || fail "Expected completed scan to clear resumed page state"
+    [ -z "$(get_BKG "$marker_key")" ] || fail "Expected completed scan to clear owner scan marker"
+}
+
 test_page_owner_merges_deduplicated_api_pages() {
     setup_discovery_fixture
     init_bkg_state
@@ -433,6 +506,7 @@ run_test test_page_package_enqueues_package
 run_test test_page_package_distinguishes_transport_failure_from_empty_listing
 run_test test_partial_owner_refresh_uses_known_package_identity
 run_test test_unresolved_partial_owner_refresh_reconciles_complete_listing
+run_test test_stale_owner_scan_marker_restarts_from_first_page
 run_test test_page_owner_merges_deduplicated_api_pages
 run_test test_graphql_discovery_paths_avoid_html_scraping
 run_test test_remembered_no_package_connection_owner_is_filtered_but_manual_owner_is_not
