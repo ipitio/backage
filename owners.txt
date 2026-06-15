@@ -1,4 +1,3 @@
-2440006/GrinnellLocalFood
 2436988/K1MACLIN
 2440445/LBaaS
 2437887/KSST
@@ -59,7 +58,6 @@
 2438329/sfgventures
 2440141/sorcode
 2438104/tagholic
-2437007/tratilai
 2437050/tuba6tire
 2440077/tunespeak
 2437029/vessel8reason
@@ -322,7 +320,6 @@
 2459378/Interfolio
 2459379/roncking
 2459430/Pure-Battlefield
-2459516/Ossus
 2459517/mestoz
 2459573/dagarrat
 2459637/pastor38sharon
@@ -343,3 +340,4 @@
 2461236/melmax
 2461269/cristianbotesv
 2461292/fvikky
+2461389/stepforwaru383t4
