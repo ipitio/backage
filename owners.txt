@@ -1,4 +1,3 @@
-2437068/Greenliff
 2439203/Guzman-Jara
 2440006/GrinnellLocalFood
 2436988/K1MACLIN
@@ -306,7 +305,6 @@
 2458402/smashloaf8
 2458415/caveteeth95
 2458445/MPowered-TechTeam
-2458496/nullnull000
 2458446/recordfood73
 2458754/ascensiondevices
 2458497/juanchomardel
@@ -337,7 +335,6 @@
 2460684/Elilink
 2460489/xvschneider
 2460699/Cluep
-2460700/stitch87frown
 2460754/Bilue
 2460755/weekneon69
 2460952/NumberSensei
@@ -345,4 +342,4 @@
 2461092/Clleniil
 2461172/gun6burn
 2461236/melmax
-2461237/pedroriv
+2461269/cristianbotesv
