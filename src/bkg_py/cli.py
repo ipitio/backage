@@ -254,6 +254,11 @@ def _add_snapshot_parsers(subparsers: Any) -> None:
         "restore-if-needed",
         help="restore the local database from the selected archive when needed",
     )
+    restore_archive_parser = snapshot_commands.add_parser(
+        "restore-archive-if-needed",
+        help="restore the local database from a configured archive path when needed",
+    )
+    restore_archive_parser.add_argument("archive")
     snapshot_commands.add_parser(
         "write-restore-signature",
         help="write the selected archive SHA-256 restore signature",

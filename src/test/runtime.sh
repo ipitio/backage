@@ -919,6 +919,25 @@ test_snapshot_helpers_use_python_archive_selection() {
 		fail "Expected Python snapshot signature to match sha256sum"
 }
 
+test_startup_snapshot_helper_falls_back_to_downloaded_current_archive() {
+	local db_root="$workdir/startup-snapshot-helper-fallback"
+	local selected
+
+	mkdir -p "$db_root/.snapshot"
+	BKG_INDEX_DB="$db_root/index.db"
+	printf '%s\n' 'downloaded-db' >"$db_root/.snapshot/index.db"
+
+	selected=$(
+		current_index_snapshot_archive_file() {
+			return 1
+		}
+		startup_index_snapshot_archive_file
+	)
+
+	[ "$selected" = "$db_root/.snapshot/index.db" ] ||
+		fail "Expected startup snapshot helper to fall back to the downloaded current archive"
+}
+
 test_snapshot_path_helpers_use_python_derivation() {
 	local db_root="$workdir/snapshot-helper-paths"
 
@@ -1111,6 +1130,29 @@ test_update_startup_restores_snapshot_before_owner_count() {
 		fail "Expected startup restore to make the downloaded snapshot available before owner count"
 }
 
+test_update_startup_restores_downloaded_snapshot_after_selector_failure() {
+	local db_root="$workdir/update-startup-fallback-restore"
+	local output_file="$db_root/output.txt"
+	local snapshot_file
+
+	mkdir -p "$db_root/.snapshot"
+	BKG_INDEX_DB="$db_root/index.db"
+	command sqlite3 "$db_root/.snapshot/index.db" "create table $BKG_INDEX_TBL_PKG (owner text); insert into $BKG_INDEX_TBL_PKG (owner) values ('alpha');"
+
+	snapshot_file=$(
+		current_index_snapshot_archive_file() {
+			return 1
+		}
+		startup_index_snapshot_archive_file
+	)
+
+	restore_startup_database_snapshot_if_needed "$snapshot_file" >"$output_file"
+
+	assert_contains "$output_file" "Restoring database from index.db"
+	[ "$(index_database_owner_count)" = "1" ] ||
+		fail "Expected startup restore to use the fallback-selected downloaded snapshot"
+}
+
 trap cleanup EXIT
 
 source_project_script "bkg.sh"
@@ -1151,6 +1193,7 @@ run_test test_resolve_owner_ids_falls_back_when_graphql_fails
 run_test test_retire_missing_owner_removes_sparse_tree_and_manual_entry
 run_test test_restore_db_from_snapshot_skips_when_signature_matches
 run_test test_snapshot_helpers_use_python_archive_selection
+run_test test_startup_snapshot_helper_falls_back_to_downloaded_current_archive
 run_test test_snapshot_path_helpers_use_python_derivation
 run_test test_write_db_restore_signature_uses_python_snapshot_cli
 run_test test_prepare_database_snapshot_uses_python_snapshot_cli
@@ -1160,5 +1203,6 @@ run_test test_restore_db_from_legacy_compressed_snapshot
 run_test test_restore_db_from_legacy_sql_snapshot
 run_test test_corrupt_snapshot_restore_preserves_existing_database
 run_test test_update_startup_restores_snapshot_before_owner_count
+run_test test_update_startup_restores_downloaded_snapshot_after_selector_failure
 
 echo "Runtime regression tests passed"

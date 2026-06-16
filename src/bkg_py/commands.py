@@ -431,6 +431,9 @@ def _run_snapshot_command(
         result = snapshots.restore_database_if_needed()
         if result is not None:
             print(result.message)
+    elif command == "restore-archive-if-needed":
+        result = snapshots.restore_archive_path_if_needed(Path(args.archive))
+        print(result.message)
     elif command == "write-restore-signature":
         snapshots.write_restore_signature()
     elif command == "checkpoint":

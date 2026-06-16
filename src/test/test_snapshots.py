@@ -506,6 +506,33 @@ def test_snapshot_cli_restores_database_if_needed(
     assert _read_payload(paths.index_db) == "stored"
 
 
+def test_snapshot_cli_restores_explicit_archive_if_needed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """The startup restore command restores the archive selected by the shell."""
+
+    paths = SnapshotPaths(tmp_path / "index.db")
+    _set_snapshot_env(monkeypatch, tmp_path, paths)
+    paths.current_db_archive.parent.mkdir()
+    _create_database(paths.current_db_archive)
+
+    assert (
+        main(
+            [
+                "snapshot",
+                "restore-archive-if-needed",
+                str(paths.current_db_archive),
+            ]
+        )
+        == ExitStatus.SUCCESS
+    )
+
+    assert capsys.readouterr().out.strip() == "Restoring database from index.db..."
+    assert _read_payload(paths.index_db) == "stored"
+
+
 def test_snapshot_cli_prepares_archive(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

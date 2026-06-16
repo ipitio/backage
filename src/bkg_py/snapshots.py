@@ -255,6 +255,15 @@ class SnapshotStore:
         self._write_restore_signature_value(signature)
         return SnapshotRestoreResult(archive, restored=True, message=message)
 
+    def restore_archive_path_if_needed(self, path: Path) -> SnapshotRestoreResult:
+        """Restore a configured archive path unless the local database matches."""
+
+        archive_path = path.resolve()
+        for archive in self.archive_candidates():
+            if archive.path.resolve() == archive_path:
+                return self.restore_archive_if_needed(archive)
+        raise SnapshotError(f"unsupported database snapshot archive: {path}")
+
     def release_snapshot_asset_from_metadata(
         self,
         release: object,

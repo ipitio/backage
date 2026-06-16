@@ -19,6 +19,42 @@ log_update_startup_phase() {
     echo "Update setup phase '$phase' completed in ${elapsed}s"
 }
 
+move_workflow_payload_entry() {
+    local entry=$1
+    local destination=$2
+    local name=${entry##*/}
+    local target="$destination/$name"
+
+    if [ -d "$entry" ] && [ -d "$target" ]; then
+        local -a nested=()
+
+        shopt -s dotglob nullglob
+        nested=("$entry"/*)
+        shopt -u dotglob nullglob
+        ((${#nested[@]} == 0)) || mv "${nested[@]}" "$target"/
+        rmdir "$entry" 2>/dev/null || :
+        return 0
+    fi
+
+    mv "$entry" "$destination"/
+}
+
+import_workflow_payload() {
+    local payload_dir=${1:-.bkg}
+    local destination=${2:-.}
+    local entry
+    local -a entries=()
+
+    [ -d "$payload_dir" ] || return 0
+    mkdir -p "$destination" || return 1
+    shopt -s dotglob nullglob
+    entries=("$payload_dir"/*)
+    shopt -u dotglob nullglob
+    for entry in "${entries[@]}"; do
+        move_workflow_payload_entry "$entry" "$destination" || return 1
+    done
+}
+
 root="$1"
 [[ -n "$root" && ! "${root:0:2}" =~ -(m|d) ]] && shift || root="."
 [ -d "$root" ] || mkdir -p "$root"
@@ -26,10 +62,10 @@ root="$1"
 [ -d "$root/.git" ] || { gh auth status &>/dev/null && gh repo clone "${GITHUB_OWNER:-ipitio}/${GITHUB_REPO:-backage}" "$root"  -- --depth=1 -b "$GITHUB_BRANCH" --single-branch || git clone --depth=1 -b "$GITHUB_BRANCH" --single-branch "https://github.com/${GITHUB_OWNER:-ipitio}/${GITHUB_REPO:-backage}.git" "$root"; }
 log_update_startup_phase "ensure-root-repo" "$UPDATE_STARTUP_PHASE_STARTED_AT"
 
-# actions: move db into root
-shopt -s dotglob
-[ ! -d .bkg ] || mv .bkg/* "$root"/
-shopt -u dotglob
+import_workflow_payload .bkg "$root" || {
+    echo "Failed to import workflow payload from .bkg" >&2
+    exit 1
+}
 
 pushd "$root" || exit 1
 pushd src || exit 1
@@ -116,13 +152,13 @@ ensure_pages_dotfiles_visible "$BKG_INDEX"
 pushd src || exit 1
 log_update_startup_phase "prepare-index-worktree" "$UPDATE_STARTUP_PHASE_STARTED_AT"
 
-snapshot_file=$(current_index_snapshot_archive_file 2>/dev/null || :)
+snapshot_file=$(startup_index_snapshot_archive_file 2>/dev/null || :)
 
 if [ -z "$snapshot_file" ] && [ ! -f "$BKG_INDEX_DB" ]; then
     UPDATE_STARTUP_PHASE_STARTED_AT=$(update_startup_phase_started_at)
     dldb >/dev/null || true
     log_update_startup_phase "download-initial-db" "$UPDATE_STARTUP_PHASE_STARTED_AT"
-    snapshot_file=$(current_index_snapshot_archive_file 2>/dev/null || :)
+    snapshot_file=$(startup_index_snapshot_archive_file 2>/dev/null || :)
 fi
 
 if [ -n "$snapshot_file" ]; then

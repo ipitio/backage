@@ -212,6 +212,21 @@ current_index_snapshot_archive_file() {
 	bkg_python snapshot current-archive
 }
 
+startup_index_snapshot_archive_file() {
+	local snapshot_file
+
+	snapshot_file=$(current_index_snapshot_archive_file 2>/dev/null || :)
+	if [ -n "$snapshot_file" ]; then
+		printf '%s\n' "$snapshot_file"
+		return 0
+	fi
+
+	[ -n "${BKG_INDEX_DB:-}" ] || return 1
+	snapshot_file="$(dirname "$BKG_INDEX_DB")/.snapshot/$(basename "$BKG_INDEX_DB")"
+	[ -f "$snapshot_file" ] || return 1
+	printf '%s\n' "$snapshot_file"
+}
+
 current_index_snapshot_signature() {
 	bkg_python snapshot current-signature
 }
@@ -224,7 +239,7 @@ restore_startup_database_snapshot_if_needed() {
 	local snapshot_file=${1:-}
 
 	[ -n "$snapshot_file" ] || return 0
-	restore_db_from_index_snapshot_if_needed
+	bkg_python snapshot restore-archive-if-needed "$snapshot_file"
 }
 
 index_database_owner_count() {
