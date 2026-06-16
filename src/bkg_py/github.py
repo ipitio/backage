@@ -281,7 +281,10 @@ class GitHubClient:
                 with self._client.stream(
                     "GET",
                     url,
-                    headers=self._headers(authenticated=authenticated),
+                    headers=self._headers(
+                        authenticated=authenticated,
+                        accept="application/octet-stream",
+                    ),
                     timeout=self._timeout(self._remaining(deadline)),
                 ) as response:
                     if self._should_retry(response) and (
@@ -369,9 +372,14 @@ class GitHubClient:
         else:
             self.accounting.record_rest(response.headers)
 
-    def _headers(self, *, authenticated: bool) -> dict[str, str]:
+    def _headers(
+        self,
+        *,
+        authenticated: bool,
+        accept: str = "application/vnd.github+json",
+    ) -> dict[str, str]:
         headers = {
-            "Accept": "application/vnd.github+json",
+            "Accept": accept,
             "User-Agent": self.settings.user_agent,
             "X-GitHub-Api-Version": "2022-11-28",
         }

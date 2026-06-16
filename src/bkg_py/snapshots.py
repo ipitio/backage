@@ -48,6 +48,7 @@ class ReleaseSnapshotAsset:
     archive: SnapshotArchive
     name: str
     download_url: str
+    authenticated: bool
 
 
 @dataclass(frozen=True)
@@ -276,7 +277,11 @@ class SnapshotStore:
                 asset = cast(Mapping[str, object], asset_value)
                 if asset.get("name") != expected_name:
                     continue
-                download_url = asset.get("browser_download_url")
+                download_url = asset.get("url")
+                authenticated = True
+                if not isinstance(download_url, str) or not download_url:
+                    download_url = asset.get("browser_download_url")
+                    authenticated = False
                 if not isinstance(download_url, str) or not download_url:
                     raise SnapshotError(
                         f"release asset {expected_name} has no download URL"
@@ -285,6 +290,7 @@ class SnapshotStore:
                     SnapshotArchive(self.archive_path(kind), kind),
                     expected_name,
                     download_url,
+                    authenticated,
                 )
         return None
 
@@ -313,7 +319,7 @@ class SnapshotStore:
         client.download(
             asset.download_url,
             asset.archive.path,
-            authenticated=False,
+            authenticated=asset.authenticated,
             default_mode=_SNAPSHOT_MODE,
         )
         result = self.restore_archive_if_needed(asset.archive)

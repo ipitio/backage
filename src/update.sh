@@ -120,7 +120,7 @@ snapshot_file=$(current_index_snapshot_archive_file 2>/dev/null || :)
 
 if [ -z "$snapshot_file" ] && [ ! -f "$BKG_INDEX_DB" ]; then
     UPDATE_STARTUP_PHASE_STARTED_AT=$(update_startup_phase_started_at)
-    dldb >/dev/null 2>&1 || true
+    dldb >/dev/null || true
     log_update_startup_phase "download-initial-db" "$UPDATE_STARTUP_PHASE_STARTED_AT"
     snapshot_file=$(current_index_snapshot_archive_file 2>/dev/null || :)
 fi

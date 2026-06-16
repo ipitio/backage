@@ -87,9 +87,12 @@ def _set_snapshot_env(
         monkeypatch.setenv("BKG_INDEX_SQL", str(paths.index_sql))
 
 
-def _github_client(handler: httpx.MockTransport) -> GitHubClient:
+def _github_client(
+    handler: httpx.MockTransport,
+    auth_value: str = "",
+) -> GitHubClient:
     return GitHubClient(
-        GitHubSettings(token=""),
+        GitHubSettings(token=auth_value),
         client=httpx.Client(transport=handler),
     )
 
@@ -206,6 +209,9 @@ def test_release_snapshot_asset_prefers_current_archive(tmp_path: Path) -> None:
                 },
                 {
                     "name": "index.db",
+                    "url": (
+                        "https://api.github.com/repos/ipitio/backage/releases/assets/7"
+                    ),
                     "browser_download_url": "https://objects.example/index.db",
                 },
             ]
@@ -216,6 +222,7 @@ def test_release_snapshot_asset_prefers_current_archive(tmp_path: Path) -> None:
     assert asset.name == "index.db"
     assert asset.archive.kind == "db"
     assert asset.archive.path == paths.current_db_archive
+    assert asset.authenticated
 
 
 def test_missing_release_snapshot_asset_is_nonfatal(tmp_path: Path) -> None:
@@ -261,16 +268,24 @@ def test_download_release_snapshot_restores_database_and_prunes_stale_archives(
                     "assets": [
                         {
                             "name": "index.db",
+                            "url": (
+                                "https://api.github.com/repos/ipitio/backage/"
+                                "releases/assets/7"
+                            ),
                             "browser_download_url": "https://objects.example/index.db",
                         }
                     ]
                 },
             )
-        assert request.url == "https://objects.example/index.db"
-        assert "authorization" not in request.headers
+        assert (
+            request.url
+            == "https://api.github.com/repos/ipitio/backage/releases/assets/7"
+        )
+        assert request.headers["authorization"] == "Bearer test-token"
+        assert request.headers["accept"] == "application/octet-stream"
         return httpx.Response(200, content=source_database.read_bytes())
 
-    client = _github_client(httpx.MockTransport(respond))
+    client = _github_client(httpx.MockTransport(respond), "test-token")
     asset = store.release_snapshot_asset(client, owner="ipitio", repo="backage")
 
     assert asset is not None
@@ -283,7 +298,7 @@ def test_download_release_snapshot_restores_database_and_prunes_stale_archives(
     assert not paths.legacy_db_archive.exists()
     assert requests == [
         "https://api.github.com/repos/ipitio/backage/releases/latest",
-        "https://objects.example/index.db",
+        "https://api.github.com/repos/ipitio/backage/releases/assets/7",
     ]
 
 
