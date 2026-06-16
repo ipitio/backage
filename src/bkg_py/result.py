@@ -11,3 +11,12 @@ class ExitStatus(IntEnum):
     NON_FATAL = 1
     FAILURE = 2
     GRACEFUL_STOP = 3
+
+
+PUBLIC_EXIT_STATUSES = frozenset(
+    {
+        ExitStatus.SUCCESS,
+        ExitStatus.NON_FATAL,
+        ExitStatus.GRACEFUL_STOP,
+    }
+)

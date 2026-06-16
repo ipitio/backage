@@ -1134,9 +1134,12 @@ test_update_startup_restores_downloaded_snapshot_after_selector_failure() {
 	local db_root="$workdir/update-startup-fallback-restore"
 	local output_file="$db_root/output.txt"
 	local snapshot_file
+	local restored_start
 
 	mkdir -p "$db_root/.snapshot"
+	BKG_ENV="$db_root/env.env"
 	BKG_INDEX_DB="$db_root/index.db"
+	printf 'BKG_TIMEOUT=1\nBKG_SCRIPT_START=1\n' >"$BKG_ENV"
 	command sqlite3 "$db_root/.snapshot/index.db" "create table $BKG_INDEX_TBL_PKG (owner text); insert into $BKG_INDEX_TBL_PKG (owner) values ('alpha');"
 
 	snapshot_file=$(
@@ -1151,6 +1154,12 @@ test_update_startup_restores_downloaded_snapshot_after_selector_failure() {
 	assert_contains "$output_file" "Restoring database from index.db"
 	[ "$(index_database_owner_count)" = "1" ] ||
 		fail "Expected startup restore to use the fallback-selected downloaded snapshot"
+	[ "$(get_BKG BKG_TIMEOUT)" = "0" ] ||
+		fail "Expected startup restore to clear stale timeout state before calling Python"
+	restored_start=$(get_BKG BKG_SCRIPT_START)
+	if [ -z "$restored_start" ] || ((restored_start <= 1)); then
+		fail "Expected startup restore to reset stale script start before calling Python"
+	fi
 }
 
 trap cleanup EXIT

@@ -90,6 +90,12 @@ def _print_owner_scan_result(result: OwnerScanResult) -> None:
     )
 
 
+def _graceful_stop_status(error: GracefulStop) -> ExitStatus:
+    reason = str(error) or "requested"
+    print(f"Graceful stop requested: {reason}", file=sys.stderr)
+    return ExitStatus.GRACEFUL_STOP
+
+
 def _run_publication(
     args: argparse.Namespace,
     application: ApplicationContext,
@@ -104,8 +110,8 @@ def _run_publication(
                 )
             else:
                 print(write_xml_file(Path(args.file), application.stop.check))
-    except GracefulStop:
-        return ExitStatus.GRACEFUL_STOP
+    except GracefulStop as error:
+        return _graceful_stop_status(error)
     except (OSError, PublicationError) as error:
         print(error, file=sys.stderr)
         return ExitStatus.NON_FATAL
@@ -140,8 +146,8 @@ def _run_database(
                 raise DatabaseError(
                     f"unknown database command: {args.database_command}"
                 )
-    except GracefulStop:
-        return ExitStatus.GRACEFUL_STOP
+    except GracefulStop as error:
+        return _graceful_stop_status(error)
     except (DatabaseError, OSError) as error:
         print(error, file=sys.stderr)
         return ExitStatus.NON_FATAL
@@ -322,8 +328,8 @@ def _run_render(
                 )
             else:
                 raise RenderingError(f"unknown render command: {args.render_command}")
-    except GracefulStop:
-        return ExitStatus.GRACEFUL_STOP
+    except GracefulStop as error:
+        return _graceful_stop_status(error)
     except (DatabaseError, OSError, RenderingError) as error:
         print(error, file=sys.stderr)
         return ExitStatus.NON_FATAL
@@ -353,8 +359,8 @@ def _run_github(
                 )
             else:
                 raise GitHubError(f"unknown GitHub command: {args.github_command}")
-    except GracefulStop:
-        return ExitStatus.GRACEFUL_STOP
+    except GracefulStop as error:
+        return _graceful_stop_status(error)
     except (GitHubError, OSError) as error:
         print(error, file=sys.stderr)
         return ExitStatus.NON_FATAL
@@ -372,8 +378,8 @@ def _run_snapshot(
             if args.snapshot_command == "rotate-if-needed":
                 return _run_snapshot_rotation(args, application)
             return _run_snapshot_command(args, application.snapshots)
-    except GracefulStop:
-        return ExitStatus.GRACEFUL_STOP
+    except GracefulStop as error:
+        return _graceful_stop_status(error)
     except (DatabaseError, GitHubError, OSError, SnapshotError) as error:
         print(error, file=sys.stderr)
         return ExitStatus.NON_FATAL
@@ -391,6 +397,9 @@ def _run_snapshot_release_download(
             tag=args.tag,
         )
         if asset is None:
+            print(
+                "No supported database snapshot asset found in release", file=sys.stderr
+            )
             return ExitStatus.NON_FATAL
         if args.check:
             print(asset.name)
@@ -463,6 +472,7 @@ def _run_snapshot_value_command(
 def _print_current_snapshot_archive(snapshots: SnapshotStore) -> ExitStatus:
     archive = snapshots.current_archive()
     if archive is None:
+        print("No database snapshot archive found", file=sys.stderr)
         return ExitStatus.NON_FATAL
     print(archive.path)
     return ExitStatus.SUCCESS

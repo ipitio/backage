@@ -7,8 +7,9 @@ from pathlib import Path
 
 import pytest
 
+import bkg_py.cli
 from bkg_py.application import ApplicationContext
-from bkg_py.cli import main
+from bkg_py.cli import entrypoint, main
 from bkg_py.database import DatabaseError
 from bkg_py.result import ExitStatus
 
@@ -122,3 +123,21 @@ def test_config_cli_remains_independent_of_runtime_services(
     assert output["root"] == str(tmp_path)
     assert output["index_db"] is None
     assert not Path(output["env_file"]).exists()
+
+
+def test_entrypoint_collapses_internal_failure_status(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """The process boundary exposes only the public status contract."""
+
+    monkeypatch.setattr(bkg_py.cli, "main", lambda: ExitStatus.FAILURE)
+
+    with pytest.raises(SystemExit) as raised:
+        entrypoint()
+
+    assert raised.value.code == ExitStatus.NON_FATAL
+    assert (
+        capsys.readouterr().err.strip()
+        == "Unexpected bkg status 2 (FAILURE); returning 1"
+    )

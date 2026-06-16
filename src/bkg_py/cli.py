@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import argparse
+import sys
 from typing import Any, NoReturn
 
 from .commands import run_command
-from .result import ExitStatus
+from .result import PUBLIC_EXIT_STATUSES, ExitStatus
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -332,4 +333,11 @@ def main(argv: list[str] | None = None) -> ExitStatus:
 def entrypoint() -> NoReturn:
     """Run the installed bkg command."""
 
-    raise SystemExit(main())
+    status = main()
+    if status not in PUBLIC_EXIT_STATUSES:
+        sys.stderr.write(
+            f"Unexpected bkg status {int(status)} ({status.name}); "
+            f"returning {int(ExitStatus.NON_FATAL)}\n"
+        )
+        status = ExitStatus.NON_FATAL
+    raise SystemExit(status)

@@ -488,6 +488,41 @@ def test_snapshot_cli_exposes_shell_shaped_archive_commands(
     assert capsys.readouterr().out == ""
 
 
+def test_snapshot_cli_reports_missing_current_archive(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Direct archive probes explain a missing snapshot."""
+
+    paths = SnapshotPaths(tmp_path / "index.db")
+    _set_snapshot_env(monkeypatch, tmp_path, paths)
+
+    assert main(["snapshot", "current-archive"]) == ExitStatus.NON_FATAL
+
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err.strip() == "No database snapshot archive found"
+
+
+def test_snapshot_cli_reports_graceful_stop_reason(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Status 3 includes the stop reason in Action logs."""
+
+    paths = SnapshotPaths(tmp_path / "index.db")
+    _set_snapshot_env(monkeypatch, tmp_path, paths)
+    (tmp_path / "env.env").write_text("BKG_TIMEOUT=1\n", encoding="utf-8")
+
+    assert main(["snapshot", "current-archive"]) == ExitStatus.GRACEFUL_STOP
+
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err.strip() == "Graceful stop requested: persisted"
+
+
 def test_snapshot_cli_restores_database_if_needed(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

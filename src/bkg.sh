@@ -237,9 +237,18 @@ restore_db_from_index_snapshot_if_needed() {
 
 restore_startup_database_snapshot_if_needed() {
 	local snapshot_file=${1:-}
+	local output
+	local status=0
 
 	[ -n "$snapshot_file" ] || return 0
-	bkg_python snapshot restore-archive-if-needed "$snapshot_file"
+	set_BKG BKG_SCRIPT_START "$(date -u +%s)"
+	set_BKG BKG_TIMEOUT "0"
+	output=$(bkg_python snapshot restore-archive-if-needed "$snapshot_file" 2>&1) || status=$?
+	[ -z "$output" ] || printf '%s\n' "$output"
+	if ((status != 0)) && [ -z "$output" ]; then
+		echo "Snapshot restore command failed with status $status for $snapshot_file" >&2
+	fi
+	return "$status"
 }
 
 index_database_owner_count() {

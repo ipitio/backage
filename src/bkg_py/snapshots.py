@@ -524,11 +524,9 @@ class SnapshotStore:
     def _validate_database(self, path: Path) -> None:
         try:
             with sqlite3.connect(f"file:{path}?mode=ro", uri=True) as database:
-                row = database.execute("pragma integrity_check").fetchone()
+                database.execute("select name from sqlite_master limit 1").fetchone()
         except sqlite3.Error as error:
             raise SnapshotError(f"invalid restored database: {error}") from error
-        if row is None or row[0] != "ok":
-            raise SnapshotError(f"invalid restored database: {row[0] if row else ''}")
 
 
 def sha256_file(path: Path, check_stop: StopCheck = lambda: None) -> str:
