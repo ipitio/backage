@@ -8,11 +8,13 @@ import stat
 import subprocess
 from pathlib import Path
 
+import httpx
 import pytest
 
 from bkg_py.application import ApplicationContext
 from bkg_py.cli import main
 from bkg_py.config import RuntimeConfig
+from bkg_py.github import GitHubClient, GitHubSettings
 from bkg_py.result import ExitStatus
 from bkg_py.runtime import GracefulStop
 from bkg_py.snapshots import (
@@ -83,6 +85,13 @@ def _set_snapshot_env(
     monkeypatch.setenv("BKG_INDEX_DB", str(paths.index_db))
     if paths.index_sql is not None:
         monkeypatch.setenv("BKG_INDEX_SQL", str(paths.index_sql))
+
+
+def _github_client(handler: httpx.MockTransport) -> GitHubClient:
+    return GitHubClient(
+        GitHubSettings(token=""),
+        client=httpx.Client(transport=handler),
+    )
 
 
 def test_snapshot_paths_match_shell_layout(tmp_path: Path) -> None:
@@ -182,6 +191,102 @@ def test_prepare_database_snapshot_is_atomic_and_removes_legacy(
     assert row == ("stored",)
 
 
+def test_release_snapshot_asset_prefers_current_archive(tmp_path: Path) -> None:
+    """Release asset selection follows the snapshot compatibility order."""
+
+    paths = SnapshotPaths(tmp_path / "index.db", index_sql=tmp_path / "index.sql")
+    store = SnapshotStore(paths)
+
+    asset = store.release_snapshot_asset_from_metadata(
+        {
+            "assets": [
+                {
+                    "name": "index.sql.zst",
+                    "browser_download_url": "https://objects.example/index.sql.zst",
+                },
+                {
+                    "name": "index.db",
+                    "browser_download_url": "https://objects.example/index.db",
+                },
+            ]
+        }
+    )
+
+    assert asset is not None
+    assert asset.name == "index.db"
+    assert asset.archive.kind == "db"
+    assert asset.archive.path == paths.current_db_archive
+
+
+def test_missing_release_snapshot_asset_is_nonfatal(tmp_path: Path) -> None:
+    """Releases without supported snapshot assets report absence."""
+
+    store = SnapshotStore(SnapshotPaths(tmp_path / "index.db"))
+
+    assert (
+        store.release_snapshot_asset_from_metadata(
+            {"assets": [{"name": "notes.txt", "browser_download_url": "https://x"}]}
+        )
+        is None
+    )
+
+
+def test_release_snapshot_asset_requires_download_url(tmp_path: Path) -> None:
+    """A matching release asset must include a usable download URL."""
+
+    store = SnapshotStore(SnapshotPaths(tmp_path / "index.db"))
+
+    with pytest.raises(SnapshotError, match="no download URL"):
+        store.release_snapshot_asset_from_metadata({"assets": [{"name": "index.db"}]})
+
+
+def test_download_release_snapshot_restores_database_and_prunes_stale_archives(
+    tmp_path: Path,
+) -> None:
+    """Release downloads use Python HTTP and restore one canonical archive."""
+
+    paths = SnapshotPaths(tmp_path / "index.db", index_sql=tmp_path / "index.sql")
+    store = SnapshotStore(paths)
+    source_database = tmp_path / "source.db"
+    _create_database(source_database)
+    paths.legacy_db_archive.write_bytes(b"stale legacy")
+    requests: list[str] = []
+
+    def respond(request: httpx.Request) -> httpx.Response:
+        requests.append(str(request.url))
+        if request.url.path == "/repos/ipitio/backage/releases/latest":
+            return httpx.Response(
+                200,
+                json={
+                    "assets": [
+                        {
+                            "name": "index.db",
+                            "browser_download_url": "https://objects.example/index.db",
+                        }
+                    ]
+                },
+            )
+        assert request.url == "https://objects.example/index.db"
+        assert "authorization" not in request.headers
+        return httpx.Response(200, content=source_database.read_bytes())
+
+    client = _github_client(httpx.MockTransport(respond))
+    asset = store.release_snapshot_asset(client, owner="ipitio", repo="backage")
+
+    assert asset is not None
+    result = store.download_release_snapshot(client, asset)
+
+    assert result.restored
+    assert result.message == "Restoring database from index.db..."
+    assert _read_payload(paths.index_db) == "stored"
+    assert paths.current_db_archive.is_file()
+    assert not paths.legacy_db_archive.exists()
+    assert requests == [
+        "https://api.github.com/repos/ipitio/backage/releases/latest",
+        "https://objects.example/index.db",
+    ]
+
+
 def test_interrupted_snapshot_preserves_existing_archive(tmp_path: Path) -> None:
     """A stop during copy leaves the previous complete archive intact."""
 
@@ -200,6 +305,36 @@ def test_interrupted_snapshot_preserves_existing_archive(tmp_path: Path) -> None
 
     assert paths.current_db_archive.read_bytes() == b"old archive"
     assert not list(paths.current_db_archive.parent.glob(".index.db.*"))
+
+
+def test_rotate_database_archives_current_snapshot_and_prunes(
+    tmp_path: Path,
+) -> None:
+    """Oversized working databases archive the previous snapshot before pruning."""
+
+    paths = SnapshotPaths(tmp_path / "index.db")
+    store = SnapshotStore(paths)
+    prune_calls = 0
+    paths.current_db_archive.parent.mkdir()
+    _create_database(paths.index_db)
+    _create_database(paths.current_db_archive)
+
+    def prune_database() -> None:
+        nonlocal prune_calls
+        prune_calls += 1
+
+    result = store.rotate_database_if_needed(
+        prune_database,
+        threshold_bytes=1,
+        date_stamp="2026.06.16",
+    )
+
+    assert result.rotated
+    assert result.archive == paths.snapshot_directory / "2026.06.16.index.db.zst"
+    assert result.archive is not None
+    assert result.archive.is_file()
+    assert paths.current_db_archive.is_file()
+    assert prune_calls == 1
 
 
 def test_restore_current_database_snapshot_replaces_after_validation(

@@ -621,6 +621,49 @@ test_query_api_optional_allows_only_missing_responses() {
 	GITHUB_TOKEN=""
 }
 
+test_dldb_delegates_release_snapshot_download_to_python() {
+	local calls_file="$workdir/dldb-python-calls.txt"
+	local original_root="${BKG_ROOT:-}"
+	local original_index_db="${BKG_INDEX_DB:-}"
+
+	BKG_ROOT="$workdir/dldb-root"
+	BKG_INDEX_DB="$BKG_ROOT/index.db"
+	mkdir -p "$BKG_ROOT"
+	: >"$calls_file"
+
+	bkg_python() {
+		printf '%s\n' "$*" >>"$calls_file"
+		[ "$1" = "snapshot" ] || fail "Expected dldb to use the snapshot Python command"
+		[ "$2" = "download-release" ] || fail "Expected dldb to use the release download command"
+		[ "$3" = "v2026.6.0" ] || fail "Expected dldb to preserve the requested release tag"
+		return 0
+	}
+
+	dldb "v2026.6.0" >/dev/null
+
+	assert_contains "$calls_file" "snapshot download-release v2026.6.0"
+	assert_contains "$BKG_ROOT/.gitignore" "*.db*"
+
+	unset -f bkg_python
+	BKG_ROOT="$original_root"
+	BKG_INDEX_DB="$original_index_db"
+}
+
+test_dldb_check_mode_uses_python_release_metadata_probe() {
+	local calls_file="$workdir/dldb-python-check-calls.txt"
+
+	: >"$calls_file"
+	bkg_python() {
+		printf '%s\n' "$*" >>"$calls_file"
+		return 0
+	}
+
+	dldb "v2026.6.0" check >/dev/null
+
+	assert_contains "$calls_file" "snapshot download-release v2026.6.0 --check"
+	unset -f bkg_python
+}
+
 test_resolve_release_snapshot_asset_rejects_http_errors() {
 	local calls_file="$workdir/release-asset-probe-calls.txt"
 
@@ -913,6 +956,58 @@ test_write_db_restore_signature_uses_python_snapshot_cli() {
 		fail "Expected restore signature helper to write the current archive signature"
 }
 
+test_prepare_database_snapshot_uses_python_snapshot_cli() {
+	local db_root="$workdir/snapshot-helper-prepare"
+	local archive_file
+	local expected_signature
+
+	mkdir -p "$db_root"
+	BKG_INDEX_DB="$db_root/index.db"
+	BKG_INDEX_SQL="$db_root/index.sql"
+	command sqlite3 "$BKG_INDEX_DB" "create table restored_payload (value text); insert into restored_payload (value) values ('prepared-db');"
+	printf '%s\n' 'legacy-db' >"$(legacy_db_snapshot_archive_file)"
+	printf '%s\n' 'legacy-sql' >"$(legacy_sql_snapshot_archive_file)"
+
+	prepare_database_snapshot_for_archive
+
+	archive_file=$(db_snapshot_archive_file)
+	assert_file_exists "$archive_file"
+	[ "$(command sqlite3 "$archive_file" "select value from restored_payload limit 1;")" = "prepared-db" ] ||
+		fail "Expected Python snapshot prepare helper to publish the current database"
+	[ ! -e "$(legacy_db_snapshot_archive_file)" ] ||
+		fail "Expected Python snapshot prepare helper to remove legacy DB archives"
+	[ ! -e "$(legacy_sql_snapshot_archive_file)" ] ||
+		fail "Expected Python snapshot prepare helper to remove legacy SQL archives"
+	[ ! -e "$archive_file.new" ] ||
+		fail "Expected Python snapshot prepare helper to avoid Bash .new sidecars"
+	expected_signature=$(sha256sum "$archive_file" | awk '{print $1}')
+	[ "$(cat "$(db_restore_signature_file)")" = "$expected_signature" ] ||
+		fail "Expected Python snapshot prepare helper to write the current restore signature"
+}
+
+test_rotate_database_snapshot_uses_python_storage() {
+	local db_root="$workdir/snapshot-helper-rotate"
+	local rotated_archive
+
+	mkdir -p "$db_root"
+	BKG_INDEX_DB="$db_root/index.db"
+	sqlite_ensure_index_schema
+	command sqlite3 "$BKG_INDEX_DB" "insert into '$BKG_INDEX_TBL_PKG' (owner_id, owner_type, package_type, owner, repo, package, downloads, downloads_month, downloads_week, downloads_day, size, date) values ('1','users','container','alpha','repo','pkg','1','1','1','1','1','2026-06-09'), ('1','users','container','alpha','repo','pkg','2','2','2','2','2','2026-06-10');"
+	command sqlite3 "$BKG_INDEX_DB" "insert into '$BKG_INDEX_TBL_VER' (owner_id, owner_type, package_type, owner, repo, package, id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags) values ('1','users','container','alpha','repo','pkg','old','sha256:old','1','1','1','1','1','2026-06-09','old'), ('1','users','container','alpha','repo','pkg','new','sha256:new','2','2','2','2','2','2026-06-10','latest');"
+	mkdir -p "$(dirname "$(db_snapshot_archive_file)")"
+	cp "$BKG_INDEX_DB" "$(db_snapshot_archive_file)"
+
+	rotate_database_snapshot_if_needed 1 2026-06-10 2026.06.16
+
+	rotated_archive="$(dirname "$(db_snapshot_archive_file)")/2026.06.16.index.db.zst"
+	assert_file_exists "$rotated_archive"
+	[ "$(command sqlite3 "$BKG_INDEX_DB" "select count(*) from packages where date < '2026-06-10';")" = "0" ] ||
+		fail "Expected Python rotation helper to prune old package rows"
+	[ "$(command sqlite3 "$BKG_INDEX_DB" "select count(*) from versions where date < '2026-06-10';")" = "0" ] ||
+		fail "Expected Python rotation helper to prune old version rows"
+	assert_file_exists "$(db_snapshot_archive_file)"
+}
+
 test_restore_db_from_snapshot_rebuilds_when_signature_changes() {
 	local db_root="$workdir/db-restore-rebuild"
 	local output_file="$db_root/output.txt"
@@ -995,6 +1090,27 @@ test_corrupt_snapshot_restore_preserves_existing_database() {
 	[ ! -f "$(db_restore_signature_file)" ] || fail "Expected corrupt snapshot restore to avoid writing a restore signature"
 }
 
+test_update_startup_restores_snapshot_before_owner_count() {
+	local db_root="$workdir/update-startup-restore"
+	local output_file="$db_root/output.txt"
+	local snapshot_file
+
+	mkdir -p "$db_root"
+	BKG_INDEX_DB="$db_root/index.db"
+	mkdir -p "$(dirname "$(db_snapshot_archive_file)")"
+	command sqlite3 "$(db_snapshot_archive_file)" "create table $BKG_INDEX_TBL_PKG (owner text); insert into $BKG_INDEX_TBL_PKG (owner) values ('alpha'), ('alpha'), ('beta');"
+
+	snapshot_file=$(current_index_snapshot_archive_file)
+	[ "$(index_database_owner_count)" = "0" ] ||
+		fail "Expected owner count probe to tolerate a missing startup database"
+
+	restore_startup_database_snapshot_if_needed "$snapshot_file" >"$output_file"
+
+	assert_contains "$output_file" "Restoring database from index.db"
+	[ "$(index_database_owner_count)" = "2" ] ||
+		fail "Expected startup restore to make the downloaded snapshot available before owner count"
+}
+
 trap cleanup EXIT
 
 source_project_script "bkg.sh"
@@ -1024,6 +1140,8 @@ run_test test_check_limit_retries_missing_script_start_once
 run_test test_query_graphql_api_delegates_query_to_python
 run_test test_query_api_delegates_path_to_python
 run_test test_query_api_optional_allows_only_missing_responses
+run_test test_dldb_delegates_release_snapshot_download_to_python
+run_test test_dldb_check_mode_uses_python_release_metadata_probe
 run_test test_resolve_release_snapshot_asset_rejects_http_errors
 run_test test_check_db_deletes_missing_release_despite_stale_runtime_state
 run_test test_check_db_reports_delete_failure
@@ -1035,9 +1153,12 @@ run_test test_restore_db_from_snapshot_skips_when_signature_matches
 run_test test_snapshot_helpers_use_python_archive_selection
 run_test test_snapshot_path_helpers_use_python_derivation
 run_test test_write_db_restore_signature_uses_python_snapshot_cli
+run_test test_prepare_database_snapshot_uses_python_snapshot_cli
+run_test test_rotate_database_snapshot_uses_python_storage
 run_test test_restore_db_from_snapshot_rebuilds_when_signature_changes
 run_test test_restore_db_from_legacy_compressed_snapshot
 run_test test_restore_db_from_legacy_sql_snapshot
 run_test test_corrupt_snapshot_restore_preserves_existing_database
+run_test test_update_startup_restores_snapshot_before_owner_count
 
 echo "Runtime regression tests passed"

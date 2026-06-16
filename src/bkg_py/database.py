@@ -421,10 +421,18 @@ class DatabaseRepository:
 
         return self._run_write(cleanup)
 
-    def cleanup_replaced_legacy_tables(self, *, since: str) -> int:
+    def cleanup_replaced_legacy_tables(
+        self,
+        *,
+        since: str,
+        prune_normalized: bool = False,
+        vacuum: bool = False,
+    ) -> int:
         """Prune all legacy version tables, including orphaned rotation debris."""
 
         self.ensure_schema()
+        if prune_normalized:
+            self._prune_normalized_rows(since)
 
         def cleanup(connection: sqlite3.Connection) -> int:
             prefix = f"{self.settings.versions_table}_"
@@ -464,7 +472,26 @@ class DatabaseRepository:
                         dropped += 1
             return dropped
 
-        return self._run_write(cleanup)
+        dropped = self._run_write(cleanup)
+        if vacuum:
+            self._run_write(lambda connection: connection.execute("vacuum"))
+        return dropped
+
+    def _prune_normalized_rows(self, since: str) -> None:
+        def prune_normalized(connection: sqlite3.Connection) -> None:
+            packages = _SqlIdentifier(self.settings.packages_table)
+            versions = _SqlIdentifier(self.settings.versions_table)
+            with _transaction(connection):
+                connection.execute(
+                    _sql("delete from {packages} where date < ?", packages=packages),
+                    (since,),
+                )
+                connection.execute(
+                    _sql("delete from {versions} where date < ?", versions=versions),
+                    (since,),
+                )
+
+        self._run_write(prune_normalized)
 
     def begin_owner_scan(
         self,

@@ -270,6 +270,7 @@ class GitHubClient:
         destination: Path,
         *,
         authenticated: bool = False,
+        default_mode: int = 0o644,
     ) -> None:
         """Stream a URL into an atomic destination."""
 
@@ -290,7 +291,10 @@ class GitHubClient:
                         continue
                     self._raise_for_status(response)
                     destination.parent.mkdir(parents=True, exist_ok=True)
-                    with atomic_binary_output(destination) as file:
+                    with atomic_binary_output(
+                        destination,
+                        default_mode=default_mode,
+                    ) as file:
                         for chunk in response.iter_bytes():
                             self.runtime.check_stop()
                             file.write(chunk)

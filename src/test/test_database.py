@@ -491,6 +491,86 @@ class TestDatabaseRepository:
             assert legacy_table not in tables
             assert orphan_table not in tables
 
+    def test_rotation_prune_removes_old_normalized_rows_and_legacy_tables(
+        self,
+    ) -> None:
+        """Rotation keeps current rows and removes replaced legacy fallback tables."""
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "index.db"
+            repository = DatabaseRepository(DatabaseSettings(path))
+            package = _package()
+            legacy_table = _legacy_table(package)
+            orphan_table = "versions_orgs_container_Lazztech_Orphan_orphan"
+            repository.write_package(
+                PackageRecord(
+                    package_ref=package,
+                    downloads=1,
+                    downloads_month=1,
+                    downloads_week=1,
+                    downloads_day=1,
+                    size=1,
+                    date=_YESTERDAY,
+                )
+            )
+            repository.write_package(
+                PackageRecord(
+                    package_ref=package,
+                    downloads=2,
+                    downloads_month=2,
+                    downloads_week=2,
+                    downloads_day=2,
+                    size=2,
+                    date=_TODAY,
+                )
+            )
+            repository.flush_version_stage(
+                VersionStage(
+                    package_ref=package,
+                    legacy_table=legacy_table,
+                    write_legacy=False,
+                    rows=(
+                        _version("1", date=_YESTERDAY),
+                        _version("2", date=_TODAY),
+                    ),
+                )
+            )
+            with sqlite3.connect(path) as connection:
+                _create_legacy_table(connection, legacy_table)
+                _create_legacy_table(connection, orphan_table)
+                _insert_legacy(
+                    connection, legacy_table, _version("old", date=_YESTERDAY)
+                )
+                _insert_legacy(connection, legacy_table, _version("2"))
+                _insert_legacy(connection, orphan_table, _version("9"))
+
+            assert (
+                repository.cleanup_replaced_legacy_tables(
+                    since=_TODAY,
+                    prune_normalized=True,
+                    vacuum=True,
+                )
+                == 2
+            )
+
+            with sqlite3.connect(path) as connection:
+                package_dates = connection.execute(
+                    "select date from packages order by date"
+                ).fetchall()
+                version_dates = connection.execute(
+                    "select date from versions order by date"
+                ).fetchall()
+                tables = {
+                    row[0]
+                    for row in connection.execute(
+                        "select name from sqlite_master where type = 'table'"
+                    )
+                }
+            assert package_dates == [(_TODAY,)]
+            assert version_dates == [(_TODAY,)]
+            assert legacy_table not in tables
+            assert orphan_table not in tables
+
     def test_retire_owner_removes_normalized_rows_and_known_legacy_tables(
         self,
     ) -> None:

@@ -220,12 +220,38 @@ restore_db_from_index_snapshot_if_needed() {
 	bkg_python snapshot restore-if-needed
 }
 
+restore_startup_database_snapshot_if_needed() {
+	local snapshot_file=${1:-}
+
+	[ -n "$snapshot_file" ] || return 0
+	restore_db_from_index_snapshot_if_needed
+}
+
+index_database_owner_count() {
+	sqlite3 "$BKG_INDEX_DB" "SELECT COUNT(DISTINCT owner) FROM $BKG_INDEX_TBL_PKG" 2>/dev/null || echo 0
+}
+
 write_db_restore_signature() {
 	bkg_python snapshot write-restore-signature >/dev/null || :
 }
 
 checkpoint_database_for_archive() {
 	bkg_python snapshot checkpoint >/dev/null || :
+}
+
+prepare_database_snapshot_for_archive() {
+	bkg_python snapshot prepare >/dev/null
+}
+
+rotate_database_snapshot_if_needed() {
+	local threshold_bytes=${1:-2000000000}
+	local batch_first_started=${2:-}
+	local date_stamp=${3:-}
+
+	[ -n "$batch_first_started" ] || batch_first_started=$(current_batch_first_started)
+	[ -n "$batch_first_started" ] || batch_first_started="0000-00-00"
+	[ -n "$date_stamp" ] || date_stamp=$(date -u +%Y.%m.%d)
+	bkg_python snapshot rotate-if-needed "$threshold_bytes" "$batch_first_started" "$date_stamp" >/dev/null
 }
 
 drop_replaced_legacy_version_tables() {
@@ -257,7 +283,6 @@ main() {
 	local phase_started_at=0
 	local owners_table_sql
 	local packages_table_sql
-	local versions_table_sql
 	local batch_first_started_sql
 	connections=$(mktemp) || exit 1
 	temp_connections=$(mktemp) || exit 1
@@ -322,7 +347,6 @@ main() {
 	sqlite_ensure_index_schema || return $?
 	owners_table_sql=$(sqlite_quote_identifier "$BKG_INDEX_TBL_OWN")
 	packages_table_sql=$(sqlite_quote_identifier "$BKG_INDEX_TBL_PKG")
-	versions_table_sql=$(sqlite_quote_identifier "$BKG_INDEX_TBL_VER")
 	batch_first_started_sql=$(sqlite_quote_literal "$BKG_BATCH_FIRST_STARTED")
 	sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, repo, package, max(date) as max_date from $packages_table_sql group by owner_id, owner, repo, package having max(date) >= $batch_first_started_sql order by max_date asc;" >packages_already_updated
 	sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, repo, package, max(date) as max_date from $packages_table_sql group by owner_id, owner, repo, package order by date asc;" >packages_all
@@ -573,41 +597,16 @@ main() {
 		sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, repo, package from $packages_table_sql;" | sort -u >packages_all
 		echo "Preparing the database snapshot..."
 		checkpoint_database_for_archive
-		db_archive_file=$(db_snapshot_archive_file)
-		db_archive_tmp="$db_archive_file.new"
-		mkdir -p "$(dirname "$db_archive_file")"
-		cp -f "$BKG_INDEX_DB" "$db_archive_tmp"
 
-		if [ -f "$db_archive_tmp" ]; then
-			# rotate the database if it's greater than 2GB
-			if [ "$(stat -c %s "$db_archive_tmp")" -ge 2000000000 ]; then
-				rotated=true
-				echo "Rotating the database..."
-				local older_db
-				older_db="$(dirname "$db_archive_file")/$(date -u +%Y.%m.%d).$(basename "$db_archive_file").zst"
-				if [ -f "$db_archive_file" ]; then
-					[ ! -f "$older_db" ] || rm -f "$older_db"
-					zstd -22 --ultra --long -T0 "$db_archive_file" -o "$older_db"
-					rm -f "$db_archive_file"
-				fi
-				batch_first_started_sql=$(sqlite_quote_literal "$BKG_BATCH_FIRST_STARTED")
-				sqlite3 "$BKG_INDEX_DB" "delete from $packages_table_sql where date < $batch_first_started_sql;"
-				sqlite3 "$BKG_INDEX_DB" "delete from $versions_table_sql where date < $batch_first_started_sql;"
-				drop_replaced_legacy_version_tables "$BKG_BATCH_FIRST_STARTED"
-				sqlite3 "$BKG_INDEX_DB" "vacuum;"
-				checkpoint_database_for_archive
-				rm -f "$db_archive_tmp"
-				cp -f "$BKG_INDEX_DB" "$db_archive_tmp"
-				echo "Rotated the database"
-			fi
+		# rotate the database if it's greater than 2GB
+		if [ "$(stat -c %s "$BKG_INDEX_DB" 2>/dev/null || echo 0)" -ge 2000000000 ]; then
+			rotated=true
+			echo "Rotating the database..."
+			rotate_database_snapshot_if_needed 2000000000 "$BKG_BATCH_FIRST_STARTED"
+			echo "Rotated the database"
+		fi
 
-			mv "$db_archive_tmp" "$db_archive_file"
-			legacy_db_archive_file=$(legacy_db_snapshot_archive_file 2>/dev/null || :)
-			[ -z "$legacy_db_archive_file" ] || rm -f "$legacy_db_archive_file"
-			legacy_archive_file=$(legacy_sql_snapshot_archive_file 2>/dev/null || :)
-			[ -z "$legacy_archive_file" ] || rm -f "$legacy_archive_file"
-			write_db_restore_signature
-			chmod 666 "$db_archive_file"
+		if prepare_database_snapshot_for_archive; then
 			echo "Prepared the database snapshot"
 		else
 			echo "Failed to prepare the database snapshot!"

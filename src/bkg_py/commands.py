@@ -367,12 +367,55 @@ def _run_snapshot(
 ) -> ExitStatus:
     try:
         with application.stop.signal_handlers():
+            if args.snapshot_command == "download-release":
+                return _run_snapshot_release_download(args, application)
+            if args.snapshot_command == "rotate-if-needed":
+                return _run_snapshot_rotation(args, application)
             return _run_snapshot_command(args, application.snapshots)
     except GracefulStop:
         return ExitStatus.GRACEFUL_STOP
-    except (OSError, SnapshotError) as error:
+    except (DatabaseError, GitHubError, OSError, SnapshotError) as error:
         print(error, file=sys.stderr)
         return ExitStatus.NON_FATAL
+
+
+def _run_snapshot_release_download(
+    args: argparse.Namespace,
+    application: ApplicationContext,
+) -> ExitStatus:
+    with application.github_client() as client:
+        asset = application.snapshots.release_snapshot_asset(
+            client,
+            owner=application.config.github_owner,
+            repo=application.config.github_repo,
+            tag=args.tag,
+        )
+        if asset is None:
+            return ExitStatus.NON_FATAL
+        if args.check:
+            print(asset.name)
+            return ExitStatus.SUCCESS
+        result = application.snapshots.download_release_snapshot(client, asset)
+    print(result.message)
+    return ExitStatus.SUCCESS
+
+
+def _run_snapshot_rotation(
+    args: argparse.Namespace,
+    application: ApplicationContext,
+) -> ExitStatus:
+    result = application.snapshots.rotate_database_if_needed(
+        lambda: application.database.cleanup_replaced_legacy_tables(
+            since=args.since,
+            prune_normalized=True,
+            vacuum=True,
+        ),
+        threshold_bytes=args.threshold_bytes,
+        date_stamp=args.date_stamp,
+    )
+    if result.rotated and result.archive is not None:
+        print(result.archive)
+    return ExitStatus.SUCCESS
 
 
 def _run_snapshot_command(

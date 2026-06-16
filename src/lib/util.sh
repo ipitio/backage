@@ -1054,79 +1054,27 @@ _jq() {
 }
 
 dldb() {
-    local latest=${1:-$(curl "https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest" | grep -oP "href=\"/${GITHUB_OWNER}/${GITHUB_REPO}/releases/tag/[^\"]+" | cut -d'/' -f6)}
-    local asset_info
-    local asset_kind
-    local asset_name
-    local asset_url
-    local db_archive_file
-    local legacy_archive_file
-    local db_tmp=""
-    local archive_tmp=""
+    local latest=${1:-}
+    local -a args=(snapshot download-release)
+    local status
 
-    asset_info=$(resolve_release_snapshot_asset "$latest") || return 1
-    asset_kind=$(cut -d'|' -f1 <<<"$asset_info")
-    asset_name=$(cut -d'|' -f2 <<<"$asset_info")
-    asset_url="https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/download/$latest/$asset_name"
-    [ -z "$2" ] || return 0
+    [ -z "$latest" ] || args+=("$latest")
+    [ -z "${2:-}" ] || args+=("--check")
+    if [ -n "${2:-}" ]; then
+        bkg_python "${args[@]}" >/dev/null
+        return $?
+    fi
     echo "Downloading the latest database..."
     # `cd src ; source bkg.sh && dldb` to dl the latest db
-    [ ! -f "$BKG_INDEX_DB" ] || mv "$BKG_INDEX_DB" "$BKG_INDEX_DB".bak
-
-    if [ "$asset_kind" = "db" ]; then
-        db_archive_file=$(db_snapshot_archive_file)
-        mkdir -p "$(dirname "$db_archive_file")" || return 1
-        archive_tmp=$(mktemp "$(dirname "$db_archive_file")/.${db_archive_file##*/}.XXXXXX") || return 1
-        db_tmp=$(mktemp "$(dirname "$BKG_INDEX_DB")/.${BKG_INDEX_DB##*/}.XXXXXX") || {
-            rm -f "$archive_tmp"
-            return 1
-        }
-
-        if command curl -sSLNZ "$asset_url" -o "$archive_tmp" && cp -f "$archive_tmp" "$db_tmp"; then
-            mv -f "$db_tmp" "$BKG_INDEX_DB"
-            mv -f "$archive_tmp" "$db_archive_file"
-            legacy_archive_file=$(legacy_db_snapshot_archive_file 2>/dev/null || :)
-            [ -z "$legacy_archive_file" ] || rm -f "$legacy_archive_file"
-            legacy_archive_file=$(legacy_sql_snapshot_archive_file 2>/dev/null || :)
-            [ -z "$legacy_archive_file" ] || rm -f "$legacy_archive_file"
-            if command -v db_restore_signature_file >/dev/null 2>&1; then
-                sha256sum "$db_archive_file" | awk '{print $1}' >"$(db_restore_signature_file)"
-            fi
-        else
-            rm -f "$db_tmp" "$archive_tmp"
-        fi
-    elif [ "$asset_kind" = "db-zst" ]; then
-        db_archive_file=$(legacy_db_snapshot_archive_file)
-        archive_tmp=$(mktemp "$(dirname "$db_archive_file")/.${db_archive_file##*/}.XXXXXX") || return 1
-        db_tmp=$(mktemp "$(dirname "$BKG_INDEX_DB")/.${BKG_INDEX_DB##*/}.XXXXXX") || {
-            rm -f "$archive_tmp"
-            return 1
-        }
-
-        if command curl -sSLNZ "$asset_url" -o "$archive_tmp" && unzstd -c "$archive_tmp" >"$db_tmp"; then
-            mv -f "$db_tmp" "$BKG_INDEX_DB"
-            mv -f "$archive_tmp" "$db_archive_file"
-            legacy_archive_file=$(legacy_sql_snapshot_archive_file 2>/dev/null || :)
-            [ -z "$legacy_archive_file" ] || rm -f "$legacy_archive_file"
-            if command -v db_restore_signature_file >/dev/null 2>&1; then
-                sha256sum "$db_archive_file" | awk '{print $1}' >"$(db_restore_signature_file)"
-            fi
-        else
-            rm -f "$db_tmp" "$archive_tmp"
-        fi
-    else
-        command curl -sSLNZ "$asset_url" | unzstd -v -c | command sqlite3 "$BKG_INDEX_DB"
-    fi
-
-    if [ -f "$BKG_INDEX_DB" ]; then
-        [ ! -f "$BKG_INDEX_DB".bak ] || rm -f "$BKG_INDEX_DB".bak
-    else
-        [ ! -f "$BKG_INDEX_DB".bak ] || mv "$BKG_INDEX_DB".bak "$BKG_INDEX_DB"
+    bkg_python "${args[@]}"
+    status=$?
+    if ((status != 0)); then
         echo "Failed to get the latest database"
     fi
 
     [ -f "$BKG_ROOT/.gitignore" ] || echo "*.db*" >>"$BKG_ROOT/.gitignore"
     grep -q "\*.db" "$BKG_ROOT/.gitignore" || echo "*.db*" >>"$BKG_ROOT/.gitignore"
+    return "$status"
 }
 
 curl_gh_direct() {

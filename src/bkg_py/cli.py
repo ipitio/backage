@@ -266,6 +266,23 @@ def _add_snapshot_parsers(subparsers: Any) -> None:
         "prepare",
         help="checkpoint and atomically prepare the current database archive",
     )
+    download_parser = snapshot_commands.add_parser(
+        "download-release",
+        help="download and restore a snapshot asset from a GitHub release",
+    )
+    download_parser.add_argument("tag", nargs="?")
+    download_parser.add_argument(
+        "--check",
+        action="store_true",
+        help="only verify that the release has a supported snapshot asset",
+    )
+    rotate_parser = snapshot_commands.add_parser(
+        "rotate-if-needed",
+        help="archive and prune an oversized database before snapshot publication",
+    )
+    rotate_parser.add_argument("threshold_bytes", type=int)
+    rotate_parser.add_argument("since")
+    rotate_parser.add_argument("date_stamp")
 
 
 def _add_github_parsers(subparsers: Any) -> None:

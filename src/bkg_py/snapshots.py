@@ -8,14 +8,16 @@ import sqlite3
 import subprocess
 import tempfile
 import time
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
-from typing import BinaryIO, Literal
+from typing import BinaryIO, Literal, cast
+from urllib.parse import quote
 
 from .config import RuntimeConfig
 from .files import atomic_binary_output, atomic_path, atomic_text_output
+from .github import GitHubClient
 
 ArchiveKind = Literal["db", "db-zst", "sql-zst"]
 StopCheck = Callable[[], None]
@@ -23,6 +25,7 @@ _COPY_CHUNK_SIZE = 1024 * 1024
 _DATABASE_MODE = 0o666
 _PROCESS_KILL_TIMEOUT_SECONDS = 5
 _PROCESS_POLL_SECONDS = 0.25
+_RELEASE_ASSET_KINDS: tuple[ArchiveKind, ...] = ("db", "db-zst", "sql-zst")
 _SNAPSHOT_MODE = 0o666
 
 
@@ -39,12 +42,29 @@ class SnapshotArchive:
 
 
 @dataclass(frozen=True)
+class ReleaseSnapshotAsset:
+    """A release asset that can restore the configured database snapshot."""
+
+    archive: SnapshotArchive
+    name: str
+    download_url: str
+
+
+@dataclass(frozen=True)
 class SnapshotRestoreResult:
     """The user-facing result of one local snapshot restore check."""
 
     archive: SnapshotArchive
     restored: bool
     message: str
+
+
+@dataclass(frozen=True)
+class SnapshotRotationResult:
+    """The result of rotating an oversized database before publication."""
+
+    rotated: bool
+    archive: Path | None = None
 
 
 @dataclass(frozen=True)
@@ -209,6 +229,14 @@ class SnapshotStore:
         archive = self.current_archive()
         if archive is None:
             return None
+        return self.restore_archive_if_needed(archive)
+
+    def restore_archive_if_needed(
+        self,
+        archive: SnapshotArchive,
+    ) -> SnapshotRestoreResult:
+        """Restore one explicit archive unless the local database already matches."""
+
         signature = sha256_file(archive.path, self._check_stop)
         archive_name = archive.path.name
         if self._restore_signature_matches_value(signature):
@@ -225,6 +253,75 @@ class SnapshotStore:
         self._restore_archive(archive)
         self._write_restore_signature_value(signature)
         return SnapshotRestoreResult(archive, restored=True, message=message)
+
+    def release_snapshot_asset_from_metadata(
+        self,
+        release: object,
+    ) -> ReleaseSnapshotAsset | None:
+        """Select the preferred snapshot asset from GitHub release metadata."""
+
+        if not isinstance(release, Mapping):
+            raise SnapshotError("latest release metadata is not an object")
+        release_metadata = cast(Mapping[str, object], release)
+        assets = release_metadata.get("assets")
+        if not isinstance(assets, list):
+            return None
+        asset_values = cast(list[object], assets)
+
+        for kind in _RELEASE_ASSET_KINDS:
+            expected_name = self.asset_name(kind)
+            for asset_value in asset_values:
+                if not isinstance(asset_value, Mapping):
+                    continue
+                asset = cast(Mapping[str, object], asset_value)
+                if asset.get("name") != expected_name:
+                    continue
+                download_url = asset.get("browser_download_url")
+                if not isinstance(download_url, str) or not download_url:
+                    raise SnapshotError(
+                        f"release asset {expected_name} has no download URL"
+                    )
+                return ReleaseSnapshotAsset(
+                    SnapshotArchive(self.archive_path(kind), kind),
+                    expected_name,
+                    download_url,
+                )
+        return None
+
+    def release_snapshot_asset(
+        self,
+        client: GitHubClient,
+        *,
+        owner: str,
+        repo: str,
+        tag: str | None = None,
+    ) -> ReleaseSnapshotAsset | None:
+        """Fetch release metadata and return the selected snapshot asset."""
+
+        response = client.rest_json_optional(_release_metadata_path(owner, repo, tag))
+        if response is None:
+            return None
+        return self.release_snapshot_asset_from_metadata(response.value)
+
+    def download_release_snapshot(
+        self,
+        client: GitHubClient,
+        asset: ReleaseSnapshotAsset,
+    ) -> SnapshotRestoreResult:
+        """Download one release asset and restore it into the working database."""
+
+        client.download(
+            asset.download_url,
+            asset.archive.path,
+            authenticated=False,
+            default_mode=_SNAPSHOT_MODE,
+        )
+        result = self.restore_archive_if_needed(asset.archive)
+        for archive in self.archive_candidates():
+            self._check_stop()
+            if archive.path != asset.archive.path:
+                archive.path.unlink(missing_ok=True)
+        return result
 
     def _write_restore_signature_value(self, signature: str) -> None:
         self.paths.restore_signature.parent.mkdir(parents=True, exist_ok=True)
@@ -265,6 +362,39 @@ class SnapshotStore:
             archive.unlink(missing_ok=True)
         self.write_restore_signature()
         return self.paths.current_db_archive
+
+    def rotate_database_if_needed(
+        self,
+        prune_database: Callable[[], object],
+        *,
+        threshold_bytes: int,
+        date_stamp: str,
+    ) -> SnapshotRotationResult:
+        """Archive the prior snapshot and prune an oversized working database."""
+
+        self.checkpoint_database()
+        if not self.paths.index_db.is_file():
+            raise SnapshotError(f"database does not exist: {self.paths.index_db}")
+        if self.paths.index_db.stat().st_size < threshold_bytes:
+            return SnapshotRotationResult(rotated=False)
+
+        archive = self.archive_current_snapshot_for_rotation(date_stamp)
+        prune_database()
+        self.checkpoint_database()
+        return SnapshotRotationResult(rotated=True, archive=archive)
+
+    def archive_current_snapshot_for_rotation(self, date_stamp: str) -> Path | None:
+        """Compress the current snapshot into the dated rotation archive."""
+
+        if not self.paths.current_db_archive.is_file():
+            return None
+        destination = (
+            self.paths.snapshot_directory
+            / f"{date_stamp}.{self.paths.current_db_archive.name}.zst"
+        )
+        destination.unlink(missing_ok=True)
+        self._compress_zstd_file(self.paths.current_db_archive, destination)
+        return destination
 
     def _restore_archive(self, archive: SnapshotArchive) -> None:
         self.paths.index_db.parent.mkdir(parents=True, exist_ok=True)
@@ -317,6 +447,29 @@ class SnapshotStore:
             self._wait_processes((process,))
             if process.returncode != 0:
                 raise SnapshotError(_process_error("unzstd", stderr))
+
+    def _compress_zstd_file(self, source: Path, destination: Path) -> None:
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        with (
+            tempfile.TemporaryFile() as stderr,
+            subprocess.Popen(  # noqa: S603
+                (
+                    _required_executable("zstd"),
+                    "-22",
+                    "--ultra",
+                    "--long",
+                    "-T0",
+                    str(source),
+                    "-o",
+                    str(destination),
+                ),
+                stderr=stderr,
+            ) as process,
+        ):
+            self._wait_processes((process,))
+            if process.returncode != 0:
+                destination.unlink(missing_ok=True)
+                raise SnapshotError(_process_error("zstd", stderr))
 
     def _import_legacy_sql_archive(self, source: Path, destination: Path) -> None:
         with (
@@ -401,3 +554,9 @@ def _required_executable(name: str) -> str:
     if path is None:
         raise SnapshotError(f"required executable not found: {name}")
     return path
+
+
+def _release_metadata_path(owner: str, repo: str, tag: str | None) -> str:
+    if tag:
+        return f"repos/{owner}/{repo}/releases/tags/{quote(tag, safe='')}"
+    return f"repos/{owner}/{repo}/releases/latest"

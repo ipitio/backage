@@ -125,8 +125,18 @@ if [ -z "$snapshot_file" ] && [ ! -f "$BKG_INDEX_DB" ]; then
     snapshot_file=$(current_index_snapshot_archive_file 2>/dev/null || :)
 fi
 
+if [ -n "$snapshot_file" ]; then
+    UPDATE_STARTUP_PHASE_STARTED_AT=$(update_startup_phase_started_at)
+    restore_startup_database_snapshot_if_needed "$snapshot_file" || {
+        echo "Failed to restore the latest database snapshot" >&2
+        [ "$GITHUB_OWNER" != "ipitio" ] || check_db
+        exit 1
+    }
+    log_update_startup_phase "restore-initial-db" "$UPDATE_STARTUP_PHASE_STARTED_AT"
+fi
+
 db_size=$(stat -c %s "$snapshot_file" 2>/dev/null || stat -c %s "$BKG_INDEX_DB" 2>/dev/null || echo 0)
-num_owner_db=$(sqlite3 "$BKG_INDEX_DB" "SELECT COUNT(DISTINCT owner) FROM $BKG_INDEX_TBL_PKG")
+num_owner_db=$(index_database_owner_count)
 num_owner_index=$(index_top_level_owner_count)
 
 if [ "$GITHUB_OWNER" = "ipitio" ] && ((num_owner_db < num_owner_index/2)) && ((db_size < 100000)); then
