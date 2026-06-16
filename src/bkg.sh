@@ -209,98 +209,23 @@ db_restore_signature_file() {
 }
 
 current_index_snapshot_archive_file() {
-	local db_archive_file=""
-	local legacy_archive_file=""
-
-	db_archive_file=$(db_snapshot_archive_file 2>/dev/null || :)
-	if [ -n "$db_archive_file" ] && [ -f "$db_archive_file" ]; then
-		printf '%s\n' "$db_archive_file"
-		return 0
-	fi
-
-	db_archive_file=$(legacy_db_snapshot_archive_file 2>/dev/null || :)
-	if [ -n "$db_archive_file" ] && [ -f "$db_archive_file" ]; then
-		printf '%s\n' "$db_archive_file"
-		return 0
-	fi
-
-	legacy_archive_file=$(legacy_sql_snapshot_archive_file 2>/dev/null || :)
-	if [ -n "$legacy_archive_file" ] && [ -f "$legacy_archive_file" ]; then
-		printf '%s\n' "$legacy_archive_file"
-		return 0
-	fi
-
-	return 1
+	bkg_python snapshot current-archive
 }
 
 current_index_snapshot_signature() {
-	local archive_file
-	archive_file=$(current_index_snapshot_archive_file) || return 1
-	sha256sum "$archive_file" | awk '{print $1}'
+	bkg_python snapshot current-signature
 }
 
 restore_db_from_index_snapshot_if_needed() {
-	local archive_file
-	local archive_name
-	local archive_kind
-	local signature_file
-	local current_signature
-	local stored_signature=""
-	local db_tmp=""
-
-	archive_file=$(current_index_snapshot_archive_file) || return 0
-	archive_name=$(basename "$archive_file")
-	case "$archive_file" in
-		*.db) archive_kind="db" ;;
-		*.db.zst) archive_kind="db" ;;
-		*) archive_kind="sql" ;;
-	esac
-
-	signature_file=$(db_restore_signature_file)
-	current_signature=$(sha256sum "$archive_file" | awk '{print $1}')
-	[ -f "$signature_file" ] && stored_signature=$(cat "$signature_file")
-
-	if [ -s "$BKG_INDEX_DB" ] && [ -n "$stored_signature" ] && [ "$stored_signature" = "$current_signature" ]; then
-		echo "Using existing database; $archive_name unchanged"
-		return 0
-	fi
-
-	[ ! -f "$BKG_INDEX_DB" ] || mv "$BKG_INDEX_DB" "$BKG_INDEX_DB".bak
-
-	if [ "$archive_kind" = "db" ]; then
-		echo "Restoring database from $archive_name..."
-		db_tmp=$(mktemp "$(dirname "$BKG_INDEX_DB")/.${BKG_INDEX_DB##*/}.XXXXXX") || return 1
-		if { [[ "$archive_file" = *.zst ]] && unzstd -c "$archive_file" >"$db_tmp"; } || { [[ "$archive_file" != *.zst ]] && cp -f "$archive_file" "$db_tmp"; }; then
-			mv -f "$db_tmp" "$BKG_INDEX_DB"
-		else
-			rm -f "$db_tmp"
-		fi
-	else
-		echo "Restoring database from legacy $archive_name..."
-		if unzstd -c "$archive_file" | command sqlite3 "$BKG_INDEX_DB"; then
-			true
-		fi
-	fi
-
-	if [ -f "$BKG_INDEX_DB" ]; then
-		printf '%s\n' "$current_signature" >"$signature_file"
-		[ ! -f "$BKG_INDEX_DB".bak ] || rm -f "$BKG_INDEX_DB".bak
-		return 0
-	fi
-
-	[ ! -f "$BKG_INDEX_DB" ] || rm -f "$BKG_INDEX_DB"
-	[ ! -f "$BKG_INDEX_DB".bak ] || mv "$BKG_INDEX_DB".bak "$BKG_INDEX_DB"
-	return 1
+	bkg_python snapshot restore-if-needed
 }
 
 write_db_restore_signature() {
-	local current_signature
-	current_signature=$(current_index_snapshot_signature) || return 0
-	printf '%s\n' "$current_signature" >"$(db_restore_signature_file)"
+	bkg_python snapshot write-restore-signature >/dev/null || :
 }
 
 checkpoint_database_for_archive() {
-	command sqlite3 "$BKG_INDEX_DB" 'pragma wal_checkpoint(truncate);' >/dev/null 2>&1 || sqlite3 "$BKG_INDEX_DB" 'pragma wal_checkpoint(truncate);' >/dev/null 2>&1 || :
+	bkg_python snapshot checkpoint >/dev/null || :
 }
 
 drop_replaced_legacy_version_tables() {

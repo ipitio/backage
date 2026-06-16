@@ -49,6 +49,7 @@ def build_parser() -> argparse.ArgumentParser:
     xml_parser.add_argument("file")
     _add_database_parsers(subparsers)
     _add_render_parsers(subparsers)
+    _add_snapshot_parsers(subparsers)
     _add_github_parsers(subparsers)
     return parser
 
@@ -213,6 +214,58 @@ def _add_package_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("owner")
     parser.add_argument("repo")
     parser.add_argument("package")
+
+
+def _add_snapshot_parsers(subparsers: Any) -> None:
+    snapshot_parser = subparsers.add_parser(
+        "snapshot",
+        help="run migrated local database snapshot operations",
+    )
+    snapshot_commands = snapshot_parser.add_subparsers(
+        dest="snapshot_command",
+        required=True,
+    )
+    snapshot_commands.add_parser(
+        "current-archive",
+        help="print the selected local snapshot archive path",
+    )
+    snapshot_commands.add_parser(
+        "current-signature",
+        help="print the selected local snapshot archive SHA-256",
+    )
+    path_parser = snapshot_commands.add_parser(
+        "path",
+        help="print a configured local snapshot path",
+    )
+    path_parser.add_argument(
+        "kind",
+        choices=("db", "db-zst", "sql-zst", "restore-signature"),
+    )
+    asset_parser = snapshot_commands.add_parser(
+        "asset-name",
+        help="print a configured snapshot release asset name",
+    )
+    asset_parser.add_argument("kind", choices=("db", "db-zst", "sql-zst"))
+    snapshot_commands.add_parser(
+        "restore-signature-matches",
+        help="exit successfully when the database matches the selected archive",
+    )
+    snapshot_commands.add_parser(
+        "restore-if-needed",
+        help="restore the local database from the selected archive when needed",
+    )
+    snapshot_commands.add_parser(
+        "write-restore-signature",
+        help="write the selected archive SHA-256 restore signature",
+    )
+    snapshot_commands.add_parser(
+        "checkpoint",
+        help="checkpoint the SQLite database before snapshot archiving",
+    )
+    snapshot_commands.add_parser(
+        "prepare",
+        help="checkpoint and atomically prepare the current database archive",
+    )
 
 
 def _add_github_parsers(subparsers: Any) -> None:

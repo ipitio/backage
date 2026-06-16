@@ -102,35 +102,27 @@ fmtsize_num() {
 }
 
 db_snapshot_archive_file() {
-    [ -n "${BKG_INDEX_DB:-}" ] || return 1
-    printf '%s\n' "$(dirname "$BKG_INDEX_DB")/.snapshot/$(basename "$BKG_INDEX_DB")"
+    bkg_python snapshot path db
 }
 
 legacy_db_snapshot_archive_file() {
-    [ -n "${BKG_INDEX_DB:-}" ] || return 1
-    printf '%s\n' "${BKG_INDEX_DB}.zst"
+    bkg_python snapshot path db-zst
 }
 
 legacy_sql_snapshot_archive_file() {
-    if [ -n "${BKG_INDEX_SQL:-}" ]; then
-        printf '%s.zst\n' "$BKG_INDEX_SQL"
-    elif [ -n "${BKG_INDEX_DB:-}" ]; then
-        printf '%s.sql.zst\n' "${BKG_INDEX_DB%.db}"
-    else
-        return 1
-    fi
+    bkg_python snapshot path sql-zst
 }
 
 db_snapshot_asset_name() {
-    basename "$(db_snapshot_archive_file)"
+    bkg_python snapshot asset-name db
 }
 
 legacy_db_snapshot_asset_name() {
-    basename "$(legacy_db_snapshot_archive_file)"
+    bkg_python snapshot asset-name db-zst
 }
 
 legacy_sql_snapshot_asset_name() {
-    basename "$(legacy_sql_snapshot_archive_file)"
+    bkg_python snapshot asset-name sql-zst
 }
 
 resolve_release_snapshot_asset() {

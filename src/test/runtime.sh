@@ -851,6 +851,68 @@ test_restore_db_from_snapshot_skips_when_signature_matches() {
 	assert_contains "$BKG_INDEX_DB" "existing-db"
 }
 
+test_snapshot_helpers_use_python_archive_selection() {
+	local db_root="$workdir/snapshot-helper-selection"
+	local selected
+	local expected_signature
+
+	mkdir -p "$db_root"
+	BKG_INDEX_DB="$db_root/index.db"
+	BKG_INDEX_SQL="$db_root/index.sql"
+	printf '%s\n' 'legacy-db' >"$(legacy_db_snapshot_archive_file)"
+
+	selected=$(current_index_snapshot_archive_file)
+	[ "$selected" = "$(legacy_db_snapshot_archive_file)" ] ||
+		fail "Expected legacy DB archive to be selected when current snapshot is absent"
+
+	mkdir -p "$(dirname "$(db_snapshot_archive_file)")"
+	printf '%s\n' 'current-db' >"$(db_snapshot_archive_file)"
+	selected=$(current_index_snapshot_archive_file)
+	[ "$selected" = "$(db_snapshot_archive_file)" ] ||
+		fail "Expected current DB archive to take precedence over legacy snapshots"
+
+	expected_signature=$(sha256sum "$(db_snapshot_archive_file)" | awk '{print $1}')
+	[ "$(current_index_snapshot_signature)" = "$expected_signature" ] ||
+		fail "Expected Python snapshot signature to match sha256sum"
+}
+
+test_snapshot_path_helpers_use_python_derivation() {
+	local db_root="$workdir/snapshot-helper-paths"
+
+	mkdir -p "$db_root"
+	BKG_INDEX_DB="$db_root/index.db"
+	BKG_INDEX_SQL="$db_root/index.sql"
+
+	[ "$(db_snapshot_archive_file)" = "$db_root/.snapshot/index.db" ] ||
+		fail "Expected Python snapshot path helper to return the current DB archive path"
+	[ "$(legacy_db_snapshot_archive_file)" = "$db_root/index.db.zst" ] ||
+		fail "Expected Python snapshot path helper to return the legacy DB archive path"
+	[ "$(legacy_sql_snapshot_archive_file)" = "$db_root/index.sql.zst" ] ||
+		fail "Expected Python snapshot path helper to return the legacy SQL archive path"
+	[ "$(db_snapshot_asset_name)" = "index.db" ] ||
+		fail "Expected Python snapshot asset helper to return the current DB asset name"
+	[ "$(legacy_db_snapshot_asset_name)" = "index.db.zst" ] ||
+		fail "Expected Python snapshot asset helper to return the legacy DB asset name"
+	[ "$(legacy_sql_snapshot_asset_name)" = "index.sql.zst" ] ||
+		fail "Expected Python snapshot asset helper to return the legacy SQL asset name"
+}
+
+test_write_db_restore_signature_uses_python_snapshot_cli() {
+	local db_root="$workdir/snapshot-helper-signature"
+	local expected_signature
+
+	mkdir -p "$db_root"
+	BKG_INDEX_DB="$db_root/index.db"
+	mkdir -p "$(dirname "$(db_snapshot_archive_file)")"
+	printf '%s\n' 'snapshot-data' >"$(db_snapshot_archive_file)"
+
+	write_db_restore_signature
+
+	expected_signature=$(sha256sum "$(db_snapshot_archive_file)" | awk '{print $1}')
+	[ "$(cat "$(db_restore_signature_file)")" = "$expected_signature" ] ||
+		fail "Expected restore signature helper to write the current archive signature"
+}
+
 test_restore_db_from_snapshot_rebuilds_when_signature_changes() {
 	local db_root="$workdir/db-restore-rebuild"
 	local output_file="$db_root/output.txt"
@@ -858,67 +920,79 @@ test_restore_db_from_snapshot_rebuilds_when_signature_changes() {
 	mkdir -p "$db_root"
 	BKG_INDEX_DB="$db_root/index.db"
 	mkdir -p "$(dirname "$(db_snapshot_archive_file)")"
-	printf '%s\n' 'snapshot-data-new' >"$(db_snapshot_archive_file)"
-	printf '%s\n' 'existing-db' >"$BKG_INDEX_DB"
+	command sqlite3 "$(db_snapshot_archive_file)" "create table restored_payload (value text); insert into restored_payload (value) values ('snapshot-data-new');"
+	command sqlite3 "$BKG_INDEX_DB" "create table restored_payload (value text); insert into restored_payload (value) values ('existing-db');"
 	printf '%s\n' 'stale-signature' >"$(db_restore_signature_file)"
-
-	unzstd() {
-		fail "Expected uncompressed DB restore to avoid unzstd"
-	}
 
 	restore_db_from_index_snapshot_if_needed >"$output_file"
 
-	unset -f unzstd
 	assert_contains "$output_file" "Restoring database from index.db"
-	assert_contains "$BKG_INDEX_DB" "snapshot-data-new"
+	[ "$(command sqlite3 "$BKG_INDEX_DB" "select value from restored_payload limit 1;")" = "snapshot-data-new" ] ||
+		fail "Expected current DB snapshot restore to replace the local database"
 	[ "$(cat "$(db_restore_signature_file)")" = "$(current_index_snapshot_signature)" ] || fail "Expected restore to refresh the snapshot signature"
 }
 
 test_restore_db_from_legacy_compressed_snapshot() {
 	local db_root="$workdir/db-restore-legacy-db"
 	local output_file="$db_root/output.txt"
+	local source_db="$db_root/source.db"
 
 	mkdir -p "$db_root"
 	BKG_INDEX_DB="$db_root/index.db"
-	printf '%s\n' 'snapshot-data-legacy-db' >"$(legacy_db_snapshot_archive_file)"
-	printf '%s\n' 'existing-db' >"$BKG_INDEX_DB"
+	command sqlite3 "$source_db" "create table restored_payload (value text); insert into restored_payload (value) values ('snapshot-data-legacy-db');"
+	zstd -q -f "$source_db" -o "$(legacy_db_snapshot_archive_file)"
+	command sqlite3 "$BKG_INDEX_DB" "create table restored_payload (value text); insert into restored_payload (value) values ('existing-db');"
 	printf '%s\n' 'stale-signature' >"$(db_restore_signature_file)"
-
-	unzstd() {
-		[ "${1:-}" = "-c" ] || fail "Expected legacy DB restore to invoke unzstd with -c"
-		cat "$2"
-	}
 
 	restore_db_from_index_snapshot_if_needed >"$output_file"
 
-	unset -f unzstd
 	assert_contains "$output_file" "Restoring database from index.db.zst"
-	assert_contains "$BKG_INDEX_DB" "snapshot-data-legacy-db"
+	[ "$(command sqlite3 "$BKG_INDEX_DB" "select value from restored_payload limit 1;")" = "snapshot-data-legacy-db" ] ||
+		fail "Expected legacy DB snapshot restore to replace the local database"
 	[ "$(cat "$(db_restore_signature_file)")" = "$(current_index_snapshot_signature)" ] || fail "Expected legacy DB restore to refresh the snapshot signature"
 }
 
 test_restore_db_from_legacy_sql_snapshot() {
 	local db_root="$workdir/db-restore-legacy"
 	local output_file="$db_root/output.txt"
+	local sql_file="$db_root/index.sql"
 
 	mkdir -p "$db_root"
 	BKG_INDEX_DB="$db_root/index.db"
 	BKG_INDEX_SQL="$db_root/index.sql"
-	cat >"$(legacy_sql_snapshot_archive_file)" <<'EOF'
+	cat >"$sql_file" <<'EOF'
 create table restored_payload (value text);
 insert into restored_payload (value) values ('legacy-snapshot-data');
 EOF
-
-	unzstd() {
-		[ "${1:-}" = "-c" ] || fail "Expected legacy restore to invoke unzstd with -c"
-		cat "$2"
-	}
+	zstd -q -f "$sql_file" -o "$(legacy_sql_snapshot_archive_file)"
 
 	restore_db_from_index_snapshot_if_needed >"$output_file"
 
-	unset -f unzstd
 	assert_contains "$output_file" "Restoring database from legacy index.sql.zst"
 	[ "$(command sqlite3 "$BKG_INDEX_DB" "select value from restored_payload limit 1;")" = "legacy-snapshot-data" ] || fail "Expected legacy sql snapshot restore to import into sqlite"
+}
+
+test_corrupt_snapshot_restore_preserves_existing_database() {
+	local db_root="$workdir/db-restore-corrupt"
+	local output_file="$db_root/output.txt"
+	local status=0
+
+	mkdir -p "$db_root"
+	BKG_INDEX_DB="$db_root/index.db"
+	mkdir -p "$(dirname "$(db_snapshot_archive_file)")"
+	printf '%s\n' 'not sqlite' >"$(db_snapshot_archive_file)"
+	command sqlite3 "$BKG_INDEX_DB" "create table restored_payload (value text); insert into restored_payload (value) values ('existing-db');"
+
+	if restore_db_from_index_snapshot_if_needed >"$output_file" 2>&1; then
+		fail "Expected corrupt snapshot restore to fail"
+	else
+		status=$?
+	fi
+
+	[ "$status" -eq 1 ] || fail "Expected corrupt snapshot restore to return Python non-fatal status 1, got $status"
+	[ "$(command sqlite3 "$BKG_INDEX_DB" "select value from restored_payload limit 1;")" = "existing-db" ] ||
+		fail "Expected corrupt snapshot restore to preserve the existing database"
+	[ ! -f "$(db_restore_signature_file)" ] || fail "Expected corrupt snapshot restore to avoid writing a restore signature"
 }
 
 trap cleanup EXIT
@@ -958,8 +1032,12 @@ run_test test_resolve_owner_ids_preserves_ids_and_records_graphql_misses
 run_test test_resolve_owner_ids_falls_back_when_graphql_fails
 run_test test_retire_missing_owner_removes_sparse_tree_and_manual_entry
 run_test test_restore_db_from_snapshot_skips_when_signature_matches
+run_test test_snapshot_helpers_use_python_archive_selection
+run_test test_snapshot_path_helpers_use_python_derivation
+run_test test_write_db_restore_signature_uses_python_snapshot_cli
 run_test test_restore_db_from_snapshot_rebuilds_when_signature_changes
 run_test test_restore_db_from_legacy_compressed_snapshot
 run_test test_restore_db_from_legacy_sql_snapshot
+run_test test_corrupt_snapshot_restore_preserves_existing_database
 
 echo "Runtime regression tests passed"

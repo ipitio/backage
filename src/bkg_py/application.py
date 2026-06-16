@@ -9,7 +9,8 @@ from functools import cached_property
 from pathlib import Path
 
 from .config import RuntimeConfig
-from .database import DatabaseRepository, DatabaseSettings
+from .database import DatabaseRepository
+from .database_settings import DatabaseSettings
 from .github import (
     GitHubClient,
     GitHubRateAccounting,
@@ -19,6 +20,7 @@ from .github import (
 from .publication import PublicationLimits
 from .rendering import AggregateSettings
 from .runtime import StopController
+from .snapshots import SnapshotStore
 from .state import StateStore
 
 
@@ -53,7 +55,7 @@ class ApplicationContext:
         """Return one repository configured for this process."""
 
         return DatabaseRepository(
-            DatabaseSettings.from_env(),
+            DatabaseSettings.from_config(self.config),
             check_stop=self.stop.check,
             sleep=self.stop.sleep,
         )
@@ -69,6 +71,15 @@ class ApplicationContext:
         """Return publication limits captured for this process."""
 
         return PublicationLimits.from_env()
+
+    @cached_property
+    def snapshots(self) -> SnapshotStore:
+        """Return local snapshot storage configured for this process."""
+
+        return SnapshotStore.from_config(
+            self.config,
+            check_stop=self.stop.check,
+        )
 
     @cached_property
     def github_settings(self) -> GitHubSettings:

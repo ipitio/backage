@@ -2,13 +2,10 @@
 
 from __future__ import annotations
 
-import os
 import sqlite3
 import time
 from collections.abc import Callable, Generator, Sequence
 from contextlib import contextmanager
-from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
 
 from . import database_owner_scans
@@ -26,11 +23,8 @@ from .database_models import (
     VersionSource,
     VersionStage,
 )
-from .database_support import (
-    DatabaseError,
-    nonnegative_env_float,
-    positive_env_int,
-)
+from .database_settings import DatabaseSettings
+from .database_support import DatabaseError
 from .database_values import (
     legacy_version_values as _legacy_version_values,
 )
@@ -78,52 +72,6 @@ class _SqlIdentifier(str):
             raise DatabaseError("SQLite identifiers cannot contain NUL")
         quoted = f'"{value.replace(chr(34), chr(34) * 2)}"'
         return str.__new__(cls, quoted)
-
-
-@dataclass(frozen=True)
-class DatabaseSettings:  # pylint: disable=too-many-instance-attributes
-    """Database path, table names, and retry behavior."""
-
-    path: Path
-    owners_table: str = "owners"
-    packages_table: str = "packages"
-    versions_table: str = "versions"
-    busy_timeout_ms: int = 300_000
-    max_attempts: int = 3
-    retry_delay_seconds: float = 1.0
-    owner_retry_initial_seconds: int = 3_600
-    owner_retry_max_seconds: int = 86_400
-
-    @classmethod
-    def from_env(cls) -> DatabaseSettings:
-        """Read database settings from the Bash-compatible environment."""
-
-        database_path = os.environ.get("BKG_INDEX_DB")
-        if not database_path:
-            raise DatabaseError("BKG_INDEX_DB is required")
-        return cls(
-            path=Path(database_path),
-            owners_table=os.environ.get("BKG_INDEX_TBL_OWN", "owners"),
-            packages_table=os.environ.get("BKG_INDEX_TBL_PKG", "packages"),
-            versions_table=os.environ.get("BKG_INDEX_TBL_VER", "versions"),
-            busy_timeout_ms=positive_env_int(
-                "BKG_SQLITE_BUSY_TIMEOUT_MS",
-                300_000,
-            ),
-            max_attempts=positive_env_int("BKG_SQLITE_MAX_ATTEMPTS", 3),
-            retry_delay_seconds=nonnegative_env_float(
-                "BKG_SQLITE_RETRY_DELAY_SECS",
-                1.0,
-            ),
-            owner_retry_initial_seconds=positive_env_int(
-                "BKG_OWNER_RETRY_INITIAL_SECONDS",
-                3_600,
-            ),
-            owner_retry_max_seconds=positive_env_int(
-                "BKG_OWNER_RETRY_MAX_SECONDS",
-                86_400,
-            ),
-        )
 
 
 class DatabaseRepository:

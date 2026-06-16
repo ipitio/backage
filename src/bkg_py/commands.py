@@ -32,6 +32,7 @@ from .rendering import (
 )
 from .result import ExitStatus
 from .runtime import GracefulStop
+from .snapshots import SnapshotError, SnapshotStore
 from .validation import validate_generated_file
 
 
@@ -360,6 +361,75 @@ def _run_github(
     return ExitStatus.SUCCESS
 
 
+def _run_snapshot(
+    args: argparse.Namespace,
+    application: ApplicationContext,
+) -> ExitStatus:
+    try:
+        with application.stop.signal_handlers():
+            return _run_snapshot_command(args, application.snapshots)
+    except GracefulStop:
+        return ExitStatus.GRACEFUL_STOP
+    except (OSError, SnapshotError) as error:
+        print(error, file=sys.stderr)
+        return ExitStatus.NON_FATAL
+
+
+def _run_snapshot_command(
+    args: argparse.Namespace,
+    snapshots: SnapshotStore,
+) -> ExitStatus:
+    command = args.snapshot_command
+    if command == "current-archive":
+        return _print_current_snapshot_archive(snapshots)
+    if command == "restore-signature-matches":
+        return _snapshot_signature_status(snapshots)
+    if command == "restore-if-needed":
+        result = snapshots.restore_database_if_needed()
+        if result is not None:
+            print(result.message)
+    elif command == "write-restore-signature":
+        snapshots.write_restore_signature()
+    elif command == "checkpoint":
+        snapshots.checkpoint_database()
+    else:
+        _run_snapshot_value_command(args, snapshots)
+    return ExitStatus.SUCCESS
+
+
+def _run_snapshot_value_command(
+    args: argparse.Namespace,
+    snapshots: SnapshotStore,
+) -> None:
+    command = args.snapshot_command
+    if command == "current-signature":
+        print(snapshots.current_signature())
+    elif command == "path":
+        print(snapshots.archive_path(args.kind))
+    elif command == "asset-name":
+        print(snapshots.asset_name(args.kind))
+    elif command == "prepare":
+        print(snapshots.prepare_database_snapshot())
+    else:
+        raise SnapshotError(f"unknown snapshot command: {command}")
+
+
+def _print_current_snapshot_archive(snapshots: SnapshotStore) -> ExitStatus:
+    archive = snapshots.current_archive()
+    if archive is None:
+        return ExitStatus.NON_FATAL
+    print(archive.path)
+    return ExitStatus.SUCCESS
+
+
+def _snapshot_signature_status(snapshots: SnapshotStore) -> ExitStatus:
+    return (
+        ExitStatus.SUCCESS
+        if snapshots.restore_signature_matches()
+        else ExitStatus.NON_FATAL
+    )
+
+
 def run_command(
     args: argparse.Namespace,
     parser: argparse.ArgumentParser,
@@ -401,6 +471,8 @@ def run_command(
             status = _run_database(args, application)
         elif args.command == "render":
             status = _run_render(args, application)
+        elif args.command == "snapshot":
+            status = _run_snapshot(args, application)
         elif args.command == "github":
             status = _run_github(args, application)
         else:

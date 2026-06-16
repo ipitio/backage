@@ -55,6 +55,34 @@ def test_database_configuration_stays_lazy(
         _ = application.database
 
 
+def test_database_settings_use_captured_runtime_config(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Database paths and table names come from one captured config object."""
+
+    original_database_path = tmp_path / "index.db"
+    monkeypatch.setenv("BKG_ROOT", str(tmp_path))
+    monkeypatch.setenv("BKG_ENV", str(tmp_path / "env.env"))
+    monkeypatch.setenv("BKG_INDEX_DB", str(original_database_path))
+    monkeypatch.setenv("BKG_INDEX_TBL_OWN", "captured_owners")
+    monkeypatch.setenv("BKG_INDEX_TBL_PKG", "captured_packages")
+    monkeypatch.setenv("BKG_INDEX_TBL_VER", "captured_versions")
+    application = ApplicationContext.from_env()
+
+    monkeypatch.setenv("BKG_INDEX_DB", str(tmp_path / "changed.db"))
+    monkeypatch.setenv("BKG_INDEX_TBL_OWN", "changed_owners")
+    monkeypatch.setenv("BKG_INDEX_TBL_PKG", "changed_packages")
+    monkeypatch.setenv("BKG_INDEX_TBL_VER", "changed_versions")
+
+    settings = application.database.settings
+
+    assert settings.path == original_database_path
+    assert settings.owners_table == "captured_owners"
+    assert settings.packages_table == "captured_packages"
+    assert settings.versions_table == "captured_versions"
+
+
 def test_github_client_uses_shared_runtime_services(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
