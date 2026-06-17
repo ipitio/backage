@@ -212,6 +212,35 @@ current_index_snapshot_archive_file() {
 	bkg_python snapshot current-archive
 }
 
+post_stop_bkg_python() {
+	local previous_timeout
+	local previous_max_len=$BKG_MAX_LEN
+	local status=0
+
+	previous_timeout=$(get_BKG BKG_TIMEOUT)
+	set_BKG BKG_TIMEOUT "0"
+	BKG_MAX_LEN=0 bkg_python "$@" || status=$?
+	BKG_MAX_LEN=$previous_max_len
+
+	if ((status == 3)); then
+		set_BKG BKG_TIMEOUT "1"
+	elif [ -n "$previous_timeout" ]; then
+		set_BKG BKG_TIMEOUT "$previous_timeout"
+	else
+		del_BKG BKG_TIMEOUT
+	fi
+	return "$status"
+}
+
+post_stop_current_index_snapshot_archive_file() {
+	post_stop_bkg_python snapshot current-archive
+}
+
+post_stop_ytox() {
+	[ -n "$1" ] || return 1
+	post_stop_bkg_python json-to-xml "$1"
+}
+
 startup_index_snapshot_archive_file() {
 	local snapshot_file
 
@@ -260,11 +289,11 @@ write_db_restore_signature() {
 }
 
 checkpoint_database_for_archive() {
-	bkg_python snapshot checkpoint >/dev/null || :
+	post_stop_bkg_python snapshot checkpoint >/dev/null || :
 }
 
 prepare_database_snapshot_for_archive() {
-	bkg_python snapshot prepare >/dev/null
+	post_stop_bkg_python snapshot prepare >/dev/null
 }
 
 rotate_database_snapshot_if_needed() {
@@ -275,7 +304,7 @@ rotate_database_snapshot_if_needed() {
 	[ -n "$batch_first_started" ] || batch_first_started=$(current_batch_first_started)
 	[ -n "$batch_first_started" ] || batch_first_started="0000-00-00"
 	[ -n "$date_stamp" ] || date_stamp=$(date -u +%Y.%m.%d)
-	bkg_python snapshot rotate-if-needed "$threshold_bytes" "$batch_first_started" "$date_stamp" >/dev/null
+	post_stop_bkg_python snapshot rotate-if-needed "$threshold_bytes" "$batch_first_started" "$date_stamp" >/dev/null
 }
 
 drop_replaced_legacy_version_tables() {
@@ -668,7 +697,7 @@ main() {
         \"raw_packages\":$packages,
         \"date\":\"$today\"
     }" | tr -d '\n' | jq -c . >"$BKG_INDEX_DIR"/.json
-	ytox "$BKG_INDEX_DIR"/.json || return $?
+	post_stop_ytox "$BKG_INDEX_DIR"/.json || return $?
 	echo "Done!"
 	return $return_code
 }

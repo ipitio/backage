@@ -52,6 +52,7 @@ def build_parser() -> argparse.ArgumentParser:
     _add_render_parsers(subparsers)
     _add_snapshot_parsers(subparsers)
     _add_github_parsers(subparsers)
+    _add_discovery_parsers(subparsers)
     return parser
 
 
@@ -321,6 +322,66 @@ def _add_github_parsers(subparsers: Any) -> None:
     download_parser.add_argument("url")
     download_parser.add_argument("destination")
     download_parser.add_argument("--authenticated", action="store_true")
+
+
+def _add_discovery_parsers(subparsers: Any) -> None:
+    discovery_parser = subparsers.add_parser(
+        "discovery",
+        help="run migrated owner discovery operations",
+    )
+    discovery_commands = discovery_parser.add_subparsers(
+        dest="discovery_command",
+        required=True,
+    )
+    owner_type_parser = discovery_commands.add_parser(
+        "owner-type",
+        help="print GitHub's owner typename for one login",
+    )
+    owner_type_parser.add_argument("owner")
+    resolve_owner_parser = discovery_commands.add_parser(
+        "resolve-owner",
+        help="resolve one owner login to an ID/login reference",
+    )
+    resolve_owner_parser.add_argument("owner")
+    resolve_owners_parser = discovery_commands.add_parser(
+        "resolve-owner-ids",
+        help="resolve owner candidates from a file",
+    )
+    resolve_owners_parser.add_argument("candidates_file")
+    resolve_owners_parser.add_argument("missing_file", nargs="?")
+    repo_nodes_parser = discovery_commands.add_parser(
+        "repo-nodes",
+        help="print one repository GraphQL discovery page",
+    )
+    repo_nodes_parser.add_argument("owner")
+    repo_nodes_parser.add_argument("repo")
+    repo_nodes_parser.add_argument("edge")
+    repo_nodes_parser.add_argument("cursor", nargs="?", default="")
+    owner_nodes_parser = discovery_commands.add_parser(
+        "owner-nodes",
+        help="print one owner GraphQL discovery page",
+    )
+    owner_nodes_parser.add_argument("owner")
+    owner_nodes_parser.add_argument("edge")
+    owner_nodes_parser.add_argument("cursor", nargs="?", default="")
+    owner_nodes_parser.add_argument("owner_type", nargs="?", default="")
+    orgs_parser = discovery_commands.add_parser(
+        "orgs",
+        help="print one user's organization discovery results",
+    )
+    orgs_parser.add_argument("owner")
+    orgs_parser.add_argument("--resolve", action="store_true")
+    explore_parser = discovery_commands.add_parser(
+        "explore",
+        help="print authenticated connection discovery results",
+    )
+    explore_parser.add_argument("node")
+    explore_parser.add_argument("edge", nargs="?", default="")
+    membership_parser = discovery_commands.add_parser(
+        "membership",
+        help="print authenticated owner membership discovery results",
+    )
+    membership_parser.add_argument("owner")
 
 
 def main(argv: list[str] | None = None) -> ExitStatus:

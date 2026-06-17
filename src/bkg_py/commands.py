@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from collections.abc import Iterable
 from pathlib import Path
 
 from .application import ApplicationContext
@@ -17,6 +18,12 @@ from .database import (
     OwnerScanResult,
     PackageRef,
     VersionStage,
+)
+from .discovery import (
+    DiscoveryError,
+    DiscoveryPage,
+    OwnerIdentityCache,
+    OwnerIdentityResolver,
 )
 from .github import GitHubError, dump_json
 from .owner_queue import OwnerQueueSelector
@@ -367,6 +374,123 @@ def _run_github(
     return ExitStatus.SUCCESS
 
 
+def _run_discovery(
+    args: argparse.Namespace,
+    application: ApplicationContext,
+) -> ExitStatus:
+    try:
+        with application.stop.signal_handlers(), application.github_client() as client:
+            resolver = OwnerIdentityResolver(
+                OwnerIdentityCache.from_config(application.config),
+                client,
+            )
+            _run_discovery_command(args, resolver)
+    except GracefulStop as error:
+        return _graceful_stop_status(error)
+    except (DiscoveryError, GitHubError, OSError) as error:
+        print(error, file=sys.stderr)
+        return ExitStatus.NON_FATAL
+    return ExitStatus.SUCCESS
+
+
+def _run_discovery_command(
+    args: argparse.Namespace,
+    resolver: OwnerIdentityResolver,
+) -> None:
+    command = args.discovery_command
+    if command in {"owner-type", "resolve-owner", "resolve-owner-ids"}:
+        _run_discovery_identity_command(args, resolver)
+    elif command in {"repo-nodes", "owner-nodes"}:
+        _run_discovery_page_command(args, resolver)
+    elif command in {"orgs", "explore", "membership"}:
+        _run_discovery_traversal_command(args, resolver)
+    else:
+        raise DiscoveryError(f"unknown discovery command: {command}")
+
+
+def _run_discovery_identity_command(
+    args: argparse.Namespace,
+    resolver: OwnerIdentityResolver,
+) -> None:
+    command = args.discovery_command
+    if command == "owner-type":
+        owner_type = resolver.owner_type(args.owner)
+        if owner_type is not None:
+            print(owner_type)
+    elif command == "resolve-owner":
+        result = resolver.resolve_owner(args.owner)
+        if result.owner_ref is not None:
+            print(result.owner_ref)
+    elif command == "resolve-owner-ids":
+        missing_file = None if args.missing_file is None else Path(args.missing_file)
+        sys.stdout.writelines(
+            f"{owner_ref}\n"
+            for owner_ref in resolver.resolve_candidate_file(
+                Path(args.candidates_file),
+                missing_path=missing_file,
+            )
+        )
+    else:
+        raise DiscoveryError(f"unknown discovery identity command: {command}")
+
+
+def _run_discovery_page_command(
+    args: argparse.Namespace,
+    resolver: OwnerIdentityResolver,
+) -> None:
+    command = args.discovery_command
+    if command == "repo-nodes":
+        _print_discovery_page(
+            resolver.repository_nodes(
+                args.owner,
+                args.repo,
+                args.edge,
+                args.cursor,
+            )
+        )
+    elif command == "owner-nodes":
+        _print_discovery_page(
+            resolver.owner_nodes(
+                args.owner,
+                args.edge,
+                args.cursor,
+                args.owner_type,
+            )
+        )
+    else:
+        raise DiscoveryError(f"unknown discovery page command: {command}")
+
+
+def _run_discovery_traversal_command(
+    args: argparse.Namespace,
+    resolver: OwnerIdentityResolver,
+) -> None:
+    command = args.discovery_command
+    if command == "orgs":
+        _print_lines(
+            resolver.organization_logins(
+                args.owner,
+                resolve=args.resolve,
+            )
+        )
+    elif command == "explore":
+        _print_lines(resolver.explore(args.node, args.edge))
+    elif command == "membership":
+        _print_lines(resolver.membership(args.owner))
+    else:
+        raise DiscoveryError(f"unknown discovery traversal command: {command}")
+
+
+def _print_discovery_page(page: DiscoveryPage) -> None:
+    print("has_next", str(page.has_next_page).lower(), sep="\t")
+    print("end_cursor", page.end_cursor, sep="\t")
+    sys.stdout.writelines(f"node\t{node}\n" for node in page.nodes)
+
+
+def _print_lines(values: Iterable[str]) -> None:
+    sys.stdout.writelines(f"{value}\n" for value in values)
+
+
 def _run_snapshot(
     args: argparse.Namespace,
     application: ApplicationContext,
@@ -486,6 +610,29 @@ def _snapshot_signature_status(snapshots: SnapshotStore) -> ExitStatus:
     )
 
 
+def _run_application_command(
+    args: argparse.Namespace,
+    parser: argparse.ArgumentParser,
+) -> ExitStatus:
+    application = ApplicationContext.from_env()
+    if args.command in {"publish", "json-to-xml"}:
+        runner = _run_publication
+    elif args.command == "database":
+        runner = _run_database
+    elif args.command == "render":
+        runner = _run_render
+    elif args.command == "snapshot":
+        runner = _run_snapshot
+    elif args.command == "github":
+        runner = _run_github
+    elif args.command == "discovery":
+        runner = _run_discovery
+    else:
+        parser.error(f"unknown command: {args.command}")
+        return ExitStatus.FAILURE
+    return runner(args, application)
+
+
 def run_command(
     args: argparse.Namespace,
     parser: argparse.ArgumentParser,
@@ -520,17 +667,5 @@ def run_command(
             )
         status = ExitStatus.SUCCESS
     else:
-        application = ApplicationContext.from_env()
-        if args.command in {"publish", "json-to-xml"}:
-            status = _run_publication(args, application)
-        elif args.command == "database":
-            status = _run_database(args, application)
-        elif args.command == "render":
-            status = _run_render(args, application)
-        elif args.command == "snapshot":
-            status = _run_snapshot(args, application)
-        elif args.command == "github":
-            status = _run_github(args, application)
-        else:
-            parser.error(f"unknown command: {args.command}")
+        status = _run_application_command(args, parser)
     return status

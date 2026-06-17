@@ -32,6 +32,7 @@ class RuntimeConfig:  # pylint: disable=too-many-instance-attributes
     env_file: str
     owners_file: str
     optout_file: str
+    owner_id_cache_file: str
     owners_table: str
     packages_table: str
     versions_table: str
@@ -62,14 +63,20 @@ class RuntimeConfig:  # pylint: disable=too-many-instance-attributes
             index_sql = index_sql or str(root / f"{index_name}.sql")
             index_dir = index_dir or str(root / index_name)
 
+        env_file = os.environ.get("BKG_ENV", str(root / "src" / "env.env"))
+
         return cls(
             github_owner=os.environ.get("GITHUB_OWNER", "ipitio"),
             github_repo=os.environ.get("GITHUB_REPO", "backage"),
             github_branch=branch,
             root=str(root),
-            env_file=os.environ.get("BKG_ENV", str(root / "src" / "env.env")),
+            env_file=env_file,
             owners_file=os.environ.get("BKG_OWNERS", str(root / "owners.txt")),
             optout_file=os.environ.get("BKG_OPTOUT", str(root / "optout.txt")),
+            owner_id_cache_file=os.environ.get(
+                "BKG_OWNER_ID_CACHE",
+                str(Path(env_file).parent / "owner-id-cache.txt"),
+            ),
             owners_table=os.environ.get("BKG_INDEX_TBL_OWN", "owners"),
             packages_table=os.environ.get("BKG_INDEX_TBL_PKG", "packages"),
             versions_table=os.environ.get("BKG_INDEX_TBL_VER", "versions"),

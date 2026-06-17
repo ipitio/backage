@@ -184,7 +184,7 @@ fi
 main "$@"
 return_code=$?
 # db should not be empty, error if it is
-snapshot_file=$(current_index_snapshot_archive_file 2>/dev/null || :)
+snapshot_file=$(post_stop_current_index_snapshot_archive_file 2>/dev/null || :)
 [ "$(stat -c %s "$snapshot_file" 2>/dev/null || echo 0)" -ge 100 ] || exit 1
 # files should be valid, warn if not, unless only opted out owners
 #(( return_code == 1 )) || find .. -type f -name '*.json' -o -name '*.xml' | parallel --lb test/index.sh {}

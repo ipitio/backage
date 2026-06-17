@@ -61,6 +61,7 @@ def _config(tmp_path: Path, *, index_db: str | None) -> RuntimeConfig:
         env_file=str(tmp_path / "env.env"),
         owners_file=str(tmp_path / "owners.txt"),
         optout_file=str(tmp_path / "optout.txt"),
+        owner_id_cache_file=str(tmp_path / "owner-id-cache.txt"),
         owners_table="owners",
         packages_table="packages",
         versions_table="versions",

@@ -129,7 +129,7 @@ def test_entrypoint_collapses_internal_failure_status(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """The process boundary exposes only the public status contract."""
+    """The process boundary exposes only public exit statuses."""
 
     monkeypatch.setattr(bkg_py.cli, "main", lambda: ExitStatus.FAILURE)
 

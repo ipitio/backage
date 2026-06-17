@@ -327,6 +327,7 @@ bkg_python() {
         BKG_HTTP_INITIAL_BACKOFF \
         BKG_HTTP_MAX_BACKOFF \
         BKG_HTTP_USER_AGENT \
+        BKG_OWNER_ID_CACHE \
         BKG_OWNER_ARRAY_VERSION_LIMIT \
         BKG_OWNER_ARRAY_MAX_BYTES \
         BKG_OWNER_ARRAY_ADAPTIVE_MAX_PROBE \
@@ -1181,19 +1182,36 @@ cache_owner_ref() {
 
 graphql_owner_type() {
     [ -n "$1" ] || return
-    local owner_login
-    local response
-
-    owner_login=$(owner_ref_login "$1") || return 1
-    response=$(query_graphql_api "query { owner: repositoryOwner(login:\"$(graphql_escape_string "$owner_login")\") { __typename } }")
-    (($? != 3)) || return 3
-    jq -r '.data.owner.__typename // empty' <<<"$response"
+    bkg_python discovery owner-type "$1"
 }
 
 graphql_discovery_reset_page_info() {
     GRAPHQL_DISCOVERY_HAS_NEXT_PAGE=false
     GRAPHQL_DISCOVERY_END_CURSOR=""
     GRAPHQL_DISCOVERY_NODES=""
+}
+
+graphql_discovery_read_page() {
+    local output=$1
+    local key
+    local value
+    local nodes=""
+
+    graphql_discovery_reset_page_info
+    while IFS=$'\t' read -r key value; do
+        case "$key" in
+        has_next)
+            GRAPHQL_DISCOVERY_HAS_NEXT_PAGE=$value
+            ;;
+        end_cursor)
+            GRAPHQL_DISCOVERY_END_CURSOR=$value
+            ;;
+        node)
+            nodes="${nodes:+$nodes$'\n'}$value"
+            ;;
+        esac
+    done <<<"$output"
+    GRAPHQL_DISCOVERY_NODES=$nodes
 }
 
 graphql_repo_discovery_nodes() {
@@ -1204,53 +1222,19 @@ graphql_repo_discovery_nodes() {
     local cursor=${3:-}
     local owner
     local repo
-    local after_arg=""
-    local query
-    local response
-    local parsed_nodes=""
+    local output
+    local status=0
 
     owner=$(cut -d'/' -f1 <<<"$node")
     repo=$(cut -d'/' -f2- <<<"$node")
     [ -n "$owner" ] || return 1
     [ -n "$repo" ] || return 1
     graphql_discovery_reset_page_info
-    [ -z "$cursor" ] || after_arg=", after:\"$(graphql_escape_string "$cursor")\""
 
-    case "$edge" in
-    stargazers|watchers)
-        query="query { repository(owner:\"$(graphql_escape_string "$owner")\", name:\"$(graphql_escape_string "$repo")\") { $edge(first:100$after_arg) { nodes { login databaseId } pageInfo { hasNextPage endCursor } } } }"
-        response=$(query_graphql_api "$query")
-        (($? != 3)) || return 3
-        GRAPHQL_DISCOVERY_HAS_NEXT_PAGE=$(jq -r ".data.repository.$edge.pageInfo.hasNextPage // false" <<<"$response" 2>/dev/null)
-        GRAPHQL_DISCOVERY_END_CURSOR=$(jq -r ".data.repository.$edge.pageInfo.endCursor // empty" <<<"$response" 2>/dev/null)
-        while IFS=$'\t' read -r owner_login owner_id; do
-            [ -n "$owner_login" ] || continue
-            [[ "$owner_id" =~ ^[1-9][0-9]*$ ]] || continue
-            cache_owner_ref "$owner_id/$owner_login"
-        done < <(jq -r ".data.repository.$edge.nodes[]? | select(.login != null and .databaseId != null) | \"\(.login)\t\(.databaseId)\"" <<<"$response" 2>/dev/null)
-        parsed_nodes=$(jq -r ".data.repository.$edge.nodes[]? | select(.login != null) | .login" <<<"$response" 2>/dev/null)
-        GRAPHQL_DISCOVERY_NODES=$parsed_nodes
-        return 0
-        ;;
-    forks)
-        query="query { repository(owner:\"$(graphql_escape_string "$owner")\", name:\"$(graphql_escape_string "$repo")\") { forks(first:100$after_arg) { nodes { owner { login ... on User { databaseId } ... on Organization { databaseId } } } pageInfo { hasNextPage endCursor } } } }"
-        response=$(query_graphql_api "$query")
-        (($? != 3)) || return 3
-        GRAPHQL_DISCOVERY_HAS_NEXT_PAGE=$(jq -r '.data.repository.forks.pageInfo.hasNextPage // false' <<<"$response" 2>/dev/null)
-        GRAPHQL_DISCOVERY_END_CURSOR=$(jq -r '.data.repository.forks.pageInfo.endCursor // empty' <<<"$response" 2>/dev/null)
-        while IFS=$'\t' read -r owner_login owner_id; do
-            [ -n "$owner_login" ] || continue
-            [[ "$owner_id" =~ ^[1-9][0-9]*$ ]] || continue
-            cache_owner_ref "$owner_id/$owner_login"
-        done < <(jq -r '.data.repository.forks.nodes[]? | select(.owner.login != null and .owner.databaseId != null) | "\(.owner.login)\t\(.owner.databaseId)"' <<<"$response" 2>/dev/null)
-        parsed_nodes=$(jq -r '.data.repository.forks.nodes[]? | .owner.login // empty' <<<"$response" 2>/dev/null)
-        GRAPHQL_DISCOVERY_NODES=$parsed_nodes
-        return 0
-        ;;
-    *)
-        return 1
-        ;;
-    esac
+    output=$(bkg_python discovery repo-nodes "$owner" "$repo" "$edge" "$cursor") || status=$?
+    ((status != 3)) || return 3
+    ((status == 0)) || return "$status"
+    graphql_discovery_read_page "$output"
 }
 
 graphql_owner_discovery_nodes() {
@@ -1261,57 +1245,21 @@ graphql_owner_discovery_nodes() {
     local cursor=${3:-}
     local owner_type=${4:-}
     local owner_login
-    local after_arg=""
-    local query
-    local response
-    local connection_name=""
-    local parsed_nodes=""
+    local output
+    local status=0
 
     owner_login=$(owner_ref_login "$owner_ref") || return 1
     [ -n "$owner_type" ] || owner_type=$(graphql_owner_type "$owner_login")
-    (($? != 3)) || return 3
+    status=$?
+    ((status != 3)) || return 3
+    ((status == 0)) || return "$status"
     [ -n "$owner_type" ] || return 1
     graphql_discovery_reset_page_info
-    [ -z "$cursor" ] || after_arg=", after:\"$(graphql_escape_string "$cursor")\""
 
-    case "$edge" in
-    followers|following|organizations)
-        [ "$owner_type" = "User" ] || return 0
-        connection_name=$edge
-        query="query { owner: repositoryOwner(login:\"$(graphql_escape_string "$owner_login")\") { ... on User { $connection_name(first:100$after_arg) { nodes { login databaseId } pageInfo { hasNextPage endCursor } } } } }"
-        response=$(query_graphql_api "$query")
-        (($? != 3)) || return 3
-        GRAPHQL_DISCOVERY_HAS_NEXT_PAGE=$(jq -r ".data.owner.$connection_name.pageInfo.hasNextPage // false" <<<"$response" 2>/dev/null)
-        GRAPHQL_DISCOVERY_END_CURSOR=$(jq -r ".data.owner.$connection_name.pageInfo.endCursor // empty" <<<"$response" 2>/dev/null)
-        while IFS=$'\t' read -r ref_login ref_id; do
-            [ -n "$ref_login" ] || continue
-            [[ "$ref_id" =~ ^[1-9][0-9]*$ ]] || continue
-            cache_owner_ref "$ref_id/$ref_login"
-        done < <(jq -r ".data.owner.$connection_name.nodes[]? | select(.login != null and .databaseId != null) | \"\(.login)\t\(.databaseId)\"" <<<"$response" 2>/dev/null)
-        parsed_nodes=$(jq -r ".data.owner.$connection_name.nodes[]? | select(.login != null) | .login" <<<"$response" 2>/dev/null)
-        GRAPHQL_DISCOVERY_NODES=$parsed_nodes
-        return 0
-        ;;
-    people)
-        [ "$owner_type" = "Organization" ] || return 0
-        query="query { owner: repositoryOwner(login:\"$(graphql_escape_string "$owner_login")\") { ... on Organization { membersWithRole(first:100$after_arg) { nodes { login databaseId } pageInfo { hasNextPage endCursor } } } } }"
-        response=$(query_graphql_api "$query")
-        (($? != 3)) || return 3
-        GRAPHQL_DISCOVERY_HAS_NEXT_PAGE=$(jq -r '.data.owner.membersWithRole.pageInfo.hasNextPage // false' <<<"$response" 2>/dev/null)
-        GRAPHQL_DISCOVERY_END_CURSOR=$(jq -r '.data.owner.membersWithRole.pageInfo.endCursor // empty' <<<"$response" 2>/dev/null)
-        while IFS=$'\t' read -r ref_login ref_id; do
-            [ -n "$ref_login" ] || continue
-            [[ "$ref_id" =~ ^[1-9][0-9]*$ ]] || continue
-            cache_owner_ref "$ref_id/$ref_login"
-        done < <(jq -r '.data.owner.membersWithRole.nodes[]? | select(.login != null and .databaseId != null) | "\(.login)\t\(.databaseId)"' <<<"$response" 2>/dev/null)
-        parsed_nodes=$(jq -r '.data.owner.membersWithRole.nodes[]? | select(.login != null) | .login' <<<"$response" 2>/dev/null)
-        GRAPHQL_DISCOVERY_NODES=$parsed_nodes
-        return 0
-        ;;
-    *)
-        return 1
-        ;;
-    esac
+    output=$(bkg_python discovery owner-nodes "$owner_login" "$edge" "$cursor" "$owner_type") || status=$?
+    ((status != 3)) || return 3
+    ((status == 0)) || return "$status"
+    graphql_discovery_read_page "$output"
 }
 
 release_has_snapshot_asset() {
@@ -1374,40 +1322,15 @@ docker_manifest_size() {
 }
 
 owner_get_id() {
-    local owner
-    local owner_id=""
-    local response
+    local owner_ref
     local status=0
-    owner=$(echo "$1" | tr -d '[:space:]')
-    [ -n "$owner" ] || return
 
-    if [[ "$owner" =~ .*\/.* ]]; then
-        owner_id=$(cut -d'/' -f1 <<<"$owner")
-        owner=$(cut -d'/' -f2 <<<"$owner")
-    fi
-
-    if [[ ! "$owner_id" =~ ^[1-9] ]]; then
-        owner_id=$(curl "https://github.com/$owner" | grep -zoP 'meta.*?u\/\d+' | tr -d '\0' | grep -oP 'u\/\d+' | sort -u | head -n1 | grep -oP '\d+')
-
-        if [[ ! "$owner_id" =~ ^[1-9] && -n "$GITHUB_TOKEN" ]]; then
-            response=$(query_api_optional "users/$owner")
-            status=$?
-            ((status != 3)) || return 3
-            ((status == 0)) || return "$status"
-            owner_id=$(jq -er '.id | numbers | select(. > 0)' <<<"$response" 2>/dev/null || :)
-
-            if [[ ! "$owner_id" =~ ^[1-9] ]]; then
-                response=$(query_api_optional "orgs/$owner")
-                status=$?
-                ((status != 3)) || return 3
-                ((status == 0)) || return "$status"
-                owner_id=$(jq -er '.id | numbers | select(. > 0)' <<<"$response" 2>/dev/null || :)
-            fi
-        fi
-    fi
-
-    [[ "$owner_id" =~ ^[1-9][0-9]*$ ]] || return "$BKG_OWNER_NOT_FOUND_STATUS"
-    printf '%s/%s\n' "$owner_id" "$owner"
+    owner_ref=$(bkg_python discovery resolve-owner "$1")
+    status=$?
+    ((status != 3)) || return 3
+    ((status == 0)) || return "$status"
+    [ -n "$owner_ref" ] || return "$BKG_OWNER_NOT_FOUND_STATUS"
+    printf '%s\n' "$owner_ref"
 }
 
 owner_has_packages() {
@@ -1420,6 +1343,10 @@ owner_has_packages() {
 
 get_owners() {
     sort -u <<<"$1" | while read -r owner; do owner_get_id "$owner"; done | grep -v '^\/'
+}
+
+print_nonempty_lines() {
+    [ -z "$1" ] || printf '%s\n' "$1"
 }
 
 curl_users() {
@@ -1439,6 +1366,17 @@ curl_orgs() {
     local status=0
 
     if [ -n "${GITHUB_TOKEN:-}" ] && [[ "$target" != orgs/* ]] && [[ "$target" != *\?* ]] && [[ "$target" != */*/* ]]; then
+        if [ -n "$resolve_names" ]; then
+            orgs=$(bkg_python discovery orgs "$target" --resolve) || status=$?
+        else
+            orgs=$(bkg_python discovery orgs "$target") || status=$?
+        fi
+        ((status != 3)) || return 3
+        if ((status == 0)); then
+            print_nonempty_lines "$orgs"
+            return 0
+        fi
+
         owner_type=$(graphql_owner_type "$target")
         status=$?
         ((status != 3)) || return 3
@@ -1474,10 +1412,24 @@ explore() {
 	local is_user=false
 	local got_orgs=false
 	local status=0
+    local nodes=""
     local graphql_owner_type=""
 	[[ ! "$node" =~ .*\/.* ]] || is_repo=true
     [ "$is_repo" = true ] && local graph=("stargazers" "watchers" "forks" "collaborators") || local graph=("followers" "following" "people")
     [ -z "$2" ] || graph=("$2")
+
+    if [ -n "${GITHUB_TOKEN:-}" ]; then
+        if [ -n "${2:-}" ]; then
+            nodes=$(bkg_python discovery explore "$node" "$2") || status=$?
+        else
+            nodes=$(bkg_python discovery explore "$node") || status=$?
+        fi
+        ((status != 3)) || return 3
+        if ((status == 0)); then
+            print_nonempty_lines "$nodes"
+            return 0
+        fi
+    fi
 
     if [ "$is_repo" = false ] && [ -n "${GITHUB_TOKEN:-}" ]; then
         graphql_owner_type=$(graphql_owner_type "$node")
@@ -1489,7 +1441,7 @@ explore() {
         local page=1
         local cursor=""
         while true; do
-            local nodes
+            nodes=""
 
             if [ -n "${GITHUB_TOKEN:-}" ] && [ "$edge" != "collaborators" ]; then
                 if [ "$is_repo" = true ]; then
@@ -1576,6 +1528,13 @@ get_membership() {
     owner=$(cut -d'/' -f2 <<<"$1")
 
     if [ -n "${GITHUB_TOKEN:-}" ]; then
+        people=$(bkg_python discovery membership "$1") || status=$?
+        ((status != 3)) || return 3
+        if ((status == 0)); then
+            print_nonempty_lines "$people"
+            return 0
+        fi
+
         owner_type=$(graphql_owner_type "$owner")
         status=$?
         ((status != 3)) || return 3

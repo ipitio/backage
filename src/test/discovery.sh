@@ -398,42 +398,39 @@ test_graphql_discovery_paths_avoid_html_scraping() {
     init_bkg_state
     GITHUB_TOKEN=dummy
 
-    query_graphql_api() {
-        case "$1" in
-        *'repository(owner:"ipitio", name:"backage")'*stargazers*)
-            cat <<'EOF'
-{"data":{"repository":{"stargazers":{"nodes":[{"login":"alpha"},{"login":"ipitio"}],"pageInfo":{"hasNextPage":false,"endCursor":null}}}}}
-EOF
+    bkg_python() {
+        [ "$1" = "discovery" ] || fail "Expected discovery command group"
+        case "$2" in
+        orgs)
+            [ "$3" = ipitio ] || fail "Unexpected organization discovery owner: $3"
+            [ -z "${4:-}" ] || fail "Unexpected organization discovery option: $4"
+            printf '%s\n' gamma
             ;;
-        *'repositoryOwner(login:"ipitio")'*'__typename'*)
-            cat <<'EOF'
-{"data":{"owner":{"__typename":"User"}}}
-EOF
+        explore)
+            case "$3/${4:-}" in
+            ipitio/backage/stargazers)
+                printf '%s\n' alpha
+                ;;
+            ipitio/followers)
+                printf '%s\n' beta gamma
+                ;;
+            *)
+                fail "Unexpected explore request: $3/${4:-}"
+                ;;
+            esac
             ;;
-        *'repositoryOwner(login:"ipitio")'*followers*)
-            cat <<'EOF'
-{"data":{"owner":{"followers":{"nodes":[{"login":"beta"}],"pageInfo":{"hasNextPage":false,"endCursor":null}}}}}
-EOF
-            ;;
-        *'repositoryOwner(login:"ipitio")'*organizations*)
-            cat <<'EOF'
-{"data":{"owner":{"organizations":{"nodes":[{"login":"gamma"}],"pageInfo":{"hasNextPage":false,"endCursor":null}}}}}
-EOF
-            ;;
-        *'repositoryOwner(login:"github")'*'__typename'*)
-            cat <<'EOF'
-{"data":{"owner":{"__typename":"Organization"}}}
-EOF
-            ;;
-        *'repositoryOwner(login:"github")'*membersWithRole*)
-            cat <<'EOF'
-{"data":{"owner":{"membersWithRole":{"nodes":[{"login":"delta"}],"pageInfo":{"hasNextPage":false,"endCursor":null}}}}}
-EOF
+        membership)
+            [ "$3" = '1/github' ] || fail "Unexpected membership owner: $3"
+            printf '%s\n' delta
             ;;
         *)
-            fail "Unexpected GraphQL discovery query: $1"
+            fail "Unexpected discovery command: $2"
             ;;
         esac
+    }
+
+    query_graphql_api() {
+        fail "Expected migrated discovery page helpers to avoid shell GraphQL parsing"
     }
 
     curl() {
@@ -447,6 +444,9 @@ EOF
     user_nodes=$(explore ipitio followers)
     grep -Fxq beta <<<"$user_nodes" || fail "Expected GraphQL user discovery to emit follower logins"
     grep -Fxq gamma <<<"$user_nodes" || fail "Expected GraphQL user discovery to include organization expansion output"
+
+    user_nodes=$(curl_orgs ipitio)
+    grep -Fxq gamma <<<"$user_nodes" || fail "Expected GraphQL organization discovery to emit organization logins"
 
     membership_nodes=$(get_membership '1/github')
     grep -Fxq delta <<<"$membership_nodes" || fail "Expected GraphQL membership discovery to emit organization member logins"

@@ -91,6 +91,7 @@ select = [
 "src/bkg_py/validation.py" = ["S314", "T201"]
 "src/test/test_*.py" = ["PLR2004", "S101"]
 "src/test/test_database.py" = ["S608"]
+"src/test/test_discovery.py" = ["S105"]
 "src/test/test_github.py" = ["S105"]
 "src/test/test_rendering.py" = ["S608"]
 "src/test/test_state.py" = ["S603", "S607"]

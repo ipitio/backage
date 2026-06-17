@@ -580,6 +580,22 @@ EOF
 	GITHUB_TOKEN=""
 }
 
+test_graphql_owner_type_delegates_to_python_discovery() {
+	local owner_type
+
+	bkg_python() {
+		[ "$1" = "discovery" ] || fail "Expected graphql_owner_type to use the discovery command group"
+		[ "$2" = "owner-type" ] || fail "Expected graphql_owner_type to use the owner-type command"
+		[ "$3" = "ipitio" ] || fail "Expected graphql_owner_type to preserve the owner login"
+		printf '%s\n' User
+	}
+
+	owner_type=$(graphql_owner_type ipitio)
+
+	[ "$owner_type" = "User" ] || fail "Expected graphql_owner_type to preserve Python output"
+	unset -f bkg_python
+}
+
 test_query_api_delegates_path_to_python() {
 	local response
 
@@ -739,107 +755,46 @@ test_check_db_reports_delete_failure() {
 	assert_contains "$output_file" "Failed to delete latest release v2026.6.0"
 }
 
-test_resolve_owner_ids_uses_run_cache_before_live_lookup() {
-	local candidates_file="$workdir/owner-candidates-cache.txt"
-	local output_file="$workdir/owner-ids-cache.txt"
+test_resolve_owner_ids_delegates_to_python_discovery() {
+	local candidates_file="$workdir/owner-candidates.txt"
+	local output_file="$workdir/owner-ids.txt"
+	local missing_file="$workdir/missing-owner-ids.txt"
+	local command_log="$workdir/resolve-owner-command.txt"
 
-	BKG_ENV="$workdir/env-owner-cache.env"
-	: >"$BKG_ENV"
-	reset_owner_id_cache
-	cache_owner_ref '200/beta'
-	cache_owner_ref '300/gamma'
+	printf '%s\n' beta delta >"$candidates_file"
 
-	cat >"$candidates_file" <<'EOF'
-beta
-gamma
-EOF
-
-	query_graphql_api() {
-		fail "Expected resolve_owner_ids to use the run-scoped cache before GraphQL"
+	bkg_python() {
+		printf '%s\n' "$*" >"$command_log"
+		[ "$1" = "discovery" ] || fail "Expected discovery command group"
+		[ "$2" = "resolve-owner-ids" ] || fail "Expected owner-ID resolution command"
+		[ "$3" = "$candidates_file" ] || fail "Expected candidates file to be forwarded"
+		[ "$4" = "$missing_file" ] || fail "Expected missing file to be forwarded"
+		printf '%s\n' "200/beta"
+		printf '%s\n' "delta" >"$missing_file"
 	}
 
-	owner_get_id() {
-		fail "Expected resolve_owner_ids to use the run-scoped cache before owner_get_id fallback"
+	resolve_owner_ids "$candidates_file" "$missing_file" >"$output_file"
+
+	assert_contains "$command_log" "discovery resolve-owner-ids $candidates_file $missing_file"
+	assert_contains "$output_file" "200/beta"
+	assert_contains "$missing_file" "delta"
+	unset -f bkg_python
+}
+
+test_resolve_owner_ids_skips_empty_candidate_file() {
+	local candidates_file="$workdir/owner-candidates-empty.txt"
+	local output_file="$workdir/owner-ids-empty.txt"
+
+	: >"$candidates_file"
+
+	bkg_python() {
+		fail "Expected empty owner candidate files to skip Python"
 	}
 
 	resolve_owner_ids "$candidates_file" >"$output_file"
 
-	assert_contains "$output_file" "200/beta"
-	assert_contains "$output_file" "300/gamma"
-	unset -f query_graphql_api
-	unset -f owner_get_id
-}
-
-test_resolve_owner_ids_preserves_ids_and_records_graphql_misses() {
-	local candidates_file="$workdir/owner-candidates.txt"
-	local output_file="$workdir/owner-ids.txt"
-	local missing_file="$workdir/missing-owner-ids.txt"
-	local query_log="$workdir/graphql-query.txt"
-
-	cat >"$candidates_file" <<'EOF'
-123/alpha
-beta
-0/gamma
-delta
-EOF
-
-	BKG_ENV="$workdir/env-owner-batch.env"
-	: >"$BKG_ENV"
-	reset_owner_id_cache
-	GITHUB_TOKEN=dummy
-
-	query_graphql_api() {
-		printf '%s\n' "$1" >"$query_log"
-		cat <<'EOF'
-{"data":{"o0":{"login":"Beta","databaseId":200},"o1":{"login":"gamma","databaseId":300},"o2":null}}
-EOF
-	}
-
-	owner_get_id() {
-		fail "Expected a successful GraphQL null to avoid redundant REST and HTML probes"
-	}
-
-	resolve_owner_ids "$candidates_file" "$missing_file" >"$output_file"
-
-	assert_contains "$output_file" "123/alpha"
-	assert_contains "$output_file" "200/Beta"
-	assert_contains "$output_file" "300/gamma"
-	assert_contains "$missing_file" "delta"
-	assert_contains "$query_log" 'repositoryOwner(login:"beta")'
-	assert_contains "$query_log" 'repositoryOwner(login:"gamma")'
-	assert_contains "$query_log" 'repositoryOwner(login:"delta")'
-	unset -f query_graphql_api
-	unset -f owner_get_id
-	GITHUB_TOKEN=""
-}
-
-test_resolve_owner_ids_falls_back_when_graphql_fails() {
-	local candidates_file="$workdir/owner-candidates-fallback.txt"
-	local output_file="$workdir/owner-ids-fallback.txt"
-	local missing_file="$workdir/missing-owner-ids-fallback.txt"
-
-	printf '%s\n' fallback >"$candidates_file"
-	BKG_ENV="$workdir/env-owner-fallback.env"
-	: >"$BKG_ENV"
-	reset_owner_id_cache
-	GITHUB_TOKEN=dummy
-
-	query_graphql_api() {
-		return 1
-	}
-
-	owner_get_id() {
-		[ "$1" = "fallback" ] || fail "Expected the unresolved owner to use the fallback"
-		printf '%s\n' '400/fallback'
-	}
-
-	resolve_owner_ids "$candidates_file" "$missing_file" >"$output_file"
-
-	assert_contains "$output_file" "400/fallback"
-	[ ! -s "$missing_file" ] || fail "Expected a failed GraphQL request not to mark the owner missing"
-	unset -f query_graphql_api
-	unset -f owner_get_id
-	GITHUB_TOKEN=""
+	[ ! -s "$output_file" ] || fail "Expected no resolved owners for an empty file"
+	unset -f bkg_python
 }
 
 test_retire_missing_owner_removes_sparse_tree_and_manual_entry() {
@@ -979,13 +934,17 @@ test_prepare_database_snapshot_uses_python_snapshot_cli() {
 	local db_root="$workdir/snapshot-helper-prepare"
 	local archive_file
 	local expected_signature
+	local selected_archive
 
 	mkdir -p "$db_root"
+	BKG_ENV="$db_root/env.env"
+	: >"$BKG_ENV"
 	BKG_INDEX_DB="$db_root/index.db"
 	BKG_INDEX_SQL="$db_root/index.sql"
 	command sqlite3 "$BKG_INDEX_DB" "create table restored_payload (value text); insert into restored_payload (value) values ('prepared-db');"
 	printf '%s\n' 'legacy-db' >"$(legacy_db_snapshot_archive_file)"
 	printf '%s\n' 'legacy-sql' >"$(legacy_sql_snapshot_archive_file)"
+	set_BKG BKG_TIMEOUT "1"
 
 	prepare_database_snapshot_for_archive
 
@@ -1002,6 +961,34 @@ test_prepare_database_snapshot_uses_python_snapshot_cli() {
 	expected_signature=$(sha256sum "$archive_file" | awk '{print $1}')
 	[ "$(cat "$(db_restore_signature_file)")" = "$expected_signature" ] ||
 		fail "Expected Python snapshot prepare helper to write the current restore signature"
+	[ "$(get_BKG BKG_TIMEOUT)" = "1" ] ||
+		fail "Expected post-stop snapshot prepare to restore the persisted stop marker"
+
+	selected_archive=$(post_stop_current_index_snapshot_archive_file)
+	[ "$selected_archive" = "$archive_file" ] ||
+		fail "Expected post-stop archive lookup to return the prepared snapshot despite the persisted stop marker"
+	[ "$(get_BKG BKG_TIMEOUT)" = "1" ] ||
+		fail "Expected post-stop archive lookup to restore the persisted stop marker"
+}
+
+test_post_stop_ytox_writes_xml_after_persisted_stop() {
+	local output_dir="$workdir/post-stop-ytox"
+	local json_file="$output_dir/.json"
+	local xml_file="$output_dir/.xml"
+
+	mkdir -p "$output_dir"
+	BKG_ENV="$output_dir/env.env"
+	: >"$BKG_ENV"
+	set_BKG BKG_TIMEOUT "1"
+	printf '%s\n' '{"owners":"1","repos":"1","packages":"1","raw_owners":1,"raw_repos":1,"raw_packages":1,"date":"2026-06-17"}' >"$json_file"
+
+	post_stop_ytox "$json_file" >/dev/null
+
+	assert_file_exists "$xml_file"
+	grep -Fq '<owners>1</owners>' "$xml_file" ||
+		fail "Expected post-stop XML conversion to write the index XML endpoint"
+	[ "$(get_BKG BKG_TIMEOUT)" = "1" ] ||
+		fail "Expected post-stop XML conversion to restore the persisted stop marker"
 }
 
 test_rotate_database_snapshot_uses_python_storage() {
@@ -1189,6 +1176,7 @@ run_test test_daily_gate_skip_resets_on_new_batch_marker
 run_test test_daily_gate_skip_resets_on_rest_to_top_change
 run_test test_check_limit_retries_missing_script_start_once
 run_test test_query_graphql_api_delegates_query_to_python
+run_test test_graphql_owner_type_delegates_to_python_discovery
 run_test test_query_api_delegates_path_to_python
 run_test test_query_api_optional_allows_only_missing_responses
 run_test test_dldb_delegates_release_snapshot_download_to_python
@@ -1196,9 +1184,8 @@ run_test test_dldb_check_mode_uses_python_release_metadata_probe
 run_test test_resolve_release_snapshot_asset_rejects_http_errors
 run_test test_check_db_deletes_missing_release_despite_stale_runtime_state
 run_test test_check_db_reports_delete_failure
-run_test test_resolve_owner_ids_uses_run_cache_before_live_lookup
-run_test test_resolve_owner_ids_preserves_ids_and_records_graphql_misses
-run_test test_resolve_owner_ids_falls_back_when_graphql_fails
+run_test test_resolve_owner_ids_delegates_to_python_discovery
+run_test test_resolve_owner_ids_skips_empty_candidate_file
 run_test test_retire_missing_owner_removes_sparse_tree_and_manual_entry
 run_test test_restore_db_from_snapshot_skips_when_signature_matches
 run_test test_snapshot_helpers_use_python_archive_selection
@@ -1206,6 +1193,7 @@ run_test test_startup_snapshot_helper_falls_back_to_downloaded_current_archive
 run_test test_snapshot_path_helpers_use_python_derivation
 run_test test_write_db_restore_signature_uses_python_snapshot_cli
 run_test test_prepare_database_snapshot_uses_python_snapshot_cli
+run_test test_post_stop_ytox_writes_xml_after_persisted_stop
 run_test test_rotate_database_snapshot_uses_python_storage
 run_test test_restore_db_from_snapshot_rebuilds_when_signature_changes
 run_test test_restore_db_from_legacy_compressed_snapshot
