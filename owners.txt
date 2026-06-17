@@ -1,9 +1,7 @@
-2441307/MSUPaths
 2439775/MorleyCo
 2437933/MacMiniVault
 2436976/NerdKing99
 2437001/POPQA
-2437063/Nickkun
 2438065/Pixum
 2441572/SocialShoppingNetwork
 2439520/TestFMSQN
@@ -31,7 +29,6 @@
 2436992/dvdm
 2436971/gauravv
 2437064/goldbean24
-2437023/giammaweb
 2437046/gudbrandurorn
 2437777/hardwarepl
 2437060/henriqueho
@@ -66,7 +63,6 @@
 2443104/study-org
 2443582/cwacwa
 2443688/couchpotatoes
-2443838/camunda
 2444015/MediaSolutions
 2444355/ox-cs
 2444679/micbra
@@ -258,7 +254,6 @@
 2456130/mouth9drive
 2456321/nikeoutletshop
 2456338/hogedriven
-2456351/Jamreang
 2456371/OTE-IDE
 2456411/Altien
 2456372/ravigandhi
@@ -286,7 +281,6 @@
 2458159/CHBA
 2458017/mohammadsuth49
 2458247/Nodefr
-2458248/Ripman
 2458287/hinantin
 2458346/ConneX-zz
 2458288/paulhernandez
@@ -337,3 +331,4 @@
 2461491/Dromtorp2ISA
 2461493/fanpilotcou990y6
 2461633/ali-alqawaeen
+2461690/Deeplace
