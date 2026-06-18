@@ -889,6 +889,16 @@ run_parallel() {
     ! grep -q "3" <<<"$code" || return 3
 }
 
+parallel_shell_func_print_timeout_stderr() {
+    grep -Ev \
+        -e '^parallel: This job failed:$' \
+        -e '^bash .*/parallel-worker\.sh .*$' \
+        -e '^parallel: Starting no more jobs\. Waiting for [0-9]+ jobs to finish\.$' \
+        -e '^jq: parse error:' \
+        -e '^GitHub operation exceeded its total timeout$' \
+        "$1" >&2 || :
+}
+
 parallel_shell_func() {
     [ -n "$1" ] || return
     [ -n "$2" ] || return
@@ -922,7 +932,7 @@ parallel_shell_func() {
     fi
 
     if ((status == 2 || status == 3)) && [ "$(get_BKG BKG_TIMEOUT)" = "1" ]; then
-        grep -Ev '^parallel: This job failed:$|^bash .*/parallel-worker\.sh .*$|^parallel: Starting no more jobs\. Waiting for [0-9]+ jobs to finish\.$' "$stderr_file" >&2 || :
+        parallel_shell_func_print_timeout_stderr "$stderr_file"
         rm -f "$stderr_file" "$stdin_file"
         return 3
     fi
@@ -1309,16 +1319,95 @@ check_db() {
     done
 }
 
+docker_manifest_size_log_fallback() {
+    local reason=$1
+    local manifest=$2
+    local context=${3:-manifest}
+    local summary
+
+    [ -n "$manifest" ] || return 0
+
+    context=${context//$'\n'/ }
+    context=${context//$'\r'/ }
+    context=${context:0:200}
+    [ -n "$context" ] || context="manifest"
+
+    summary=$(jq -cr '
+        def array_entries($name):
+            ([.. | objects | .[$name]? | arrays | length] | add // 0);
+
+        def media_types:
+            ([.. | objects | .mediaType? | strings] | unique | .[:4] | join(","));
+
+        if type == "object" then
+            "json_type=object keys=" + (keys_unsorted | .[:10] | join(","))
+        elif type == "array" then
+            "json_type=array length=" + (length | tostring)
+            + (
+                if ((.[0]? // null) | type) == "object" then
+                    " first_keys=" + (.[0] | keys_unsorted | .[:10] | join(","))
+                else
+                    " first_type=" + ((.[0]? // null) | type)
+                end
+            )
+        else
+            "json_type=" + (type | tostring)
+        end
+        + " mediaTypes=" + media_types
+        + " layerEntries=" + (array_entries("layers") | tostring)
+        + " manifestEntries=" + (array_entries("manifests") | tostring)
+        + " positiveSizeFields="
+        + ([.. | objects | .size? | numbers | select(. > 0)] | length | tostring)
+    ' <<<"$manifest" 2>/dev/null) || {
+        summary=$(jq -Rsr '"sample=" + (.[0:240] | @json)' <<<"$manifest" 2>/dev/null) || summary='sample="<unavailable>"'
+    }
+
+    [ -n "$summary" ] || summary='sample="<empty>"'
+    printf 'Docker manifest size fallback for %s: %s; %s\n' "$context" "$reason" "$summary" >&2
+}
+
 docker_manifest_size() {
     local manifest=$1
+    local context=${2:-manifest}
+    local size
 
-    if [[ -n "$(jq '.. | try .layers[]' 2>/dev/null <<<"$manifest")" ]]; then
-        jq '.. | try .size | select(. > 0)' <<<"$manifest" | awk '{s+=$1} END {printf "%d",  s}'
-    elif [[ -n "$(jq '.. | try .manifests[]' 2>/dev/null <<<"$manifest")" ]]; then
-        jq '.. | try .size | select(. > 0)' <<<"$manifest" | awk '{s+=$1} END {printf "%d",  s/NR}'
-    else
+    [ -n "$manifest" ] || {
         echo -1
+        return 0
+    }
+
+    if ! size=$(jq -r '
+        def array_items($name):
+            [.. | objects | .[$name]? | arrays | .[]?];
+
+        def positive_sizes($items):
+            [$items[]? | .size? | numbers | select(. > 0)];
+
+        positive_sizes(array_items("layers")) as $layers
+        | if ($layers | length) > 0 then
+            ($layers | add | floor)
+        else
+            positive_sizes(array_items("manifests")) as $manifests
+            | if ($manifests | length) > 0 then
+                (($manifests | add) / ($manifests | length) | floor)
+            else
+                -1
+            end
+        end
+    ' <<<"$manifest" 2>/dev/null); then
+        docker_manifest_size_log_fallback "malformed JSON" "$manifest" "$context"
+        echo -1
+        return 0
     fi
+
+    if [[ ! "$size" =~ ^-?[0-9]+$ ]]; then
+        docker_manifest_size_log_fallback "non-integer result" "$manifest" "$context"
+        echo -1
+        return 0
+    fi
+
+    [ "$size" != "-1" ] || docker_manifest_size_log_fallback "unsupported shape" "$manifest" "$context"
+    echo "$size"
 }
 
 owner_get_id() {

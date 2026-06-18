@@ -7,7 +7,13 @@ import time
 
 import pytest
 
-from bkg_py.concurrency import ConcurrencySettings, run_bounded
+from bkg_py.concurrency import (
+    BoundedRunResult,
+    BoundedWorkerRunner,
+    ConcurrencySettings,
+    WorkerEvent,
+    run_bounded,
+)
 from bkg_py.runtime import GracefulStop
 
 
@@ -71,6 +77,24 @@ def test_run_bounded_preserves_result_order() -> None:
     assert [task.name for task in result.completed] == ["1", "2", "3"]
 
 
+def test_runner_emits_structured_task_events() -> None:
+    """Worker events carry stable task context for future Action diagnostics."""
+
+    events: list[WorkerEvent] = []
+    runner = BoundedWorkerRunner(
+        ConcurrencySettings(max_workers=1),
+        event_sink=events.append,
+    )
+
+    result = runner.run(["alpha"], str.upper, task_name=lambda value: f"owner:{value}")
+
+    assert result.ok
+    assert [(event.kind, event.index, event.name) for event in events] == [
+        ("submitted", 0, "owner:alpha"),
+        ("completed", 0, "owner:alpha"),
+    ]
+
+
 def test_run_bounded_limits_active_workers() -> None:
     """No more than the configured worker count runs at once."""
 
@@ -95,6 +119,48 @@ def test_run_bounded_limits_active_workers() -> None:
     assert max_active <= 3
 
 
+def test_runner_bounds_submitted_queue_growth() -> None:
+    """The runner submits only enough work to fill the active worker window."""
+
+    submitted: list[int] = []
+    submitted_three = threading.Event()
+    release = threading.Event()
+
+    def record_event(event: WorkerEvent) -> None:
+        if event.kind == "submitted" and event.index is not None:
+            submitted.append(event.index)
+            if len(submitted) == 3:
+                submitted_three.set()
+
+    def worker(value: int) -> int:
+        release.wait(timeout=5)
+        return value
+
+    runner = BoundedWorkerRunner(
+        ConcurrencySettings(max_workers=3),
+        event_sink=record_event,
+    )
+    result_holder: list[BoundedRunResult[int]] = []
+
+    def run_workers() -> None:
+        result_holder.append(runner.run(list(range(8)), worker))
+
+    thread = threading.Thread(target=run_workers)
+
+    thread.start()
+    try:
+        assert submitted_three.wait(timeout=2)
+        time.sleep(0.05)
+        assert submitted == [0, 1, 2]
+    finally:
+        release.set()
+        thread.join(timeout=5)
+
+    assert not thread.is_alive()
+    assert result_holder
+    assert result_holder[0].ok
+
+
 def test_run_bounded_stops_submitting_after_failure() -> None:
     """A task failure stops new submissions while retaining completed results."""
 
@@ -114,6 +180,33 @@ def test_run_bounded_stops_submitting_after_failure() -> None:
     assert isinstance(result.failure.error, ValueError)
     assert [task.value for task in result.completed] == [1]
     assert started == [1, 2]
+
+
+def test_runner_drains_completed_work_after_graceful_stop() -> None:
+    """Completed work remains available when later submission observes a stop."""
+
+    checks = 0
+    events: list[WorkerEvent] = []
+
+    def check_stop() -> None:
+        nonlocal checks
+        checks += 1
+        if checks > 1:
+            raise GracefulStop("elapsed")
+
+    runner = BoundedWorkerRunner(
+        ConcurrencySettings(max_workers=1),
+        check_stop=check_stop,
+        event_sink=events.append,
+    )
+
+    result = runner.run([1, 2, 3], lambda value: value * 10, task_name=str)
+
+    assert result.stopped
+    assert result.failure is not None
+    assert [task.value for task in result.completed] == [10]
+    assert [event.kind for event in events].count("completed") == 1
+    assert [event.kind for event in events].count("stop-requested") == 1
 
 
 def test_run_bounded_reports_graceful_stop_before_new_work() -> None:
@@ -144,6 +237,51 @@ def test_run_bounded_reports_graceful_stop_before_new_work() -> None:
     assert isinstance(result.failure.error, GracefulStop)
     assert [task.value for task in result.completed] == [1]
     assert started == [1]
+
+
+def test_runner_reports_drain_timeout_for_blocked_worker() -> None:
+    """A blocked worker is reported after the configured drain grace expires."""
+
+    stop_requested = threading.Event()
+    worker_started = threading.Event()
+    release_worker = threading.Event()
+    worker_exited = threading.Event()
+    events: list[WorkerEvent] = []
+
+    def check_stop() -> None:
+        if stop_requested.is_set():
+            raise GracefulStop("elapsed")
+
+    def worker(value: int) -> int:
+        worker_started.set()
+        stop_requested.set()
+        try:
+            release_worker.wait(timeout=5)
+            return value
+        finally:
+            worker_exited.set()
+
+    runner = BoundedWorkerRunner(
+        ConcurrencySettings(max_workers=1, stop_grace_seconds=0.02),
+        check_stop=check_stop,
+        event_sink=events.append,
+        poll_interval=0.005,
+    )
+
+    result = runner.run([1, 2], worker, task_name=str)
+    release_worker.set()
+
+    assert worker_started.is_set()
+    assert worker_exited.wait(timeout=2)
+    assert result.stopped
+    assert result.drain_timed_out
+    assert result.interrupted
+    assert result.interrupted[0].reason == "drain-timeout"
+    assert [event.kind for event in events] == [
+        "submitted",
+        "stop-requested",
+        "drain-timeout",
+    ]
 
 
 def test_run_bounded_rejects_empty_worker_limit() -> None:

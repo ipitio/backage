@@ -19,6 +19,9 @@ test_parallel_shell_func_timeout_fallback() {
 #!/bin/bash
 
 timeout_worker() {
+	echo 'jq: parse error: Invalid string: control characters from U+0000 through U+001F must be escaped' >&2
+	echo 'GitHub operation exceeded its total timeout' >&2
+	echo 'Docker manifest size fallback for alpha/pkg/1 embedded manifest: malformed JSON; sample="{\"bad\":\"raw \\u0001 control\"}"' >&2
 	return 3
 }
 EOF
@@ -37,6 +40,30 @@ EOF
 	[ "$status" -eq 3 ] || fail "Expected parallel_shell_func to return 3 after timeout, got $status"
 	assert_not_contains "$output_file" "parallel: This job failed:"
 	assert_not_contains "$output_file" "parallel: Starting no more jobs."
+	assert_not_contains "$output_file" "jq: parse error:"
+	assert_not_contains "$output_file" "GitHub operation exceeded its total timeout"
+}
+
+test_parallel_shell_func_timeout_stderr_filter_keeps_manifest_diagnostics() {
+	local stderr_file="$workdir/timeout-stderr-filter.err"
+	local output_file="$workdir/timeout-stderr-filter.out"
+
+	{
+		echo 'parallel: This job failed:'
+		echo 'bash /tmp/parallel-worker.sh /tmp/source worker'
+		echo 'parallel: Starting no more jobs. Waiting for 2 jobs to finish.'
+		echo 'jq: parse error: Invalid string: control characters from U+0000 through U+001F must be escaped'
+		echo 'GitHub operation exceeded its total timeout'
+		printf '%s\n' 'Docker manifest size fallback for alpha/pkg/1 embedded manifest: malformed JSON; sample="{\"bad\":\"raw \\u0001 control\"}"'
+	} >"$stderr_file"
+
+	parallel_shell_func_print_timeout_stderr "$stderr_file" >"$output_file" 2>&1
+
+	assert_not_contains "$output_file" "parallel: This job failed:"
+	assert_not_contains "$output_file" "parallel: Starting no more jobs."
+	assert_not_contains "$output_file" "jq: parse error:"
+	assert_not_contains "$output_file" "GitHub operation exceeded its total timeout"
+	assert_contains "$output_file" "Docker manifest size fallback for alpha/pkg/1 embedded manifest: malformed JSON"
 }
 
 test_curl_stops_retrying_after_timeout() {
@@ -539,6 +566,7 @@ trap cleanup EXIT
 source_project_script "bkg.sh"
 
 run_test test_parallel_shell_func_timeout_fallback
+run_test test_parallel_shell_func_timeout_stderr_filter_keeps_manifest_diagnostics
 run_test test_curl_stops_retrying_after_timeout
 run_test test_curl_checks_elapsed_limit_before_successful_request
 run_test test_docker_manifest_inspect_stops_after_timeout

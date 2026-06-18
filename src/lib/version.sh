@@ -784,14 +784,14 @@ update_version() {
         local manifest_ref
         local inspected_manifest
         manifest=$(awk -v RS='</pre>' '/<code.*?>/{gsub(/.*<code.*?>/, ""); print}' <<<"$version_html" | sed 's/&quot;/"/g')
-        version_size=$(docker_manifest_size "$manifest")
-        [[ -n "$version_tags" ]] || version_tags=$(jq '.. | try ."org.opencontainers.image.version" | select(. != null and . != "")' <<<"$manifest")
+        version_size=$(docker_manifest_size "$manifest" "$owner/$package/$version_id embedded manifest")
+        [[ -n "$version_tags" ]] || version_tags=$(jq '.. | try ."org.opencontainers.image.version" | select(. != null and . != "")' <<<"$manifest" 2>/dev/null || :)
 
         if [[ ! "$version_size" =~ ^[0-9]+$ ]]; then
             manifest_ref="ghcr.io/$lower_owner/$lower_package$([[ "$version_name" =~ ^sha256:.+$ ]] && echo "@" || echo ":")$version_name"
             inspected_manifest=$(docker_manifest_inspect "$manifest_ref")
             (($? != 3)) || return 3
-            version_size=$(docker_manifest_size "$inspected_manifest")
+            version_size=$(docker_manifest_size "$inspected_manifest" "$manifest_ref inspected manifest")
         fi
 
         # last resort
