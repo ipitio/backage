@@ -388,6 +388,9 @@ class OwnerIdentityResolver:
         """Return organizations associated with a user login."""
 
         login = owner_ref_login(owner_ref)
+        if not login:
+            return ()
+
         owner_type = self.owner_type(login)
         if owner_type == "Organization":
             return ()
@@ -733,7 +736,7 @@ def _repository_discovery_query(
             f"{_graphql_string(owner)}, name:{_graphql_string(repo)}) "
             "{ forks(first:100"
             f"{after}) {{ nodes {{ owner {{ login ... on User {{ databaseId }} "
-            "... on Organization { databaseId } } } } "
+            "... on Organization { databaseId } } } "
             "pageInfo { hasNextPage endCursor } } } }"
         )
     raise DiscoveryError(f"unsupported repository discovery edge: {edge}")

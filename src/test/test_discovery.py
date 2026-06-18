@@ -43,6 +43,26 @@ def _client(
     )
 
 
+def _assert_top_level_rate_limit(query: str) -> None:
+    rate_limit_index = query.index("rateLimit")
+    balance = 0
+    for char in query[:rate_limit_index]:
+        if char == "{":
+            balance += 1
+        elif char == "}":
+            balance -= 1
+        assert balance >= 0
+    assert balance == 1
+
+    for char in query[rate_limit_index:]:
+        if char == "{":
+            balance += 1
+        elif char == "}":
+            balance -= 1
+        assert balance >= 0
+    assert balance == 0
+
+
 def test_cache_replaces_stale_ref_and_reports_conflicts(tmp_path: Path) -> None:
     """The owner ID cache preserves one unambiguous ref per login."""
 
@@ -257,8 +277,10 @@ def test_repository_nodes_extracts_fork_owners(tmp_path: Path) -> None:
 
     def respond(request: httpx.Request) -> httpx.Response:
         payload = json.loads(request.content)
-        assert "forks(first:100)" in payload["query"]
-        assert "owner { login" in payload["query"]
+        query = payload["query"]
+        assert "forks(first:100)" in query
+        assert "owner { login" in query
+        _assert_top_level_rate_limit(query)
         return httpx.Response(
             200,
             json={
@@ -293,6 +315,18 @@ def test_repository_nodes_extracts_fork_owners(tmp_path: Path) -> None:
     assert not page.has_next_page
     assert page.end_cursor == ""
     assert cache.lookup("forker") == "101/forker"
+
+
+def test_organization_logins_ignore_blank_owner(tmp_path: Path) -> None:
+    """Blank connection rows do not trigger owner-type lookups."""
+
+    def respond(_request: httpx.Request) -> httpx.Response:
+        pytest.fail("blank organization discovery should not perform network requests")
+
+    cache = OwnerIdentityCache(tmp_path / "owner-id-cache.txt")
+    resolver = OwnerIdentityResolver(cache, _client(httpx.MockTransport(respond)))
+
+    assert not resolver.organization_logins("")
 
 
 def test_owner_nodes_parses_user_connection(tmp_path: Path) -> None:

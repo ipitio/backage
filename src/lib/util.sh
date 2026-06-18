@@ -1365,6 +1365,8 @@ curl_orgs() {
     local orgs=""
     local status=0
 
+    [ -n "$target" ] || return 0
+
     if [ -n "${GITHUB_TOKEN:-}" ] && [[ "$target" != orgs/* ]] && [[ "$target" != *\?* ]] && [[ "$target" != */*/* ]]; then
         if [ -n "$resolve_names" ]; then
             orgs=$(bkg_python discovery orgs "$target" --resolve) || status=$?

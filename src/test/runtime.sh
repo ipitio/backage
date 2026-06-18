@@ -975,6 +975,7 @@ test_post_stop_ytox_writes_xml_after_persisted_stop() {
 	local output_dir="$workdir/post-stop-ytox"
 	local json_file="$output_dir/.json"
 	local xml_file="$output_dir/.xml"
+	local output
 
 	mkdir -p "$output_dir"
 	BKG_ENV="$output_dir/env.env"
@@ -982,9 +983,11 @@ test_post_stop_ytox_writes_xml_after_persisted_stop() {
 	set_BKG BKG_TIMEOUT "1"
 	printf '%s\n' '{"owners":"1","repos":"1","packages":"1","raw_owners":1,"raw_repos":1,"raw_packages":1,"date":"2026-06-17"}' >"$json_file"
 
-	post_stop_ytox "$json_file" >/dev/null
+	output=$(post_stop_ytox "$json_file")
 
 	assert_file_exists "$xml_file"
+	[ -z "$output" ] ||
+		fail "Expected post-stop XML conversion to keep byte-count output out of workflow logs"
 	grep -Fq '<owners>1</owners>' "$xml_file" ||
 		fail "Expected post-stop XML conversion to write the index XML endpoint"
 	[ "$(get_BKG BKG_TIMEOUT)" = "1" ] ||

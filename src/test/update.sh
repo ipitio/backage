@@ -67,10 +67,10 @@ import_workflow_payload .bkg "$root" || {
     exit 1
 }
 
-pushd "$root" || exit 1
-pushd src || exit 1
+pushd "$root" >/dev/null || exit 1
+pushd src >/dev/null || exit 1
 source bkg.sh
-popd || exit 1
+popd >/dev/null || exit 1
 
 # permissions
 [ -n "$GITHUB_TOKEN" ] || GITHUB_TOKEN=$(remote_url=$(git config --get remote.origin.url); if grep -q '@' <<<"$remote_url"; then grep -oP '(?<=://)[^@]+' <<<"$remote_url"; else echo ""; fi)
@@ -143,12 +143,12 @@ git worktree add --no-checkout -f "$BKG_INDEX" "$BKG_INDEX"
 log_update_startup_phase "attach-index-worktree" "$WORKTREE_PHASE_STARTED_AT"
 
 WORKTREE_PHASE_STARTED_AT=$(update_startup_phase_started_at)
-pushd "$BKG_INDEX" || exit 1
+pushd "$BKG_INDEX" >/dev/null || exit 1
 index_sparse_set_root
 git reset --hard origin/"$BKG_INDEX"
-popd || exit 1
+popd >/dev/null || exit 1
 [ -f "$BKG_INDEX"/.env ] && \cp "$BKG_INDEX"/.env src/env.env || touch src/env.env
-pushd src || exit 1
+pushd src >/dev/null || exit 1
 log_update_startup_phase "prepare-index-worktree" "$UPDATE_STARTUP_PHASE_STARTED_AT"
 
 snapshot_file=$(startup_index_snapshot_archive_file 2>/dev/null || :)
@@ -188,15 +188,15 @@ snapshot_file=$(post_stop_current_index_snapshot_archive_file 2>/dev/null || :)
 [ "$(stat -c %s "$snapshot_file" 2>/dev/null || echo 0)" -ge 100 ] || exit 1
 # files should be valid, warn if not, unless only opted out owners
 #(( return_code == 1 )) || find .. -type f -name '*.json' -o -name '*.xml' | parallel --lb test/index.sh {}
-popd || exit 1
+popd >/dev/null || exit 1
 \cp src/env.env "$BKG_INDEX"/.env
 
 if git worktree list | grep -q "$BKG_INDEX"; then
-    pushd "$BKG_INDEX" || exit 1
+    pushd "$BKG_INDEX" >/dev/null || exit 1
     git add .
     git commit -m "$(date -u +%Y-%m-%d)"
     git push --set-upstream origin "$BKG_INDEX"
-    popd || exit 1
+    popd >/dev/null || exit 1
     ! git worktree list | grep -q "$BKG_INDEX".bak || git worktree remove -f "$BKG_INDEX".bak &>/dev/null
 fi
 
@@ -212,4 +212,4 @@ if ! git diff --cached --quiet; then
 else
     echo "No top-level txt/README changes to commit"
 fi
-popd || exit 1
+popd >/dev/null || exit 1

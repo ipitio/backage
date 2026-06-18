@@ -466,6 +466,25 @@ test_graphql_discovery_paths_avoid_html_scraping() {
     grep -Fxq delta <<<"$membership_nodes" || fail "Expected GraphQL membership discovery to emit organization member logins"
 }
 
+test_curl_orgs_ignores_blank_target() {
+    local orgs
+
+    setup_discovery_fixture
+    init_bkg_state
+    GITHUB_TOKEN=dummy
+
+    bkg_python() {
+        fail "Blank organization discovery should not call Python"
+    }
+
+    curl() {
+        fail "Blank organization discovery should not scrape GitHub"
+    }
+
+    orgs=$(curl_orgs "")
+    [ -z "$orgs" ] || fail "Expected blank organization discovery to emit no owners"
+}
+
 test_remembered_no_package_connection_owner_is_filtered_but_manual_owner_is_not() {
     local filtered_after_remember
     local filtered_manual_after_remember
@@ -523,6 +542,7 @@ run_test test_unresolved_partial_owner_refresh_reconciles_complete_listing
 run_test test_stale_owner_scan_marker_restarts_from_first_page
 run_test test_page_owner_merges_deduplicated_api_pages
 run_test test_graphql_discovery_paths_avoid_html_scraping
+run_test test_curl_orgs_ignores_blank_target
 run_test test_remembered_no_package_connection_owner_is_filtered_but_manual_owner_is_not
 
 echo "Second-hop discovery regression test passed"

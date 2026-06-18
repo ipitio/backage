@@ -238,7 +238,7 @@ post_stop_current_index_snapshot_archive_file() {
 
 post_stop_ytox() {
 	[ -n "$1" ] || return 1
-	post_stop_bkg_python json-to-xml "$1"
+	post_stop_bkg_python json-to-xml "$1" >/dev/null
 }
 
 startup_index_snapshot_archive_file() {
@@ -454,12 +454,14 @@ main() {
 						phase_status=$?
 						((phase_status != 3)) || return_code=3
 						log_startup_phase "discover-connections" "$phase_started_at"
+						clean_owners "$connections"
 
 						if ((return_code != 3)); then
 
 							# get orgs of connections
 							phase_started_at=$(startup_phase_started_at)
 							while read -r connection; do
+								[ -n "$connection" ] || continue
 								curl_orgs "$connection" >>"$temp_connections"
 								phase_status=$?
 								if ((phase_status == 3)); then
@@ -468,11 +470,12 @@ main() {
 								fi
 							done <"$connections"
 							cat "$temp_connections" >>"$connections"
+							clean_owners "$connections"
 							log_startup_phase "expand-connection-orgs" "$phase_started_at"
 						fi
 					fi
 
-					sed -i 's/^[[:space:]]*//;s/[[:space:]]*$//; /^$/d; /^0\/$/d' "$connections"
+					clean_owners "$connections"
 					if ! daily_gate_completed_today BKG_LAST_EXPLORE_DATE "$today" && ((return_code != 3)); then
 						mark_daily_gate_completed BKG_LAST_EXPLORE_DATE "$today"
 					fi
