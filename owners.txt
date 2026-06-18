@@ -1,4 +1,3 @@
-2436976/NerdKing99
 2437001/POPQA
 2441572/SocialShoppingNetwork
 2439520/TestFMSQN
@@ -323,3 +322,4 @@
 2461690/Deeplace
 2461693/Q-Geeks
 2461731/bebook
+2461796/Elektroshop
