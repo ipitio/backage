@@ -365,6 +365,20 @@ def _add_discovery_parsers(subparsers: Any) -> None:
     owner_nodes_parser.add_argument("edge")
     owner_nodes_parser.add_argument("cursor", nargs="?", default="")
     owner_nodes_parser.add_argument("owner_type", nargs="?", default="")
+    owner_page_parser = discovery_commands.add_parser(
+        "owner-page",
+        help="print one REST user and organization discovery page",
+    )
+    owner_page_parser.add_argument("page", type=int)
+    owner_page_parser.add_argument("last_id", type=int)
+    owner_page_parser.add_argument("per_page", type=int)
+    admit_owner_page_parser = discovery_commands.add_parser(
+        "admit-owner-page",
+        help="fetch and admit one REST owner discovery page",
+    )
+    admit_owner_page_parser.add_argument("page", type=int)
+    admit_owner_page_parser.add_argument("per_page", type=int)
+    admit_owner_page_parser.add_argument("packages_all_file")
     orgs_parser = discovery_commands.add_parser(
         "orgs",
         help="print one user's organization discovery results",

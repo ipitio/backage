@@ -503,6 +503,37 @@ test_query_graphql_api_checks_elapsed_limit_before_request() {
 	GITHUB_TOKEN=""
 }
 
+test_page_owner_checks_elapsed_limit_before_request() {
+	local status=0
+	local now
+
+	now=$(date -u +%s)
+	BKG_ENV="$workdir/env-page-owner-preflight.env"
+	: >"$BKG_ENV"
+	set_BKG BKG_SCRIPT_START "$((now - 5))"
+	set_BKG BKG_RATE_LIMIT_START "$now"
+	set_BKG BKG_MIN_RATE_LIMIT_START "$now"
+	set_BKG BKG_CALLS_TO_API 0
+	set_BKG BKG_MIN_CALLS_TO_API 0
+	BKG_MAX_LEN=1
+	BKG_PAGE_ALL=1
+	GITHUB_TOKEN=dummy
+
+	bkg_python() {
+		fail "Expected page_owner to stop before calling Python when the elapsed limit is exceeded"
+	}
+
+	if page_owner 1 >/dev/null 2>&1; then
+		fail "Expected page_owner to return 3 when the elapsed limit is exceeded before the request starts"
+	else
+		status=$?
+	fi
+
+	[ "$status" -eq 3 ] || fail "Expected page_owner to return 3 after elapsed limit preflight, got $status"
+	unset -f bkg_python
+	GITHUB_TOKEN=""
+}
+
 trap cleanup EXIT
 
 source_project_script "bkg.sh"
@@ -523,5 +554,6 @@ run_test test_owner_update_status_keeps_graceful_timeout_publishable
 run_test test_owner_update_status_aborts_unexpected_failure
 run_test test_query_api_checks_elapsed_limit_before_request
 run_test test_query_graphql_api_checks_elapsed_limit_before_request
+run_test test_page_owner_checks_elapsed_limit_before_request
 
 echo "Timeout propagation regression tests passed"

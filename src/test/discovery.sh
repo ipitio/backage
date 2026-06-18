@@ -338,55 +338,69 @@ test_stale_owner_scan_marker_restarts_from_first_page() {
 }
 
 test_page_owner_merges_deduplicated_api_pages() {
+    local output_file="$workdir/page-owner-output.txt"
+
     setup_discovery_fixture
     init_bkg_state
     GITHUB_TOKEN=dummy
     BKG_PAGE_ALL=1
     set_BKG BKG_LAST_SCANNED_ID 0
+    : >"$output_file"
 
-    query_api() {
-        case "$1" in
-        users*'&page=1&'*)
-            printf '%s\n' '[{"id":1,"login":"alpha"}]'
+    bkg_python() {
+        [ "$1" = "discovery" ] || fail "Expected discovery command group"
+        [ "$2" = "admit-owner-page" ] || fail "Expected admit-owner-page command"
+        [ "$4" = "1" ] || fail "Expected owner page discovery to use the one-owner crawl page size"
+        [ "$5" = "packages_all" ] || fail "Expected owner page admission to read packages_all"
+        case "$3" in
+        1)
+            printf '%s\t%s\n' has_more true
+            printf '%s\t%s\n' owners_count 1
+            printf '%s\t%s\n' admitted_count 1
+            printf '%s\t%s\n' requested alpha
             ;;
-        organizations*'&page=1&'*)
-            printf '%s\n' '[{"id":1,"login":"alpha"}]'
+        2)
+            printf '%s\t%s\n' has_more true
+            printf '%s\t%s\n' owners_count 1
+            printf '%s\t%s\n' admitted_count 1
+            printf '%s\t%s\n' requested beta
             ;;
-        users*'&page=2&'*)
-            printf '%s\n' '[{"id":2,"login":"beta"}]'
+        3)
+            printf '%s\t%s\n' has_more false
+            printf '%s\t%s\n' owners_count 0
+            printf '%s\t%s\n' admitted_count 0
             ;;
-        organizations*'&page=2&'*)
-            printf '%s\n' '[]'
-            ;;
-        users*'&page=3&'*)
-            printf '%s\n' '[]'
-            ;;
-        organizations*'&page=3&'*)
-            printf '%s\n' '[]'
+        *)
+            fail "Unexpected owner page request: $3"
             ;;
         esac
     }
 
+    query_api() {
+        fail "Expected page_owner REST discovery to be handled by Python"
+    }
+
     request_owner() {
-        :
+        fail "Expected page_owner admission to be handled by Python"
     }
 
     jq() {
-        if [[ " $* " == *" --argjson users "* ]] || [[ " $* " == *" --argjson orgs "* ]]; then
-            fail "Expected page_owner to merge API pages without jq --argjson"
-        fi
-
-        command jq "$@"
+        fail "Expected page_owner to avoid shell JSON parsing"
     }
 
-    page_owner 1 >/dev/null || fail "Expected page_owner page 1 to continue when both raw API pages are full but the merged owner list deduplicates to one owner"
-    page_owner 2 >/dev/null || fail "Expected page_owner page 2 to continue when one raw API page is still full"
+    page_owner 1 >>"$output_file" || fail "Expected page_owner page 1 to continue when Python reports more owners"
+    page_owner 2 >>"$output_file" || fail "Expected page_owner page 2 to continue when Python reports more owners"
 
     if page_owner 3 >/dev/null; then
         fail "Expected page_owner to stop paging after both raw API pages are short"
     elif [ "$?" -ne 2 ]; then
         fail "Expected page_owner to return 2 when paging should stop"
     fi
+
+    grep -Fxq "Requested alpha" "$output_file" ||
+        fail "Expected page_owner to echo Python admission logs"
+    grep -Fxq "Requested beta" "$output_file" ||
+        fail "Expected page_owner to echo Python admission logs"
 }
 
 test_graphql_discovery_paths_avoid_html_scraping() {

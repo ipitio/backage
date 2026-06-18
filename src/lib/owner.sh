@@ -3,46 +3,6 @@
 
 source lib/package.sh
 
-request_owner() {
-	[ -n "$1" ] || return
-	local owner=""
-	local id=""
-	local return_code=0
-	local status=0
-	local paging=true
-	owner=$(_jq "$1" '.login' 2>/dev/null)
-	[ -n "$owner" ] && id=$(_jq "$1" '.id' 2>/dev/null) || paging=false
-
-	if [ -z "$id" ]; then
-		owner=$(owner_get_id "$1")
-		status=$?
-		((status != 3)) || return 3
-		((status != BKG_OWNER_NOT_FOUND_STATUS)) || return 0
-		((status == 0)) || return "$status"
-		id=$(cut -d'/' -f1 <<<"$owner")
-		owner=$(cut -d'/' -f2 <<<"$owner")
-	fi
-
-	cache_owner_ref "$id/$owner"
-
-	! awk -F'|' -v owner_key="$owner" '$2 == owner_key { found = 1; exit } END { exit !found }' packages_all || return 1
-	until ln "$BKG_OWNERS" "$BKG_OWNERS.lock" 2>/dev/null; do sleep 0.05; done
-	awk -F'/' -v owner_key="$owner" '$NF == owner_key { found = 1; exit } END { exit !found }' "$BKG_OWNERS" || echo "$id/$owner" >>"$BKG_OWNERS"
-
-	if [ "$(stat -c %s "$BKG_OWNERS")" -ge 100000000 ]; then
-		sed -i '$d' "$BKG_OWNERS"
-		return_code=2
-	elif $paging && [ -n "$id" ]; then
-		echo "Requested $owner"
-		local last_id
-		last_id=$(get_BKG BKG_LAST_SCANNED_ID)
-		((id <= last_id)) || set_BKG BKG_LAST_SCANNED_ID "$id"
-	fi
-
-	rm -f "$BKG_OWNERS.lock"
-	return $return_code
-}
-
 save_owner() {
 	[ -n "$1" ] || return
 	local owner_id
@@ -365,10 +325,6 @@ retire_missing_owner() {
 	awk -F'/' -v owner_key="$owner_name" '$NF != owner_key' "$BKG_OWNERS" >"$temp_file"
 	mv "$temp_file" "$BKG_OWNERS"
 	echo "Retired unavailable owner $owner_name"
-}
-
-owner_merge_pages_json() {
-	printf '%s\n%s\n' "${1:-[]}" "${2:-[]}" | jq -cs 'add | unique_by(.login)'
 }
 
 owner_build_json_array_once() {
@@ -1042,32 +998,35 @@ owner_build_repo_json_arrays() {
 
 page_owner() {
 	[ -n "$1" ] || return
-	local owners_more="[]"
-	local users_more="[]"
-	local orgs_more="[]"
 	local per_page=100
-	local users_count=0
-	local orgs_count=0
+	local owner_page_output=""
+	local has_more=false
+	local key
+	local value
+	local status=0
 
-	if [ -n "$GITHUB_TOKEN" ]; then
-		echo "Checking owners page $1..."
-		local last_id
-		last_id=$(get_BKG BKG_LAST_SCANNED_ID)
-		((BKG_PAGE_ALL > 0)) && per_page=1 || per_page=100
-		users_more=$(query_api "users?per_page=$per_page&page=$1&since=$last_id")
-		orgs_more=$(query_api "organizations?per_page=$per_page&page=$1&since=$last_id")
-		users_count=$(jq 'length' <<<"$users_more" 2>/dev/null || echo 0)
-		orgs_count=$(jq 'length' <<<"$orgs_more" 2>/dev/null || echo 0)
-		owners_more=$(owner_merge_pages_json "$users_more" "$orgs_more")
-	fi
+	[ -n "$GITHUB_TOKEN" ] || return 2
 
-	# if owners doesn't have .login, break
-	jq -e '.[].login' <<<"$owners_more" &>/dev/null || return 2
-	local owners_lines
-	owners_lines=$(jq -r '.[] | @base64' <<<"$owners_more")
-	run_parallel request_owner "$owners_lines"
+	echo "Checking owners page $1..."
+	((BKG_PAGE_ALL > 0)) && per_page=1 || per_page=100
+	check_limit || return $?
+	owner_page_output=$(bkg_python discovery admit-owner-page "$1" "$per_page" packages_all) || status=$?
+	((status != 3)) || return 3
+	((status == 0)) || return "$status"
+
+	while IFS=$'\t' read -r key value; do
+		case "$key" in
+		has_more)
+			has_more=$value
+			;;
+		requested)
+			echo "Requested $value"
+			;;
+		esac
+	done <<<"$owner_page_output"
+
 	echo "Checked owners page $1"
-	((users_count >= per_page || orgs_count >= per_page)) || return 2
+	[ "$has_more" = true ] || return 2
 }
 
 update_owner() {

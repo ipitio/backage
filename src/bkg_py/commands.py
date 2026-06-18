@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import sys
 from collections.abc import Iterable
@@ -24,8 +25,14 @@ from .discovery import (
     DiscoveryPage,
     OwnerIdentityCache,
     OwnerIdentityResolver,
+    RestOwnerDiscoveryPage,
 )
 from .github import GitHubError, dump_json
+from .owner_pages import (
+    OwnerPageAdmissionConfig,
+    OwnerPageAdmissionResult,
+    admit_owner_page,
+)
 from .owner_queue import OwnerQueueSelector
 from .publication import PublicationError, publish_json_file, write_xml_file
 from .rendering import (
@@ -384,7 +391,7 @@ def _run_discovery(
                 OwnerIdentityCache.from_config(application.config),
                 client,
             )
-            _run_discovery_command(args, resolver)
+            _run_discovery_command(args, resolver, application)
     except GracefulStop as error:
         return _graceful_stop_status(error)
     except (DiscoveryError, GitHubError, OSError) as error:
@@ -396,12 +403,13 @@ def _run_discovery(
 def _run_discovery_command(
     args: argparse.Namespace,
     resolver: OwnerIdentityResolver,
+    application: ApplicationContext,
 ) -> None:
     command = args.discovery_command
     if command in {"owner-type", "resolve-owner", "resolve-owner-ids"}:
         _run_discovery_identity_command(args, resolver)
-    elif command in {"repo-nodes", "owner-nodes"}:
-        _run_discovery_page_command(args, resolver)
+    elif command in {"repo-nodes", "owner-nodes", "owner-page", "admit-owner-page"}:
+        _run_discovery_page_command(args, resolver, application)
     elif command in {"orgs", "explore", "membership"}:
         _run_discovery_traversal_command(args, resolver)
     else:
@@ -437,6 +445,7 @@ def _run_discovery_identity_command(
 def _run_discovery_page_command(
     args: argparse.Namespace,
     resolver: OwnerIdentityResolver,
+    application: ApplicationContext,
 ) -> None:
     command = args.discovery_command
     if command == "repo-nodes":
@@ -455,6 +464,27 @@ def _run_discovery_page_command(
                 args.edge,
                 args.cursor,
                 args.owner_type,
+            )
+        )
+    elif command == "owner-page":
+        _print_rest_owner_page(
+            resolver.owner_page(
+                args.page,
+                last_id=args.last_id,
+                per_page=args.per_page,
+            )
+        )
+    elif command == "admit-owner-page":
+        _print_owner_page_admission(
+            admit_owner_page(
+                resolver,
+                OwnerPageAdmissionConfig(
+                    application.state,
+                    Path(application.config.owners_file),
+                    Path(args.packages_all_file),
+                ),
+                args.page,
+                args.per_page,
             )
         )
     else:
@@ -485,6 +515,28 @@ def _print_discovery_page(page: DiscoveryPage) -> None:
     print("has_next", str(page.has_next_page).lower(), sep="\t")
     print("end_cursor", page.end_cursor, sep="\t")
     sys.stdout.writelines(f"node\t{node}\n" for node in page.nodes)
+
+
+def _print_rest_owner_page(page: RestOwnerDiscoveryPage) -> None:
+    print("users_count", page.users_count, sep="\t")
+    print("orgs_count", page.orgs_count, sep="\t")
+    for owner in page.owners:
+        encoded = base64.b64encode(
+            json.dumps(
+                owner,
+                ensure_ascii=False,
+                allow_nan=False,
+                separators=(",", ":"),
+            ).encode()
+        ).decode()
+        print("owner", encoded, sep="\t")
+
+
+def _print_owner_page_admission(result: OwnerPageAdmissionResult) -> None:
+    print("has_more", str(result.has_more).lower(), sep="\t")
+    print("owners_count", result.owners_count, sep="\t")
+    print("admitted_count", result.admitted_count, sep="\t")
+    sys.stdout.writelines(f"requested\t{login}\n" for login in result.requested_logins)
 
 
 def _print_lines(values: Iterable[str]) -> None:

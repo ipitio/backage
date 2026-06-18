@@ -60,6 +60,22 @@ class DiscoveryPage:
     end_cursor: str = ""
 
 
+@dataclass(frozen=True)
+class RestOwnerDiscoveryPage:
+    """One REST page of global user and organization owner records."""
+
+    owners: tuple[dict[str, object], ...]
+    users_count: int
+    orgs_count: int
+
+    def has_more(self, per_page: int) -> bool:
+        """Return whether either raw REST page was full enough to continue."""
+
+        return bool(self.owners) and (
+            self.users_count >= per_page or self.orgs_count >= per_page
+        )
+
+
 @dataclass
 class _CandidateResolutionState:
     resolved_by_owner: dict[str, str]
@@ -401,6 +417,35 @@ class OwnerIdentityResolver:
             return self.organization_logins(owner)
         raise DiscoveryError(f"owner type not found for {owner}")
 
+    def owner_page(
+        self,
+        page: int,
+        *,
+        last_id: int = 0,
+        per_page: int = 100,
+    ) -> RestOwnerDiscoveryPage:
+        """Return one global REST owner discovery page."""
+
+        if page <= 0:
+            raise DiscoveryError("owner discovery page must be greater than zero")
+        if per_page <= 0:
+            raise DiscoveryError("owner discovery page size must be greater than zero")
+        if last_id < 0:
+            raise DiscoveryError("owner discovery since ID cannot be negative")
+
+        users = self._rest_owner_page("users", page, last_id=last_id, per_page=per_page)
+        orgs = self._rest_owner_page(
+            "organizations",
+            page,
+            last_id=last_id,
+            per_page=per_page,
+        )
+        return RestOwnerDiscoveryPage(
+            owners=_merge_rest_owner_pages(users, orgs),
+            users_count=len(users),
+            orgs_count=len(orgs),
+        )
+
     def _resolve_graphql_batches(
         self,
         unresolved: Sequence[str],
@@ -441,6 +486,24 @@ class OwnerIdentityResolver:
         return OwnerLookupResult(
             None,
             missing=missing_responses == len(_REST_OWNER_LOOKUP_PREFIXES),
+        )
+
+    def _rest_owner_page(
+        self,
+        kind: str,
+        page: int,
+        *,
+        last_id: int,
+        per_page: int,
+    ) -> tuple[dict[str, object], ...]:
+        path = f"{kind}?per_page={per_page}&page={page}&since={last_id}"
+        response_value: object = self.client.rest_json(path).value
+        if not isinstance(response_value, list):
+            raise DiscoveryError(f"invalid REST owner page response: {kind}")
+        return tuple(
+            cast(dict[str, object], item)
+            for item in cast(list[object], response_value)
+            if isinstance(item, dict)
         )
 
     def _explore_repository(self, node: str, edge: str) -> tuple[str, ...]:
@@ -594,6 +657,19 @@ def _unique(values: Iterable[str]) -> list[str]:
         seen.add(value)
         result.append(value)
     return result
+
+
+def _merge_rest_owner_pages(
+    users: Sequence[dict[str, object]],
+    orgs: Sequence[dict[str, object]],
+) -> tuple[dict[str, object], ...]:
+    owners_by_login: dict[str, dict[str, object]] = {}
+    for owner in (*users, *orgs):
+        login = owner.get("login")
+        if not isinstance(login, str) or not login:
+            continue
+        owners_by_login.setdefault(login, owner)
+    return tuple(owners_by_login[login] for login in sorted(owners_by_login))
 
 
 def _chunks(values: Sequence[str], size: int) -> Generator[list[str], None, None]:
@@ -780,6 +856,8 @@ def _rest_owner_identity(value: object, *, fallback_login: str) -> OwnerIdentity
     login = data.get("login")
     if not isinstance(login, str) or not login:
         login = fallback_login
+    if not login:
+        return None
     return OwnerIdentity(str(owner_id), login)
 
 

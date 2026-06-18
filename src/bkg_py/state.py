@@ -57,11 +57,16 @@ class StateStore:
 
     @contextmanager
     def _lock(self, lock_path: Path) -> Generator[None, None, None]:
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.path.touch(exist_ok=True)
         while True:
             try:
                 os.link(self.path, lock_path)
                 break
             except FileExistsError:
+                time.sleep(self.lock_poll_interval)
+            except FileNotFoundError:
+                self.path.touch(exist_ok=True)
                 time.sleep(self.lock_poll_interval)
 
         try:
