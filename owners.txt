@@ -1,13 +1,10 @@
-2439559/VStudios007
 2439562/VStudiosNASA
 2438166/ZOMGClan
 2437025/Voodo133
 2437022/Zerc727
 2437047/ahmetaa
 2437019/advice8sand
-2437058/anandkumar-sysad
 2436978/annaleah
-2437028/antondxw
 2439294/blinkmedias
 2437071/bongsus
 2437868/cheerz
@@ -15,7 +12,6 @@
 2437045/dcdaniels77
 2436992/dvdm
 2436971/gauravv
-2437064/goldbean24
 2437046/gudbrandurorn
 2437777/hardwarepl
 2437027/hisdabuir59
@@ -232,12 +228,9 @@
 2456130/mouth9drive
 2456338/hogedriven
 2456371/OTE-IDE
-2456411/Altien
 2456372/ravigandhi
 2456499/Sentido-Labs
 2456500/besthdtvru850t70
-2456860/mcb80x
-2456942/comunes
 2457042/Rheinfire
 2457173/dmtx
 2457174/hagima
@@ -246,7 +239,6 @@
 2457547/Pomlo
 2457610/forkability
 2457611/lw1990
-2457616/variability
 2457617/miberen
 2457885/pygmyos
 2458159/CHBA
@@ -275,7 +267,6 @@
 2459379/roncking
 2459517/mestoz
 2459637/pastor38sharon
-2459819/DragonFireCata
 2459820/braunluk
 2460482/TouchtechLtd
 2460484/SergeyKhlybov
@@ -284,14 +275,11 @@
 2460754/Bilue
 2460755/weekneon69
 2460952/NumberSensei
-2461091/axorhythm
-2461092/Clleniil
 2461172/gun6burn
 2461236/melmax
 2461269/cristianbotesv
 2461292/fvikky
 2461491/Dromtorp2ISA
-2461493/fanpilotcou990y6
 2461633/ali-alqawaeen
 2461690/Deeplace
 2461693/Q-Geeks
@@ -302,4 +290,4 @@
 2461880/esthermosad
 2462058/Peter0
 2462071/adi52i
-2462283/FastrBooks
+2462284/Ghousepasha-ios
