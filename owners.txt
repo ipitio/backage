@@ -1,4 +1,3 @@
-2441495/TSASoftware
 2440137/Tyneo
 2439559/VStudios007
 2439562/VStudiosNASA
@@ -10,12 +9,9 @@
 2437058/anandkumar-sysad
 2436978/annaleah
 2437028/antondxw
-2437075/areum
 2439294/blinkmedias
 2437071/bongsus
-2437805/broadstreetads
 2437868/cheerz
-2438653/compartment
 2437020/converspace
 2437045/dcdaniels77
 2436992/dvdm
@@ -42,7 +38,6 @@
 2440141/sorcode
 2438104/tagholic
 2437050/tuba6tire
-2440077/tunespeak
 2437029/vessel8reason
 2437002/wizardone
 2436986/wwwmonkey
@@ -89,7 +84,6 @@
 2452784/IPAMS
 2447372/KeynoteSystems
 2449400/KarmaBox
-2446970/LevelEleven
 2446547/Madahin
 2446574/Loganwheeler
 2451383/Mercurified
@@ -256,8 +250,6 @@
 2457616/variability
 2457617/miberen
 2457885/pygmyos
-2457962/Cabernet
-2458016/CMPUT301F12T13
 2458159/CHBA
 2458017/mohammadsuth49
 2458287/hinantin
@@ -278,13 +270,11 @@
 2459134/BabyPhoenix
 2459050/dferraris
 2459150/xplsv
-2459151/UsmanAfzal
 2459239/tartarus
 2459207/devbootcampa
 2459378/Interfolio
 2459379/roncking
 2459517/mestoz
-2459573/dagarrat
 2459637/pastor38sharon
 2459819/DragonFireCata
 2459820/braunluk
@@ -312,3 +302,4 @@
 2461879/entitas
 2461880/esthermosad
 2462058/Peter0
+2462071/adi52i
