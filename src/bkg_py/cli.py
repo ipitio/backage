@@ -53,6 +53,7 @@ def build_parser() -> argparse.ArgumentParser:
     _add_snapshot_parsers(subparsers)
     _add_github_parsers(subparsers)
     _add_discovery_parsers(subparsers)
+    _add_version_parsers(subparsers)
     return parser
 
 
@@ -216,6 +217,26 @@ def _add_package_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("owner")
     parser.add_argument("repo")
     parser.add_argument("package")
+
+
+def _add_version_parsers(subparsers: Any) -> None:
+    version_parser = subparsers.add_parser(
+        "version",
+        help="run migrated package-version helpers",
+    )
+    version_commands = version_parser.add_subparsers(
+        dest="version_command",
+        required=True,
+    )
+    parse_page_parser = version_commands.add_parser(
+        "parse-page-html",
+        help="parse a GitHub package version listing page from stdin",
+    )
+    parse_page_parser.add_argument("owner_type")
+    parse_page_parser.add_argument("owner")
+    parse_page_parser.add_argument("repo")
+    parse_page_parser.add_argument("package_type")
+    parse_page_parser.add_argument("package")
 
 
 def _add_snapshot_parsers(subparsers: Any) -> None:

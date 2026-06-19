@@ -4,12 +4,15 @@ from __future__ import annotations
 
 from bkg_py.versions import (
     DownloadMetrics,
+    VersionListEntry,
+    VersionListingContext,
     extract_download_metric,
     extract_download_metrics,
     extract_embedded_manifest,
     extract_oci_version_labels,
     manifest_size,
     parse_metric_value,
+    parse_version_listing_html,
 )
 
 
@@ -41,6 +44,54 @@ def test_extract_download_metrics_from_version_page_spans() -> None:
         day=6,
     )
     assert extract_download_metric(html, "Missing") == -1
+
+
+def test_parse_version_listing_html_matches_github_rows() -> None:
+    """Version listing rows retain IDs, names, tags, and current decoding rules."""
+
+    html = """
+    <li class="Box-row">
+      <a href="/orgs/Lazztech/packages/container/libre-closet/123?tag=latest"></a>
+      <a href="/orgs/Lazztech/packages/container/libre-closet/123?tag=stable%2F1"></a>
+      <a href="/orgs/Lazztech/packages/container/libre-closet/123?tag=latest"></a>
+      <a href="/orgs/Lazztech/packages/container/libre-closet/123">sha256:abc</a>
+    </li>
+    <li class="Box-row">
+      <a href="/Lazztech/Libre-Closet/pkgs/container/libre-closet/124"></a>
+      <input value="sha256:line%09name%0Dtest" />
+    </li>
+    <li class="Box-row">
+      <a href="/Lazztech/Libre-Closet/pkgs/container/libre-closet/125"></a>
+      <span class="color-fg-muted">v1.2.3</span>
+    </li>
+    <li class="Box-row">
+      <a href="/Lazztech/Libre-Closet/pkgs/container/libre-closet/126"></a>
+      <span class="color-fg-muted">  not-a-name  </span>
+    </li>
+    """
+
+    entries = parse_version_listing_html(
+        html,
+        VersionListingContext(
+            owner_type="orgs",
+            owner="Lazztech",
+            repo="Libre-Closet",
+            package_type="container",
+            package="libre-closet",
+        ),
+    )
+
+    assert entries == (
+        VersionListEntry(123, "sha256:abc", ("latest", "stable/1")),
+        VersionListEntry(124, "sha256:line\tname\rtest"),
+        VersionListEntry(125, "v1.2.3"),
+        VersionListEntry(126, "126"),
+    )
+    assert entries[0].json_object() == {
+        "id": 123,
+        "name": "sha256:abc",
+        "tags": ["latest", "stable/1"],
+    }
 
 
 def test_extract_embedded_manifest_preserves_current_html_shape() -> None:

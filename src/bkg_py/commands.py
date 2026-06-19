@@ -48,6 +48,7 @@ from .result import ExitStatus
 from .runtime import GracefulStop
 from .snapshots import SnapshotError, SnapshotStore
 from .validation import validate_generated_file
+from .versions import VersionListingContext, parse_version_listing_html
 
 
 def _package_ref(args: argparse.Namespace) -> PackageRef:
@@ -662,6 +663,30 @@ def _snapshot_signature_status(snapshots: SnapshotStore) -> ExitStatus:
     )
 
 
+def _run_version(args: argparse.Namespace) -> ExitStatus:
+    if args.version_command == "parse-page-html":
+        entries = parse_version_listing_html(
+            sys.stdin.read(),
+            VersionListingContext(
+                owner_type=args.owner_type,
+                owner=args.owner,
+                repo=args.repo,
+                package_type=args.package_type,
+                package=args.package,
+            ),
+        )
+        print(
+            json.dumps(
+                [entry.json_object() for entry in entries],
+                ensure_ascii=False,
+                allow_nan=False,
+                separators=(",", ":"),
+            )
+        )
+        return ExitStatus.SUCCESS
+    return ExitStatus.NON_FATAL
+
+
 def _run_application_command(
     args: argparse.Namespace,
     parser: argparse.ArgumentParser,
@@ -718,6 +743,8 @@ def run_command(
                 encoding="utf-8",
             )
         status = ExitStatus.SUCCESS
+    elif args.command == "version":
+        status = _run_version(args)
     else:
         status = _run_application_command(args, parser)
     return status

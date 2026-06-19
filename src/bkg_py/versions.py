@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import html as html_lib
 import json
 import math
 import re
@@ -9,6 +10,7 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from typing import cast
+from urllib.parse import unquote_plus
 
 _DOWNLOAD_LABELS = {
     "total": "Total downloads",
@@ -19,6 +21,14 @@ _DOWNLOAD_LABELS = {
 _METRIC_SUFFIXES = "KMBTPEZY"
 _METRIC_PATTERN = re.compile(r"^([0-9]+(?:\.[0-9]+)?)([A-Za-z]?)$")
 _CODE_PATTERN = re.compile(r"<code.*?>", re.DOTALL)
+_LIST_ITEM_PATTERN = re.compile(
+    r"<li\b[^>]*class=\"[^\"]*\bBox-row\b[^\"]*\"[^>]*>(.*?)</li>",
+    re.DOTALL,
+)
+_MUTED_SPAN_PATTERN = re.compile(
+    r"<span class=\"color-fg-muted\">([^<]+)</span>",
+    re.DOTALL,
+)
 
 
 @dataclass(frozen=True)
@@ -44,6 +54,35 @@ class ManifestSizeResult:
         """Return whether a positive manifest size was found."""
 
         return self.size >= 0
+
+
+@dataclass(frozen=True)
+class VersionListEntry:
+    """One package version advertised on a GitHub version listing page."""
+
+    version_id: int
+    name: str
+    tags: tuple[str, ...] = ()
+
+    def json_object(self) -> dict[str, object]:
+        """Return the shell-compatible JSON representation."""
+
+        return {
+            "id": self.version_id,
+            "name": self.name,
+            "tags": list(self.tags),
+        }
+
+
+@dataclass(frozen=True)
+class VersionListingContext:
+    """Package identity needed to recognize version-listing links."""
+
+    owner_type: str
+    owner: str
+    repo: str
+    package_type: str
+    package: str
 
 
 def extract_download_metric(html: str, label: str) -> int:
@@ -93,6 +132,46 @@ def parse_metric_value(value: str) -> int:
     except InvalidOperation:
         return -1
     return int(parsed.to_integral_value(rounding=ROUND_HALF_UP))
+
+
+def parse_version_listing_html(
+    html: str,
+    context: VersionListingContext,
+) -> tuple[VersionListEntry, ...]:
+    """Parse GitHub's package-version listing HTML into version entries."""
+
+    if not html or not context.package:
+        return ()
+
+    owner_prefix = (
+        f"{re.escape(context.owner_type)}/{re.escape(context.owner)}/packages/"
+        f"{re.escape(context.package_type)}/{re.escape(context.package)}"
+    )
+    repo_prefix = (
+        f"{re.escape(context.owner)}/{re.escape(context.repo)}/pkgs/"
+        f"{re.escape(context.package_type)}/{re.escape(context.package)}"
+    )
+    prefix_pattern = f"(?:{owner_prefix}|{repo_prefix})"
+    tag_link_pattern = re.compile(
+        rf'href="/{prefix_pattern}/([0-9]+)\?tag=([^"&]+)',
+        re.DOTALL,
+    )
+    version_link_pattern = re.compile(
+        rf'href="/{prefix_pattern}/([0-9]+)"',
+        re.DOTALL,
+    )
+
+    entries: list[VersionListEntry] = []
+    for match in _LIST_ITEM_PATTERN.finditer(html):
+        entry = _parse_listing_item(
+            match.group(1),
+            tag_link_pattern=tag_link_pattern,
+            version_link_pattern=version_link_pattern,
+            prefix_pattern=prefix_pattern,
+        )
+        if entry is not None:
+            entries.append(entry)
+    return tuple(entries)
 
 
 def extract_embedded_manifest(html: str) -> str:
@@ -292,6 +371,62 @@ def _json_type_name(value: object) -> str:
     elif isinstance(value, dict):
         name = "object"
     return name
+
+
+def _parse_listing_item(
+    block: str,
+    *,
+    tag_link_pattern: re.Pattern[str],
+    version_link_pattern: re.Pattern[str],
+    prefix_pattern: str,
+) -> VersionListEntry | None:
+    version_id = ""
+    seen_tags: set[str] = set()
+    tags: list[str] = []
+
+    for match in tag_link_pattern.finditer(block):
+        if not version_id:
+            version_id = match.group(1)
+        tag = _decode_listing_text(match.group(2))
+        if tag and tag not in seen_tags:
+            seen_tags.add(tag)
+            tags.append(tag)
+
+    if not version_id:
+        match = version_link_pattern.search(block)
+        if match is not None:
+            version_id = match.group(1)
+
+    if not version_id:
+        return None
+
+    name = _listing_version_name(block, prefix_pattern, version_id) or version_id
+    return VersionListEntry(int(version_id), name, tuple(tags))
+
+
+def _listing_version_name(block: str, prefix_pattern: str, version_id: str) -> str:
+    link_name_pattern = re.compile(
+        rf'href="/{prefix_pattern}/{re.escape(version_id)}"[^>]*>([^<]+)</a>',
+        re.DOTALL,
+    )
+    link_name = link_name_pattern.search(block)
+    if link_name is not None:
+        return _decode_listing_text(link_name.group(1))
+
+    input_value = re.search(r'value="([^"]+)"', block, re.DOTALL)
+    if input_value is not None:
+        return _decode_listing_text(input_value.group(1))
+
+    muted_span = _MUTED_SPAN_PATTERN.search(block)
+    if muted_span is not None:
+        candidate = _decode_listing_text(muted_span.group(1))
+        if re.match(r"^(?:sha256:|[A-Za-z0-9][^:\s]*)", candidate):
+            return candidate
+    return ""
+
+
+def _decode_listing_text(value: str) -> str:
+    return unquote_plus(html_lib.unescape(value))
 
 
 def _as_dict(value: object) -> dict[str, object] | None:

@@ -137,6 +137,41 @@ test_docker_manifest_size_calculates_layers_and_manifest_average() {
 	[ "$manifest_average_size" = "15" ] || fail "Expected manifest-list size to average positive manifest sizes"
 }
 
+test_docker_manifest_inspect_skips_optional_command_failures() {
+	local fake_bin="$workdir/fake-docker-failure-bin"
+	local fake_docker="$fake_bin/docker"
+	local no_docker_bin="$workdir/no-docker-bin"
+	local output_file="$workdir/docker-manifest-inspect.out"
+	local stderr_file="$workdir/docker-manifest-inspect.err"
+	local original_path="$PATH"
+	local status=0
+
+	mkdir -p "$no_docker_bin"
+	PATH="$no_docker_bin"
+	docker_manifest_inspect "ghcr.io/example/pkg:latest" >"$output_file" 2>"$stderr_file" || status=$?
+	PATH="$original_path"
+
+	[ "$status" -eq 0 ] || fail "Expected missing docker to be an optional fallback"
+	[ ! -s "$output_file" ] || fail "Expected missing docker to produce no manifest text"
+	[ ! -s "$stderr_file" ] || fail "Expected missing docker to stay quiet"
+
+	mkdir -p "$fake_bin"
+	cat >"$fake_docker" <<'EOF'
+#!/bin/bash
+echo "docker failed" >&2
+exit 125
+EOF
+	chmod +x "$fake_docker"
+
+	PATH="$fake_bin:$original_path"
+	docker_manifest_inspect "ghcr.io/example/pkg:latest" >"$output_file" 2>"$stderr_file" || status=$?
+	PATH="$original_path"
+
+	[ "$status" -eq 0 ] || fail "Expected failed docker inspect to be an optional fallback"
+	[ ! -s "$output_file" ] || fail "Expected failed docker inspect to produce no manifest text"
+	[ ! -s "$stderr_file" ] || fail "Expected failed docker inspect to stay quiet"
+}
+
 test_cleanup_generated_json_sidecars_removes_adaptive_retry_artifacts() {
 	local sidecar_dir="$workdir/sidecar-cleanup"
 
@@ -1206,6 +1241,7 @@ run_test test_batch_reset_uses_explicit_progress_only
 run_test test_sqlite_numeric_version_ids_use_builtin_glob
 run_test test_docker_manifest_size_logs_actionable_fallbacks
 run_test test_docker_manifest_size_calculates_layers_and_manifest_average
+run_test test_docker_manifest_inspect_skips_optional_command_failures
 run_test test_cleanup_generated_json_sidecars_removes_adaptive_retry_artifacts
 run_test test_drop_replaced_legacy_version_tables_keeps_unreplaced_fallbacks
 run_test test_parallel_async_wait_continues_after_non_timeout_failure

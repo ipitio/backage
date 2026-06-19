@@ -331,73 +331,8 @@ version_build_array_json() {
 
 version_parse_page_html() {
     [ -n "$1" ] || return
-    VERSION_OWNER_PREFIX="$owner_type/$owner/packages/$package_type/$package" \
-        VERSION_REPO_PREFIX="$owner/$repo/pkgs/$package_type/$package" \
-        perl -0ne '
-            sub decode_text {
-                my ($value) = @_;
-                $value //= q{};
-                $value =~ s/&amp;/&/g;
-                $value =~ s/&quot;/"/g;
-                $value =~ s/&#39;/'"'"'/g;
-                $value =~ s/&lt;/</g;
-                $value =~ s/&gt;/>/g;
-                $value =~ s/\+/ /g;
-                $value =~ s/%([0-9A-Fa-f]{2})/chr(hex($1))/eg;
-                return $value;
-            }
-
-            sub escape_json {
-                my ($value) = @_;
-                $value //= q{};
-                $value =~ s/\\/\\\\/g;
-                $value =~ s/"/\\"/g;
-                $value =~ s/([\x00-\x1f])/sprintf("\\u%04x", ord($1))/eg;
-                return $value;
-            }
-
-            my $owner_prefix = quotemeta($ENV{VERSION_OWNER_PREFIX});
-            my $repo_prefix = quotemeta($ENV{VERSION_REPO_PREFIX});
-            my $prefix_pattern = qr/(?:$owner_prefix|$repo_prefix)/;
-
-            while (/<li\b[^>]*class="Box-row"[^>]*>(.*?)<\/li>/sg) {
-                my $block = $1;
-                my ($version_id, $version_name);
-                my %seen_tags;
-                my @version_tags;
-
-                while ($block =~ m{href="/$prefix_pattern/([0-9]+)\?tag=([^"&]+)}g) {
-                    $version_id //= $1;
-                    my $tag = decode_text($2);
-                    next if $tag eq q{} || $seen_tags{$tag}++;
-                    push @version_tags, $tag;
-                }
-
-                if (!$version_id && $block =~ m{href="/$prefix_pattern/([0-9]+)"}g) {
-                    $version_id = $1;
-                }
-
-                next unless $version_id;
-
-                if ($block =~ m{href="/$prefix_pattern/\Q$version_id\E"[^>]*>([^<]+)</a>}s) {
-                    $version_name = decode_text($1);
-                }
-
-                if ((!defined $version_name || $version_name eq q{}) && $block =~ m{value="([^"]+)"}s) {
-                    $version_name = decode_text($1);
-                }
-
-                if ((!defined $version_name || $version_name eq q{}) && $block =~ m{<span class="color-fg-muted">([^<]+)</span>}s) {
-                    my $candidate = decode_text($1);
-                    $version_name = $candidate if $candidate =~ /^(?:sha256:|[[:alnum:]][^[:space:]]*)/;
-                }
-
-                $version_name = $version_id unless defined $version_name && $version_name ne q{};
-
-                my $tags_json = join q{,}, map { q{"} . escape_json($_) . q{"} } @version_tags;
-                print qq[{"id":$version_id,"name":"] . escape_json($version_name) . qq[","tags":[$tags_json]}\n];
-            }
-        ' <<<"$1" | jq -cs '.'
+    bkg_python version parse-page-html \
+        "$owner_type" "$owner" "$repo" "$package_type" "$package" <<<"$1"
 }
 
 version_page_from_html() {

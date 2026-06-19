@@ -1,7 +1,7 @@
 #!/bin/bash
 # Backage library
 # Usage: ./lib.sh
-# Dependencies: git curl jq parallel python3 python3-httpx sqlite3 zstd libxml2-utils
+# Dependencies: git curl jq parallel python3 python3-httpx sqlite3 zstd libxml2-utils docker.io
 # Copyright (c) ipitio
 #
 # shellcheck disable=SC1090,SC1091,SC2015,SC2034
@@ -27,7 +27,7 @@ apt_install() {
 if [ -z "${BKG_UTIL_BOOTSTRAPPED:-}" ]; then
     if [ "${BKG_SKIP_DEP_VERIFY:-0}" != "1" ]; then
         echo "Verifying dependencies..."
-        apt_install git curl jq parallel python3 python3-httpx sqlite3 zstd libxml2-utils
+        apt_install git curl jq parallel python3 python3-httpx sqlite3 zstd libxml2-utils docker.io
         echo "Dependencies verified!"
     fi
 
@@ -727,11 +727,12 @@ docker_manifest_inspect() {
     local manifest
     local status
 
+    command -v docker >/dev/null 2>&1 || return 0
     manifest=$(run_command_with_stop_check --combine-output docker_manifest_inspect_once "$1")
     status=$?
     ((status != 3)) || return 3
+    ((status == 0)) || return 0
     echo "$manifest"
-    return "$status"
 }
 
 # shellcheck disable=SC2120
