@@ -237,6 +237,19 @@ def _add_version_parsers(subparsers: Any) -> None:
     parse_page_parser.add_argument("repo")
     parse_page_parser.add_argument("package_type")
     parse_page_parser.add_argument("package")
+    version_commands.add_parser(
+        "extract-embedded-manifest",
+        help="extract the manifest JSON block from a GitHub version page on stdin",
+    )
+    version_commands.add_parser(
+        "extract-page-data",
+        help="extract migrated version-page data from stdin as JSON",
+    )
+    manifest_size_parser = version_commands.add_parser(
+        "manifest-size",
+        help="calculate a container manifest size from stdin",
+    )
+    manifest_size_parser.add_argument("context", nargs="?")
 
 
 def _add_snapshot_parsers(subparsers: Any) -> None:

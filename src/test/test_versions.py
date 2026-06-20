@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 from bkg_py.versions import (
     DownloadMetrics,
     VersionListEntry,
@@ -10,6 +12,7 @@ from bkg_py.versions import (
     extract_download_metrics,
     extract_embedded_manifest,
     extract_oci_version_labels,
+    extract_version_page_data,
     manifest_size,
     parse_metric_value,
     parse_version_listing_html,
@@ -94,18 +97,66 @@ def test_parse_version_listing_html_matches_github_rows() -> None:
     }
 
 
-def test_extract_embedded_manifest_preserves_current_html_shape() -> None:
-    """Embedded manifest extraction mirrors the shell page scrape."""
+def test_extract_embedded_manifest_prefers_manifest_section() -> None:
+    """The manifest block is selected without unrelated copy snippets."""
 
     html = """
-    <pre><code class="json">{"ignored":true}</code></pre>
-    <pre><span>x</span><code>{&quot;layers&quot;:[{&quot;size&quot;:10}]}</code></pre>
+    <code><pre>
+    "features": {
+      "ghcr.io/example/pkg@sha256:abc": {}
+    }
+    </pre></code>
+    <h4>Manifest</h4>
+    <div>
+      <code>
+        <pre class="color-fg-muted">{
+          &quot;digest&quot;: &quot;sha256:abc&quot;,
+          &quot;mediaType&quot;: &quot;application/vnd.oci.image.manifest.v1+json&quot;,
+          &quot;layers&quot;: [{&quot;size&quot;: 10}]
+        }</pre>
+      </code>
+    </div>
     """
 
-    assert extract_embedded_manifest(html) == (
-        '{"ignored":true}\n{"layers":[{"size":10}]}'
-    )
+    assert json.loads(extract_embedded_manifest(html)) == {
+        "digest": "sha256:abc",
+        "mediaType": "application/vnd.oci.image.manifest.v1+json",
+        "layers": [{"size": 10}],
+    }
     assert extract_embedded_manifest("<html></html>") == ""
+
+
+def test_extract_version_page_data_combines_metrics_and_manifest() -> None:
+    """One version-page parse returns all values needed by the shell update."""
+
+    html = """
+    <span>Total downloads</span><span>1.5k</span>
+    <span>Last 30 days</span><span>234</span>
+    <span>Last week</span><span>56</span>
+    <span>Today</span><span>7</span>
+    <h4>Manifest</h4>
+    <code><pre>{
+      &quot;mediaType&quot;: &quot;application/vnd.oci.image.manifest.v1+json&quot;,
+      &quot;layers&quot;: [{&quot;size&quot;: 10}]
+    }</pre></code>
+    """
+
+    page_data = extract_version_page_data(html)
+
+    assert page_data.metrics == DownloadMetrics(
+        total=1500,
+        month=234,
+        week=56,
+        day=7,
+    )
+    assert json.loads(page_data.manifest)["layers"] == [{"size": 10}]
+    assert page_data.json_object() == {
+        "downloads": 1500,
+        "downloads_month": 234,
+        "downloads_week": 56,
+        "downloads_day": 7,
+        "manifest": page_data.manifest,
+    }
 
 
 def test_manifest_size_calculates_layers_and_manifest_average() -> None:

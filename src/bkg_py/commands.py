@@ -48,7 +48,13 @@ from .result import ExitStatus
 from .runtime import GracefulStop
 from .snapshots import SnapshotError, SnapshotStore
 from .validation import validate_generated_file
-from .versions import VersionListingContext, parse_version_listing_html
+from .versions import (
+    VersionListingContext,
+    extract_embedded_manifest,
+    extract_version_page_data,
+    manifest_size,
+    parse_version_listing_html,
+)
 
 
 def _package_ref(args: argparse.Namespace) -> PackageRef:
@@ -684,7 +690,41 @@ def _run_version(args: argparse.Namespace) -> ExitStatus:
             )
         )
         return ExitStatus.SUCCESS
+    if args.version_command == "extract-embedded-manifest":
+        manifest = extract_embedded_manifest(sys.stdin.read())
+        print(manifest)
+        return ExitStatus.SUCCESS
+    if args.version_command == "extract-page-data":
+        page_data = extract_version_page_data(sys.stdin.read())
+        print(
+            json.dumps(
+                page_data.json_object(),
+                ensure_ascii=False,
+                allow_nan=False,
+                separators=(",", ":"),
+            )
+        )
+        return ExitStatus.SUCCESS
+    if args.version_command == "manifest-size":
+        result = manifest_size(sys.stdin.read())
+        if result.fallback_reason is not None:
+            summary = result.diagnostic_summary or 'sample="<empty>"'
+            print(
+                "Docker manifest size fallback for "
+                f"{_manifest_size_context(args.context)}: "
+                f"{result.fallback_reason}; {summary}",
+                file=sys.stderr,
+            )
+        print(result.size)
+        return ExitStatus.SUCCESS
     return ExitStatus.NON_FATAL
+
+
+def _manifest_size_context(context: str | None) -> str:
+    if context is None:
+        return "manifest"
+    cleaned = context.replace("\n", " ").replace("\r", " ")[:200]
+    return cleaned or "manifest"
 
 
 def _run_application_command(

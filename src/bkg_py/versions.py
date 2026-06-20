@@ -20,15 +20,21 @@ _DOWNLOAD_LABELS = {
 }
 _METRIC_SUFFIXES = "KMBTPEZY"
 _METRIC_PATTERN = re.compile(r"^([0-9]+(?:\.[0-9]+)?)([A-Za-z]?)$")
-_CODE_PATTERN = re.compile(r"<code.*?>", re.DOTALL)
+_CODE_BLOCK_PATTERN = re.compile(r"<code\b[^>]*>(.*?)</code>", re.DOTALL)
 _LIST_ITEM_PATTERN = re.compile(
     r"<li\b[^>]*class=\"[^\"]*\bBox-row\b[^\"]*\"[^>]*>(.*?)</li>",
     re.DOTALL,
+)
+_MANIFEST_HEADING_PATTERN = re.compile(
+    r"<h4\b[^>]*>\s*Manifest\s*</h4>",
+    re.IGNORECASE | re.DOTALL,
 )
 _MUTED_SPAN_PATTERN = re.compile(
     r"<span class=\"color-fg-muted\">([^<]+)</span>",
     re.DOTALL,
 )
+_PRE_BLOCK_PATTERN = re.compile(r"<pre\b[^>]*>(.*?)</pre>", re.DOTALL)
+_TAG_PATTERN = re.compile(r"<[^>]+>", re.DOTALL)
 
 
 @dataclass(frozen=True)
@@ -39,6 +45,25 @@ class DownloadMetrics:
     month: int
     week: int
     day: int
+
+
+@dataclass(frozen=True)
+class VersionPageData:
+    """Version-page values extracted from one GitHub package version page."""
+
+    metrics: DownloadMetrics
+    manifest: str
+
+    def json_object(self) -> dict[str, object]:
+        """Return the shell-compatible JSON representation."""
+
+        return {
+            "downloads": self.metrics.total,
+            "downloads_month": self.metrics.month,
+            "downloads_week": self.metrics.week,
+            "downloads_day": self.metrics.day,
+            "manifest": self.manifest,
+        }
 
 
 @dataclass(frozen=True)
@@ -177,16 +202,21 @@ def parse_version_listing_html(
 def extract_embedded_manifest(html: str) -> str:
     """Return the manifest JSON block embedded in GitHub's version page."""
 
-    manifests: list[str] = []
-    for block in html.split("</pre>"):
-        matches = list(_CODE_PATTERN.finditer(block))
-        if matches:
-            manifest = block[matches[-1].end() :]
-            end = manifest.find("</code>")
-            if end >= 0:
-                manifest = manifest[:end]
-            manifests.append(manifest.replace("&quot;", '"'))
-    return "\n".join(manifests)
+    for block in _manifest_candidate_blocks(html):
+        for candidate in _manifest_text_candidates(block):
+            manifest = _normalize_html_text(candidate)
+            if _is_manifest_json(manifest):
+                return manifest
+    return ""
+
+
+def extract_version_page_data(html: str) -> VersionPageData:
+    """Return all currently migrated values from one version page."""
+
+    return VersionPageData(
+        metrics=extract_download_metrics(html),
+        manifest=extract_embedded_manifest(html),
+    )
 
 
 def manifest_size(manifest: str) -> ManifestSizeResult:
@@ -427,6 +457,47 @@ def _listing_version_name(block: str, prefix_pattern: str, version_id: str) -> s
 
 def _decode_listing_text(value: str) -> str:
     return unquote_plus(html_lib.unescape(value))
+
+
+def _manifest_candidate_blocks(html: str) -> Iterator[str]:
+    heading = _MANIFEST_HEADING_PATTERN.search(html)
+    if heading is not None:
+        yield from _pre_blocks(html[heading.end() :])
+    yield from _pre_blocks(html)
+
+
+def _pre_blocks(html: str) -> Iterator[str]:
+    for match in _PRE_BLOCK_PATTERN.finditer(html):
+        yield match.group(1)
+
+
+def _manifest_text_candidates(block: str) -> Iterator[str]:
+    matches = tuple(_CODE_BLOCK_PATTERN.finditer(block))
+    for match in matches:
+        yield match.group(1)
+    yield block
+
+
+def _normalize_html_text(value: str) -> str:
+    return html_lib.unescape(_TAG_PATTERN.sub("", value)).strip()
+
+
+def _is_manifest_json(value: str) -> bool:
+    if not value:
+        return False
+    try:
+        data: object = json.loads(value)
+    except json.JSONDecodeError:
+        return False
+    mapping = _as_dict(data)
+    if mapping is None:
+        return False
+    return (
+        bool(_array_entry_count(data, "layers"))
+        or bool(_array_entry_count(data, "manifests"))
+        or bool(_media_types(data))
+        or "digest" in mapping
+    )
 
 
 def _as_dict(value: object) -> dict[str, object] | None:

@@ -638,19 +638,6 @@ version_promote_current_page_candidates() {
     (($? != 3)) || return 3
 }
 
-version_extract_download_metric() {
-    [ -n "$1" ] || return
-    [ -n "$2" ] || return
-
-    STAT_LABEL="$2" perl -0ne '
-        my $label = quotemeta($ENV{STAT_LABEL} // q{});
-        if (/$label<\/span>\s*<span[^>]*>([^<]+)/s) {
-            print $1;
-            exit 0;
-        }
-    ' <<<"$1" | tr -d '[:space:]' | fmtmetric_num
-}
-
 version_append_older_tagged_candidates() {
     local older_than_id=${1:-}
     local append_limit=${2:-30}
@@ -693,6 +680,8 @@ update_version() {
     local version_raw_downloads_week=-1
     local version_raw_downloads_day=-1
     local version_html
+    local version_page_data="{}"
+    local version_page_data_status=0
     local version_name
     local version_tags
     local version_id
@@ -704,10 +693,13 @@ update_version() {
     echo "Updating $owner/$package/$version_id..."
     version_html=$(curl "https://github.com/$owner/$repo/pkgs/$package_type/$package/$version_id")
     (($? != 3)) || return 3
-    version_raw_downloads=$(version_extract_download_metric "$version_html" "Total downloads")
-    version_raw_downloads_month=$(version_extract_download_metric "$version_html" "Last 30 days")
-    version_raw_downloads_week=$(version_extract_download_metric "$version_html" "Last week")
-    version_raw_downloads_day=$(version_extract_download_metric "$version_html" "Today")
+    version_page_data=$(bkg_python version extract-page-data <<<"$version_html") || version_page_data_status=$?
+    ((version_page_data_status != 3)) || return 3
+    ((version_page_data_status == 0)) || version_page_data="{}"
+    version_raw_downloads=$(jq -r '.downloads // -1' <<<"$version_page_data")
+    version_raw_downloads_month=$(jq -r '.downloads_month // -1' <<<"$version_page_data")
+    version_raw_downloads_week=$(jq -r '.downloads_week // -1' <<<"$version_page_data")
+    version_raw_downloads_day=$(jq -r '.downloads_day // -1' <<<"$version_page_data")
     [[ "$version_raw_downloads" =~ ^[0-9]+$ ]] || version_raw_downloads=-1
     [[ "$version_raw_downloads_month" =~ ^[0-9]+$ ]] || version_raw_downloads_month=-1
     [[ "$version_raw_downloads_week" =~ ^[0-9]+$ ]] || version_raw_downloads_week=-1
@@ -718,7 +710,7 @@ update_version() {
         local manifest
         local manifest_ref
         local inspected_manifest
-        manifest=$(awk -v RS='</pre>' '/<code.*?>/{gsub(/.*<code.*?>/, ""); print}' <<<"$version_html" | sed 's/&quot;/"/g')
+        manifest=$(jq -r '.manifest // ""' <<<"$version_page_data")
         version_size=$(docker_manifest_size "$manifest" "$owner/$package/$version_id embedded manifest")
         [[ -n "$version_tags" ]] || version_tags=$(jq '.. | try ."org.opencontainers.image.version" | select(. != null and . != "")' <<<"$manifest" 2>/dev/null || :)
 

@@ -65,28 +65,6 @@ numfmt_size() {
     awk '{ split("kB MB GB TB PB EB ZB YB", v); s=0; while( $1>999.9 ) { $1/=1000; s++ } print int($1*10)/10 " " v[s] }' | sed 's/[[:blank:]]*$//'
 }
 
-fmtmetric_num() {
-    awk '
-    {
-        value = $0
-        gsub(/^[[:space:]]+|[[:space:]]+$/, "", value)
-        gsub(/,/, "", value)
-        if (value == "") next
-
-        suffix = substr(value, length(value), 1)
-        power = 0
-        if (suffix ~ /[[:alpha:]]/) {
-            value = substr(value, 1, length(value) - 1)
-            suffix = toupper(suffix)
-            power = index("KMBTPEZY", suffix)
-            if (power == 0) next
-        }
-
-        if (value !~ /^[0-9]+(\.[0-9]+)?$/) next
-        printf "%.0f", value * (1000 ^ power)
-    }'
-}
-
 fmtsize_num() {
     awk '{
         if ($2) {
@@ -354,11 +332,11 @@ cleanup_generated_json_sidecars() {
     [ -n "$1" ] || return
     [ -e "$1" ] || return 0
 
-    find "$1" -type f \( \
+    find "$1" -ignore_readdir_race -type f \( \
         -name '*.json.tmp' -o -name '*.json.tmp.*' -o \
         -name '*.json.abs' -o -name '*.json.abs.*' -o \
         -name '*.json.rel' -o -name '*.json.rel.*' \
-    \) -delete
+    \) -delete 2>/dev/null || return 0
 }
 
 ytoxt_script_path() {
@@ -1320,95 +1298,19 @@ check_db() {
     done
 }
 
-docker_manifest_size_log_fallback() {
-    local reason=$1
-    local manifest=$2
-    local context=${3:-manifest}
-    local summary
-
-    [ -n "$manifest" ] || return 0
-
-    context=${context//$'\n'/ }
-    context=${context//$'\r'/ }
-    context=${context:0:200}
-    [ -n "$context" ] || context="manifest"
-
-    summary=$(jq -cr '
-        def array_entries($name):
-            ([.. | objects | .[$name]? | arrays | length] | add // 0);
-
-        def media_types:
-            ([.. | objects | .mediaType? | strings] | unique | .[:4] | join(","));
-
-        if type == "object" then
-            "json_type=object keys=" + (keys_unsorted | .[:10] | join(","))
-        elif type == "array" then
-            "json_type=array length=" + (length | tostring)
-            + (
-                if ((.[0]? // null) | type) == "object" then
-                    " first_keys=" + (.[0] | keys_unsorted | .[:10] | join(","))
-                else
-                    " first_type=" + ((.[0]? // null) | type)
-                end
-            )
-        else
-            "json_type=" + (type | tostring)
-        end
-        + " mediaTypes=" + media_types
-        + " layerEntries=" + (array_entries("layers") | tostring)
-        + " manifestEntries=" + (array_entries("manifests") | tostring)
-        + " positiveSizeFields="
-        + ([.. | objects | .size? | numbers | select(. > 0)] | length | tostring)
-    ' <<<"$manifest" 2>/dev/null) || {
-        summary=$(jq -Rsr '"sample=" + (.[0:240] | @json)' <<<"$manifest" 2>/dev/null) || summary='sample="<unavailable>"'
-    }
-
-    [ -n "$summary" ] || summary='sample="<empty>"'
-    printf 'Docker manifest size fallback for %s: %s; %s\n' "$context" "$reason" "$summary" >&2
-}
-
 docker_manifest_size() {
     local manifest=$1
     local context=${2:-manifest}
-    local size
+    local status=0
 
     [ -n "$manifest" ] || {
         echo -1
         return 0
     }
 
-    if ! size=$(jq -r '
-        def array_items($name):
-            [.. | objects | .[$name]? | arrays | .[]?];
-
-        def positive_sizes($items):
-            [$items[]? | .size? | numbers | select(. > 0)];
-
-        positive_sizes(array_items("layers")) as $layers
-        | if ($layers | length) > 0 then
-            ($layers | add | floor)
-        else
-            positive_sizes(array_items("manifests")) as $manifests
-            | if ($manifests | length) > 0 then
-                (($manifests | add) / ($manifests | length) | floor)
-            else
-                -1
-            end
-        end
-    ' <<<"$manifest" 2>/dev/null); then
-        docker_manifest_size_log_fallback "malformed JSON" "$manifest" "$context"
-        echo -1
-        return 0
-    fi
-
-    if [[ ! "$size" =~ ^-?[0-9]+$ ]]; then
-        docker_manifest_size_log_fallback "non-integer result" "$manifest" "$context"
-        echo -1
-        return 0
-    fi
-
-    [ "$size" != "-1" ] || docker_manifest_size_log_fallback "unsupported shape" "$manifest" "$context"
-    echo "$size"
+    bkg_python version manifest-size "$context" <<<"$manifest" || status=$?
+    ((status != 3)) || return 3
+    ((status == 0)) || echo -1
 }
 
 owner_get_id() {

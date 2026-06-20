@@ -197,6 +197,28 @@ test_cleanup_generated_json_sidecars_removes_adaptive_retry_artifacts() {
 	[ ! -e "$sidecar_dir/repo/package.json.rel.retry" ] || fail "Expected .json.rel.* sidecar to be removed"
 }
 
+test_cleanup_generated_json_sidecars_ignores_racy_missing_files() {
+	local sidecar_dir="$workdir/sidecar-cleanup-race"
+	local output_file="$workdir/sidecar-cleanup-race.out"
+	local stderr_file="$workdir/sidecar-cleanup-race.err"
+	local status=0
+
+	mkdir -p "$sidecar_dir"
+
+	(
+		find() {
+			printf '%s\n' "find: cannot delete '$sidecar_dir/package.json.abs': No such file or directory" >&2
+			return 1
+		}
+
+		cleanup_generated_json_sidecars "$sidecar_dir"
+	) >"$output_file" 2>"$stderr_file" || status=$?
+
+	[ "$status" -eq 0 ] || fail "Expected racy sidecar cleanup to remain non-fatal"
+	[ ! -s "$output_file" ] || fail "Expected racy sidecar cleanup to stay quiet on stdout"
+	[ ! -s "$stderr_file" ] || fail "Expected racy sidecar cleanup to suppress missing-file diagnostics"
+}
+
 test_drop_replaced_legacy_version_tables_keeps_unreplaced_fallbacks() {
 	local original_db="${BKG_INDEX_DB:-}"
 	local today="2026-03-30"
@@ -1243,6 +1265,7 @@ run_test test_docker_manifest_size_logs_actionable_fallbacks
 run_test test_docker_manifest_size_calculates_layers_and_manifest_average
 run_test test_docker_manifest_inspect_skips_optional_command_failures
 run_test test_cleanup_generated_json_sidecars_removes_adaptive_retry_artifacts
+run_test test_cleanup_generated_json_sidecars_ignores_racy_missing_files
 run_test test_drop_replaced_legacy_version_tables_keeps_unreplaced_fallbacks
 run_test test_parallel_async_wait_continues_after_non_timeout_failure
 run_test test_parallel_async_default_max_jobs_is_tuned
