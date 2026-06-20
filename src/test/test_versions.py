@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import json
 
 from bkg_py.versions import (
@@ -16,6 +17,7 @@ from bkg_py.versions import (
     manifest_size,
     parse_metric_value,
     parse_version_listing_html,
+    version_cache_records,
 )
 
 
@@ -95,6 +97,41 @@ def test_parse_version_listing_html_matches_github_rows() -> None:
         "name": "sha256:abc",
         "tags": ["latest", "stable/1"],
     }
+
+
+def test_version_cache_records_normalize_ids_sources_and_tags() -> None:
+    """Candidate cache rows preserve source JSON and normalize shell tag strings."""
+
+    records = version_cache_records(
+        json.dumps(
+            [
+                {
+                    "id": 123,
+                    "name": "sha256:abc",
+                    "tags": [" latest ", "stable", "latest"],
+                    "metadata": {"tags": "nested, stable"},
+                },
+                {"id": "001", "name": "sha256:def", "tags": "dev"},
+                {"id": "bad", "name": "sha256:bad", "tags": ["odd"]},
+            ]
+        )
+    )
+
+    assert [record.version_id for record in records] == ["123", "001", "-1"]
+    assert [record.tags for record in records] == [
+        "latest,stable,nested",
+        "dev",
+        "odd",
+    ]
+    assert json.loads(base64.b64decode(records[0].source).decode()) == {
+        "id": 123,
+        "name": "sha256:abc",
+        "tags": [" latest ", "stable", "latest"],
+        "metadata": {"tags": "nested, stable"},
+    }
+    assert base64.b64decode(records[0].tsv_row().split("\t")[2]).decode() == (
+        "latest,stable,nested"
+    )
 
 
 def test_extract_embedded_manifest_prefers_manifest_section() -> None:

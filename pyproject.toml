@@ -86,7 +86,7 @@ select = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"src/bkg_py/commands.py" = ["T201"]
+"src/bkg_py/commands.py" = ["PLC0415", "T201"]
 "src/bkg_py/database_owner_scans.py" = ["S608"]
 "src/bkg_py/validation.py" = ["S314", "T201"]
 "src/test/test_*.py" = ["PLR2004", "S101"]

@@ -250,6 +250,10 @@ def _add_version_parsers(subparsers: Any) -> None:
         help="calculate a container manifest size from stdin",
     )
     manifest_size_parser.add_argument("context", nargs="?")
+    version_commands.add_parser(
+        "cache-candidates",
+        help="normalize version page JSON into shell cache records",
+    )
 
 
 def _add_snapshot_parsers(subparsers: Any) -> None:

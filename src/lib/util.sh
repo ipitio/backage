@@ -532,6 +532,17 @@ sleep_with_stop_check() {
     done
 }
 
+background_job_running() {
+    local pid=$1
+    local job_pid
+
+    [ -n "$pid" ] || return 1
+    while IFS= read -r job_pid; do
+        [ "$job_pid" = "$pid" ] && return 0
+    done < <(jobs -pr)
+    return 1
+}
+
 run_command_with_stop_check() {
     local combine_output=false
     local stdout_file
@@ -551,7 +562,7 @@ run_command_with_stop_check() {
     "$@" >"$stdout_file" 2>"$stderr_file" &
     pid=$!
 
-    while kill -0 "$pid" 2>/dev/null; do
+    while background_job_running "$pid"; do
         check_script_timeout
         status=$?
 
@@ -592,7 +603,7 @@ run_command_to_file_with_stop_check() {
     "$@" >"$output_file" 2>"$stderr_file" &
     pid=$!
 
-    while kill -0 "$pid" 2>/dev/null; do
+    while background_job_running "$pid"; do
         check_script_timeout
         status=$?
 

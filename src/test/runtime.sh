@@ -93,6 +93,21 @@ test_sqlite_numeric_version_ids_use_builtin_glob() {
 	[ "$rows" = $'1|1\n001|1\n1a|not-numeric\na1|not-numeric\n|not-numeric\n12-3|not-numeric' ] || fail "Expected stock SQLite GLOB to classify numeric version IDs without a REGEXP extension"
 }
 
+test_background_job_running_ignores_completed_unreaped_child() {
+	local pid
+
+	true &
+	pid=$!
+	sleep 0.1
+
+	if background_job_running "$pid"; then
+		wait "$pid" || :
+		fail "Expected completed unreaped child to be treated as no longer running"
+	fi
+
+	wait "$pid"
+}
+
 test_docker_manifest_size_logs_actionable_fallbacks() {
 	local output_file="$workdir/manifest-size.out"
 	local stderr_file="$workdir/manifest-size.err"
@@ -1261,6 +1276,7 @@ run_test test_sqlite_retries_transient_write_failure
 run_test test_sqlite_ensure_index_schema_adds_query_indexes
 run_test test_batch_reset_uses_explicit_progress_only
 run_test test_sqlite_numeric_version_ids_use_builtin_glob
+run_test test_background_job_running_ignores_completed_unreaped_child
 run_test test_docker_manifest_size_logs_actionable_fallbacks
 run_test test_docker_manifest_size_calculates_layers_and_manifest_average
 run_test test_docker_manifest_inspect_skips_optional_command_failures

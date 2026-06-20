@@ -1,4 +1,5 @@
 """Execute shell-compatible bkg Python commands."""
+# pylint: disable=import-outside-toplevel
 
 from __future__ import annotations
 
@@ -8,56 +9,39 @@ import json
 import sys
 from collections.abc import Iterable
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from .application import ApplicationContext
-from .config import RuntimeConfig
-from .database import (
-    DatabaseError,
-    DatabaseRepository,
-    OwnerScanFailure,
-    OwnerScanPackage,
-    OwnerScanResult,
-    PackageRef,
-    VersionStage,
-)
-from .discovery import (
-    DiscoveryError,
-    DiscoveryPage,
-    OwnerIdentityCache,
-    OwnerIdentityResolver,
-    RestOwnerDiscoveryPage,
-)
-from .github import GitHubError, dump_json
-from .owner_pages import (
-    OwnerPageAdmissionConfig,
-    OwnerPageAdmissionResult,
-    admit_owner_page,
-)
-from .owner_queue import OwnerQueueSelector
-from .publication import PublicationError, publish_json_file, write_xml_file
-from .rendering import (
-    DatabaseAggregateOptions,
-    PackageRenderOptions,
-    RenderingError,
-    render_database_aggregate,
-    render_file_aggregate,
-    render_package_file,
-    render_version_array,
-)
 from .result import ExitStatus
-from .runtime import GracefulStop
-from .snapshots import SnapshotError, SnapshotStore
-from .validation import validate_generated_file
 from .versions import (
     VersionListingContext,
     extract_embedded_manifest,
     extract_version_page_data,
     manifest_size,
     parse_version_listing_html,
+    version_cache_records,
 )
+
+if TYPE_CHECKING:
+    from .application import ApplicationContext
+    from .database import (
+        DatabaseRepository,
+        OwnerScanPackage,
+        OwnerScanResult,
+        PackageRef,
+    )
+    from .discovery import (
+        DiscoveryPage,
+        OwnerIdentityResolver,
+        RestOwnerDiscoveryPage,
+    )
+    from .owner_pages import OwnerPageAdmissionResult
+    from .runtime import GracefulStop
+    from .snapshots import SnapshotStore
 
 
 def _package_ref(args: argparse.Namespace) -> PackageRef:
+    from .database import PackageRef
+
     return PackageRef(
         owner_id=args.owner_id,
         owner_type=args.owner_type,
@@ -76,6 +60,8 @@ _OWNER_SCAN_PACKAGE_FIELDS = 4
 
 
 def _owner_scan_packages(path: Path) -> tuple[OwnerScanPackage, ...]:
+    from .database import DatabaseError, OwnerScanPackage
+
     packages: list[OwnerScanPackage] = []
     for line_number, line in enumerate(
         path.read_text(encoding="utf-8").splitlines(),
@@ -121,6 +107,9 @@ def _run_publication(
     args: argparse.Namespace,
     application: ApplicationContext,
 ) -> ExitStatus:
+    from .publication import PublicationError, publish_json_file, write_xml_file
+    from .runtime import GracefulStop
+
     try:
         with application.stop.signal_handlers():
             if args.command == "publish":
@@ -143,6 +132,9 @@ def _run_database(
     args: argparse.Namespace,
     application: ApplicationContext,
 ) -> ExitStatus:
+    from .database import DatabaseError, VersionStage
+    from .runtime import GracefulStop
+
     try:
         with application.stop.signal_handlers():
             if args.database_command == "ensure-schema":
@@ -189,6 +181,8 @@ def _run_owner_scan_lifecycle(
     args: argparse.Namespace,
     database: DatabaseRepository,
 ) -> bool:
+    from .database import DatabaseError
+
     command = args.database_command
     if command == "begin-owner-scan":
         database.begin_owner_scan(
@@ -239,6 +233,8 @@ def _run_owner_scan_retry(
     args: argparse.Namespace,
     database: DatabaseRepository,
 ) -> bool:
+    from .database import OwnerScanFailure
+
     command = args.database_command
     if command == "fail-owner-scan":
         print(
@@ -270,10 +266,14 @@ def _run_render(
     args: argparse.Namespace,
     application: ApplicationContext,
 ) -> ExitStatus:
+    from . import rendering
+    from .database import DatabaseError
+    from .runtime import GracefulStop
+
     try:
         with application.stop.signal_handlers():
             if args.render_command == "aggregate-files":
-                render_file_aggregate(
+                rendering.render_file_aggregate(
                     Path(args.source_directory),
                     Path(args.destination),
                     settings=application.aggregate_settings,
@@ -289,10 +289,10 @@ def _run_render(
                     legacy_table=_optional_argument(args.legacy_table),
                 )
                 if snapshot is None:
-                    raise RenderingError(
+                    raise rendering.RenderingError(
                         f"no package row found for {package.owner}/{package.package}"
                     )
-                value = render_version_array(
+                value = rendering.render_version_array(
                     snapshot.versions,
                     snapshot.package.record,
                     version_limit=args.version_limit,
@@ -307,11 +307,11 @@ def _run_render(
                 )
             elif args.render_command == "package":
                 package = _package_ref(args)
-                has_versions = render_package_file(
+                has_versions = rendering.render_package_file(
                     application.database,
                     package,
                     Path(args.destination),
-                    PackageRenderOptions(
+                    rendering.PackageRenderOptions(
                         since=args.since,
                         output_date=_optional_argument(args.output_date),
                         version_limit=args.version_limit,
@@ -327,11 +327,11 @@ def _run_render(
                         file=sys.stderr,
                     )
             elif args.render_command == "aggregate-database":
-                render_database_aggregate(
+                rendering.render_database_aggregate(
                     application.database,
                     args.owner_id,
                     Path(args.destination),
-                    DatabaseAggregateOptions(
+                    rendering.DatabaseAggregateOptions(
                         repo=_optional_argument(args.repo),
                         size_hint_directory=(
                             None
@@ -348,10 +348,12 @@ def _run_render(
                     for repo in application.database.repository_names(args.owner_id)
                 )
             else:
-                raise RenderingError(f"unknown render command: {args.render_command}")
+                raise rendering.RenderingError(
+                    f"unknown render command: {args.render_command}"
+                )
     except GracefulStop as error:
         return _graceful_stop_status(error)
-    except (DatabaseError, OSError, RenderingError) as error:
+    except (DatabaseError, OSError, rendering.RenderingError) as error:
         print(error, file=sys.stderr)
         return ExitStatus.NON_FATAL
     return ExitStatus.SUCCESS
@@ -361,6 +363,9 @@ def _run_github(
     args: argparse.Namespace,
     application: ApplicationContext,
 ) -> ExitStatus:
+    from .github import GitHubError, dump_json
+    from .runtime import GracefulStop
+
     try:
         with application.stop.signal_handlers(), application.github_client() as client:
             if args.github_command == "rest":
@@ -392,6 +397,10 @@ def _run_discovery(
     args: argparse.Namespace,
     application: ApplicationContext,
 ) -> ExitStatus:
+    from .discovery import DiscoveryError, OwnerIdentityCache, OwnerIdentityResolver
+    from .github import GitHubError
+    from .runtime import GracefulStop
+
     try:
         with application.stop.signal_handlers(), application.github_client() as client:
             resolver = OwnerIdentityResolver(
@@ -412,6 +421,8 @@ def _run_discovery_command(
     resolver: OwnerIdentityResolver,
     application: ApplicationContext,
 ) -> None:
+    from .discovery import DiscoveryError
+
     command = args.discovery_command
     if command in {"owner-type", "resolve-owner", "resolve-owner-ids"}:
         _run_discovery_identity_command(args, resolver)
@@ -427,6 +438,8 @@ def _run_discovery_identity_command(
     args: argparse.Namespace,
     resolver: OwnerIdentityResolver,
 ) -> None:
+    from .discovery import DiscoveryError
+
     command = args.discovery_command
     if command == "owner-type":
         owner_type = resolver.owner_type(args.owner)
@@ -454,6 +467,12 @@ def _run_discovery_page_command(
     resolver: OwnerIdentityResolver,
     application: ApplicationContext,
 ) -> None:
+    from .discovery import DiscoveryError
+    from .owner_pages import (
+        OwnerPageAdmissionConfig,
+        admit_owner_page,
+    )
+
     command = args.discovery_command
     if command == "repo-nodes":
         _print_discovery_page(
@@ -502,6 +521,8 @@ def _run_discovery_traversal_command(
     args: argparse.Namespace,
     resolver: OwnerIdentityResolver,
 ) -> None:
+    from .discovery import DiscoveryError
+
     command = args.discovery_command
     if command == "orgs":
         _print_lines(
@@ -554,6 +575,11 @@ def _run_snapshot(
     args: argparse.Namespace,
     application: ApplicationContext,
 ) -> ExitStatus:
+    from .database import DatabaseError
+    from .github import GitHubError
+    from .runtime import GracefulStop
+    from .snapshots import SnapshotError
+
     try:
         with application.stop.signal_handlers():
             if args.snapshot_command == "download-release":
@@ -639,6 +665,8 @@ def _run_snapshot_value_command(
     args: argparse.Namespace,
     snapshots: SnapshotStore,
 ) -> None:
+    from .snapshots import SnapshotError
+
     command = args.snapshot_command
     if command == "current-signature":
         print(snapshots.current_signature())
@@ -717,6 +745,12 @@ def _run_version(args: argparse.Namespace) -> ExitStatus:
             )
         print(result.size)
         return ExitStatus.SUCCESS
+    if args.version_command == "cache-candidates":
+        sys.stdout.writelines(
+            f"{record.tsv_row()}\n"
+            for record in version_cache_records(sys.stdin.read())
+        )
+        return ExitStatus.SUCCESS
     return ExitStatus.NON_FATAL
 
 
@@ -731,6 +765,8 @@ def _run_application_command(
     args: argparse.Namespace,
     parser: argparse.ArgumentParser,
 ) -> ExitStatus:
+    from .application import ApplicationContext
+
     application = ApplicationContext.from_env()
     if args.command in {"publish", "json-to-xml"}:
         runner = _run_publication
@@ -758,11 +794,17 @@ def run_command(
 
     status = ExitStatus.FAILURE
     if args.command == "config":
+        from .config import RuntimeConfig
+
         print(json.dumps(RuntimeConfig.from_env().as_dict(), sort_keys=True))
         status = ExitStatus.SUCCESS
     elif args.command == "validate":
+        from .validation import validate_generated_file
+
         status = validate_generated_file(args.file)
     elif args.command == "select-owners":
+        from .owner_queue import OwnerQueueSelector
+
         selector = OwnerQueueSelector(
             rest_first=args.rest_first,
             connections_file=Path(args.connections_file),

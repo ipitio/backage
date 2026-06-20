@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import html as html_lib
 import json
 import math
@@ -97,6 +98,21 @@ class VersionListEntry:
             "name": self.name,
             "tags": list(self.tags),
         }
+
+
+@dataclass(frozen=True)
+class VersionCacheRecord:
+    """One shell pipeline cache record for a package version candidate."""
+
+    version_id: str
+    source: str
+    tags: str
+
+    def tsv_row(self) -> str:
+        """Return a shell-readable tab-separated representation."""
+
+        encoded_tags = base64.b64encode(self.tags.encode()).decode()
+        return f"{self.version_id}\t{self.source}\t{encoded_tags}"
 
 
 @dataclass(frozen=True)
@@ -197,6 +213,36 @@ def parse_version_listing_html(
         if entry is not None:
             entries.append(entry)
     return tuple(entries)
+
+
+def version_cache_records(json_text: str) -> tuple[VersionCacheRecord, ...]:
+    """Return normalized shell cache records for a version page JSON array."""
+
+    try:
+        data: object = json.loads(json_text)
+    except json.JSONDecodeError:
+        return ()
+
+    versions = _as_list(data)
+    if versions is None:
+        return ()
+
+    records: list[VersionCacheRecord] = []
+    for version in versions:
+        source_json = json.dumps(
+            version,
+            ensure_ascii=False,
+            allow_nan=False,
+            separators=(",", ":"),
+        )
+        records.append(
+            VersionCacheRecord(
+                version_id=_candidate_id(version),
+                source=base64.b64encode(source_json.encode()).decode(),
+                tags=_candidate_tags(version),
+            )
+        )
+    return tuple(records)
 
 
 def extract_embedded_manifest(html: str) -> str:
@@ -457,6 +503,63 @@ def _listing_version_name(block: str, prefix_pattern: str, version_id: str) -> s
 
 def _decode_listing_text(value: str) -> str:
     return unquote_plus(html_lib.unescape(value))
+
+
+def _candidate_id(value: object) -> str:
+    mapping = _as_dict(value)
+    if mapping is None:
+        return "-1"
+
+    version_id = mapping.get("id")
+    if isinstance(version_id, bool):
+        return "-1"
+    if isinstance(version_id, int):
+        return str(version_id)
+    if isinstance(version_id, str) and re.fullmatch(r"[0-9]+", version_id):
+        return version_id
+    return "-1"
+
+
+def _candidate_tags(value: object) -> str:
+    values: list[str] = []
+    for node in _walk(value):
+        mapping = _as_dict(node)
+        if mapping is None or "tags" not in mapping:
+            continue
+        tags = mapping["tags"]
+        if tags is None:
+            continue
+        sequence = _as_list(tags)
+        if sequence is not None:
+            values.append(",".join(_jq_text(item) for item in sequence))
+        else:
+            values.append(_jq_text(tags))
+    return _merge_tag_values(values)
+
+
+def _merge_tag_values(values: list[str]) -> str:
+    merged: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        for tag in value.split(","):
+            normalized = tag.strip()
+            if not normalized or normalized in seen:
+                continue
+            seen.add(normalized)
+            merged.append(normalized)
+    return ",".join(merged)
+
+
+def _jq_text(value: object) -> str:
+    if isinstance(value, str):
+        return value
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if value is None:
+        return "null"
+    if isinstance(value, int | float):
+        return str(value)
+    return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
 
 
 def _manifest_candidate_blocks(html: str) -> Iterator[str]:
