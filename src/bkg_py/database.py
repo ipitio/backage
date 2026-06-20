@@ -74,7 +74,7 @@ class _SqlIdentifier(str):
         return str.__new__(cls, quoted)
 
 
-class DatabaseRepository:
+class DatabaseRepository:  # pylint: disable=too-many-public-methods
     """Own bkg's SQLite schema, transactions, fallback reads, and cleanup."""
 
     def __init__(
@@ -171,6 +171,19 @@ class DatabaseRepository:
         """Commit every staged version row in one retryable transaction."""
 
         self.ensure_schema()
+        return self._flush_version_stage(stage, finalizing=False)
+
+    def finalize_version_stage(self, stage: VersionStage) -> int:
+        """Commit completed version rows after a stop has already been requested."""
+
+        return self._flush_version_stage(stage, finalizing=True)
+
+    def _flush_version_stage(
+        self,
+        stage: VersionStage,
+        *,
+        finalizing: bool,
+    ) -> int:
         if not stage.rows:
             return 0
         versions = _SqlIdentifier(self.settings.versions_table)
@@ -209,7 +222,10 @@ class DatabaseRepository:
                         tuple(_legacy_version_values(row) for row in stage.rows),
                     )
 
-        self._run_write(flush)
+        if finalizing:
+            self._run_final_write(flush)
+        else:
+            self._run_write(flush)
         return len(stage.rows)
 
     def version_rows(
@@ -879,15 +895,20 @@ class DatabaseRepository:
     def _run_write(self, operation: Callable[[sqlite3.Connection], Any]) -> Any:
         return self._run(operation, retry=True)
 
+    def _run_final_write(self, operation: Callable[[sqlite3.Connection], Any]) -> Any:
+        return self._run(operation, retry=False, observe_stop=False)
+
     def _run(
         self,
         operation: Callable[[sqlite3.Connection], Any],
         *,
         retry: bool,
+        observe_stop: bool = True,
     ) -> Any:
         attempt = 1
         while True:
-            self._check_stop()
+            if observe_stop:
+                self._check_stop()
             try:
                 with self._connection() as connection:
                     return operation(connection)
@@ -898,7 +919,8 @@ class DatabaseRepository:
                     or attempt >= self.settings.max_attempts
                 ):
                     raise DatabaseError(str(error)) from error
-                self._check_stop()
+                if observe_stop:
+                    self._check_stop()
                 self._sleep(self.settings.retry_delay_seconds)
                 attempt += 1
 

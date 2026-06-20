@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
-import os
 import time
 from collections.abc import Callable, Sequence
 from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from dataclasses import dataclass
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 from .runtime import GracefulStop
+
+if TYPE_CHECKING:
+    from .config import RuntimeConfig
 
 _DEFAULT_STOP_GRACE_SECONDS = 180.0
 _DEFAULT_POLL_INTERVAL_SECONDS = 0.1
@@ -38,18 +40,12 @@ class ConcurrencySettings:
     stop_grace_seconds: float = _DEFAULT_STOP_GRACE_SECONDS
 
     @classmethod
-    def from_env(cls) -> ConcurrencySettings:
-        """Load bounded-worker settings from shell-compatible environment."""
+    def from_config(cls, config: RuntimeConfig) -> ConcurrencySettings:
+        """Load worker settings captured by the application configuration."""
 
         return cls(
-            max_workers=_env_positive_int(
-                "BKG_PARALLEL_ASYNC_MAX_JOBS",
-                _default_max_workers(),
-            ),
-            stop_grace_seconds=_env_positive_float(
-                "BKG_OWNER_UPDATE_STOP_GRACE",
-                _DEFAULT_STOP_GRACE_SECONDS,
-            ),
+            max_workers=config.parallel_async_max_jobs,
+            stop_grace_seconds=config.owner_update_stop_grace,
         )
 
 
@@ -369,27 +365,3 @@ def _pending_task_name[T](
     if index >= len(items):
         return ""
     return task_name(items[index])
-
-
-def _default_max_workers() -> int:
-    cpu_count = os.cpu_count() or 1
-    return max(1, cpu_count * 2)
-
-
-def _env_positive_int(name: str, default: int) -> int:
-    value = os.environ.get(name)
-    if value is None or not value.isdecimal():
-        return default
-    parsed = int(value)
-    return parsed if parsed > 0 else default
-
-
-def _env_positive_float(name: str, default: float) -> float:
-    value = os.environ.get(name)
-    if value is None:
-        return default
-    try:
-        parsed = float(value)
-    except ValueError:
-        return default
-    return parsed if parsed > 0 else default

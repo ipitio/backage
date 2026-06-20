@@ -29,14 +29,25 @@ assert_not_contains() {
 
 run_test() {
 	[ -n "${1:-}" ] || fail "Expected a test function name"
+	local started_at=0
 	local status
 
+	if [ "${BKG_TEST_TIMINGS:-0}" = "1" ]; then
+		started_at=$(date +%s%3N)
+	fi
+
 	if ("$1"); then
+		if ((started_at > 0)); then
+			printf 'Test timing: %s %dms\n' "$1" "$(( $(date +%s%3N) - started_at ))"
+		fi
 		return 0
 	else
 		status=$?
 	fi
 
+	if ((started_at > 0)); then
+		printf 'Test timing: %s %dms\n' "$1" "$(( $(date +%s%3N) - started_at ))" >&2
+	fi
 	echo "Test failed: $1" >&2
 	return "$status"
 }

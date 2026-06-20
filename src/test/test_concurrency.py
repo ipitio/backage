@@ -14,6 +14,7 @@ from bkg_py.concurrency import (
     WorkerEvent,
     run_bounded,
 )
+from bkg_py.config import RuntimeConfig
 from bkg_py.runtime import GracefulStop
 
 
@@ -26,7 +27,7 @@ def test_concurrency_settings_default_to_cpu_scaled_workers(
     monkeypatch.delenv("BKG_OWNER_UPDATE_STOP_GRACE", raising=False)
     monkeypatch.setattr("os.cpu_count", lambda: 4)
 
-    settings = ConcurrencySettings.from_env()
+    settings = ConcurrencySettings.from_config(RuntimeConfig.from_env())
 
     assert settings.max_workers == 8
     assert settings.stop_grace_seconds == 180.0
@@ -41,7 +42,7 @@ def test_concurrency_settings_honor_explicit_env_overrides(
     monkeypatch.setenv("BKG_OWNER_UPDATE_STOP_GRACE", "12.5")
     monkeypatch.setattr("os.cpu_count", lambda: 4)
 
-    settings = ConcurrencySettings.from_env()
+    settings = ConcurrencySettings.from_config(RuntimeConfig.from_env())
 
     assert settings.max_workers == 9
     assert settings.stop_grace_seconds == 12.5
@@ -56,7 +57,7 @@ def test_concurrency_settings_ignore_invalid_env_values(
     monkeypatch.setenv("BKG_OWNER_UPDATE_STOP_GRACE", "nope")
     monkeypatch.setattr("os.cpu_count", lambda: None)
 
-    settings = ConcurrencySettings.from_env()
+    settings = ConcurrencySettings.from_config(RuntimeConfig.from_env())
 
     assert settings.max_workers == 2
     assert settings.stop_grace_seconds == 180.0

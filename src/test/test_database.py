@@ -24,6 +24,7 @@ from bkg_py.database import (
     VersionStage,
 )
 from bkg_py.database_models import VersionMetrics
+from bkg_py.runtime import GracefulStop
 
 _TODAY = "2026-06-10"
 _YESTERDAY = "2026-06-09"
@@ -313,6 +314,41 @@ class TestDatabaseRepository:
             assert count == 2
             assert normalized == [("1", 100), ("2", 200)]
             assert legacy == normalized
+
+    def test_version_finalization_commits_after_stop_request(self) -> None:
+        """Completed worker rows can be committed before status 3 is returned."""
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "index.db"
+            stopped = False
+
+            def check_stop() -> None:
+                if stopped:
+                    raise GracefulStop("test stop")
+
+            repository = DatabaseRepository(
+                DatabaseSettings(path),
+                check_stop=check_stop,
+            )
+            package = _package()
+            stage = VersionStage(
+                package_ref=package,
+                legacy_table=_legacy_table(package),
+                write_legacy=False,
+                rows=(_version("1"),),
+            )
+            repository.ensure_schema()
+            stopped = True
+
+            with pytest.raises(GracefulStop):
+                repository.flush_version_stage(stage)
+
+            assert repository.finalize_version_stage(stage) == 1
+            with sqlite3.connect(path) as connection:
+                count = connection.execute("select count(*) from versions").fetchone()[
+                    0
+                ]
+            assert count == 1
 
     def test_failed_legacy_mirror_rolls_back_normalized_batch(self) -> None:
         """A failure after normalized inserts cannot partially commit the batch."""

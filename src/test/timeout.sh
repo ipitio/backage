@@ -409,6 +409,8 @@ test_owner_update_force_stop_due_after_grace_period() {
 test_run_owner_updates_halts_on_timeout() {
 	local args_file="$workdir/owner-update.args"
 	local stdin_file="$workdir/owner-update.stdin"
+	local started_at
+	local elapsed
 	local status=0
 
 	get_BKG_set() {
@@ -431,14 +433,17 @@ test_run_owner_updates_halts_on_timeout() {
 	}
 
 	GITHUB_OWNER=ipitio
+	started_at=$(date +%s)
 
 	if run_owner_updates; then
 		fail "Expected run_owner_updates to return 3 when owner workers time out"
 	else
 		status=$?
 	fi
+	elapsed=$(( $(date +%s) - started_at ))
 
 	[ "$status" -eq 3 ] || fail "Expected run_owner_updates to return 3, got $status"
+	[ "$elapsed" -lt 10 ] || fail "Expected run_owner_updates to notice completed workers promptly"
 	assert_contains "$args_file" "update_owner"
 	assert_contains "$args_file" "--halt"
 	assert_contains "$args_file" "soon,fail=1"

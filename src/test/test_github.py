@@ -83,6 +83,43 @@ def test_rest_success_authentication_and_accounting(tmp_path: Path) -> None:
     assert state.get("BKG_REST_RESET_AT") == "1781139600"
 
 
+def test_text_request_retries_without_api_headers_or_accounting(
+    tmp_path: Path,
+) -> None:
+    """HTML requests reuse retry behavior without consuming REST accounting."""
+
+    attempts = 0
+    sleeps: list[float] = []
+    state_path = tmp_path / "env.env"
+    state_path.touch()
+    state = StateStore(state_path)
+
+    def respond(request: httpx.Request) -> httpx.Response:
+        nonlocal attempts
+        attempts += 1
+        assert request.url == "https://github.com/example/pkg/versions"
+        assert request.headers["accept"] == "text/html"
+        assert "authorization" not in request.headers
+        assert "x-github-api-version" not in request.headers
+        if attempts == 1:
+            return httpx.Response(503, headers={"retry-after": "0.25"})
+        return httpx.Response(200, text="<html>versions</html>")
+
+    client = _client(
+        httpx.MockTransport(respond),
+        accounting=GitHubRateAccounting(state),
+        runtime=GitHubRuntime(sleep=sleeps.append),
+    )
+
+    assert (
+        client.get_text("https://github.com/example/pkg/versions")
+        == "<html>versions</html>"
+    )
+    assert attempts == 2
+    assert sleeps == [0.25]
+    assert state.get_int("BKG_CALLS_TO_API") == 0
+
+
 def test_graphql_injects_and_accounts_for_reported_rate_cost(
     tmp_path: Path,
 ) -> None:

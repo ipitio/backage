@@ -240,6 +240,42 @@ class GitHubClient:
         except GitHubNotFoundError:
             return None
 
+    def get_text(
+        self,
+        url: str,
+        *,
+        authenticated: bool = False,
+        accept: str = "text/html",
+    ) -> str:
+        """Request one text resource through the shared retry policy."""
+
+        deadline = self.runtime.clock() + self.settings.total_timeout
+        for attempt in range(1, self.settings.max_attempts + 1):
+            self.runtime.check_stop()
+            try:
+                response = self._client.get(
+                    url,
+                    headers=self._headers(
+                        authenticated=authenticated,
+                        accept=accept,
+                        api_version=False,
+                    ),
+                    timeout=self._timeout(self._remaining(deadline)),
+                )
+            except httpx.TransportError as error:
+                if attempt >= self.settings.max_attempts:
+                    raise self._transport_error(url, error) from error
+                self._sleep_before_retry(None, attempt, deadline)
+                continue
+
+            if self._should_retry(response) and attempt < self.settings.max_attempts:
+                self._sleep_before_retry(response, attempt, deadline)
+                continue
+            self._raise_for_status(response)
+            return response.text
+
+        raise GitHubTransportError("GitHub text request exhausted its retry budget")
+
     def rest_pages(self, path: str) -> Iterator[GitHubJsonResponse]:
         """Yield REST pages until GitHub no longer provides a next link."""
 
@@ -377,12 +413,14 @@ class GitHubClient:
         *,
         authenticated: bool,
         accept: str = "application/vnd.github+json",
+        api_version: bool = True,
     ) -> dict[str, str]:
         headers = {
             "Accept": accept,
             "User-Agent": self.settings.user_agent,
-            "X-GitHub-Api-Version": "2022-11-28",
         }
+        if api_version:
+            headers["X-GitHub-Api-Version"] = "2022-11-28"
         if authenticated and self.settings.token:
             headers["Authorization"] = f"Bearer {self.settings.token}"
         return headers

@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
 
+from .concurrency import BoundedWorkerRunner, ConcurrencySettings
 from .config import RuntimeConfig
 from .database import DatabaseRepository
 from .database_settings import DatabaseSettings
@@ -19,9 +20,10 @@ from .github import (
 )
 from .publication import PublicationLimits
 from .rendering import AggregateSettings
-from .runtime import StopController
+from .runtime import ProcessRunner, StopController
 from .snapshots import SnapshotStore
 from .state import StateStore
+from .version_selection import VersionSelectionSettings
 
 
 @dataclass
@@ -86,6 +88,37 @@ class ApplicationContext:
         """Return GitHub settings captured for this process."""
 
         return GitHubSettings.from_env()
+
+    @cached_property
+    def version_selection_settings(self) -> VersionSelectionSettings:
+        """Return captured package-version selection limits."""
+
+        return VersionSelectionSettings(
+            max_version_pages=self.config.max_version_pages,
+            max_tag_pages=self.config.tag_cache_pages,
+            append_tagged_limit=self.config.append_tagged_versions_limit,
+        )
+
+    @cached_property
+    def concurrency_settings(self) -> ConcurrencySettings:
+        """Return captured bounded-worker settings for this process."""
+
+        return ConcurrencySettings.from_config(self.config)
+
+    @cached_property
+    def worker_runner(self) -> BoundedWorkerRunner:
+        """Return the shared bounded-worker policy for Python-owned loops."""
+
+        return BoundedWorkerRunner(
+            self.concurrency_settings,
+            check_stop=self.stop.check,
+        )
+
+    @cached_property
+    def process_runner(self) -> ProcessRunner:
+        """Return the stop-aware external process runner."""
+
+        return ProcessRunner(self.stop)
 
     @contextmanager
     def github_client(self) -> Generator[GitHubClient, None, None]:

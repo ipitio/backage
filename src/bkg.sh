@@ -106,9 +106,9 @@ run_owner_updates() {
 		) &
 		updates_pid=$!
 
-		while kill -0 "$updates_pid" 2>/dev/null; do
-			sleep 30
-			kill -0 "$updates_pid" 2>/dev/null || break
+		while background_job_running "$updates_pid"; do
+			sleep 1
+			background_job_running "$updates_pid" || break
 			script_stop_requested || continue
 			owner_update_wait_notice "$stop_wait_started" "$last_wait_notice"
 			stop_wait_started=$OWNER_UPDATE_WAIT_STARTED

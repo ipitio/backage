@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import json
 
+from bkg_py.version_selection import VersionCandidate
 from bkg_py.versions import (
     DownloadMetrics,
     VersionListEntry,
@@ -18,6 +19,7 @@ from bkg_py.versions import (
     parse_metric_value,
     parse_version_listing_html,
     version_cache_records,
+    version_candidates,
 )
 
 
@@ -97,6 +99,11 @@ def test_parse_version_listing_html_matches_github_rows() -> None:
         "name": "sha256:abc",
         "tags": ["latest", "stable/1"],
     }
+    assert entries[0].candidate() == VersionCandidate(
+        "123",
+        "sha256:abc",
+        ("latest", "stable/1"),
+    )
 
 
 def test_version_cache_records_normalize_ids_sources_and_tags() -> None:
@@ -131,6 +138,25 @@ def test_version_cache_records_normalize_ids_sources_and_tags() -> None:
     }
     assert base64.b64decode(records[0].tsv_row().split("\t")[2]).decode() == (
         "latest,stable,nested"
+    )
+
+    assert version_candidates(
+        json.dumps(
+            [
+                {
+                    "id": 123,
+                    "name": "sha256:abc",
+                    "tags": [" latest ", "stable", "latest"],
+                    "metadata": {"tags": "nested, stable"},
+                }
+            ]
+        )
+    ) == (
+        VersionCandidate(
+            version_id="123",
+            name="sha256:abc",
+            tags=("latest", "stable", "nested"),
+        ),
     )
 
 

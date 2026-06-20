@@ -21,6 +21,27 @@ def _env_int(name: str, default: int) -> int:
         return default
 
 
+def _env_nonnegative_int(name: str, default: int) -> int:
+    value = _env_int(name, default)
+    return value if value >= 0 else default
+
+
+def _env_positive_int(name: str, default: int) -> int:
+    value = _env_int(name, default)
+    return value if value > 0 else default
+
+
+def _env_positive_float(name: str, default: float) -> float:
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    try:
+        parsed = float(value)
+    except ValueError:
+        return default
+    return parsed if parsed > 0 else default
+
+
 @dataclass(frozen=True)
 class RuntimeConfig:  # pylint: disable=too-many-instance-attributes
     """Runtime settings read from the environment used by the Bash entrypoints."""
@@ -44,6 +65,11 @@ class RuntimeConfig:  # pylint: disable=too-many-instance-attributes
     index_db: str | None
     index_sql: str | None
     index_dir: str | None
+    max_version_pages: int = 3
+    tag_cache_pages: int = 3
+    append_tagged_versions_limit: int = 30
+    parallel_async_max_jobs: int = max(1, (os.cpu_count() or 1) * 2)
+    owner_update_stop_grace: float = 180.0
 
     @classmethod
     def from_env(cls) -> RuntimeConfig:
@@ -88,9 +114,23 @@ class RuntimeConfig:  # pylint: disable=too-many-instance-attributes
             index_db=index_db,
             index_sql=index_sql,
             index_dir=index_dir,
+            max_version_pages=_env_nonnegative_int("BKG_MAX_VERSION_PAGES", 3),
+            tag_cache_pages=_env_nonnegative_int("BKG_TAG_CACHE_PAGES", 3),
+            append_tagged_versions_limit=_env_nonnegative_int(
+                "BKG_APPEND_TAGGED_VERSIONS_LIMIT",
+                30,
+            ),
+            parallel_async_max_jobs=_env_positive_int(
+                "BKG_PARALLEL_ASYNC_MAX_JOBS",
+                max(1, (os.cpu_count() or 1) * 2),
+            ),
+            owner_update_stop_grace=_env_positive_float(
+                "BKG_OWNER_UPDATE_STOP_GRACE",
+                180.0,
+            ),
         )
 
-    def as_dict(self) -> dict[str, int | str | None]:
+    def as_dict(self) -> dict[str, float | int | str | None]:
         """Return a JSON-serializable representation of this configuration."""
 
         return asdict(self)

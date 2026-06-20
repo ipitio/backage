@@ -13,6 +13,8 @@ from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from typing import cast
 from urllib.parse import unquote_plus
 
+from .version_selection import VersionCandidate
+
 _DOWNLOAD_LABELS = {
     "total": "Total downloads",
     "month": "Last 30 days",
@@ -98,6 +100,11 @@ class VersionListEntry:
             "name": self.name,
             "tags": list(self.tags),
         }
+
+    def candidate(self) -> VersionCandidate:
+        """Return the entry in the form used by version selection."""
+
+        return VersionCandidate(str(self.version_id), self.name, self.tags)
 
 
 @dataclass(frozen=True)
@@ -218,17 +225,8 @@ def parse_version_listing_html(
 def version_cache_records(json_text: str) -> tuple[VersionCacheRecord, ...]:
     """Return normalized shell cache records for a version page JSON array."""
 
-    try:
-        data: object = json.loads(json_text)
-    except json.JSONDecodeError:
-        return ()
-
-    versions = _as_list(data)
-    if versions is None:
-        return ()
-
     records: list[VersionCacheRecord] = []
-    for version in versions:
+    for version in _version_values(json_text):
         source_json = json.dumps(
             version,
             ensure_ascii=False,
@@ -243,6 +241,30 @@ def version_cache_records(json_text: str) -> tuple[VersionCacheRecord, ...]:
             )
         )
     return tuple(records)
+
+
+def version_candidates(json_text: str) -> tuple[VersionCandidate, ...]:
+    """Return normalized candidates from a version page JSON array."""
+
+    return version_candidates_from_value(_version_values(json_text))
+
+
+def version_candidates_from_value(value: object) -> tuple[VersionCandidate, ...]:
+    """Return normalized candidates from an already-decoded version array."""
+
+    candidates: list[VersionCandidate] = []
+    for version in _as_list(value) or ():
+        mapping = _as_dict(version)
+        name = _jq_text(mapping.get("name")) if mapping is not None else "null"
+        tags = _candidate_tags(version)
+        candidates.append(
+            VersionCandidate(
+                version_id=_candidate_id(version),
+                name=name,
+                tags=tuple(tags.split(",")) if tags else (),
+            )
+        )
+    return tuple(candidates)
 
 
 def extract_embedded_manifest(html: str) -> str:
@@ -518,6 +540,15 @@ def _candidate_id(value: object) -> str:
     if isinstance(version_id, str) and re.fullmatch(r"[0-9]+", version_id):
         return version_id
     return "-1"
+
+
+def _version_values(json_text: str) -> list[object]:
+    try:
+        data: object = json.loads(json_text)
+    except json.JSONDecodeError:
+        return []
+    versions = _as_list(data)
+    return versions or []
 
 
 def _candidate_tags(value: object) -> str:

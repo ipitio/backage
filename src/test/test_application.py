@@ -84,6 +84,57 @@ def test_database_settings_use_captured_runtime_config(
     assert settings.versions_table == "captured_versions"
 
 
+def test_version_selection_settings_use_captured_runtime_config(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Version page limits are captured once for one application process."""
+
+    monkeypatch.setenv("BKG_ROOT", str(tmp_path))
+    monkeypatch.setenv("BKG_MAX_VERSION_PAGES", "4")
+    monkeypatch.setenv("BKG_TAG_CACHE_PAGES", "2")
+    monkeypatch.setenv("BKG_APPEND_TAGGED_VERSIONS_LIMIT", "17")
+    application = ApplicationContext.from_env()
+
+    monkeypatch.setenv("BKG_MAX_VERSION_PAGES", "99")
+    monkeypatch.setenv("BKG_TAG_CACHE_PAGES", "99")
+    monkeypatch.setenv("BKG_APPEND_TAGGED_VERSIONS_LIMIT", "99")
+
+    settings = application.version_selection_settings
+
+    assert settings.max_version_pages == 4
+    assert settings.max_tag_pages == 2
+    assert settings.append_tagged_limit == 17
+    assert application.version_selection_settings is settings
+
+
+def test_worker_settings_use_captured_runtime_config(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Worker limits are captured once and reused by runtime services."""
+
+    monkeypatch.setenv("BKG_ROOT", str(tmp_path))
+    monkeypatch.setenv("BKG_PARALLEL_ASYNC_MAX_JOBS", "7")
+    monkeypatch.setenv("BKG_OWNER_UPDATE_STOP_GRACE", "14.5")
+    application = ApplicationContext.from_env()
+
+    monkeypatch.setenv("BKG_PARALLEL_ASYNC_MAX_JOBS", "99")
+    monkeypatch.setenv("BKG_OWNER_UPDATE_STOP_GRACE", "99")
+
+    settings = application.concurrency_settings
+
+    assert settings.max_workers == 7
+    assert settings.stop_grace_seconds == 14.5
+    assert application.concurrency_settings is settings
+    assert application.worker_runner.settings is settings
+    assert (
+        getattr(application.worker_runner.check_stop, "__self__", None)
+        is application.stop
+    )
+    assert application.process_runner.stop is application.stop
+
+
 def test_github_client_uses_shared_runtime_services(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
