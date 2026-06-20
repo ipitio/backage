@@ -1,4 +1,3 @@
-2438166/ZOMGClan
 2437025/Voodo133
 2437022/Zerc727
 2437047/ahmetaa
@@ -12,7 +11,6 @@
 2436992/dvdm
 2436971/gauravv
 2437046/gudbrandurorn
-2437777/hardwarepl
 2437027/hisdabuir59
 2437070/hyangdani
 2437066/jinkyu
@@ -81,7 +79,6 @@
 2446547/Madahin
 2446574/Loganwheeler
 2451383/Mercurified
-2448403/MizzouACM
 2447474/Microgroove
 2448686/Misty-Panda
 2451628/NextLevelCreative
@@ -199,10 +196,8 @@
 2446528/tv0dahlia
 2450392/trystackcn
 2453148/upTee
-2446506/vivianrogers1231
 2453483/fastlinemedia
 2453764/otto-de
-2453799/LEZGROLLC
 2453800/base12attack
 2453842/SHOFLO
 2453942/KarinaMobileSolutions
@@ -246,7 +241,6 @@
 2458346/ConneX-zz
 2458401/venenux
 2458347/boltdate8
-2458414/LeakGames
 2458415/caveteeth95
 2458445/MPowered-TechTeam
 2458446/recordfood73
@@ -262,7 +256,6 @@
 2459150/xplsv
 2459239/tartarus
 2459207/devbootcampa
-2459378/Interfolio
 2459379/roncking
 2459517/mestoz
 2459637/pastor38sharon
@@ -291,3 +284,4 @@
 2462071/adi52i
 2462284/Ghousepasha-ios
 2462325/Andersuttrup
+2462333/samcro
