@@ -1,4 +1,3 @@
-2437045/dcdaniels77
 2436992/dvdm
 2436971/gauravv
 2437046/gudbrandurorn
@@ -14,13 +13,11 @@
 2438179/noctrl
 2436994/peppepalma
 2437079/pumpkin0529
-2437778/rootboxcom
 2436969/scottsappen
 2438329/sfgventures
 2440141/sorcode
 2438104/tagholic
 2437050/tuba6tire
-2437029/vessel8reason
 2437002/wizardone
 2436986/wwwmonkey
 2441786/dynamic-horizons
@@ -42,13 +39,11 @@
 2446375/miriagyjohi
 2446446/INTENT-TECHNOLOGIES
 2446461/vinjosh001
-2446535/66manxroute
 2450698/AgileStory
 2452026/ASE-Inc
 2447115/AOSP-ZEUS
 2453130/CreativeTools
 2449094/Cyneek
-2453363/Dictanova
 2452908/DirectOpen
 2448316/Docstoc
 2452757/EclipseUCOSP
@@ -274,3 +269,5 @@
 2462612/FredyFadel
 2462644/Photoshot
 2462645/beer5chair
+2462796/BuildTest
+2462783/vkolgi
