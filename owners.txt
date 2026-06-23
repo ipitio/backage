@@ -1,4 +1,3 @@
-2437066/jinkyu
 2439503/koderhut
 2436990/krillin
 2437544/mehrwert
@@ -7,7 +6,6 @@
 2440780/oess
 2438179/noctrl
 2437079/pumpkin0529
-2436969/scottsappen
 2438329/sfgventures
 2440141/sorcode
 2438104/tagholic
@@ -25,7 +23,6 @@
 2445334/BD-MCO-WEB
 2445526/creditlaw64
 2445873/AfricaHackTrip
-2446130/SColeD
 2446274/WOWIS
 2446276/jtvberg
 2446293/andeck
@@ -166,7 +163,6 @@
 2453148/upTee
 2453483/fastlinemedia
 2453764/otto-de
-2453800/base12attack
 2453842/SHOFLO
 2453942/KarinaMobileSolutions
 2453943/aladwig06
@@ -233,13 +229,11 @@
 2461269/cristianbotesv
 2461292/fvikky
 2461491/Dromtorp2ISA
-2461690/Deeplace
 2461693/Q-Geeks
 2461731/bebook
 2461796/Elektroshop
 2461797/mayroncabrer1024
 2461879/entitas
-2461880/esthermosad
 2462058/Peter0
 2462071/adi52i
 2462284/Ghousepasha-ios
@@ -249,7 +243,6 @@
 2462430/HexoSys
 2462461/AppsFuel
 2462463/klapkon1
-2462494/79singlecopper
 2462611/pharmbase
 2462612/FredyFadel
 2462644/Photoshot
@@ -260,3 +253,4 @@
 2462948/mindminzaza
 2462953/gigo1980
 2463145/Webstratega
+2463146/Qba92
