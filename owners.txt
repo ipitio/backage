@@ -1,4 +1,3 @@
-2437002/wizardone
 2436986/wwwmonkey
 2441786/dynamic-horizons
 2441958/authorly
@@ -8,8 +7,6 @@
 2444679/micbra
 2444860/hayagreevtech
 2445526/creditlaw64
-2445873/AfricaHackTrip
-2446274/WOWIS
 2446276/jtvberg
 2446293/andeck
 2446375/miriagyjohi
@@ -39,7 +36,6 @@
 2449106/Trackly
 2452529/ThirdPartyConsultant
 2446500/ZwickTheGreat
-2448423/aaa-ncnu-ie
 2446498/apejedi
 2446562/armnovel2
 2449495/andengineering
@@ -324,7 +320,6 @@
 2463439/kalehockey63
 2463440/kayak5home
 2463447/kexibqq
-2463537/lauhaai
 2466503/lcpa
 2464635/lovyu
 2465187/lumapps
@@ -343,16 +338,13 @@
 2466838/nlpub
 2465594/nonprofitfinancefund
 2468090/nonzeroid
-2465535/ontolaw
 2464394/openbiz
 2463549/openosahuc
 2463539/pamik
-2463436/peonmoda
 2467046/pittmesh
 2463494/poqcommerce
 2463634/publicsuffix
 2463535/puppy42bike
-2463442/pvc2valley
 2463518/raven14dead
 2463513/reevo
 2463991/revoranet
@@ -367,22 +359,17 @@
 2469075/taNaMao
 2463460/taukapi
 2463501/testchick
-2463465/tfadmin
 2463499/tgreif
 2464033/tick-ts
-2463508/tim-butler-guardian
-2467420/tobysoft
 2463530/tomsquires
 2463533/tunches
 2465707/two-n
-2464106/uFutureLabs
 2464639/ulsdevteam
 2468435/usc-csci200-fall2012
 2463551/waivqkgfl47
 2463463/wanderleyFreitas
 2463543/window1soda
 2465472/wiseleap
-2464032/xsens
 2463468/xuanpingren
 2469244/PicoThemes
 2469246/click5stream
@@ -390,3 +377,4 @@
 2469540/5tableflock
 2469641/Team-BoA
 2469869/JellyJollyTeam
+2469870/jpuffer
