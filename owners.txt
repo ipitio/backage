@@ -1,12 +1,9 @@
-2443688/couchpotatoes
 2444860/hayagreevtech
 2445526/creditlaw64
 2446276/jtvberg
 2446293/andeck
 2446375/miriagyjohi
-2446461/vinjosh001
 2452026/ASE-Inc
-2453130/CreativeTools
 2449094/Cyneek
 2448316/Docstoc
 2446495/FaabriT
@@ -30,8 +27,6 @@
 2447022/aschome
 2451446/assunnah
 2449751/berrington
-2453441/bitcointalk
-2451497/bowler-framework
 2446540/bramchri
 2446552/businesstrust
 2446468/chrisbertsch
@@ -39,7 +34,6 @@
 2446545/cinemasoda7
 2446465/club5dinghy
 2446505/copper4stage
-2446581/dangilbot
 2446475/ekerner
 2449262/evolvingtechcorp
 2446494/europejumbo85
@@ -63,7 +57,6 @@
 2446548/maziaramini
 2446554/msalaj
 2446510/naturalism
-2446504/muscle87peanut
 2452804/mysql
 2446513/oejyufoqo
 2446533/payamv
@@ -74,7 +67,6 @@
 2446534/robinbech717
 2450127/redmountainmakers
 2452860/robostalin
-2446476/skininch7
 2446514/shangbingHu
 2446469/skrasser
 2446543/soap59locket
@@ -83,7 +75,6 @@
 2453306/sreebodapati
 2448845/stlab
 2449699/studio-cartogram
-2446502/stefanprochaska
 2450320/thecloudforge
 2446473/tellersky55
 2448393/tinyhabits
@@ -92,7 +83,6 @@
 2446528/tv0dahlia
 2450392/trystackcn
 2453148/upTee
-2453483/fastlinemedia
 2453764/otto-de
 2453842/SHOFLO
 2453942/KarinaMobileSolutions
@@ -245,13 +235,11 @@
 2464246/anonymation
 2463488/anthonybugge614
 2463478/arminreh
-2463454/arrow2shame
 2463512/ars188
 2465063/ase-lab
 2466211/aspires-a-team
 2463475/awirth
 2463500/basecloud
-2467483/bellmobi
 2463449/bergarao2woeluck
 2466261/bioc-dev-team
 2468758/bocist
@@ -276,7 +264,6 @@
 2463526/gscshoyru
 2463459/guitar5crop
 2465076/hackerbeach
-2463497/handleseed7
 2463472/harini-ua
 2463480/hugolefrancois
 2463486/ihartstein
@@ -298,7 +285,6 @@
 2463563/niartib
 2463437/nic0woman
 2463502/niece51straw
-2466838/nlpub
 2465594/nonprofitfinancefund
 2468090/nonzeroid
 2464394/openbiz
@@ -312,7 +298,6 @@
 2463513/reevo
 2463991/revoranet
 2463476/rodskin
-2463527/rolyikeo
 2463495/shadex14
 2463520/skytoo
 2469083/softecs
@@ -328,15 +313,14 @@
 2463463/wanderleyFreitas
 2465472/wiseleap
 2463468/xuanpingren
-2469244/PicoThemes
 2469246/click5stream
 2469513/Riabit
 2469540/5tableflock
 2469641/Team-BoA
 2469869/JellyJollyTeam
-2469870/jpuffer
 2469956/Axxes-zz
 2469959/nowsol
 2469971/CommutePays
 2470008/PythonUnited
 2470010/kostola
+2470038/cityhubcap92
