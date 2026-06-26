@@ -15,6 +15,7 @@ from .version_selection import (
 )
 from .versions import (
     VersionListingContext,
+    package_versions_html_url,
     parse_version_listing_html,
     version_candidates_from_value,
 )
@@ -164,19 +165,12 @@ class VersionCandidateLoader:  # pylint: disable=too-few-public-methods
     def _version_page_url(self, page_number: int) -> str:
         """Return the public HTML URL for one package-version page."""
 
-        context = self.context
-        return (
-            f"https://github.com/{context.owner}/{context.repo}/pkgs/"
-            f"{context.package_type}/{context.package}/versions?page={page_number}"
-        )
+        return package_versions_html_url(self.context, page_number)
 
     def _tagged_page_url(self, page_number: int) -> str:
         """Return the tagged-filter HTML URL for one package-version page."""
 
-        return (
-            f"{self._version_page_url(page_number).split('?', maxsplit=1)[0]}"
-            f"?filters%5Bversion_type%5D=tagged&page={page_number}"
-        )
+        return package_versions_html_url(self.context, page_number, tagged=True)
 
 
 def _ignore_diagnostic(_message: str) -> None:

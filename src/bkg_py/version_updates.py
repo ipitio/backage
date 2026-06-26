@@ -27,6 +27,7 @@ from .versions import (
     extract_oci_version_labels,
     extract_version_page_data,
     manifest_size,
+    package_version_detail_html_url,
 )
 
 _BADGE_SIZE_PATTERN = re.compile(r">([0-9]+(?:\.[0-9]+)?)\s*([^<]*)<")
@@ -182,11 +183,7 @@ class VersionDetailInspector:  # pylint: disable=too-few-public-methods
             return ""
 
     def _detail_url(self, version_id: str) -> str:
-        context = self.context
-        return (
-            f"https://github.com/{context.owner}/{context.repo}/pkgs/"
-            f"{context.package_type}/{context.package}/{version_id}"
-        )
+        return package_version_detail_html_url(self.context, version_id)
 
     def _manifest_reference(self, version_name: str) -> str:
         owner = self.context.owner.lower()

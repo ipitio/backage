@@ -254,6 +254,15 @@ def _add_version_parsers(subparsers: Any) -> None:
         "cache-candidates",
         help="normalize version page JSON into shell cache records",
     )
+    refresh_parser = version_commands.add_parser(
+        "refresh-package",
+        help="refresh one package's selected version rows",
+    )
+    _add_package_arguments(refresh_parser)
+    refresh_parser.add_argument("legacy_table")
+    refresh_parser.add_argument("since")
+    refresh_parser.add_argument("write_legacy", choices=("true", "false"))
+    refresh_parser.add_argument("use_rest_api", choices=("true", "false"))
 
 
 def _add_snapshot_parsers(subparsers: Any) -> None:

@@ -66,11 +66,10 @@ _API_PAGE_1 = (
     "orgs/Lazztech/packages/container/libre-closet/versions?per_page=30&page=1"
 )
 _HTML_PAGE_1 = (
-    "https://github.com/Lazztech/Libre-Closet/pkgs/container/"
-    "libre-closet/versions?page=1"
+    "https://github.com/orgs/Lazztech/packages/container/libre-closet/versions?page=1"
 )
 _TAGGED_PAGE_1 = (
-    "https://github.com/Lazztech/Libre-Closet/pkgs/container/"
+    "https://github.com/orgs/Lazztech/packages/container/"
     "libre-closet/versions?filters%5Bversion_type%5D=tagged&page=1"
 )
 

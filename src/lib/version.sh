@@ -104,6 +104,168 @@ version_drop_legacy_table_if_replaced() {
         "$batch_first_started" >/dev/null
 }
 
+version_refresh_package() {
+    local batch_first_started=${1:-0000-00-00}
+
+    case "${BKG_VERSION_REFRESH_IMPL:-python}" in
+    python | "")
+        version_refresh_package_python "$batch_first_started"
+        ;;
+    bash)
+        version_refresh_package_bash "$batch_first_started"
+        ;;
+    *)
+        echo "Unknown BKG_VERSION_REFRESH_IMPL=${BKG_VERSION_REFRESH_IMPL}; using Python version refresh" >&2
+        version_refresh_package_python "$batch_first_started"
+        ;;
+    esac
+}
+
+version_refresh_package_python() {
+    local batch_first_started=${1:-0000-00-00}
+    local write_legacy=false
+    local use_rest_api=false
+    local refresh_summary=""
+    local refresh_status=0
+
+    version_legacy_table_exists && write_legacy=true
+    [ -z "${GITHUB_TOKEN:-}" ] || use_rest_api=true
+
+    refresh_summary=$(bkg_python version refresh-package \
+        "${owner_id:-}" \
+        "${owner_type:-}" \
+        "${package_type:-}" \
+        "${owner:-}" \
+        "${repo:-}" \
+        "${package:-}" \
+        "${table_version_name:-}" \
+        "$batch_first_started" \
+        "$write_legacy" \
+        "$use_rest_api") || refresh_status=$?
+
+    if ((refresh_status == 0)) && [ -n "$refresh_summary" ]; then
+        echo "Version refresh summary for $owner/$package: $refresh_summary"
+    fi
+    return "$refresh_status"
+}
+
+version_refresh_package_bash() {
+    local batch_first_started=${1:-0000-00-00}
+    local max_version_pages=${BKG_MAX_VERSION_PAGES:-3}
+    local tag_cache_pages=${BKG_TAG_CACHE_PAGES:-3}
+    local append_tagged_limit=${BKG_APPEND_TAGGED_VERSIONS_LIMIT:-30}
+    local page=1
+    local pages_left=0
+    local pipeline_status=0
+    local update_versions_status=0
+    local version_flush_status=0
+    local version_lines
+    local oldest_window_version_id=""
+    local version_id
+
+    [[ "$max_version_pages" =~ ^[0-9]+$ ]] || max_version_pages=3
+    [[ "$tag_cache_pages" =~ ^[0-9]+$ ]] || tag_cache_pages=3
+    [[ "$append_tagged_limit" =~ ^[0-9]+$ ]] || append_tagged_limit=30
+
+    version_select_source_sql "$batch_first_started"
+    sqlite3 "$BKG_INDEX_DB" "select id from $VERSION_SOURCE_TABLE_SQL where $VERSION_SOURCE_WHERE_SQL;" | sort -u >"${table_version_name}"_already_updated
+
+    version_reset_pipeline "$tag_cache_pages"
+    version_stage_reset
+    pipeline_status=$?
+
+    if ((pipeline_status == 3)); then
+        rm -f "${table_version_name}"_already_updated
+        return 3
+    elif ((pipeline_status != 0)); then
+        echo "Failed to initialize version staging for $owner/$package; using fallback data where needed" >&2
+        update_versions_status=$pipeline_status
+    else
+        page_version "$page"
+        pages_left=$?
+
+        if ((pages_left == 3)); then
+            pipeline_status=3
+        fi
+
+        version_lines=$(jq -r '.[] | @base64' <<<"$VERSION_PAGE_JSON")
+        if ((pipeline_status != 3)) && [ -n "$version_lines" ]; then
+            version_hydrate_candidates "$version_lines" 0
+            pipeline_status=$?
+
+            if ((pipeline_status != 3)); then
+                version_submit_current_page_candidates 5 false
+                pipeline_status=$?
+            fi
+
+            if ((pipeline_status != 3)); then
+                version_collect_current_page_provisional 5
+                version_resolve_provisional_candidates "$tag_cache_pages"
+                pipeline_status=$?
+            fi
+        fi
+
+        while ((pipeline_status != 3)) && ((pages_left != 2)) && ((page < max_version_pages)) && ((${#VERSION_PROVISIONAL_IDS[@]} > 0)); do
+            ((page++))
+            page_version "$page"
+            pages_left=$?
+
+            if ((pages_left == 3)); then
+                pipeline_status=3
+                break
+            fi
+
+            version_lines=$(jq -r '.[] | @base64' <<<"$VERSION_PAGE_JSON")
+            [ -n "$version_lines" ] || continue
+
+            version_hydrate_candidates "$version_lines" 0
+            pipeline_status=$?
+            ((pipeline_status != 3)) || break
+            version_promote_current_page_candidates "$tag_cache_pages"
+            pipeline_status=$?
+        done
+
+        if ((pipeline_status != 3)) && ((${#VERSION_SOURCE_LINES[@]} == 0)); then
+            version_store_fallback_candidate
+            version_submit_candidate "-1"
+            pipeline_status=$?
+        fi
+
+        if ((pipeline_status != 3)); then
+            for version_id in "${VERSION_PROVISIONAL_IDS[@]}"; do
+                version_submit_candidate "$version_id"
+                pipeline_status=$?
+                ((pipeline_status != 3)) || break
+            done
+        fi
+
+        if ((pipeline_status != 3)); then
+            oldest_window_version_id=$(version_oldest_submitted_numeric_id)
+
+            if [[ "$oldest_window_version_id" =~ ^[0-9]+$ ]]; then
+                version_append_older_tagged_candidates "$oldest_window_version_id" "$append_tagged_limit"
+                pipeline_status=$?
+            fi
+        fi
+    fi
+
+    parallel_async_wait
+    update_versions_status=$?
+    version_flush_staged_rows || version_flush_status=$?
+    version_stage_cleanup
+
+    rm -f "${table_version_name}"_already_updated
+    ((pipeline_status != 3 && update_versions_status != 3 && version_flush_status != 3)) || return 3
+
+    if ((update_versions_status != 0)); then
+        echo "Version refresh had write errors for $owner/$package; using fallback data where needed" >&2
+    fi
+
+    if ((version_flush_status != 0)); then
+        echo "Failed to flush staged version rows for $owner/$package; using fallback data where needed" >&2
+    fi
+}
+
 version_stage_queue_row() {
     [ -n "$package" ] || return
     [ -n "${VERSION_STAGE_DIR:-}" ] || {
@@ -335,12 +497,46 @@ version_parse_page_html() {
         "$owner_type" "$owner" "$repo" "$package_type" "$package" <<<"$1"
 }
 
+github_package_base_url() {
+    [ -n "${owner_type:-}" ] || return
+    [ -n "${owner:-}" ] || return
+    [ -n "${package_type:-}" ] || return
+    [ -n "${package:-}" ] || return
+    printf 'https://github.com/%s/%s/packages/%s/%s\n' \
+        "$owner_type" "$owner" "$package_type" "$package"
+}
+
+github_package_detail_url() {
+    [ -n "${owner_type:-}" ] || return
+    [ -n "${owner:-}" ] || return
+    [ -n "${package_type:-}" ] || return
+    [ -n "${package:-}" ] || return
+    printf 'https://github.com/%s/%s/packages/%s/package/%s\n' \
+        "$owner_type" "$owner" "$package_type" "$package"
+}
+
+github_package_versions_url() {
+    [ -n "$1" ] || return
+    printf '%s/versions?page=%s\n' "$(github_package_base_url)" "$1"
+}
+
+github_package_tagged_versions_url() {
+    [ -n "$1" ] || return
+    printf '%s/versions?filters%%5Bversion_type%%5D=tagged&page=%s\n' \
+        "$(github_package_base_url)" "$1"
+}
+
+github_package_version_url() {
+    [ -n "$1" ] || return
+    printf '%s/%s\n' "$(github_package_base_url)" "$1"
+}
+
 version_page_from_html() {
     [ -n "$1" ] || return
     [ -n "$package" ] || return
     local html
 
-    html=$(curl "https://github.com/$owner/$repo/pkgs/$package_type/$package/versions?page=$1")
+    html=$(curl "$(github_package_versions_url "$1")")
     (($? != 3)) || return 3
     version_parse_page_html "$html"
 }
@@ -426,7 +622,7 @@ version_load_tag_cache_page() {
     local version_line
     local version_id
 
-    html=$(curl "https://github.com/$owner/$repo/pkgs/$package_type/$package/versions?filters%5Bversion_type%5D=tagged&page=$1")
+    html=$(curl "$(github_package_tagged_versions_url "$1")")
     (($? != 3)) || return 3
     tag_link_count=$(grep -Po '\?tag=' <<<"$html" | wc -l)
 
@@ -691,7 +887,7 @@ update_version() {
     version_name=$(_jq "$1" '.name')
     version_tags=$(_jq "$1" '.tags')
     echo "Updating $owner/$package/$version_id..."
-    version_html=$(curl "https://github.com/$owner/$repo/pkgs/$package_type/$package/$version_id")
+    version_html=$(curl "$(github_package_version_url "$version_id")")
     (($? != 3)) || return 3
     version_page_data=$(bkg_python version extract-page-data <<<"$version_html") || version_page_data_status=$?
     ((version_page_data_status != 3)) || return 3

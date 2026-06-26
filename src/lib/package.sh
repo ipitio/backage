@@ -25,6 +25,7 @@ listed_package_ref() {
     repo=$(grep -zoP '(?<=href="/'"$owner_type"'/'"$owner"'/packages/'"$package_type"'/package/'"$package_new"'")(.|\n)*?href="/'"$owner"'/[^"]+"' <<<"$pkg_html" | tr -d '\0' | grep -oP 'href="/'"$owner"'/[^"]+' | cut -d'/' -f3)
     package_type=${package_type%/}
     repo=${repo%/}
+    [ -n "$repo" ] || repo=$package_new
     [ -n "$repo" ] || return
     printf '%s/%s/%s\n' "$package_type" "$repo" "$package_new"
 }
@@ -380,7 +381,7 @@ update_package() {
     local rank_stats_row=""
     local owner_rank
     local repo_rank
-    local version_flush_status=0
+    local version_refresh_status=0
     local package_write_status=0
     local batch_first_started=""
     local packages_table_sql=""
@@ -443,120 +444,16 @@ update_package() {
     cleanup_generated_json_sidecars "$BKG_INDEX_DIR/$owner/$repo"
 
     if ! awk -F'|' -v owner_id_key="$owner_id" -v owner_key="$owner" -v repo_key="$repo" -v package_key="$package" '$1 == owner_id_key && $2 == owner_key && $3 == repo_key && $4 == package_key { found = 1; exit } END { exit !found }' packages_already_updated; then
-        html=$(curl "https://github.com/$owner/$repo/pkgs/$package_type/$package")
+        html=$(curl "$(github_package_detail_url)")
         (($? != 3)) || return 3
         [ -n "$(grep -Pzo 'Total downloads' <<<"$html" | tr -d '\0')" ] || return
         echo "Updating $owner/$package..."
         raw_downloads=$(grep -Pzo 'Total downloads[^"]*"\d*' <<<"$html" | grep -Pzo '\d*$' | tr -d '\0') # https://stackoverflow.com/a/74214537
-        version_select_source_sql "$batch_first_started"
-        sqlite3 "$BKG_INDEX_DB" "select id from $VERSION_SOURCE_TABLE_SQL where $VERSION_SOURCE_WHERE_SQL;" | sort -u >"${table_version_name}"_already_updated
-        local max_version_pages=${BKG_MAX_VERSION_PAGES:-3}
-        local tag_cache_pages=${BKG_TAG_CACHE_PAGES:-3}
-        local append_tagged_limit=${BKG_APPEND_TAGGED_VERSIONS_LIMIT:-30}
-        local page=1
-        local pages_left=0
-        local pipeline_status=0
-        local update_versions_status=0
-        local version_lines
-        local oldest_window_version_id=""
+        version_refresh_package "$batch_first_started" || version_refresh_status=$?
+        ((version_refresh_status != 3)) || return 3
 
-        [[ "$max_version_pages" =~ ^[0-9]+$ ]] || max_version_pages=3
-        [[ "$tag_cache_pages" =~ ^[0-9]+$ ]] || tag_cache_pages=3
-        [[ "$append_tagged_limit" =~ ^[0-9]+$ ]] || append_tagged_limit=30
-
-        version_reset_pipeline "$tag_cache_pages"
-        version_stage_reset
-        pipeline_status=$?
-
-        if ((pipeline_status == 3)); then
-            rm -f "${table_version_name}"_already_updated
-            return 3
-        elif ((pipeline_status != 0)); then
-            echo "Failed to initialize version staging for $owner/$package; using fallback data where needed" >&2
-            update_versions_status=$pipeline_status
-        else
-            page_version "$page"
-            pages_left=$?
-
-            if ((pages_left == 3)); then
-                pipeline_status=3
-            fi
-
-            version_lines=$(jq -r '.[] | @base64' <<<"$VERSION_PAGE_JSON")
-            if ((pipeline_status != 3)) && [ -n "$version_lines" ]; then
-                version_hydrate_candidates "$version_lines" 0
-                pipeline_status=$?
-
-                if ((pipeline_status != 3)); then
-                    version_submit_current_page_candidates 5 false
-                    pipeline_status=$?
-                fi
-
-                if ((pipeline_status != 3)); then
-                    version_collect_current_page_provisional 5
-                    version_resolve_provisional_candidates "$tag_cache_pages"
-                    pipeline_status=$?
-                fi
-            fi
-
-            while ((pipeline_status != 3)) && ((pages_left != 2)) && ((page < max_version_pages)) && ((${#VERSION_PROVISIONAL_IDS[@]} > 0)); do
-                ((page++))
-                page_version "$page"
-                pages_left=$?
-
-                if ((pages_left == 3)); then
-                    pipeline_status=3
-                    break
-                fi
-
-                version_lines=$(jq -r '.[] | @base64' <<<"$VERSION_PAGE_JSON")
-                [ -n "$version_lines" ] || continue
-
-                version_hydrate_candidates "$version_lines" 0
-                pipeline_status=$?
-                ((pipeline_status != 3)) || break
-                version_promote_current_page_candidates "$tag_cache_pages"
-                pipeline_status=$?
-            done
-
-            if ((pipeline_status != 3)) && ((${#VERSION_SOURCE_LINES[@]} == 0)); then
-                version_store_fallback_candidate
-                version_submit_candidate "-1"
-                pipeline_status=$?
-            fi
-
-            if ((pipeline_status != 3)); then
-                for version_id in "${VERSION_PROVISIONAL_IDS[@]}"; do
-                    version_submit_candidate "$version_id"
-                    pipeline_status=$?
-                    ((pipeline_status != 3)) || break
-                done
-            fi
-
-            if ((pipeline_status != 3)); then
-                oldest_window_version_id=$(version_oldest_submitted_numeric_id)
-
-                if [[ "$oldest_window_version_id" =~ ^[0-9]+$ ]]; then
-                    version_append_older_tagged_candidates "$oldest_window_version_id" "$append_tagged_limit"
-                    pipeline_status=$?
-                fi
-            fi
-        fi
-
-        parallel_async_wait
-        update_versions_status=$?
-        version_flush_staged_rows || version_flush_status=$?
-        version_stage_cleanup
-
-        rm -f "${table_version_name}"_already_updated
-        ((pipeline_status != 3 && update_versions_status != 3 && version_flush_status != 3)) || return 3
-
-        if ((update_versions_status != 0)); then
-            echo "Version refresh had write errors for $owner/$package; using fallback data where needed" >&2
-        fi
-
-        if ((version_flush_status != 0)); then
-            echo "Failed to flush staged version rows for $owner/$package; using fallback data where needed" >&2
+        if ((version_refresh_status != 0)); then
+            echo "Version refresh failed for $owner/$package; using fallback data where needed" >&2
         fi
     fi
 

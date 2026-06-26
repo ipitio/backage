@@ -37,6 +37,7 @@ if TYPE_CHECKING:
     from .owner_pages import OwnerPageAdmissionResult
     from .runtime import GracefulStop
     from .snapshots import SnapshotStore
+    from .version_updates import VersionRefreshResult
 
 
 def _package_ref(args: argparse.Namespace) -> PackageRef:
@@ -54,6 +55,10 @@ def _package_ref(args: argparse.Namespace) -> PackageRef:
 
 def _optional_argument(value: str) -> str | None:
     return None if value == "-" else value
+
+
+def _boolean_argument(value: str) -> bool:
+    return value == "true"
 
 
 _OWNER_SCAN_PACKAGE_FIELDS = 4
@@ -698,6 +703,11 @@ def _snapshot_signature_status(snapshots: SnapshotStore) -> ExitStatus:
 
 
 def _run_version(args: argparse.Namespace) -> ExitStatus:
+    if args.version_command == "refresh-package":
+        from .application import ApplicationContext
+
+        return _run_version_refresh(args, ApplicationContext.from_env())
+    status = ExitStatus.SUCCESS
     if args.version_command == "parse-page-html":
         entries = parse_version_listing_html(
             sys.stdin.read(),
@@ -717,12 +727,10 @@ def _run_version(args: argparse.Namespace) -> ExitStatus:
                 separators=(",", ":"),
             )
         )
-        return ExitStatus.SUCCESS
-    if args.version_command == "extract-embedded-manifest":
+    elif args.version_command == "extract-embedded-manifest":
         manifest = extract_embedded_manifest(sys.stdin.read())
         print(manifest)
-        return ExitStatus.SUCCESS
-    if args.version_command == "extract-page-data":
+    elif args.version_command == "extract-page-data":
         page_data = extract_version_page_data(sys.stdin.read())
         print(
             json.dumps(
@@ -732,8 +740,7 @@ def _run_version(args: argparse.Namespace) -> ExitStatus:
                 separators=(",", ":"),
             )
         )
-        return ExitStatus.SUCCESS
-    if args.version_command == "manifest-size":
+    elif args.version_command == "manifest-size":
         result = manifest_size(sys.stdin.read())
         if result.fallback_reason is not None:
             summary = result.diagnostic_summary or 'sample="<empty>"'
@@ -744,14 +751,82 @@ def _run_version(args: argparse.Namespace) -> ExitStatus:
                 file=sys.stderr,
             )
         print(result.size)
-        return ExitStatus.SUCCESS
-    if args.version_command == "cache-candidates":
+    elif args.version_command == "cache-candidates":
         sys.stdout.writelines(
             f"{record.tsv_row()}\n"
             for record in version_cache_records(sys.stdin.read())
         )
-        return ExitStatus.SUCCESS
-    return ExitStatus.NON_FATAL
+    else:
+        status = ExitStatus.NON_FATAL
+    return status
+
+
+def _run_version_refresh(
+    args: argparse.Namespace,
+    application: ApplicationContext,
+) -> ExitStatus:
+    from .database import DatabaseError
+    from .github import GitHubError
+    from .runtime import GracefulStop
+    from .version_ingestion import VersionIngestionError
+    from .version_updates import (
+        DockerManifestInspector,
+        VersionRefreshError,
+        VersionRefreshExecution,
+        VersionRefreshRequest,
+        VersionRefreshService,
+    )
+
+    try:
+        with application.stop.signal_handlers(), application.github_client() as client:
+            result = VersionRefreshService(
+                application.database,
+                client,
+                VersionRefreshExecution(
+                    application.worker_runner,
+                    DockerManifestInspector(application.process_runner),
+                    diagnostic=lambda message: print(message, file=sys.stderr),
+                ),
+            ).refresh(
+                VersionRefreshRequest(
+                    _package_ref(args),
+                    args.legacy_table,
+                    _boolean_argument(args.write_legacy),
+                    _boolean_argument(args.use_rest_api),
+                    args.since,
+                ),
+                application.version_selection_settings,
+            )
+    except GracefulStop as error:
+        return _graceful_stop_status(error)
+    except (
+        DatabaseError,
+        GitHubError,
+        OSError,
+        VersionIngestionError,
+        VersionRefreshError,
+    ) as error:
+        print(error, file=sys.stderr)
+        return ExitStatus.NON_FATAL
+    _print_version_refresh_result(result)
+    return ExitStatus.SUCCESS
+
+
+def _print_version_refresh_result(result: VersionRefreshResult) -> None:
+    selection = result.selection
+    print(
+        json.dumps(
+            {
+                "selected_ids": list(selection.selected_ids),
+                "candidate_count": len(selection.candidates),
+                "records_written": result.records_written,
+                "version_pages_read": selection.version_pages_read,
+                "tag_pages_read": selection.tag_pages_read,
+                "used_fallback": selection.used_fallback,
+            },
+            separators=(",", ":"),
+        )
+    )
 
 
 def _manifest_size_context(context: str | None) -> str:

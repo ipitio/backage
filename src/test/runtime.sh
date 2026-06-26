@@ -407,19 +407,32 @@ test_bkg_python_forwards_unexported_http_settings() {
 
 	cat >"$fake_python" <<'EOF'
 #!/bin/bash
-printf '%s|%s|%s\n' "$GITHUB_TOKEN" "$BKG_HTTP_TOTAL_TIMEOUT" "$*"
+printf '%s|%s|%s|%s|%s|%s|%s|%s\n' \
+	"$GITHUB_TOKEN" \
+	"$BKG_HTTP_TOTAL_TIMEOUT" \
+	"$BKG_MAX_VERSION_PAGES" \
+	"$BKG_TAG_CACHE_PAGES" \
+	"$BKG_APPEND_TAGGED_VERSIONS_LIMIT" \
+	"$BKG_PARALLEL_ASYNC_MAX_JOBS" \
+	"$BKG_OWNER_UPDATE_STOP_GRACE" \
+	"$*"
 EOF
 	chmod +x "$fake_python"
 
 	(
 		GITHUB_TOKEN="local-token"
 		BKG_HTTP_TOTAL_TIMEOUT=45
-		export -n GITHUB_TOKEN BKG_HTTP_TOTAL_TIMEOUT
+		BKG_MAX_VERSION_PAGES=7
+		BKG_TAG_CACHE_PAGES=2
+		BKG_APPEND_TAGGED_VERSIONS_LIMIT=11
+		BKG_PARALLEL_ASYNC_MAX_JOBS=5
+		BKG_OWNER_UPDATE_STOP_GRACE=12.5
+		export -n GITHUB_TOKEN BKG_HTTP_TOTAL_TIMEOUT BKG_MAX_VERSION_PAGES BKG_TAG_CACHE_PAGES BKG_APPEND_TAGGED_VERSIONS_LIMIT BKG_PARALLEL_ASYNC_MAX_JOBS BKG_OWNER_UPDATE_STOP_GRACE
 		BKG_PYTHON="$fake_python"
 		bkg_python github rest users/ipitio
 	) >"$output_file"
 
-	assert_contains "$output_file" "local-token|45|-m bkg_py github rest users/ipitio"
+	assert_contains "$output_file" "local-token|45|7|2|11|5|12.5|-m bkg_py github rest users/ipitio"
 }
 
 test_ensure_pages_dotfiles_visible_writes_nojekyll() {

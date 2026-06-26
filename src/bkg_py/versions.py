@@ -133,6 +133,49 @@ class VersionListingContext:
     package: str
 
 
+def package_html_base_path(context: VersionListingContext) -> str:
+    """Return GitHub's owner-scoped package path without a leading slash."""
+
+    return (
+        f"{context.owner_type}/{context.owner}/packages/"
+        f"{context.package_type}/{context.package}"
+    )
+
+
+def package_detail_html_url(context: VersionListingContext) -> str:
+    """Return the public package detail page URL."""
+
+    return (
+        f"https://github.com/{context.owner_type}/{context.owner}/packages/"
+        f"{context.package_type}/package/{context.package}"
+    )
+
+
+def package_versions_html_url(
+    context: VersionListingContext,
+    page_number: int,
+    *,
+    tagged: bool = False,
+) -> str:
+    """Return the public package versions listing URL."""
+
+    query = (
+        f"filters%5Bversion_type%5D=tagged&page={page_number}"
+        if tagged
+        else f"page={page_number}"
+    )
+    return f"https://github.com/{package_html_base_path(context)}/versions?{query}"
+
+
+def package_version_detail_html_url(
+    context: VersionListingContext,
+    version_id: str,
+) -> str:
+    """Return the public package version detail page URL."""
+
+    return f"https://github.com/{package_html_base_path(context)}/{version_id}"
+
+
 def extract_download_metric(html: str, label: str) -> int:
     """Return one normalized download metric from GitHub package HTML."""
 

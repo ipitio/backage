@@ -150,7 +150,7 @@ owner_scan_fail() {
 	retry_after=$(bkg_python database fail-owner-scan \
 		"$owner_id" "$owner" "$marker" "$error" "$(date -u +%s)") || return $?
 	owner_scan_clear_runtime_state
-	echo "Deferred $owner after failed work until $(date -u -d "@$retry_after" +%Y-%m-%dT%H:%M:%SZ)"
+	echo "Deferred $owner after failed work ($error) until $(date -u -d "@$retry_after" +%Y-%m-%dT%H:%M:%SZ)"
 }
 
 owner_refresh_backoff_clear() {

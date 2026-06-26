@@ -115,6 +115,42 @@ EOF
     grep -Fxq 'container/Libre-Closet/libre-closet' <<<"$(get_BKG_set BKG_PACKAGES_Lazztech)" || fail "Expected queued package list to include Lazztech/libre-closet"
 }
 
+test_page_package_accepts_repositoryless_package() {
+    setup_discovery_fixture
+    init_bkg_state
+
+    pushd "$workdir" >/dev/null
+    : >packages_already_updated
+    owner_id=556677
+    owner=Lazztech
+    owner_type=orgs
+    fast_out=false
+
+    curl() {
+        cat <<'EOF'
+<div>
+  <a href="/orgs/Lazztech/packages/container/package/tools%2Fworker">tools/worker</a>
+  <a href="/Lazztech">Lazztech</a>
+</div>
+EOF
+    }
+
+    run_parallel() {
+        local function_name=$1
+        local items=$2
+
+        while IFS= read -r item; do
+            [ -n "$item" ] || continue
+            "$function_name" "$item"
+        done <<<"$items"
+    }
+
+    page_package 1 >/dev/null
+    popd >/dev/null
+
+    grep -Fxq 'container/tools%2Fworker/tools%2Fworker' <<<"$(get_BKG_set BKG_PACKAGES_Lazztech)" || fail "Expected repositoryless package to use its package slug as the repo bucket"
+}
+
 test_page_package_distinguishes_transport_failure_from_empty_listing() {
     local status
 
@@ -536,6 +572,7 @@ run_test test_discovered_second_hop_org_survives_owner_admission
 run_test test_discovered_owner_admission_includes_all_candidates_below_cap
 run_test test_save_owner_queues_resolved_owner_id
 run_test test_page_package_enqueues_package
+run_test test_page_package_accepts_repositoryless_package
 run_test test_page_package_distinguishes_transport_failure_from_empty_listing
 run_test test_partial_owner_refresh_uses_known_package_identity
 run_test test_unresolved_partial_owner_refresh_reconciles_complete_listing

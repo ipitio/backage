@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
+import json
 import sqlite3
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Generator, Mapping
+from contextlib import contextmanager
 from pathlib import Path
 
 import httpx
 import pytest
 
+from bkg_py.application import ApplicationContext
+from bkg_py.cli import main
 from bkg_py.concurrency import BoundedWorkerRunner, ConcurrencySettings
 from bkg_py.database import DatabaseRepository, DatabaseSettings
 from bkg_py.database_models import (
@@ -18,6 +22,7 @@ from bkg_py.database_models import (
     VersionStage,
 )
 from bkg_py.github import GitHubJsonResponse
+from bkg_py.result import ExitStatus
 from bkg_py.runtime import GracefulStop
 from bkg_py.version_selection import VersionCandidate, VersionSelectionSettings
 from bkg_py.version_updates import (
@@ -82,7 +87,7 @@ _CONTEXT = VersionListingContext(
 
 def _detail_url(version_id: str, *, package_type: str = "container") -> str:
     return (
-        f"https://github.com/Example/Packages/pkgs/{package_type}/"
+        f"https://github.com/orgs/Example/packages/{package_type}/"
         f"Nested%2FImage/{version_id}"
     )
 
@@ -310,3 +315,67 @@ def test_refresh_flushes_completed_rows_before_graceful_stop(tmp_path: Path) -> 
     with sqlite3.connect(database_path) as connection:
         rows = connection.execute("select id from versions order by id").fetchall()
     assert rows == [("1",)]
+
+
+def test_refresh_package_cli_wires_runtime_services(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """The shell-facing refresh command runs one complete package update."""
+
+    package = _package_ref()
+    api_path = "orgs/Example/packages/npm/Nested%2FImage/versions?per_page=30&page=1"
+    client = _FakeClient(
+        rest_values={api_path: [_api_version(3)]},
+        text_values={_detail_url("3", package_type="npm"): _metrics_html()},
+    )
+
+    @contextmanager
+    def fake_github_client(
+        _application: ApplicationContext,
+    ) -> Generator[_FakeClient, None, None]:
+        yield client
+
+    database_path = tmp_path / "index.db"
+    monkeypatch.setenv("BKG_ROOT", str(tmp_path))
+    monkeypatch.setenv("BKG_ENV", str(tmp_path / "env.env"))
+    monkeypatch.setenv("BKG_INDEX_DB", str(database_path))
+    monkeypatch.setenv("BKG_MAX_VERSION_PAGES", "1")
+    monkeypatch.setenv("BKG_TAG_CACHE_PAGES", "0")
+    monkeypatch.setenv("BKG_APPEND_TAGGED_VERSIONS_LIMIT", "0")
+    monkeypatch.setattr(ApplicationContext, "github_client", fake_github_client)
+
+    status = main(
+        [
+            "version",
+            "refresh-package",
+            package.owner_id,
+            package.owner_type,
+            package.package_type,
+            package.owner,
+            package.repo,
+            package.package,
+            "legacy_versions",
+            _TODAY,
+            "false",
+            "true",
+        ]
+    )
+    captured = capsys.readouterr()
+
+    assert status == ExitStatus.SUCCESS
+    assert json.loads(captured.out) == {
+        "selected_ids": ["3"],
+        "candidate_count": 1,
+        "records_written": 1,
+        "version_pages_read": 1,
+        "tag_pages_read": 0,
+        "used_fallback": False,
+    }
+    assert captured.err == ""
+    with sqlite3.connect(database_path) as connection:
+        rows = connection.execute(
+            "select owner_id, package_type, id, downloads from versions order by id"
+        ).fetchall()
+    assert rows == [(package.owner_id, package.package_type, "3", 1500)]

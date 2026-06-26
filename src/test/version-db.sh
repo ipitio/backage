@@ -14,6 +14,29 @@ init_bkg_state() {
 	init_bkg_runtime_state "$env_file"
 }
 
+test_github_package_urls_use_owner_scoped_routes() {
+	local test_root="$workdir/package-routes"
+
+	mkdir -p "$test_root"
+
+	(
+		cd "$test_root"
+		ln -s "$src_dir/lib" lib
+		export BKG_SKIP_DEP_VERIFY=1
+		source "$src_dir/lib/version.sh"
+
+		owner='Lazztech'
+		owner_type='orgs'
+		package_type='container'
+		package='tools%2Fworker'
+
+		[ "$(github_package_detail_url)" = 'https://github.com/orgs/Lazztech/packages/container/package/tools%2Fworker' ] || fail "Expected owner-scoped package detail URL"
+		[ "$(github_package_versions_url 2)" = 'https://github.com/orgs/Lazztech/packages/container/tools%2Fworker/versions?page=2' ] || fail "Expected owner-scoped versions URL"
+		[ "$(github_package_tagged_versions_url 3)" = 'https://github.com/orgs/Lazztech/packages/container/tools%2Fworker/versions?filters%5Bversion_type%5D=tagged&page=3' ] || fail "Expected owner-scoped tagged versions URL"
+		[ "$(github_package_version_url 123)" = 'https://github.com/orgs/Lazztech/packages/container/tools%2Fworker/123' ] || fail "Expected owner-scoped version detail URL"
+	)
+}
+
 test_update_version_batches_rows_until_flush() {
 	local test_root="$workdir/version-batch"
 	local db_file="$test_root/test.db"
@@ -113,6 +136,262 @@ EOF
 
 		compact_metrics=$(sqlite3 "$BKG_INDEX_DB" "select downloads || '|' || downloads_month || '|' || downloads_week || '|' || downloads_day from '$table_version_name' where id='103';")
 		[ "$compact_metrics" = "1450000|217900|5100|251" ] || fail "Expected update_version to parse compact GitHub metrics into raw integer downloads"
+	)
+}
+
+test_python_version_refresh_matches_bash_version_rows() {
+	local test_root="$workdir/version-refresh-compare"
+	local old_db="$test_root/old.db"
+	local new_db="$test_root/new.db"
+	local today
+	local legacy_table='versions_orgs_npm_Lazztech_Libre-Closet_libre-closet'
+	local normalized_select
+	local legacy_select
+	local python_bin
+
+	mkdir -p "$test_root"
+	today=$(date -u +%Y-%m-%d)
+
+	(
+		cd "$test_root"
+		ln -s "$src_dir/lib" lib
+		export BKG_SKIP_DEP_VERIFY=1
+		source "$src_dir/lib/version.sh"
+		init_bkg_state "$test_root/env.env"
+
+		owner_id=69664378
+		owner='Lazztech'
+		owner_type='orgs'
+		repo='Libre-Closet'
+		package_type='npm'
+		package='libre-closet'
+		table_version_name=$legacy_table
+		BKG_INDEX_DB="$old_db"
+		BKG_BATCH_FIRST_STARTED="$today"
+
+		sqlite3 "$BKG_INDEX_DB" "create table if not exists '$table_version_name' (id text not null, name text not null, size integer not null, downloads integer not null, downloads_month integer not null, downloads_week integer not null, downloads_day integer not null, date text not null, tags text, primary key (id, date));"
+		version_stage_reset
+
+		curl() {
+			case "$1" in
+			*/10)
+				cat <<'EOF'
+<span>Total downloads</span><span>1.5k</span><span>Last 30 days</span><span>234</span><span>Last week</span><span>56</span><span>Today</span><span>7</span>
+EOF
+				;;
+			*/2)
+				cat <<'EOF'
+<span>Total downloads</span><span>42</span><span>Last 30 days</span><span>12</span><span>Last week</span><span>3</span><span>Today</span><span>1</span>
+EOF
+				;;
+			*)
+				return 1
+				;;
+			esac
+		}
+
+		update_version "$(printf '%s' '{"id":10,"name":"release-10","tags":"latest,stable"}' | base64 -w0)" >/dev/null
+		update_version "$(printf '%s' '{"id":2,"name":"release-2","tags":"beta"}' | base64 -w0)" >/dev/null
+		version_flush_staged_rows
+
+		BKG_INDEX_DB="$new_db"
+		sqlite3 "$BKG_INDEX_DB" "create table if not exists '$table_version_name' (id text not null, name text not null, size integer not null, downloads integer not null, downloads_month integer not null, downloads_week integer not null, downloads_day integer not null, date text not null, tags text, primary key (id, date));"
+
+		python_bin=${BKG_PYTHON:-}
+		if [ -z "$python_bin" ] && [ -x "$BKG_ROOT/.venv/bin/python" ]; then
+			python_bin="$BKG_ROOT/.venv/bin/python"
+		fi
+		[ -n "$python_bin" ] || python_bin=python3
+
+		PYTHONPATH="$BKG_ROOT/src${PYTHONPATH:+:$PYTHONPATH}" \
+			PYTHONDONTWRITEBYTECODE=1 \
+			"$python_bin" - "$new_db" "$today" "$legacy_table" <<'PY'
+import sys
+from pathlib import Path
+
+import httpx
+
+from bkg_py.concurrency import BoundedWorkerRunner, ConcurrencySettings
+from bkg_py.database import DatabaseRepository, DatabaseSettings
+from bkg_py.database_models import PackageRef
+from bkg_py.github import GitHubJsonResponse
+from bkg_py.version_selection import VersionSelectionSettings
+from bkg_py.version_updates import (
+    VersionRefreshExecution,
+    VersionRefreshRequest,
+    VersionRefreshService,
+)
+
+
+class FixtureClient:
+    def rest_json(self, path: str) -> GitHubJsonResponse:
+        expected = (
+            "orgs/Lazztech/packages/npm/libre-closet/"
+            "versions?per_page=30&page=1"
+        )
+        if path != expected:
+            raise AssertionError(path)
+        return GitHubJsonResponse(
+            [
+                {"id": 10, "name": "release-10", "tags": ["latest", "stable"]},
+                {"id": 2, "name": "release-2", "tags": ["beta"]},
+            ],
+            httpx.Headers(),
+        )
+
+    def get_text(
+        self,
+        url: str,
+        *,
+        authenticated: bool = False,
+        accept: str = "text/html",
+    ) -> str:
+        if authenticated or accept != "text/html":
+            raise AssertionError((authenticated, accept))
+        pages = {
+            "https://github.com/orgs/Lazztech/packages/npm/libre-closet/10": (
+                "<span>Total downloads</span><span>1.5k</span>"
+                "<span>Last 30 days</span><span>234</span>"
+                "<span>Last week</span><span>56</span>"
+                "<span>Today</span><span>7</span>"
+            ),
+            "https://github.com/orgs/Lazztech/packages/npm/libre-closet/2": (
+                "<span>Total downloads</span><span>42</span>"
+                "<span>Last 30 days</span><span>12</span>"
+                "<span>Last week</span><span>3</span>"
+                "<span>Today</span><span>1</span>"
+            ),
+        }
+        return pages[url]
+
+
+database_path, today, legacy_table = sys.argv[1:]
+package = PackageRef(
+    owner_id="69664378",
+    owner_type="orgs",
+    package_type="npm",
+    owner="Lazztech",
+    repo="Libre-Closet",
+    package="libre-closet",
+)
+service = VersionRefreshService(
+    DatabaseRepository(DatabaseSettings(Path(database_path))),
+    FixtureClient(),
+    VersionRefreshExecution(
+        BoundedWorkerRunner(ConcurrencySettings(max_workers=1)),
+        lambda _reference: "",
+        lambda _message: None,
+        lambda: today,
+    ),
+)
+service.refresh(
+    VersionRefreshRequest(package, legacy_table, True, True, today),
+    VersionSelectionSettings(max_tag_pages=0, append_tagged_limit=0),
+)
+PY
+
+		normalized_select="
+			select owner_id || '|' || owner_type || '|' || package_type || '|' ||
+			       owner || '|' || repo || '|' || package || '|' ||
+			       id || '|' || name || '|' || size || '|' || downloads || '|' ||
+			       downloads_month || '|' || downloads_week || '|' ||
+			       downloads_day || '|' || date || '|' || tags
+			from '$BKG_INDEX_TBL_VER'
+			order by id;
+		"
+		legacy_select="
+			select id || '|' || name || '|' || size || '|' || downloads || '|' ||
+			       downloads_month || '|' || downloads_week || '|' ||
+			       downloads_day || '|' || date || '|' || tags
+			from '$legacy_table'
+			order by id;
+		"
+		[ "$(sqlite3 "$old_db" "$normalized_select")" = "$(sqlite3 "$new_db" "$normalized_select")" ] || fail "Expected Python refresh normalized rows to match Bash update_version rows"
+		[ "$(sqlite3 "$old_db" "$legacy_select")" = "$(sqlite3 "$new_db" "$legacy_select")" ] || fail "Expected Python refresh legacy rows to match Bash update_version rows"
+	)
+}
+
+test_update_package_uses_python_version_refresh_by_default() {
+	local test_root="$workdir/package-refresh-python"
+	local db_file="$test_root/test.db"
+	local today
+
+	mkdir -p "$test_root"
+	today=$(date -u +%Y-%m-%d)
+
+	(
+		cd "$test_root"
+		ln -s "$src_dir/lib" lib
+		export BKG_SKIP_DEP_VERIFY=1
+		source "$src_dir/lib/package.sh"
+		init_bkg_state "$test_root/env.env"
+
+		BKG_INDEX_DB="$db_file"
+		BKG_INDEX_DIR="$test_root/index"
+		BKG_OPTOUT="$test_root/optout.txt"
+		: >"$BKG_OPTOUT"
+		BKG_OWNERS="$test_root/owners.txt"
+		: >"$BKG_OWNERS"
+		BKG_BATCH_FIRST_STARTED="$today"
+		owner_id=69664378
+		owner='Lazztech'
+		repo='Libre-Closet'
+		package='libre-closet'
+		owner_type='orgs'
+		package_type='npm'
+		fast_out=false
+		BKG_MODE=0
+		table_version_name='versions_orgs_npm_Lazztech_Libre-Closet_libre-closet'
+		mkdir -p "$BKG_INDEX_DIR/$owner/$repo"
+		: >packages_already_updated
+		export BKG_INDEX_DB BKG_INDEX_DIR BKG_OPTOUT BKG_OWNERS BKG_BATCH_FIRST_STARTED
+
+		python_bin=${BKG_PYTHON:-}
+		if [ -z "$python_bin" ] && [ -x "$BKG_ROOT/.venv/bin/python" ]; then
+			python_bin="$BKG_ROOT/.venv/bin/python"
+		fi
+		[ -n "$python_bin" ] || python_bin=python3
+
+		run_real_bkg_python() {
+			PYTHONPATH="$BKG_ROOT/src${PYTHONPATH:+:$PYTHONPATH}" \
+				PYTHONDONTWRITEBYTECODE=1 \
+				"$python_bin" -m bkg_py "$@"
+		}
+
+		run_real_bkg_python database ensure-schema
+		sqlite3 "$BKG_INDEX_DB" "create table if not exists '$table_version_name' (id text not null, name text not null, size integer not null, downloads integer not null, downloads_month integer not null, downloads_week integer not null, downloads_day integer not null, date text not null, tags text, primary key (id, date));"
+
+		curl() {
+			case "$1" in
+			*/package/libre-closet)
+				printf '%s' 'Total downloads"2000'
+				;;
+			*)
+				return 1
+				;;
+			esac
+		}
+
+		refresh_marker="$test_root/refresh-called"
+		bkg_python() {
+			if [ "${1:-}" = "version" ] && [ "${2:-}" = "refresh-package" ]; then
+				shift 2
+				[ "$1|$2|$3|$4|$5|$6|$7|$8|$9|${10}" = "69664378|orgs|npm|Lazztech|Libre-Closet|libre-closet|$table_version_name|$today|true|false" ] || fail "Unexpected Python version refresh arguments"
+				printf '%s\n' called >"$refresh_marker"
+				sqlite3 "$BKG_INDEX_DB" "insert or replace into '$BKG_INDEX_TBL_VER' (owner_id, owner_type, package_type, owner, repo, package, id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags) values ('69664378','orgs','npm','Lazztech','Libre-Closet','libre-closet','10','release-10','-1','1500','234','56','7','$today','latest');"
+				sqlite3 "$BKG_INDEX_DB" "insert or replace into '$table_version_name' (id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags) values ('10','release-10','-1','1500','234','56','7','$today','latest');"
+				printf '%s\n' '{"selected_ids":["10"],"candidate_count":1,"records_written":1,"version_pages_read":1,"tag_pages_read":0,"used_fallback":false}'
+				return 0
+			fi
+			run_real_bkg_python "$@"
+		}
+
+		update_package 'npm/Libre-Closet/libre-closet' >/dev/null
+
+		[ -f "$refresh_marker" ] || fail "Expected update_package to use the Python version refresh backend"
+		assert_file_exists "$BKG_INDEX_DIR/$owner/$repo/$package.json"
+		jq -e '.raw_versions == 1 and .raw_downloads == 2000 and (.version | map(.id) == [10]) and .version[0].latest == true' "$BKG_INDEX_DIR/$owner/$repo/$package.json" >/dev/null || fail "Expected package JSON rendered from Python-refreshed normalized rows"
+		[ "$(sqlite3 "$BKG_INDEX_DB" "select count(*) from sqlite_master where type='table' and name='$table_version_name';")" = "0" ] || fail "Expected Python-refreshed legacy table to be dropped after verified replacement"
 	)
 }
 
@@ -381,6 +660,7 @@ run_update_package_append_tagged_versions_scenario() {
 		BKG_OWNERS="$test_root/owners.txt"
 		: >"$BKG_OWNERS"
 		BKG_BATCH_FIRST_STARTED="$today"
+		BKG_VERSION_REFRESH_IMPL=bash
 		BKG_APPEND_TAGGED_VERSIONS_LIMIT="$append_limit"
 		BKG_TAG_CACHE_PAGES="$tag_cache_pages"
 		owner_id=69664378
@@ -506,6 +786,7 @@ run_update_package_window_tagged_promotion_scenario() {
 		BKG_OWNERS="$test_root/owners.txt"
 		: >"$BKG_OWNERS"
 		BKG_BATCH_FIRST_STARTED="$today"
+		BKG_VERSION_REFRESH_IMPL=bash
 		BKG_APPEND_TAGGED_VERSIONS_LIMIT=0
 		BKG_MAX_VERSION_PAGES="$max_version_pages"
 		BKG_TAG_CACHE_PAGES="$tag_cache_pages"
@@ -605,7 +886,10 @@ test_update_package_honors_configured_tag_cache_pages() {
 trap cleanup EXIT
 
 run_test test_update_version_batches_rows_until_flush
+run_test test_github_package_urls_use_owner_scoped_routes
 run_test test_update_version_parses_compact_download_metrics
+run_test test_python_version_refresh_matches_bash_version_rows
+run_test test_update_package_uses_python_version_refresh_by_default
 run_test test_update_package_builds_version_array_from_db
 run_test test_update_package_builds_version_array_from_normalized_db
 run_test test_update_package_handles_large_version_arrays
