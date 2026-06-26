@@ -35,6 +35,7 @@ if TYPE_CHECKING:
         RestOwnerDiscoveryPage,
     )
     from .owner_pages import OwnerPageAdmissionResult
+    from .package_updates import PackageRefreshResult
     from .runtime import GracefulStop
     from .snapshots import SnapshotStore
     from .version_updates import VersionRefreshResult
@@ -855,10 +856,88 @@ def _run_application_command(
         runner = _run_github
     elif args.command == "discovery":
         runner = _run_discovery
+    elif args.command == "package":
+        runner = _run_package
     else:
         parser.error(f"unknown command: {args.command}")
         return ExitStatus.FAILURE
     return runner(args, application)
+
+
+def _run_package(
+    args: argparse.Namespace,
+    application: ApplicationContext,
+) -> ExitStatus:
+    from .database import DatabaseError
+    from .github import GitHubError
+    from .package_updates import PackageRefreshError
+    from .publication import PublicationError
+    from .runtime import GracefulStop
+
+    if args.package_command != "refresh":
+        print(f"unknown package command: {args.package_command}", file=sys.stderr)
+        return ExitStatus.NON_FATAL
+    index_dir = application.config.index_dir
+    if index_dir is None:
+        print("BKG_INDEX_DIR is required", file=sys.stderr)
+        return ExitStatus.NON_FATAL
+
+    try:
+        result = _execute_package_refresh(args, application, Path(index_dir))
+    except GracefulStop as error:
+        return _graceful_stop_status(error)
+    except (
+        DatabaseError,
+        GitHubError,
+        OSError,
+        PackageRefreshError,
+        PublicationError,
+    ) as error:
+        print(error, file=sys.stderr)
+        return ExitStatus.NON_FATAL
+
+    print(result.json_summary())
+    return ExitStatus.SUCCESS
+
+
+def _execute_package_refresh(
+    args: argparse.Namespace,
+    application: ApplicationContext,
+    index_dir: Path,
+) -> PackageRefreshResult:
+    from . import package_updates, version_updates
+
+    package = _package_ref(args)
+    destination = index_dir / package.owner / package.repo / f"{package.package}.json"
+    with application.stop.signal_handlers(), application.github_client() as client:
+        return package_updates.PackageRefreshService(
+            application.database,
+            client,
+            package_updates.PackageRefreshExecution(
+                version=version_updates.VersionRefreshExecution(
+                    application.worker_runner,
+                    version_updates.DockerManifestInspector(application.process_runner),
+                    diagnostic=lambda message: print(message, file=sys.stderr),
+                ),
+                selection=application.version_selection_settings,
+                publication_limits=application.publication_limits,
+                optout_file=Path(application.config.optout_file),
+                check_stop=application.stop.check,
+            ),
+        ).refresh(
+            package_updates.PackageRefreshRequest(
+                package,
+                args.legacy_table,
+                args.since,
+                destination,
+                package_updates.PackageRefreshPolicy(
+                    _boolean_argument(args.write_legacy),
+                    _boolean_argument(args.use_rest_api),
+                    _boolean_argument(args.fast_out),
+                    application.config.mode,
+                ),
+            )
+        )
 
 
 def run_command(

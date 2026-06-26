@@ -54,6 +54,7 @@ def build_parser() -> argparse.ArgumentParser:
     _add_github_parsers(subparsers)
     _add_discovery_parsers(subparsers)
     _add_version_parsers(subparsers)
+    _add_package_parsers(subparsers)
     return parser
 
 
@@ -263,6 +264,27 @@ def _add_version_parsers(subparsers: Any) -> None:
     refresh_parser.add_argument("since")
     refresh_parser.add_argument("write_legacy", choices=("true", "false"))
     refresh_parser.add_argument("use_rest_api", choices=("true", "false"))
+
+
+def _add_package_parsers(subparsers: Any) -> None:
+    package_parser = subparsers.add_parser(
+        "package",
+        help="run migrated package metadata operations",
+    )
+    package_commands = package_parser.add_subparsers(
+        dest="package_command",
+        required=True,
+    )
+    refresh_parser = package_commands.add_parser(
+        "refresh",
+        help="refresh and publish one package",
+    )
+    _add_package_arguments(refresh_parser)
+    refresh_parser.add_argument("legacy_table")
+    refresh_parser.add_argument("since")
+    refresh_parser.add_argument("write_legacy", choices=("true", "false"))
+    refresh_parser.add_argument("use_rest_api", choices=("true", "false"))
+    refresh_parser.add_argument("fast_out", choices=("true", "false"))
 
 
 def _add_snapshot_parsers(subparsers: Any) -> None:

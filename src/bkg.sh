@@ -401,7 +401,24 @@ main() {
 	owners_table_sql=$(sqlite_quote_identifier "$BKG_INDEX_TBL_OWN")
 	packages_table_sql=$(sqlite_quote_identifier "$BKG_INDEX_TBL_PKG")
 	batch_first_started_sql=$(sqlite_quote_literal "$BKG_BATCH_FIRST_STARTED")
-	sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, repo, package, max(date) as max_date from $packages_table_sql group by owner_id, owner, repo, package having max(date) >= $batch_first_started_sql order by max_date asc;" >packages_already_updated
+	sqlite3 "$BKG_INDEX_DB" "
+		select current.owner_id, current.owner, current.repo, current.package,
+		       max(current.date) as max_date
+		from $packages_table_sql current
+		where not exists (
+			select 1
+			from bkg_package_publications pending
+			where pending.owner_id = current.owner_id
+			  and pending.owner_type = current.owner_type
+			  and pending.package_type = current.package_type
+			  and pending.owner = current.owner
+			  and pending.repo = current.repo
+			  and pending.package = current.package
+		)
+		group by current.owner_id, current.owner, current.repo, current.package
+		having max(current.date) >= $batch_first_started_sql
+		order by max_date asc;
+	" >packages_already_updated
 	sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, repo, package, max(date) as max_date from $packages_table_sql group by owner_id, owner, repo, package order by date asc;" >packages_all
 	sqlite3 "$BKG_INDEX_DB" "
 		select owner

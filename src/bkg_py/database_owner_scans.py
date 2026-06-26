@@ -7,7 +7,9 @@ from collections.abc import Generator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 
+from . import database_packages
 from .database_models import (
+    OwnerRecord,
     OwnerScanFailure,
     OwnerScanPackage,
     OwnerScanResult,
@@ -17,6 +19,7 @@ from .database_support import DatabaseError
 
 _SCANS = '"bkg_owner_scans"'
 _SCAN_PACKAGES = '"bkg_owner_scan_packages"'
+_PACKAGE_PUBLICATIONS = '"bkg_package_publications"'
 
 
 @dataclass(frozen=True)
@@ -117,6 +120,24 @@ def begin(
                 last_error = ''
             """,
             (owner_id, owner, marker, started_at, started_at),
+        )
+
+
+def write_owner(
+    connection: sqlite3.Connection,
+    owners_table: str,
+    record: OwnerRecord,
+) -> None:
+    """Insert or replace one normalized owner record."""
+
+    owners = _identifier(owners_table)
+    with _transaction(connection):
+        connection.execute(
+            f"""
+            insert or replace into {owners} (owner_id, owner, date)
+            values (?, ?, ?)
+            """,
+            (record.owner_id, record.owner, record.date),
         )
 
 
@@ -331,6 +352,14 @@ def _delete_packages(
             """,
             parameters,
         )
+        connection.execute(
+            f"""
+            delete from {_PACKAGE_PUBLICATIONS}
+            where owner_id = ? and owner_type = ? and package_type = ?
+              and owner = ? and repo = ? and package = ?
+            """,
+            parameters,
+        )
 
 
 def _scan_outcome(
@@ -398,6 +427,15 @@ def complete(
                       and current.repo = observed.repo
                       and current.package = observed.package
                       and current.date >= ?
+                      and not exists (
+                          select 1 from {_PACKAGE_PUBLICATIONS} pending
+                          where pending.owner_id = current.owner_id
+                            and pending.owner_type = current.owner_type
+                            and pending.package_type = current.package_type
+                            and pending.owner = current.owner
+                            and pending.repo = current.repo
+                            and pending.package = current.package
+                      )
                   )
                 """,
                 (
@@ -479,3 +517,52 @@ def deferred(
         (now,),
     ).fetchall()
     return tuple((str(row[0]), int(row[1])) for row in rows)
+
+
+def retire_owner(
+    connection: sqlite3.Connection,
+    owner: str,
+    tables: OwnerScanTables,
+) -> int:
+    """Remove one unavailable owner's normalized, legacy, and scan state."""
+
+    owners = _identifier(tables.owners)
+    packages = _identifier(tables.packages)
+    versions = _identifier(tables.versions)
+    package_rows = connection.execute(
+        f"""
+        select distinct owner_type, package_type, owner, repo, package
+        from {packages}
+        where owner = ?
+        """,
+        (owner,),
+    ).fetchall()
+    legacy_tables = {
+        f"{tables.versions}_{'_'.join(str(value) for value in row)}"
+        for row in package_rows
+    }
+    deleted = 0
+    with _transaction(connection):
+        for table_name in legacy_tables:
+            connection.execute(f"drop table if exists {_identifier(table_name)}")
+        for table in (owners, packages, versions):
+            cursor = connection.execute(
+                f"delete from {table} where owner = ?",
+                (owner,),
+            )
+            deleted += cursor.rowcount
+        database_packages.retire_owner_publications(connection, owner)
+        connection.execute(
+            f"""
+            delete from {_SCAN_PACKAGES}
+            where owner_id in (
+                select owner_id from {_SCANS} where owner = ?
+            )
+            """,
+            (owner,),
+        )
+        connection.execute(
+            f"delete from {_SCANS} where owner = ?",
+            (owner,),
+        )
+    return deleted

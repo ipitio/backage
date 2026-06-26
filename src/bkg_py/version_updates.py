@@ -27,6 +27,7 @@ from .versions import (
     extract_oci_version_labels,
     extract_version_page_data,
     manifest_size,
+    package_detail_html_url,
     package_version_detail_html_url,
 )
 
@@ -59,6 +60,7 @@ class VersionRefreshRequest:
     write_legacy: bool
     use_rest_api: bool
     since: str = "0000-00-00"
+    mark_publication_pending: bool = False
 
     @property
     def listing_context(self) -> VersionListingContext:
@@ -92,6 +94,15 @@ class VersionRefreshExecution:
     today: Callable[[], str] = _utc_today
 
 
+@dataclass(frozen=True)
+class VersionDetailExecution:
+    """Manifest, authentication, and diagnostics for version detail requests."""
+
+    manifest_inspector: ManifestInspector
+    authenticated: bool = False
+    diagnostic: DiagnosticSink = _ignore_diagnostic
+
+
 class DockerManifestInspector:  # pylint: disable=too-few-public-methods
     """Best-effort stop-aware adapter around ``docker manifest inspect``."""
 
@@ -118,21 +129,23 @@ class VersionDetailInspector:  # pylint: disable=too-few-public-methods
         self,
         client: VersionPageClient,
         context: VersionListingContext,
-        *,
-        inspect_manifest: ManifestInspector,
-        diagnostic: DiagnosticSink | None = None,
+        execution: VersionDetailExecution,
     ) -> None:
         self.client = client
         self.context = context
-        self.inspect_manifest = inspect_manifest
-        self.diagnostic = diagnostic or _ignore_diagnostic
+        self.inspect_manifest = execution.manifest_inspector
+        self.authenticated = execution.authenticated
+        self.diagnostic = execution.diagnostic
         self._badge_lock = threading.Lock()
         self._badge_size: int | None = None
 
     def inspect(self, candidate: VersionCandidate, *, today: str) -> VersionRecord:
         """Fetch and normalize one candidate's current metrics and size."""
 
-        html = self._get_optional_text(self._detail_url(candidate.version_id))
+        html = self._get_optional_text(
+            self._detail_url(candidate.version_id),
+            authenticated=self.authenticated,
+        )
         page_data = extract_version_page_data(html)
         tags = candidate.tags
         size = -1
@@ -175,14 +188,16 @@ class VersionDetailInspector:  # pylint: disable=too-few-public-methods
             tags=",".join(_unique_nonempty(tags)),
         )
 
-    def _get_optional_text(self, url: str) -> str:
+    def _get_optional_text(self, url: str, *, authenticated: bool = False) -> str:
         try:
-            return self.client.get_text(url)
+            return self.client.get_text(url, authenticated=authenticated)
         except GitHubError as error:
             self.diagnostic(f"Version detail request failed for {url}: {error}")
             return ""
 
     def _detail_url(self, version_id: str) -> str:
+        if version_id == "-1":
+            return package_detail_html_url(self.context)
         return package_version_detail_html_url(self.context, version_id)
 
     def _manifest_reference(self, version_name: str) -> str:
@@ -255,8 +270,11 @@ class VersionRefreshService:  # pylint: disable=too-few-public-methods
         inspector = VersionDetailInspector(
             self.client,
             request.listing_context,
-            inspect_manifest=self.execution.manifest_inspector,
-            diagnostic=self.execution.diagnostic,
+            VersionDetailExecution(
+                self.execution.manifest_inspector,
+                authenticated=request.use_rest_api,
+                diagnostic=self.execution.diagnostic,
+            ),
         )
         today = self.execution.today()
         run_result = self.execution.worker_runner.run(
@@ -272,7 +290,12 @@ class VersionRefreshService:  # pylint: disable=too-few-public-methods
         )
 
         if run_result.stopped:
-            self.repository.finalize_version_stage(stage)
+            self.repository.finalize_version_stage(
+                stage,
+                publication_pending_at=(
+                    today if request.mark_publication_pending else None
+                ),
+            )
             stop = next(
                 failure.error
                 for failure in run_result.failures
@@ -280,7 +303,12 @@ class VersionRefreshService:  # pylint: disable=too-few-public-methods
             )
             raise stop
 
-        records_written = self.repository.flush_version_stage(stage)
+        records_written = self.repository.flush_version_stage(
+            stage,
+            publication_pending_at=(
+                today if request.mark_publication_pending else None
+            ),
+        )
         if not run_result.ok:
             failure = run_result.failure
             message = (

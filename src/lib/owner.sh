@@ -166,10 +166,20 @@ owner_pending_package_count() {
 		select count(*)
 		from (
 			select 1
-			from $(sqlite_quote_identifier "$BKG_INDEX_TBL_PKG")
-			where owner_id = $(sqlite_quote_literal "$owner_id")
+			from $(sqlite_quote_identifier "$BKG_INDEX_TBL_PKG") current
+			where current.owner_id = $(sqlite_quote_literal "$owner_id")
 			group by owner_type, package_type, repo, package
-			having max(date) < $(sqlite_quote_literal "$batch_first_started")
+			having max(current.date) < $(sqlite_quote_literal "$batch_first_started")
+			   or exists (
+				select 1
+				from bkg_package_publications pending
+				where pending.owner_id = current.owner_id
+				  and pending.owner_type = current.owner_type
+				  and pending.package_type = current.package_type
+				  and pending.owner = current.owner
+				  and pending.repo = current.repo
+				  and pending.package = current.package
+			)
 		);
 	"
 }
@@ -1077,14 +1087,24 @@ update_owner() {
 	[ -n "$batch_first_started" ] || batch_first_started="0000-00-00"
 
 	if awk -F'|' -v owner_id_key="$owner_id" -v owner_key="$owner" '$1 == owner_id_key && $2 == owner_key { found = 1; exit } END { exit !found }' packages_already_updated && [ -z "$start_page" ]; then
-		run_parallel queue_package_ref "$(sqlite3 "$BKG_INDEX_DB" "
-			select package_type || '/' || repo || '/' || package
-			from $(sqlite_quote_identifier "$BKG_INDEX_TBL_PKG")
-			where owner_id = $(sqlite_quote_literal "$owner_id")
-			group by package_type, repo, package
-			having max(date) < $(sqlite_quote_literal "$batch_first_started")
-			order by max(date) asc;
-		")"
+			run_parallel queue_package_ref "$(sqlite3 "$BKG_INDEX_DB" "
+				select current.package_type || '/' || current.repo || '/' || current.package
+				from $(sqlite_quote_identifier "$BKG_INDEX_TBL_PKG") current
+				where current.owner_id = $(sqlite_quote_literal "$owner_id")
+				group by current.package_type, current.repo, current.package
+				having max(current.date) < $(sqlite_quote_literal "$batch_first_started")
+				   or exists (
+					select 1
+					from bkg_package_publications pending
+					where pending.owner_id = current.owner_id
+					  and pending.owner_type = current.owner_type
+					  and pending.package_type = current.package_type
+					  and pending.owner = current.owner
+					  and pending.repo = current.repo
+					  and pending.package = current.package
+				)
+				order by max(current.date) asc;
+			")"
 		(($? != 3)) || return 3
 		run_parallel update_package "$(get_BKG_set BKG_PACKAGES_"$owner")"
 		(($? != 3)) || return 3

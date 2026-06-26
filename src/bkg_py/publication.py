@@ -479,6 +479,7 @@ def publish_json_file(
     source: Path,
     check_stop: StopCheck,
     limits: PublicationLimits | None = None,
+    destination: Path | None = None,
 ) -> PublicationResult:
     """Trim and atomically publish a JSON file with its XML representation."""
 
@@ -491,11 +492,12 @@ def publish_json_file(
         check_stop,
     )
 
-    xml_path = _xml_path(source)
+    json_path = destination or source
+    xml_path = _xml_path(json_path)
     check_stop()
     with (
         atomic_path(xml_path) as temporary_xml,
-        atomic_path(source) as temporary_json,
+        atomic_path(json_path) as temporary_json,
     ):
         _write_bytes(temporary_json, prepared.json_output, check_stop)
         if prepared.xml_is_empty:

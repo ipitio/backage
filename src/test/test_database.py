@@ -835,3 +835,53 @@ class TestDatabaseRepository:
                 121,
             )
             assert repository.deferred_owners(120) == ()
+
+    def test_pending_publication_keeps_current_owner_package_incomplete(
+        self,
+    ) -> None:
+        """Owner reconciliation waits for generated package files to publish."""
+
+        with tempfile.TemporaryDirectory() as directory:
+            repository = DatabaseRepository(
+                DatabaseSettings(
+                    Path(directory) / "index.db",
+                    owner_retry_initial_seconds=10,
+                    owner_retry_max_seconds=40,
+                )
+            )
+            package = _package()
+            repository.write_package_pending_publication(
+                PackageRecord(
+                    package_ref=package,
+                    downloads=1,
+                    downloads_month=1,
+                    downloads_week=1,
+                    downloads_day=1,
+                    size=1,
+                    date=_TODAY,
+                )
+            )
+            repository.begin_owner_scan(package.owner_id, package.owner, "scan-1", 100)
+            repository.observe_owner_scan(
+                package.owner_id,
+                "scan-1",
+                (
+                    OwnerScanPackage(
+                        package.owner_type,
+                        package.package_type,
+                        package.repo,
+                        package.package,
+                    ),
+                ),
+                101,
+            )
+
+            result = repository.complete_owner_scan(
+                package.owner_id,
+                "scan-1",
+                _TODAY,
+                102,
+            )
+
+            assert result.pending_count == 1
+            assert result.retry_after == 112

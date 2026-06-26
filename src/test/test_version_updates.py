@@ -4,11 +4,10 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from collections.abc import Callable, Generator, Mapping
+from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
 
-import httpx
 import pytest
 
 from bkg_py.application import ApplicationContext
@@ -21,11 +20,11 @@ from bkg_py.database_models import (
     VersionRecord,
     VersionStage,
 )
-from bkg_py.github import GitHubJsonResponse
 from bkg_py.result import ExitStatus
 from bkg_py.runtime import GracefulStop
 from bkg_py.version_selection import VersionCandidate, VersionSelectionSettings
 from bkg_py.version_updates import (
+    VersionDetailExecution,
     VersionDetailInspector,
     VersionRefreshExecution,
     VersionRefreshRequest,
@@ -35,45 +34,9 @@ from bkg_py.version_updates import (
 )
 from bkg_py.versions import VersionListingContext
 
+from .github_client_fake import FakeGitHubClient as _FakeClient
+
 _TODAY = "2026-06-20"
-
-
-class _FakeClient:
-    def __init__(
-        self,
-        *,
-        rest_values: Mapping[str, object] | None = None,
-        text_values: Mapping[str, str | Exception | Callable[[], str]] | None = None,
-    ) -> None:
-        self.rest_values = dict(rest_values or {})
-        self.text_values = dict(text_values or {})
-        self.rest_requests: list[str] = []
-        self.text_requests: list[str] = []
-
-    def rest_json(self, path: str) -> GitHubJsonResponse:
-        """Return one configured REST response."""
-
-        self.rest_requests.append(path)
-        return GitHubJsonResponse(self.rest_values[path], httpx.Headers())
-
-    def get_text(
-        self,
-        url: str,
-        *,
-        authenticated: bool = False,
-        accept: str = "text/html",
-    ) -> str:
-        """Return one configured public text response."""
-
-        assert not authenticated
-        assert accept == "text/html"
-        self.text_requests.append(url)
-        value = self.text_values[url]
-        if isinstance(value, Exception):
-            raise value
-        if callable(value):
-            return value()
-        return value
 
 
 _CONTEXT = VersionListingContext(
@@ -89,6 +52,13 @@ def _detail_url(version_id: str, *, package_type: str = "container") -> str:
     return (
         f"https://github.com/orgs/Example/packages/{package_type}/"
         f"Nested%2FImage/{version_id}"
+    )
+
+
+def _package_detail_url(*, package_type: str = "container") -> str:
+    return (
+        f"https://github.com/orgs/Example/packages/{package_type}/"
+        "package/Nested%2FImage"
     )
 
 
@@ -159,7 +129,9 @@ def test_detail_inspector_uses_embedded_manifest_and_oci_label() -> None:
     inspector = VersionDetailInspector(
         client,
         _CONTEXT,
-        inspect_manifest=lambda reference: inspected_references.append(reference) or "",
+        VersionDetailExecution(
+            lambda reference: inspected_references.append(reference) or ""
+        ),
     )
 
     record = inspector.inspect(VersionCandidate("7", "sha256:abc"), today=_TODAY)
@@ -184,7 +156,10 @@ def test_detail_inspector_uses_manifest_then_cached_badge_fallback() -> None:
     inspector = VersionDetailInspector(
         client,
         _CONTEXT,
-        inspect_manifest=lambda reference: references.append(reference) or "",
+        VersionDetailExecution(
+            lambda reference: references.append(reference) or "",
+            authenticated=True,
+        ),
     )
 
     first = inspector.inspect(VersionCandidate("8", "latest"), today=_TODAY)
@@ -200,6 +175,7 @@ def test_detail_inspector_uses_manifest_then_cached_badge_fallback() -> None:
         "ghcr.io/example/nested/image@sha256:def",
     ]
     assert client.text_requests.count(badge_url) == 1
+    assert client.text_authentication == [True, False, True]
 
 
 def test_detail_inspector_uses_registry_manifest_before_badge() -> None:
@@ -209,13 +185,42 @@ def test_detail_inspector_uses_registry_manifest_before_badge() -> None:
     inspector = VersionDetailInspector(
         client,
         _CONTEXT,
-        inspect_manifest=lambda _reference: '{"manifests":[{"size":10},{"size":20}]}',
+        VersionDetailExecution(
+            lambda _reference: '{"manifests":[{"size":10},{"size":20}]}'
+        ),
     )
 
     record = inspector.inspect(VersionCandidate("10", "stable"), today=_TODAY)
 
     assert record.metrics.size == 15
     assert all("ghcr-badge" not in request for request in client.text_requests)
+
+
+def test_detail_inspector_uses_package_page_for_fallback_candidate() -> None:
+    """The package-level fallback does not request a fake version ID."""
+
+    package_context = VersionListingContext(
+        owner_type="orgs",
+        owner="Example",
+        repo="Packages",
+        package_type="npm",
+        package="Nested%2FImage",
+    )
+    client = _FakeClient(
+        text_values={_package_detail_url(package_type="npm"): _metrics_html()}
+    )
+    inspector = VersionDetailInspector(
+        client,
+        package_context,
+        VersionDetailExecution(lambda _reference: ""),
+    )
+
+    record = inspector.inspect(VersionCandidate("-1", "latest"), today=_TODAY)
+
+    assert record.version_id == "-1"
+    assert record.name == "latest"
+    assert record.metrics.downloads == 1500
+    assert client.text_requests == [_package_detail_url(package_type="npm")]
 
 
 def test_refresh_skips_existing_versions_and_flushes_one_batch(tmp_path: Path) -> None:

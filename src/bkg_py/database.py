@@ -8,7 +8,7 @@ from collections.abc import Callable, Generator, Sequence
 from contextlib import contextmanager
 from typing import Any
 
-from . import database_owner_scans
+from . import database_owner_scans, database_packages, database_version_stages
 from .database_models import (
     OwnerRecord,
     OwnerScanFailure,
@@ -25,12 +25,6 @@ from .database_models import (
 )
 from .database_settings import DatabaseSettings
 from .database_support import DatabaseError
-from .database_values import (
-    legacy_version_values as _legacy_version_values,
-)
-from .database_values import (
-    normalized_version_values as _normalized_version_values,
-)
 from .database_values import (
     package_sort_key as _package_sort_key,
 )
@@ -115,118 +109,172 @@ class DatabaseRepository:  # pylint: disable=too-many-public-methods
         """Insert or replace one owner scan record."""
 
         self.ensure_schema()
-        table = _SqlIdentifier(self.settings.owners_table)
         self._run_write(
-            lambda connection: _execute_transaction(
+            lambda connection: database_owner_scans.write_owner(
                 connection,
-                _sql(
-                    """
-                insert or replace into {table} (owner_id, owner, date)
-                values (?, ?, ?)
-                """,
-                    table=table,
-                ),
-                (record.owner_id, record.owner, record.date),
+                self.settings.owners_table,
+                record,
             )
         )
 
     def write_package(self, record: PackageRecord) -> None:
         """Insert or replace one normalized package record."""
 
+        self._write_package(record, publication_pending=False)
+
+    def write_package_pending_publication(self, record: PackageRecord) -> None:
+        """Commit package metadata and its publication marker together."""
+
+        self._write_package(record, publication_pending=True)
+
+    def _write_package(
+        self,
+        record: PackageRecord,
+        *,
+        publication_pending: bool,
+    ) -> None:
+        """Insert one package row, optionally marking generated files stale."""
+
         self.ensure_schema()
-        table = _SqlIdentifier(self.settings.packages_table)
-        package = record.package_ref
-        parameters = (
-            package.owner_id,
-            package.owner_type,
-            package.package_type,
-            package.owner,
-            package.repo,
-            package.package,
-            record.downloads,
-            record.downloads_month,
-            record.downloads_week,
-            record.downloads_day,
-            record.size,
-            record.date,
-        )
         self._run_write(
-            lambda connection: _execute_transaction(
+            lambda connection: database_packages.write(
                 connection,
-                _sql(
-                    """
-                insert or replace into {table} (
-                    owner_id, owner_type, package_type, owner, repo, package,
-                    downloads, downloads_month, downloads_week, downloads_day,
-                    size, date
-                ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                    table=table,
-                ),
-                parameters,
+                self.settings.packages_table,
+                record,
+                mark_pending=publication_pending,
             )
         )
 
-    def flush_version_stage(self, stage: VersionStage) -> int:
+    def flush_version_stage(
+        self,
+        stage: VersionStage,
+        *,
+        publication_pending_at: str | None = None,
+    ) -> int:
         """Commit every staged version row in one retryable transaction."""
 
         self.ensure_schema()
-        return self._flush_version_stage(stage, finalizing=False)
+        return self._flush_version_stage(
+            stage,
+            finalizing=False,
+            publication_pending_at=publication_pending_at,
+        )
 
-    def finalize_version_stage(self, stage: VersionStage) -> int:
+    def finalize_version_stage(
+        self,
+        stage: VersionStage,
+        *,
+        publication_pending_at: str | None = None,
+    ) -> int:
         """Commit completed version rows after a stop has already been requested."""
 
-        return self._flush_version_stage(stage, finalizing=True)
+        return self._flush_version_stage(
+            stage,
+            finalizing=True,
+            publication_pending_at=publication_pending_at,
+        )
 
     def _flush_version_stage(
         self,
         stage: VersionStage,
         *,
         finalizing: bool,
+        publication_pending_at: str | None,
     ) -> int:
         if not stage.rows:
             return 0
-        versions = _SqlIdentifier(self.settings.versions_table)
-        normalized_sql = _sql(
-            """
-            insert or replace into {versions} (
-                owner_id, owner_type, package_type, owner, repo, package,
-                id, name, size, downloads, downloads_month, downloads_week,
-                downloads_day, date, tags
-            ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-            versions=versions,
-        )
-        normalized_rows = tuple(
-            _normalized_version_values(stage.package_ref, row) for row in stage.rows
-        )
 
         def flush(connection: sqlite3.Connection) -> None:
-            with _transaction(connection):
-                connection.executemany(normalized_sql, normalized_rows)
-                if stage.write_legacy and _table_exists(
-                    connection,
-                    stage.legacy_table,
-                ):
-                    legacy = _SqlIdentifier(stage.legacy_table)
-                    connection.executemany(
-                        _sql(
-                            """
-                        insert or replace into {legacy} (
-                            id, name, size, downloads, downloads_month,
-                            downloads_week, downloads_day, date, tags
-                        ) values (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                        """,
-                            legacy=legacy,
-                        ),
-                        tuple(_legacy_version_values(row) for row in stage.rows),
-                    )
+            database_version_stages.flush(
+                connection,
+                self.settings.versions_table,
+                stage,
+                publication_pending_at,
+            )
 
         if finalizing:
             self._run_final_write(flush)
         else:
             self._run_write(flush)
         return len(stage.rows)
+
+    def package_updated_since(self, package: PackageRef, since: str) -> bool:
+        """Return whether one package has a normalized row in this batch."""
+
+        self.ensure_schema()
+        return self._run_read(
+            lambda connection: database_packages.updated_since(
+                connection,
+                self.settings.packages_table,
+                package,
+                since,
+            )
+        )
+
+    def maximum_package_downloads(self, package: PackageRef) -> int:
+        """Return the largest previously stored total download count."""
+
+        self.ensure_schema()
+        return self._run_read(
+            lambda connection: database_packages.maximum_downloads(
+                connection,
+                self.settings.packages_table,
+                package,
+            )
+        )
+
+    def mark_package_publication_pending(
+        self,
+        package: PackageRef,
+        updated_at: str,
+    ) -> None:
+        """Persist that one package's generated files need replacement."""
+
+        self.ensure_schema()
+        self._run_write(
+            lambda connection: database_packages.mark_publication_pending_transaction(
+                connection,
+                package,
+                updated_at,
+            )
+        )
+
+    def package_publication_pending(self, package: PackageRef) -> bool:
+        """Return whether one package still needs generated-file publication."""
+
+        self.ensure_schema()
+        return self._run_read(
+            lambda connection: database_packages.publication_pending(
+                connection,
+                package,
+            )
+        )
+
+    def clear_package_publication(self, package: PackageRef) -> None:
+        """Clear one package marker after JSON and XML are both published."""
+
+        self.ensure_schema()
+        self._run_write(
+            lambda connection: database_packages.clear_publication_transaction(
+                connection,
+                package,
+            )
+        )
+
+    def retire_package(self, package: PackageRef) -> None:
+        """Delete one opted-out package, its versions, marker, and legacy table."""
+
+        self.ensure_schema()
+
+        self._run_write(
+            lambda connection: database_packages.retire(
+                connection,
+                self.settings.packages_table,
+                self.settings.versions_table,
+                self._legacy_version_table(package),
+                package,
+            )
+        )
 
     def version_rows(
         self,
@@ -641,58 +689,18 @@ class DatabaseRepository:  # pylint: disable=too-many-public-methods
         if not owner:
             raise DatabaseError("owner is required")
         self.ensure_schema()
-        owners = _SqlIdentifier(self.settings.owners_table)
-        packages = _SqlIdentifier(self.settings.packages_table)
-        versions = _SqlIdentifier(self.settings.versions_table)
-
-        def retire(connection: sqlite3.Connection) -> int:
-            package_rows = connection.execute(
-                _sql(
-                    """
-                    select distinct owner_type, package_type, owner, repo, package
-                    from {packages}
-                    where owner = ?
-                    """,
-                    packages=packages,
-                ),
-                (owner,),
-            ).fetchall()
-            legacy_tables = {
-                f"{self.settings.versions_table}_"
-                f"{'_'.join(str(value) for value in row)}"
-                for row in package_rows
-            }
-            deleted = 0
-            with _transaction(connection):
-                for table_name in legacy_tables:
-                    connection.execute(
-                        _sql(
-                            "drop table if exists {table}",
-                            table=_SqlIdentifier(table_name),
-                        )
-                    )
-                for table in (owners, packages, versions):
-                    cursor = connection.execute(
-                        _sql("delete from {table} where owner = ?", table=table),
-                        (owner,),
-                    )
-                    deleted += cursor.rowcount
-                connection.execute(
-                    """
-                    delete from "bkg_owner_scan_packages"
-                    where owner_id in (
-                        select owner_id from "bkg_owner_scans" where owner = ?
-                    )
-                    """,
-                    (owner,),
-                )
-                connection.execute(
-                    'delete from "bkg_owner_scans" where owner = ?',
-                    (owner,),
-                )
-            return deleted
-
-        return self._run_write(retire)
+        tables = database_owner_scans.OwnerScanTables(
+            self.settings.owners_table,
+            self.settings.packages_table,
+            self.settings.versions_table,
+        )
+        return self._run_write(
+            lambda connection: database_owner_scans.retire_owner(
+                connection,
+                owner,
+                tables,
+            )
+        )
 
     def _normalized_version_rows(
         self,
@@ -974,15 +982,6 @@ def _transaction(connection: sqlite3.Connection) -> Generator[None, None, None]:
         connection.rollback()
         raise
     connection.commit()
-
-
-def _execute_transaction(
-    connection: sqlite3.Connection,
-    statement: str,
-    parameters: Sequence[Any],
-) -> None:
-    with _transaction(connection):
-        connection.execute(statement, parameters)
 
 
 def _is_retryable(error: sqlite3.Error) -> bool:

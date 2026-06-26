@@ -442,98 +442,6 @@ test_ensure_pages_dotfiles_visible_writes_nojekyll() {
 	assert_file_exists "$site_root/.nojekyll"
 }
 
-test_update_version_logs_sqlite_write_failure() {
-	local row
-	local status=0
-
-	row=$(printf '%s' '{"id":747026466,"name":"sha256:test","tags":"latest"}' | base64 -w0)
-
-	if (
-		BKG_ENV="$workdir/env-update-version.env"
-		: >"$BKG_ENV"
-		now=$(date -u +%s)
-		set_BKG BKG_SCRIPT_START "$now"
-		set_BKG BKG_RATE_LIMIT_START "$now"
-		set_BKG BKG_MIN_RATE_LIMIT_START "$now"
-		set_BKG BKG_CALLS_TO_API 0
-		set_BKG BKG_MIN_CALLS_TO_API 0
-		BKG_INDEX_DB="$workdir/update-version.db"
-		owner='Lazztech'
-		repo='Libre-Closet'
-		package='libre-closet'
-		owner_type='orgs'
-		package_type='container'
-		lower_owner='lazztech'
-		lower_package='libre-closet'
-		table_version_name='versions_orgs_container_Lazztech_Libre-Closet_libre-closet'
-		sqlite3 "$BKG_INDEX_DB" "create table if not exists '$table_version_name' (id text not null, name text not null, size integer not null, downloads integer not null, downloads_month integer not null, downloads_week integer not null, downloads_day integer not null, date text not null, tags text, primary key (id, date));"
-		version_stage_reset
-		curl() {
-			cat <<'EOF'
-<span>Total downloads</span><span>984</span><span>Last 30 days</span><span>984</span><span>Last week</span><span>454</span><span>Today</span><span>2</span><pre><code>{"schemaVersion":2,"layers":[{"size":123}]}</code></pre>
-EOF
-		}
-		docker_manifest_inspect() {
-			printf '%s' '{"schemaVersion":2,"layers":[{"size":123}]}'
-		}
-		update_version "$row"
-		BKG_INDEX_DB="$workdir/unopenable-db"
-		mkdir -p "$BKG_INDEX_DB"
-		version_flush_staged_rows
-	) >/dev/null 2>&1; then
-		fail "Expected version_flush_staged_rows to return non-zero when the SQLite write fails"
-	else
-		status=$?
-	fi
-
-	[ "$status" -eq 1 ] || fail "Expected version_flush_staged_rows to return 1, got $status"
-}
-
-test_update_package_warns_on_package_level_fallback() {
-	local output_file="$workdir/update-package-fallback.log"
-	local json_file="$workdir/index/Lazztech/Libre-Closet/libre-closet.json"
-
-	if ! (
-		cd "$workdir"
-		BKG_ENV="$workdir/env-update-package.env"
-		: >"$BKG_ENV"
-		now=$(date -u +%s)
-		set_BKG BKG_SCRIPT_START "$now"
-		set_BKG BKG_RATE_LIMIT_START "$now"
-		set_BKG BKG_MIN_RATE_LIMIT_START "$now"
-		set_BKG BKG_CALLS_TO_API 0
-		set_BKG BKG_MIN_CALLS_TO_API 0
-		BKG_INDEX_DB="$workdir/test.db"
-		BKG_INDEX_DIR="$workdir/index"
-		BKG_OPTOUT="$workdir/optout.txt"
-		: >"$BKG_OPTOUT"
-		BKG_OWNERS="$workdir/owners.txt"
-		: >"$BKG_OWNERS"
-		BKG_BATCH_FIRST_STARTED='2026-04-02'
-		owner_id=69664378
-		owner='Lazztech'
-		owner_type='orgs'
-		repo='Libre-Closet'
-		package='libre-closet'
-		package_type='container'
-		lower_owner='lazztech'
-		lower_package='libre-closet'
-		fast_out=false
-		BKG_MODE=0
-		sqlite3 "$BKG_INDEX_DB" "create table if not exists '$BKG_INDEX_TBL_PKG' (owner_id text, owner_type text not null, package_type text not null, owner text not null, repo text not null, package text not null, downloads integer not null, downloads_month integer not null, downloads_week integer not null, downloads_day integer not null, size integer not null, date text not null, primary key (owner_id, package, date));"
-		sqlite3 "$BKG_INDEX_DB" "create table if not exists 'versions_orgs_container_Lazztech_Libre-Closet_libre-closet' (id text not null, name text not null, size integer not null, downloads integer not null, downloads_month integer not null, downloads_week integer not null, downloads_day integer not null, date text not null, tags text, primary key (id, date));"
-		sqlite3 "$BKG_INDEX_DB" "insert into '$BKG_INDEX_TBL_PKG' (owner_id, owner_type, package_type, owner, repo, package, downloads, downloads_month, downloads_week, downloads_day, size, date) values ('69664378','orgs','container','Lazztech','Libre-Closet','libre-closet','2394','-1','-1','-1','-1','2026-04-02');"
-		printf '69664378|Lazztech|Libre-Closet|libre-closet|2026-04-02\n' >packages_already_updated
-		update_package 'container/Libre-Closet/libre-closet'
-	) >"$output_file" 2>&1; then
-		fail "Expected update_package to continue and emit fallback JSON when version rows are missing"
-	fi
-
-	assert_contains "$output_file" "No version rows available for Lazztech/libre-closet; using package-level fallback data"
-	assert_file_exists "$json_file"
-	jq -e '.raw_versions == 0 and .raw_downloads == 2394 and (.version | length) == 1 and .version[0].id == -1' "$json_file" >/dev/null || fail "Expected fallback package JSON when version rows are missing"
-}
-
 test_run_owner_page_discovery_stops_on_code_2() {
 	local calls_file="$workdir/owner-pages.txt"
 
@@ -1303,8 +1211,6 @@ run_test test_direct_bash_child_preserves_inherited_runtime_config
 run_test test_util_default_env_path_is_absolute
 run_test test_bkg_python_forwards_unexported_http_settings
 run_test test_ensure_pages_dotfiles_visible_writes_nojekyll
-run_test test_update_version_logs_sqlite_write_failure
-run_test test_update_package_warns_on_package_level_fallback
 run_test test_run_owner_page_discovery_stops_on_code_2
 run_test test_run_owner_page_discovery_caps_at_one_page
 run_test test_daily_gate_helpers_track_per_day
