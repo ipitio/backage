@@ -152,6 +152,26 @@ class OwnerScanRepositoryMixin(ABC):
             )
         )
 
+    def reconcile_owner_scan_package(
+        self,
+        owner_id: str,
+        marker: str,
+        package: OwnerScanPackage,
+        observed_at: int,
+    ) -> None:
+        """Replace staged aliases with one verified package identity."""
+
+        self.ensure_schema()
+        self._run_write(
+            lambda connection: database_owner_scans.reconcile_package(
+                connection,
+                owner_id,
+                marker,
+                package,
+                observed_at,
+            )
+        )
+
     def missing_owner_scan_packages(
         self,
         owner_id: str,

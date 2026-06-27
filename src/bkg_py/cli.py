@@ -55,6 +55,7 @@ def build_parser() -> argparse.ArgumentParser:
     _add_discovery_parsers(subparsers)
     _add_version_parsers(subparsers)
     _add_package_parsers(subparsers)
+    _add_owner_parsers(subparsers)
     return parser
 
 
@@ -328,6 +329,26 @@ def _add_package_parsers(subparsers: Any) -> None:
     refresh_parser.add_argument("write_legacy", choices=("true", "false"))
     refresh_parser.add_argument("use_rest_api", choices=("true", "false"))
     refresh_parser.add_argument("fast_out", choices=("true", "false"))
+
+
+def _add_owner_parsers(subparsers: Any) -> None:
+    owner_parser = subparsers.add_parser(
+        "owner",
+        help="run migrated owner update operations",
+    )
+    owner_commands = owner_parser.add_subparsers(
+        dest="owner_command",
+        required=True,
+    )
+    verify_parser = owner_commands.add_parser(
+        "verify-scan",
+        help="verify known packages absent from one complete owner listing",
+    )
+    verify_parser.add_argument("owner_id")
+    verify_parser.add_argument("owner")
+    verify_parser.add_argument("marker")
+    verify_parser.add_argument("since")
+    verify_parser.add_argument("observed_at", type=int)
 
 
 def _add_snapshot_parsers(subparsers: Any) -> None:

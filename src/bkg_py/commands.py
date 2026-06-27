@@ -73,6 +73,15 @@ def _print_owner_scan_result(result: OwnerScanResult) -> None:
                     }
                     for package in result.removed
                 ],
+                "pending": [
+                    {
+                        "owner_type": package.owner_type,
+                        "package_type": package.package_type,
+                        "repo": package.repo,
+                        "package": package.package,
+                    }
+                    for package in result.pending
+                ],
                 "pending_count": result.pending_count,
                 "retry_after": result.retry_after,
             },
@@ -839,6 +848,10 @@ def _run_application_command(
         from .package_commands import run_package
 
         runner = run_package
+    elif args.command == "owner":
+        from .owner_commands import run_owner
+
+        runner = run_owner
     else:
         parser.error(f"unknown command: {args.command}")
         return ExitStatus.FAILURE

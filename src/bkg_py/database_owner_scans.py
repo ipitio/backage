@@ -309,6 +309,34 @@ def _observe(
     )
 
 
+def reconcile_package(
+    connection: sqlite3.Connection,
+    owner_id: str,
+    marker: str,
+    package: OwnerScanPackage,
+    observed_at: int,
+) -> None:
+    """Replace staged repository identities for one verified package."""
+
+    with _transaction(connection):
+        _require_active(connection, owner_id, marker)
+        connection.execute(
+            f"""
+            delete from {_SCAN_PACKAGES}
+            where owner_id = ? and marker = ? and owner_type = ?
+              and package_type = ? and package = ?
+            """,
+            (
+                owner_id,
+                marker,
+                package.owner_type,
+                package.package_type,
+                package.package,
+            ),
+        )
+        _observe(connection, owner_id, marker, (package,), observed_at)
+
+
 def packages_needing_refresh(
     connection: sqlite3.Connection,
     packages_table: str,
@@ -367,6 +395,67 @@ def missing(
         (owner_id, marker),
     ).fetchall()
     return tuple(PackageRef(*(str(value) for value in row)) for row in rows)
+
+
+def _missing_package_is_replaced(
+    connection: sqlite3.Connection,
+    package: PackageRef,
+    marker: str,
+    packages_table: str,
+    since: str,
+) -> bool:
+    packages = _identifier(packages_table)
+    row = connection.execute(
+        f"""
+        select
+            exists (
+                select 1
+                from {_SCAN_PACKAGES} observed
+                where observed.owner_id = ? and observed.marker = ?
+                  and observed.owner_type = ? and observed.package_type = ?
+                  and observed.package = ?
+            ),
+            exists (
+                select 1
+                from {_SCAN_PACKAGES} observed
+                join {packages} current
+                  on current.owner_id = observed.owner_id
+                 and current.owner_type = observed.owner_type
+                 and current.package_type = observed.package_type
+                 and current.repo = observed.repo
+                 and current.package = observed.package
+                where observed.owner_id = ? and observed.marker = ?
+                  and observed.owner_type = ? and observed.package_type = ?
+                  and observed.package = ? and current.date >= ?
+                  and not exists (
+                      select 1 from {_PACKAGE_PUBLICATIONS} pending
+                      where pending.owner_id = current.owner_id
+                        and pending.owner_type = current.owner_type
+                        and pending.package_type = current.package_type
+                        and pending.owner = current.owner
+                        and pending.repo = current.repo
+                        and pending.package = current.package
+                  )
+            )
+        """,
+        (
+            package.owner_id,
+            marker,
+            package.owner_type,
+            package.package_type,
+            package.package,
+            package.owner_id,
+            marker,
+            package.owner_type,
+            package.package_type,
+            package.package,
+            since,
+        ),
+    ).fetchone()
+    if row is None:
+        raise DatabaseError("failed to inspect owner scan replacement state")
+    replacement_observed, replacement_published = (bool(value) for value in row)
+    return not replacement_observed or replacement_published
 
 
 def _retry_after(
@@ -544,6 +633,72 @@ def _scan_outcome(
     )
 
 
+def _removable_missing_packages(
+    connection: sqlite3.Connection,
+    completion: OwnerScanCompletion,
+    packages_table: str,
+) -> tuple[PackageRef, ...]:
+    return tuple(
+        package
+        for package in missing(
+            connection,
+            completion.owner_id,
+            completion.marker,
+            packages_table,
+        )
+        if _missing_package_is_replaced(
+            connection,
+            package,
+            completion.marker,
+            packages_table,
+            completion.scan_date,
+        )
+    )
+
+
+def _pending_scan_packages(
+    connection: sqlite3.Connection,
+    completion: OwnerScanCompletion,
+    packages: str,
+) -> tuple[OwnerScanPackage, ...]:
+    rows = connection.execute(
+        f"""
+        select observed.owner_type, observed.package_type,
+               observed.repo, observed.package
+        from {_SCAN_PACKAGES} observed
+        where observed.owner_id = ?
+          and observed.marker = ?
+          and not exists (
+            select 1
+            from {packages} current
+            where current.owner_id = observed.owner_id
+              and current.owner_type = observed.owner_type
+              and current.package_type = observed.package_type
+              and current.repo = observed.repo
+              and current.package = observed.package
+              and current.date >= ?
+              and not exists (
+                  select 1 from {_PACKAGE_PUBLICATIONS} pending
+                  where pending.owner_id = current.owner_id
+                    and pending.owner_type = current.owner_type
+                    and pending.package_type = current.package_type
+                    and pending.owner = current.owner
+                    and pending.repo = current.repo
+                    and pending.package = current.package
+              )
+          )
+        order by observed.owner_type, observed.package_type,
+                 observed.repo, observed.package
+        """,
+        (
+            completion.owner_id,
+            completion.marker,
+            completion.scan_date,
+        ),
+    ).fetchall()
+    return tuple(OwnerScanPackage(*(str(value) for value in row)) for row in rows)
+
+
 def complete(
     connection: sqlite3.Connection,
     completion: OwnerScanCompletion,
@@ -556,10 +711,9 @@ def complete(
     packages = _identifier(tables.packages)
 
     with _transaction(connection):
-        removed = missing(
+        removed = _removable_missing_packages(
             connection,
-            completion.owner_id,
-            completion.marker,
+            completion,
             tables.packages,
         )
         _delete_packages(
@@ -570,40 +724,7 @@ def complete(
             tables.versions,
         )
 
-        pending_count = int(
-            connection.execute(
-                f"""
-                select count(*)
-                from {_SCAN_PACKAGES} observed
-                where observed.owner_id = ?
-                  and observed.marker = ?
-                  and not exists (
-                    select 1
-                    from {packages} current
-                    where current.owner_id = observed.owner_id
-                      and current.owner_type = observed.owner_type
-                      and current.package_type = observed.package_type
-                      and current.repo = observed.repo
-                      and current.package = observed.package
-                      and current.date >= ?
-                      and not exists (
-                          select 1 from {_PACKAGE_PUBLICATIONS} pending
-                          where pending.owner_id = current.owner_id
-                            and pending.owner_type = current.owner_type
-                            and pending.package_type = current.package_type
-                            and pending.owner = current.owner
-                            and pending.repo = current.repo
-                            and pending.package = current.package
-                      )
-                  )
-                """,
-                (
-                    completion.owner_id,
-                    completion.marker,
-                    completion.scan_date,
-                ),
-            ).fetchone()[0]
-        )
+        pending = _pending_scan_packages(connection, completion, packages)
         scan_row = connection.execute(
             f"select owner, failure_count from {_SCANS} where owner_id = ?",
             (completion.owner_id,),
@@ -614,7 +735,7 @@ def complete(
             )
         owner = str(scan_row[0])
         status, failure_count, retry_after, last_error = _scan_outcome(
-            pending_count,
+            len(pending),
             int(scan_row[1]),
             completion.completed_at,
             retry,
@@ -657,7 +778,7 @@ def complete(
             (completion.owner_id,),
         )
 
-    return OwnerScanResult(removed, pending_count, retry_after)
+    return OwnerScanResult(removed, pending, retry_after)
 
 
 def deferred(

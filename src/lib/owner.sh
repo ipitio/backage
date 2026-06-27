@@ -164,70 +164,26 @@ owner_pending_package_count() {
 
 owner_scan_verify_missing_packages() {
 	[ -n "${OWNER_SCAN_MARKER:-}" ] || return 1
-	local canonical_repo
-	local missing_file
-	local observed_refs
-	local owner_type_missing
-	local package_type_missing
+	local change_count
 	local refresh_refs
-	local repo_missing
-	local package_missing
-	local response
+	local result
 	local status=0
 
-	missing_file=$(mktemp) || return 1
-	observed_refs=$(mktemp) || {
-		rm -f "$missing_file"
-		return 1
-	}
-	bkg_python database missing-owner-scan-packages \
-		"$owner_id" "$OWNER_SCAN_MARKER" >"$missing_file" || {
-		status=$?
-		rm -f "$missing_file" "$observed_refs"
-		return "$status"
-	}
-
-	while IFS=$'\t' read -r owner_type_missing package_type_missing repo_missing package_missing; do
-		[ -n "$package_missing" ] || continue
-		case "$owner_type_missing" in
-		users | orgs) ;;
-		*)
-			status=1
-			break
-			;;
-		esac
-		response=$(query_api_optional "$owner_type_missing/$owner/packages/$package_type_missing/$package_missing")
-		status=$?
-		((status != 3)) || break
-		((status == 0)) || break
-		[ "$response" != "null" ] || continue
-		canonical_repo=$(jq -r '.repository.name // empty' <<<"$response" 2>/dev/null)
-		[ -n "$canonical_repo" ] || canonical_repo=$repo_missing
-		printf '%s\t%s\t%s\t%s\n' \
-			"$owner_type_missing" "$package_type_missing" \
-			"$canonical_repo" "$package_missing" >>"$observed_refs"
-	done <"$missing_file"
-
-	if ((status != 0)); then
-		rm -f "$missing_file" "$observed_refs"
-		return "$status"
+	result=$(bkg_python owner verify-scan \
+		"$owner_id" "$owner" "$OWNER_SCAN_MARKER" \
+		"$(current_batch_first_started)" "$(date -u +%s)") || return $?
+	change_count=$(jq -r '.identity_changes | length' <<<"$result") || return 1
+	if ((change_count > 0)); then
+		echo "Reconciled $change_count package repository association(s) for $owner"
 	fi
-
-	sort -u "$observed_refs" -o "$observed_refs"
-	if [ -s "$observed_refs" ]; then
-		refresh_refs=$(bkg_python package observe-refs \
-			"$owner_id" "$owner" "$OWNER_SCAN_MARKER" \
-			"$(current_batch_first_started)" "$observed_refs" \
-			"$(date -u +%s)") || {
-			status=$?
-			rm -f "$missing_file" "$observed_refs"
-			return "$status"
-		}
+	refresh_refs=$(jq -r \
+		'.packages[] | [.package_type, .repo, .package] | join("/")' \
+		<<<"$result") || return 1
+	if [ -n "$refresh_refs" ]; then
 		run_parallel update_package "$refresh_refs"
 		status=$?
 	fi
 
-	rm -f "$missing_file" "$observed_refs"
 	return "$status"
 }
 
@@ -250,6 +206,7 @@ owner_scan_remove_reconciled_files() {
 owner_scan_complete() {
 	[ -n "${OWNER_SCAN_MARKER:-}" ] || return 1
 	local pending_count
+	local pending_summary
 	local reconciled
 	local result
 	local retry_after
@@ -259,10 +216,14 @@ owner_scan_complete() {
 	reconciled=$(jq -r '.removed[]? | [.repo, .package] | @tsv' <<<"$result")
 	owner_scan_remove_reconciled_files "$reconciled"
 	pending_count=$(jq -r '.pending_count' <<<"$result")
+	pending_summary=$(jq -r \
+		'[.pending[:10][] | (.repo + "/" + .package)] | join(", ")' \
+		<<<"$result")
 	retry_after=$(jq -r '.retry_after' <<<"$result")
 	owner_scan_clear_legacy_state
 	if ((pending_count > 0)); then
-		echo "Deferred $owner with $pending_count incomplete package refresh(es) until $(date -u -d "@$retry_after" +%Y-%m-%dT%H:%M:%SZ)"
+		((pending_count <= 10)) || pending_summary+=", ..."
+		echo "Deferred $owner with $pending_count incomplete package refresh(es) ($pending_summary) until $(date -u -d "@$retry_after" +%Y-%m-%dT%H:%M:%SZ)"
 	fi
 }
 
@@ -1100,6 +1061,11 @@ update_owner() {
 				return 3
 			elif ((pages_left != 0 && pages_left != 2)); then
 				owner_scan_fail "owner package listing page $page failed" || return $?
+				return 0
+			fi
+			if $PACKAGE_PAGE_OWNER_MISSING; then
+				retire_missing_owner "$owner_id/$owner" || return $?
+				owner_scan_clear_legacy_state
 				return 0
 			fi
 			run_parallel update_package "$PACKAGE_PAGE_WORK"

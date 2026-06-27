@@ -112,8 +112,14 @@ class OwnerScanResult:
     """The reconciliation result for one completed owner listing scan."""
 
     removed: tuple[PackageRef, ...]
-    pending_count: int
+    pending: tuple[OwnerScanPackage, ...]
     retry_after: int
+
+    @property
+    def pending_count(self) -> int:
+        """Return the number of observed packages still awaiting publication."""
+
+        return len(self.pending)
 
 
 @dataclass(frozen=True)

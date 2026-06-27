@@ -129,6 +129,31 @@ test_page_package_distinguishes_transport_failure_from_empty_listing() {
     [ "$status" -eq 1 ] || fail "Expected failed owner listing transport to remain non-authoritative"
 }
 
+test_page_package_reports_confirmed_missing_owner() {
+    local status
+
+    setup_discovery_fixture
+    init_bkg_state
+
+    pushd "$workdir" >/dev/null
+    owner_id=556677
+    owner=Departed
+    owner_type=users
+
+    bkg_python() {
+        printf '%s\n' '{"packages":[],"observed_count":0,"has_more":false,"owner_missing":true}'
+    }
+
+    set +e
+    page_package 1 >/dev/null
+    status=$?
+    set -e
+    popd >/dev/null
+
+    [ "$status" -eq 2 ] || fail "Expected a confirmed missing owner to end pagination"
+    $PACKAGE_PAGE_OWNER_MISSING || fail "Expected the owner worker to receive the confirmed-missing marker"
+}
+
 test_partial_owner_refresh_uses_known_package_identity() {
     local captured="$workdir/refreshed-package"
     local today
@@ -240,8 +265,8 @@ test_unresolved_partial_owner_refresh_reconciles_complete_listing() {
         return 2
     }
 
-    query_api_optional() {
-        printf '%s\n' null
+    owner_scan_verify_missing_packages() {
+        :
     }
 
     owner_repo_names_from_db() {
@@ -536,6 +561,7 @@ run_test test_discovered_owner_admission_includes_all_candidates_below_cap
 run_test test_save_owner_queues_resolved_owner_id
 run_test test_page_package_selects_package_work
 run_test test_page_package_distinguishes_transport_failure_from_empty_listing
+run_test test_page_package_reports_confirmed_missing_owner
 run_test test_partial_owner_refresh_uses_known_package_identity
 run_test test_unresolved_partial_owner_refresh_reconciles_complete_listing
 run_test test_stale_owner_scan_marker_restarts_from_first_page

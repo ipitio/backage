@@ -7,7 +7,8 @@ import json
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol
+from urllib.parse import quote
 
 from . import package_updates, version_updates
 from .database import DatabaseError
@@ -20,9 +21,10 @@ from .database_models import (
     PackageRef,
     load_owner_scan_packages,
 )
-from .github import GitHubError
+from .github import GitHubError, GitHubJsonResponse, GitHubNotFoundError
 from .package_discovery import (
     PackageDiscoveryError,
+    PackageListingClient,
     PackageListingPage,
     PackageListingRequest,
     PackageListingService,
@@ -36,6 +38,18 @@ from .state import StateValueError
 if TYPE_CHECKING:
     from .application import ApplicationContext
     from .package_updates import PackageRefreshResult
+
+
+class OwnerListingClient(
+    PackageListingClient,
+    Protocol,
+):  # pylint: disable=too-few-public-methods
+    """GitHub operations used to classify a missing package listing."""
+
+    def rest_json_optional(self, path: str) -> GitHubJsonResponse | None:
+        """Return owner metadata or an absent-resource marker."""
+
+        raise NotImplementedError
 
 
 def run_package(
@@ -65,6 +79,7 @@ class PackageListingWork:
 
     page: PackageListingPage
     packages: tuple[OwnerScanPackage, ...]
+    owner_missing: bool = False
 
 
 def _run_package_listing(
@@ -93,6 +108,7 @@ def _run_package_listing(
                 ],
                 "observed_count": len(listing.page.packages),
                 "has_more": listing.page.has_more,
+                "owner_missing": listing.owner_missing,
             },
             separators=(",", ":"),
         )
@@ -111,7 +127,7 @@ def _execute_package_listing(
         application.config.mode,
     )
     with application.stop.signal_handlers(), application.github_client() as client:
-        page = PackageListingService(client).fetch(request)
+        page, owner_missing = fetch_package_listing_page(client, request)
         if args.marker != "-":
             application.database.observe_owner_scan_page(
                 OwnerScanPage(
@@ -132,7 +148,22 @@ def _execute_package_listing(
             )
         else:
             packages = page.packages
-    return PackageListingWork(page, packages)
+    return PackageListingWork(page, packages, owner_missing)
+
+
+def fetch_package_listing_page(
+    client: OwnerListingClient,
+    request: PackageListingRequest,
+) -> tuple[PackageListingPage, bool]:
+    """Fetch a listing and confirm whether a 404 means its owner is absent."""
+
+    try:
+        return PackageListingService(client).fetch(request), False
+    except GitHubNotFoundError:
+        owner_path = f"{request.owner_type}/{quote(request.owner, safe='')}"
+        if client.rest_json_optional(owner_path) is not None:
+            raise
+        return PackageListingPage((), False), True
 
 
 def _run_package_scan(

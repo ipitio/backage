@@ -30,6 +30,15 @@ class FakeGitHubClient:
         self.rest_requests.append(path)
         return GitHubJsonResponse(self.rest_values[path], httpx.Headers())
 
+    def rest_json_optional(self, path: str) -> GitHubJsonResponse | None:
+        """Return a configured REST response or an absent-resource marker."""
+
+        self.rest_requests.append(path)
+        value = self.rest_values[path]
+        if value is None:
+            return None
+        return GitHubJsonResponse(value, httpx.Headers())
+
     def get_text(
         self,
         url: str,
@@ -39,7 +48,8 @@ class FakeGitHubClient:
     ) -> str:
         """Return one configured public text response."""
 
-        assert accept == "text/html"
+        if accept != "text/html":
+            raise ValueError(f"unsupported fake response type: {accept}")
         self.text_requests.append(url)
         self.text_authentication.append(authenticated)
         value = self.text_values[url]

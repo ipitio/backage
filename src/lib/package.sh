@@ -4,6 +4,7 @@
 source lib/util.sh
 
 PACKAGE_PAGE_WORK=""
+PACKAGE_PAGE_OWNER_MISSING=false
 
 page_package() {
     [ -n "$1" ] || return
@@ -12,8 +13,10 @@ page_package() {
     local listing
     local batch_first_started
     local package_count
+    local owner_missing
     local status=0
     PACKAGE_PAGE_WORK=""
+    PACKAGE_PAGE_OWNER_MISSING=false
     batch_first_started=$(current_batch_first_started)
     [ -n "$batch_first_started" ] || batch_first_started="0000-00-00"
     echo "Starting $owner page $1..."
@@ -26,6 +29,8 @@ page_package() {
     PACKAGE_PAGE_WORK=$(jq -r '.packages[] | [.package_type, .repo, .package] | join("/")' <<<"$listing") || return 1
     package_count=$(jq -r '.observed_count' <<<"$listing") || return 1
     has_more=$(jq -r '.has_more' <<<"$listing") || return 1
+    owner_missing=$(jq -r '.owner_missing' <<<"$listing") || return 1
+    [ "$owner_missing" = true ] && PACKAGE_PAGE_OWNER_MISSING=true
     (($1 > 1 || package_count > 0)) || sed -i '/^\(.*\/\)*'"$owner"'$/d' "$BKG_OWNERS"
     echo "Started $owner page $1"
     [ "$has_more" = true ] || return 2

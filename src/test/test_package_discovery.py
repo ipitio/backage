@@ -13,6 +13,7 @@ from bkg_py.application import ApplicationContext
 from bkg_py.cli import main
 from bkg_py.database import DatabaseRepository, DatabaseSettings
 from bkg_py.database_models import OwnerScanPackage
+from bkg_py.github import GitHubNotFoundError
 from bkg_py.package_discovery import (
     PackageListingPage,
     PackageListingRequest,
@@ -115,6 +116,39 @@ def test_listing_service_preserves_mode_specific_urls(
     assert client.text_authentication == [authenticated]
 
 
+def test_listing_404_confirms_missing_owner_before_returning_an_empty_page() -> None:
+    """A listing 404 is empty only when the owner API also reports absence."""
+
+    request = PackageListingRequest("users", "departed", 1, 0)
+    url = request.url()
+    client = FakeGitHubClient(
+        rest_values={"users/departed": None},
+        text_values={url: GitHubNotFoundError("listing not found")},
+    )
+
+    page, owner_missing = bkg_py.package_commands.fetch_package_listing_page(
+        client,
+        request,
+    )
+
+    assert page == PackageListingPage((), False)
+    assert owner_missing
+    assert client.rest_requests == ["users/departed"]
+
+
+def test_listing_404_remains_an_error_when_the_owner_still_exists() -> None:
+    """An inconsistent listing 404 cannot retire an available owner."""
+
+    request = PackageListingRequest("orgs", "available", 1, 0)
+    client = FakeGitHubClient(
+        rest_values={"orgs/available": {"login": "available"}},
+        text_values={request.url(): GitHubNotFoundError("listing not found")},
+    )
+
+    with pytest.raises(GitHubNotFoundError, match="listing not found"):
+        bkg_py.package_commands.fetch_package_listing_page(client, request)
+
+
 def test_package_listing_cli_dispatches_shell_arguments(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -168,6 +202,7 @@ def test_package_listing_cli_dispatches_shell_arguments(
         ],
         "observed_count": 1,
         "has_more": False,
+        "owner_missing": False,
     }
 
 
