@@ -12,7 +12,7 @@ from pathlib import Path
 
 from .database import DatabaseError, DatabaseRepository
 from .database_models import PackageRecord, PackageRef, VersionRecord
-from .github import GitHubError
+from .github import GitHubError, GitHubNotFoundError
 from .publication import (
     PublicationError,
     PublicationLimits,
@@ -212,6 +212,8 @@ class PackageRefreshService:  # pylint: disable=too-few-public-methods
         url = package_detail_html_url(context)
         try:
             html = self.client.get_text(url, authenticated=authenticated)
+        except GitHubNotFoundError:
+            return None
         except GitHubError as error:
             self.execution.version.diagnostic(
                 f"Package detail request failed for {url}: {error}"

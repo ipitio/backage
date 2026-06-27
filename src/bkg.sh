@@ -698,7 +698,7 @@ main() {
 	[ ! -f "$BKG_ROOT"/README.md ] || rm -f "$BKG_ROOT"/README.md
 	\cp templates/.README.md "$BKG_ROOT"/README.md
 	sed -i 's/<GITHUB_OWNER>/'"$GITHUB_OWNER"'/g; s/<GITHUB_REPO>/'"$GITHUB_REPO"'/g; s/<GITHUB_BRANCH>/'"$GITHUB_BRANCH"'/g; s/\[PACKAGES\]/'"$packages"'/g; s/\[DATE\]/'"$today"'/g' "$BKG_ROOT"/README.md
-	sed -i '/^BKG_VERSIONS_.*=/d; /^BKG_PACKAGES_.*=/d; /^BKG_OWNERS_.*=/d; /^BKG_TIMEOUT=/d' "$BKG_ENV"
+		sed -i '/^BKG_VERSIONS_.*=/d; /^BKG_PACKAGES_.*=/d; /^BKG_OWNERS_.*=/d; /^BKG_PAGE_[0-9].*=/d; /^BKG_OWNER_SCAN_.*=/d; /^BKG_TIMEOUT=/d' "$BKG_ENV"
 	\cp "$BKG_ROOT"/README.md "$BKG_INDEX_DIR"/README.md
 	# shellcheck disable=SC2016
 	sed -i 's/src\/img\/logo-b.webp/logo-b.webp/g; s/```py/```prolog/g; s/```js/```jboss-cli/g' "$BKG_INDEX_DIR"/README.md

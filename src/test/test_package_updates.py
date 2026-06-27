@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import argparse
 import json
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
 
-import bkg_py.commands
+import bkg_py.package_commands
 import bkg_py.package_updates
 from bkg_py.application import ApplicationContext
 from bkg_py.cli import main
@@ -21,6 +22,7 @@ from bkg_py.database_models import (
     VersionRecord,
     VersionStage,
 )
+from bkg_py.github import GitHubNotFoundError
 from bkg_py.package_updates import (
     PackageOptOuts,
     PackageRefreshExecution,
@@ -141,7 +143,11 @@ def test_package_refresh_cli_dispatches_shell_arguments(
         captured.append((args.package, str(index_dir)))
         return PackageRefreshResult("refreshed", package_written=True)
 
-    monkeypatch.setattr(bkg_py.commands, "_execute_package_refresh", execute)
+    monkeypatch.setattr(
+        bkg_py.package_commands,
+        "_execute_package_refresh",
+        execute,
+    )
     monkeypatch.setenv("BKG_ROOT", str(tmp_path))
     monkeypatch.setenv("BKG_INDEX_DIR", str(tmp_path / "index"))
 
@@ -166,6 +172,36 @@ def test_package_refresh_cli_dispatches_shell_arguments(
     assert status == ExitStatus.SUCCESS
     assert captured == [("Demo", str(tmp_path / "index"))]
     assert json.loads(capsys.readouterr().out)["outcome"] == "refreshed"
+
+
+def test_missing_package_detail_stays_pending_without_response_body_diagnostic(
+    tmp_path: Path,
+) -> None:
+    """An expected missing stale package does not dump its GitHub HTML body."""
+
+    package = _package()
+    destination = tmp_path / "index" / "Example" / "Packages" / "Demo.json"
+    optout_file = tmp_path / "optout.txt"
+    optout_file.write_text("", encoding="utf-8")
+    package_url = "https://github.com/orgs/Example/packages/npm/package/Demo"
+    diagnostics: list[str] = []
+    execution = _execution(optout_file)
+    execution = replace(
+        execution,
+        version=replace(execution.version, diagnostic=diagnostics.append),
+    )
+    client = _FakeClient(
+        text_values={package_url: GitHubNotFoundError("large HTML response")}
+    )
+
+    result = PackageRefreshService(
+        DatabaseRepository(DatabaseSettings(tmp_path / "index.db")),
+        client,
+        execution,
+    ).refresh(_request(package, destination))
+
+    assert result.outcome == "metadata_unavailable"
+    assert not diagnostics
 
 
 def test_refresh_commits_versions_package_and_publication(

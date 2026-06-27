@@ -48,6 +48,65 @@ class OwnerScanPackage:
     package: str
 
 
+def load_owner_scan_packages(path: Path) -> tuple[OwnerScanPackage, ...]:
+    """Load tab-separated owner scan package identities from a file."""
+
+    field_count = 4
+    packages: list[OwnerScanPackage] = []
+    for line_number, line in enumerate(
+        path.read_text(encoding="utf-8").splitlines(),
+        start=1,
+    ):
+        if not line:
+            continue
+        fields = line.split("\t")
+        if len(fields) != field_count or not all(fields):
+            raise DatabaseError(f"invalid owner scan package at {path}:{line_number}")
+        packages.append(OwnerScanPackage(*fields))
+    return tuple(packages)
+
+
+@dataclass(frozen=True)
+class OwnerScanCursor:
+    """The durable page cursor for one resumable owner listing scan."""
+
+    marker: str
+    next_page: int
+    resumed: bool
+
+
+@dataclass(frozen=True)
+class OwnerScanStart:
+    """Inputs for resuming or replacing one owner listing scan."""
+
+    owner_id: str
+    owner: str
+    batch_marker: str
+    started_at: int
+    legacy_marker: str | None = None
+    legacy_page: int | None = None
+
+
+@dataclass(frozen=True)
+class OwnerScanPage:
+    """A page operation against one active owner listing scan."""
+
+    owner_id: str
+    marker: str
+    page: int
+    updated_at: int
+
+
+@dataclass(frozen=True)
+class OwnerScanWorkSelection:
+    """Observed packages to compare with current batch state."""
+
+    owner_id: str
+    owner: str
+    packages: tuple[OwnerScanPackage, ...]
+    since: str
+
+
 @dataclass(frozen=True)
 class OwnerScanResult:
     """The reconciliation result for one completed owner listing scan."""

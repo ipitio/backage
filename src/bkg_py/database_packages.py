@@ -175,6 +175,22 @@ def publication_pending(
     )
 
 
+def needs_refresh(
+    connection: sqlite3.Connection,
+    packages_table: str,
+    package: PackageRef,
+    since: str,
+) -> bool:
+    """Return whether data or generated files need current-batch work."""
+
+    return not updated_since(
+        connection,
+        packages_table,
+        package,
+        since,
+    ) or publication_pending(connection, package)
+
+
 def clear_publication(
     connection: sqlite3.Connection,
     package: PackageRef,

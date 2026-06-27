@@ -275,6 +275,49 @@ def _add_package_parsers(subparsers: Any) -> None:
         dest="package_command",
         required=True,
     )
+    active_scan_parser = package_commands.add_parser(
+        "active-scan",
+        help="print the current batch's durable owner scan cursor",
+    )
+    active_scan_parser.add_argument("owner_id")
+    active_scan_parser.add_argument("batch_marker")
+    begin_scan_parser = package_commands.add_parser(
+        "begin-scan",
+        help="resume or start a durable owner package listing scan",
+    )
+    begin_scan_parser.add_argument("owner_id")
+    begin_scan_parser.add_argument("owner")
+    begin_scan_parser.add_argument("batch_marker")
+    begin_scan_parser.add_argument("started_at", type=int)
+    listing_parser = package_commands.add_parser(
+        "list-page",
+        help="fetch and stage one owner package listing page",
+    )
+    listing_parser.add_argument("owner_id")
+    listing_parser.add_argument("owner_type", choices=("orgs", "users"))
+    listing_parser.add_argument("owner")
+    listing_parser.add_argument("page", type=int)
+    listing_parser.add_argument("marker")
+    listing_parser.add_argument("since")
+    listing_parser.add_argument("observed_at", type=int)
+    finish_page_parser = package_commands.add_parser(
+        "finish-page",
+        help="advance a durable owner scan after its package work finishes",
+    )
+    finish_page_parser.add_argument("owner_id")
+    finish_page_parser.add_argument("marker")
+    finish_page_parser.add_argument("page", type=int)
+    finish_page_parser.add_argument("completed_at", type=int)
+    observe_refs_parser = package_commands.add_parser(
+        "observe-refs",
+        help="stage verified package refs and print those needing refresh",
+    )
+    observe_refs_parser.add_argument("owner_id")
+    observe_refs_parser.add_argument("owner")
+    observe_refs_parser.add_argument("marker")
+    observe_refs_parser.add_argument("since")
+    observe_refs_parser.add_argument("packages_file")
+    observe_refs_parser.add_argument("observed_at", type=int)
     refresh_parser = package_commands.add_parser(
         "refresh",
         help="refresh and publish one package",

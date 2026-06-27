@@ -10,9 +10,13 @@ from dataclasses import dataclass
 from . import database_packages
 from .database_models import (
     OwnerRecord,
+    OwnerScanCursor,
     OwnerScanFailure,
     OwnerScanPackage,
+    OwnerScanPage,
     OwnerScanResult,
+    OwnerScanStart,
+    OwnerScanWorkSelection,
     PackageRef,
 )
 from .database_support import DatabaseError
@@ -89,6 +93,53 @@ def active(
     return row is not None and row[0] == marker and row[1] == "running"
 
 
+def current(
+    connection: sqlite3.Connection,
+    owner_id: str,
+    batch_marker: str,
+) -> OwnerScanCursor | None:
+    """Return the active scan cursor when it belongs to the current batch."""
+
+    row = connection.execute(
+        f"select marker, status, next_page from {_SCANS} where owner_id = ?",
+        (owner_id,),
+    ).fetchone()
+    if row is None or row[1] != "running":
+        return None
+    marker = str(row[0])
+    if not marker.startswith(f"{batch_marker}:{owner_id}:"):
+        return None
+    return OwnerScanCursor(marker, max(1, int(row[2])), resumed=True)
+
+
+def _begin(
+    connection: sqlite3.Connection,
+    owner_id: str,
+    owner: str,
+    marker: str,
+    started_at: int,
+) -> None:
+    connection.execute(
+        f"""
+        insert into {_SCANS} (
+            owner_id, owner, marker, status, started_at, updated_at,
+            next_page, completed_at, failure_count, retry_after, last_error
+        ) values (?, ?, ?, 'running', ?, ?, 1, null, 0, 0, '')
+        on conflict(owner_id) do update set
+            owner = excluded.owner,
+            marker = excluded.marker,
+            status = 'running',
+            started_at = excluded.started_at,
+            updated_at = excluded.updated_at,
+            next_page = 1,
+            completed_at = null,
+            retry_after = 0,
+            last_error = ''
+        """,
+        (owner_id, owner, marker, started_at, started_at),
+    )
+
+
 def begin(
     connection: sqlite3.Connection,
     owner_id: str,
@@ -103,23 +154,67 @@ def begin(
             f"delete from {_SCAN_PACKAGES} where owner_id = ?",
             (owner_id,),
         )
+        _begin(connection, owner_id, owner, marker, started_at)
+
+
+def begin_or_resume(
+    connection: sqlite3.Connection,
+    start: OwnerScanStart,
+) -> OwnerScanCursor:
+    """Resume the current batch cursor or start a replacement scan."""
+
+    with _transaction(connection):
+        cursor = current(connection, start.owner_id, start.batch_marker)
+        if cursor is not None:
+            next_page = cursor.next_page
+            if start.legacy_marker == cursor.marker and start.legacy_page is not None:
+                next_page = max(next_page, start.legacy_page, 1)
+            connection.execute(
+                f"update {_SCANS} set owner = ?, next_page = ? where owner_id = ?",
+                (start.owner, next_page, start.owner_id),
+            )
+            return OwnerScanCursor(cursor.marker, next_page, resumed=True)
+
+        marker = f"{start.batch_marker}:{start.owner_id}:{start.started_at}"
         connection.execute(
-            f"""
-            insert into {_SCANS} (
-                owner_id, owner, marker, status, started_at, updated_at,
-                completed_at, failure_count, retry_after, last_error
-            ) values (?, ?, ?, 'running', ?, ?, null, 0, 0, '')
-            on conflict(owner_id) do update set
-                owner = excluded.owner,
-                marker = excluded.marker,
-                status = 'running',
-                started_at = excluded.started_at,
-                updated_at = excluded.updated_at,
-                completed_at = null,
-                retry_after = 0,
-                last_error = ''
-            """,
-            (owner_id, owner, marker, started_at, started_at),
+            f"delete from {_SCAN_PACKAGES} where owner_id = ?",
+            (start.owner_id,),
+        )
+        _begin(
+            connection,
+            start.owner_id,
+            start.owner,
+            marker,
+            start.started_at,
+        )
+        return OwnerScanCursor(marker, 1, resumed=False)
+
+
+def advance_page(
+    connection: sqlite3.Connection,
+    page: OwnerScanPage,
+) -> None:
+    """Advance one page idempotently after its selected work completes."""
+
+    with _transaction(connection):
+        _require_active(connection, page.owner_id, page.marker)
+        row = connection.execute(
+            f"select next_page from {_SCANS} where owner_id = ?",
+            (page.owner_id,),
+        ).fetchone()
+        if row is None:
+            raise DatabaseError(f"owner scan {page.owner_id}/{page.marker} is missing")
+        next_page = int(row[0])
+        if next_page == page.page + 1:
+            return
+        if next_page != page.page:
+            raise DatabaseError(
+                f"owner scan {page.owner_id}/{page.marker} expected page "
+                f"{next_page}, got {page.page}"
+            )
+        connection.execute(
+            f"update {_SCANS} set next_page = ?, updated_at = ? where owner_id = ?",
+            (page.page + 1, page.updated_at, page.owner_id),
         )
 
 
@@ -152,28 +247,92 @@ def observe(
 
     with _transaction(connection):
         _require_active(connection, owner_id, marker)
-        connection.executemany(
-            f"""
-            insert or ignore into {_SCAN_PACKAGES} (
-                owner_id, marker, owner_type, package_type, repo, package
-            ) values (?, ?, ?, ?, ?, ?)
-            """,
+        _observe(connection, owner_id, marker, packages, observed_at)
+
+
+def observe_page(
+    connection: sqlite3.Connection,
+    page: OwnerScanPage,
+    packages: Sequence[OwnerScanPackage],
+) -> None:
+    """Observe a listing page only when it matches the durable cursor."""
+
+    with _transaction(connection):
+        _require_active(connection, page.owner_id, page.marker)
+        row = connection.execute(
+            f"select next_page from {_SCANS} where owner_id = ?",
+            (page.owner_id,),
+        ).fetchone()
+        if row is None or int(row[0]) != page.page:
+            expected = "missing" if row is None else str(row[0])
+            raise DatabaseError(
+                f"owner scan {page.owner_id}/{page.marker} expected page "
+                f"{expected}, got {page.page}"
+            )
+        _observe(
+            connection,
+            page.owner_id,
+            page.marker,
+            packages,
+            page.updated_at,
+        )
+
+
+def _observe(
+    connection: sqlite3.Connection,
+    owner_id: str,
+    marker: str,
+    packages: Sequence[OwnerScanPackage],
+    observed_at: int,
+) -> None:
+    connection.executemany(
+        f"""
+        insert or ignore into {_SCAN_PACKAGES} (
+            owner_id, marker, owner_type, package_type, repo, package
+        ) values (?, ?, ?, ?, ?, ?)
+        """,
+        (
             (
-                (
-                    owner_id,
-                    marker,
-                    package.owner_type,
-                    package.package_type,
-                    package.repo,
-                    package.package,
-                )
-                for package in packages
+                owner_id,
+                marker,
+                package.owner_type,
+                package.package_type,
+                package.repo,
+                package.package,
+            )
+            for package in packages
+        ),
+    )
+    connection.execute(
+        f"update {_SCANS} set updated_at = ? where owner_id = ?",
+        (observed_at, owner_id),
+    )
+
+
+def packages_needing_refresh(
+    connection: sqlite3.Connection,
+    packages_table: str,
+    selection: OwnerScanWorkSelection,
+) -> tuple[OwnerScanPackage, ...]:
+    """Select observed packages needing data refresh or file publication."""
+
+    return tuple(
+        package
+        for package in selection.packages
+        if database_packages.needs_refresh(
+            connection,
+            packages_table,
+            PackageRef(
+                selection.owner_id,
+                package.owner_type,
+                package.package_type,
+                selection.owner,
+                package.repo,
+                package.package,
             ),
+            selection.since,
         )
-        connection.execute(
-            f"update {_SCANS} set updated_at = ? where owner_id = ?",
-            (observed_at, owner_id),
-        )
+    )
 
 
 def missing(

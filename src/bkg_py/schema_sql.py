@@ -54,6 +54,7 @@ SCHEMA_SQL = (
         status text not null,
         started_at integer not null,
         updated_at integer not null,
+        next_page integer not null default 1,
         completed_at integer,
         failure_count integer not null default 0,
         retry_after integer not null default 0,
@@ -124,4 +125,11 @@ SCHEMA_SQL = (
     on "bkg_package_publications" (owner_id, owner, repo, package)
     """,
     "pragma auto_vacuum = full",
+)
+
+OWNER_SCAN_SCHEMA_MIGRATIONS = (
+    (
+        "next_page",
+        'alter table "bkg_owner_scans" add column next_page integer not null default 1',
+    ),
 )

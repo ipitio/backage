@@ -16,14 +16,12 @@ from bkg_py.database import (
     DatabaseRepository,
     DatabaseSettings,
     OwnerRecord,
-    OwnerScanFailure,
-    OwnerScanPackage,
     PackageRecord,
     PackageRef,
     VersionRecord,
     VersionStage,
 )
-from bkg_py.database_models import VersionMetrics
+from bkg_py.database_models import OwnerScanFailure, OwnerScanPackage, VersionMetrics
 from bkg_py.runtime import GracefulStop
 
 _TODAY = "2026-06-10"
@@ -171,6 +169,30 @@ class TestDatabaseRepository:
             with sqlite3.connect(path) as connection:
                 connection.execute("create table retained (value text)")
                 connection.execute("insert into retained values ('keep')")
+                connection.execute(
+                    """
+                    create table bkg_owner_scans (
+                        owner_id text primary key,
+                        owner text not null,
+                        marker text not null,
+                        status text not null,
+                        started_at integer not null,
+                        updated_at integer not null,
+                        completed_at integer,
+                        failure_count integer not null default 0,
+                        retry_after integer not null default 0,
+                        last_error text not null default ''
+                    )
+                    """
+                )
+                connection.execute(
+                    """
+                    insert into bkg_owner_scans values (
+                        '42', 'Example', 'batch:42:100', 'running',
+                        100, 101, null, 0, 0, ''
+                    )
+                    """
+                )
 
             repository = DatabaseRepository(DatabaseSettings(path))
             repository.ensure_schema()
@@ -192,6 +214,15 @@ class TestDatabaseRepository:
                 retained = connection.execute("select value from retained").fetchone()[
                     0
                 ]
+                scan_columns = {
+                    str(row[1])
+                    for row in connection.execute(
+                        'pragma table_info("bkg_owner_scans")'
+                    )
+                }
+                scan = connection.execute(
+                    "select marker, status, next_page from bkg_owner_scans"
+                ).fetchone()
 
             assert {
                 "owners",
@@ -201,6 +232,8 @@ class TestDatabaseRepository:
                 "bkg_owner_scan_packages",
             } <= tables
             assert retained == "keep"
+            assert "next_page" in scan_columns
+            assert scan == ("batch:42:100", "running", 1)
             assert "idx_bkg_packages_owner_repo_package_date" in indexes
             assert "idx_bkg_versions_package_date" in indexes
 

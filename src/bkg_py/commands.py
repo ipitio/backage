@@ -23,9 +23,8 @@ from .versions import (
 
 if TYPE_CHECKING:
     from .application import ApplicationContext
-    from .database import (
-        DatabaseRepository,
-        OwnerScanPackage,
+    from .database import DatabaseRepository
+    from .database_models import (
         OwnerScanResult,
         PackageRef,
     )
@@ -35,14 +34,13 @@ if TYPE_CHECKING:
         RestOwnerDiscoveryPage,
     )
     from .owner_pages import OwnerPageAdmissionResult
-    from .package_updates import PackageRefreshResult
     from .runtime import GracefulStop
     from .snapshots import SnapshotStore
     from .version_updates import VersionRefreshResult
 
 
 def _package_ref(args: argparse.Namespace) -> PackageRef:
-    from .database import PackageRef
+    from .database_models import PackageRef
 
     return PackageRef(
         owner_id=args.owner_id,
@@ -60,26 +58,6 @@ def _optional_argument(value: str) -> str | None:
 
 def _boolean_argument(value: str) -> bool:
     return value == "true"
-
-
-_OWNER_SCAN_PACKAGE_FIELDS = 4
-
-
-def _owner_scan_packages(path: Path) -> tuple[OwnerScanPackage, ...]:
-    from .database import DatabaseError, OwnerScanPackage
-
-    packages: list[OwnerScanPackage] = []
-    for line_number, line in enumerate(
-        path.read_text(encoding="utf-8").splitlines(),
-        start=1,
-    ):
-        if not line:
-            continue
-        fields = line.split("\t")
-        if len(fields) != _OWNER_SCAN_PACKAGE_FIELDS or not all(fields):
-            raise DatabaseError(f"invalid owner scan package at {path}:{line_number}")
-        packages.append(OwnerScanPackage(*fields))
-    return tuple(packages)
 
 
 def _print_owner_scan_result(result: OwnerScanResult) -> None:
@@ -188,6 +166,7 @@ def _run_owner_scan_lifecycle(
     database: DatabaseRepository,
 ) -> bool:
     from .database import DatabaseError
+    from .database_models import load_owner_scan_packages
 
     command = args.database_command
     if command == "begin-owner-scan":
@@ -206,7 +185,7 @@ def _run_owner_scan_lifecycle(
         database.observe_owner_scan(
             args.owner_id,
             args.marker,
-            _owner_scan_packages(Path(args.packages_file)),
+            load_owner_scan_packages(Path(args.packages_file)),
             args.observed_at,
         )
     elif command == "missing-owner-scan-packages":
@@ -239,7 +218,7 @@ def _run_owner_scan_retry(
     args: argparse.Namespace,
     database: DatabaseRepository,
 ) -> bool:
-    from .database import OwnerScanFailure
+    from .database_models import OwnerScanFailure
 
     command = args.database_command
     if command == "fail-owner-scan":
@@ -857,87 +836,13 @@ def _run_application_command(
     elif args.command == "discovery":
         runner = _run_discovery
     elif args.command == "package":
-        runner = _run_package
+        from .package_commands import run_package
+
+        runner = run_package
     else:
         parser.error(f"unknown command: {args.command}")
         return ExitStatus.FAILURE
     return runner(args, application)
-
-
-def _run_package(
-    args: argparse.Namespace,
-    application: ApplicationContext,
-) -> ExitStatus:
-    from .database import DatabaseError
-    from .github import GitHubError
-    from .package_updates import PackageRefreshError
-    from .publication import PublicationError
-    from .runtime import GracefulStop
-
-    if args.package_command != "refresh":
-        print(f"unknown package command: {args.package_command}", file=sys.stderr)
-        return ExitStatus.NON_FATAL
-    index_dir = application.config.index_dir
-    if index_dir is None:
-        print("BKG_INDEX_DIR is required", file=sys.stderr)
-        return ExitStatus.NON_FATAL
-
-    try:
-        result = _execute_package_refresh(args, application, Path(index_dir))
-    except GracefulStop as error:
-        return _graceful_stop_status(error)
-    except (
-        DatabaseError,
-        GitHubError,
-        OSError,
-        PackageRefreshError,
-        PublicationError,
-    ) as error:
-        print(error, file=sys.stderr)
-        return ExitStatus.NON_FATAL
-
-    print(result.json_summary())
-    return ExitStatus.SUCCESS
-
-
-def _execute_package_refresh(
-    args: argparse.Namespace,
-    application: ApplicationContext,
-    index_dir: Path,
-) -> PackageRefreshResult:
-    from . import package_updates, version_updates
-
-    package = _package_ref(args)
-    destination = index_dir / package.owner / package.repo / f"{package.package}.json"
-    with application.stop.signal_handlers(), application.github_client() as client:
-        return package_updates.PackageRefreshService(
-            application.database,
-            client,
-            package_updates.PackageRefreshExecution(
-                version=version_updates.VersionRefreshExecution(
-                    application.worker_runner,
-                    version_updates.DockerManifestInspector(application.process_runner),
-                    diagnostic=lambda message: print(message, file=sys.stderr),
-                ),
-                selection=application.version_selection_settings,
-                publication_limits=application.publication_limits,
-                optout_file=Path(application.config.optout_file),
-                check_stop=application.stop.check,
-            ),
-        ).refresh(
-            package_updates.PackageRefreshRequest(
-                package,
-                args.legacy_table,
-                args.since,
-                destination,
-                package_updates.PackageRefreshPolicy(
-                    _boolean_argument(args.write_legacy),
-                    _boolean_argument(args.use_rest_api),
-                    _boolean_argument(args.fast_out),
-                    application.config.mode,
-                ),
-            )
-        )
 
 
 def run_command(

@@ -4,16 +4,13 @@ from __future__ import annotations
 
 import sqlite3
 import time
-from collections.abc import Callable, Generator, Sequence
+from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from typing import Any
 
 from . import database_owner_scans, database_packages, database_version_stages
 from .database_models import (
     OwnerRecord,
-    OwnerScanFailure,
-    OwnerScanPackage,
-    OwnerScanResult,
     PackageRecord,
     PackageRef,
     PackageSnapshot,
@@ -23,6 +20,7 @@ from .database_models import (
     VersionSource,
     VersionStage,
 )
+from .database_owner_repository import OwnerScanRepositoryMixin
 from .database_settings import DatabaseSettings
 from .database_support import DatabaseError
 from .database_values import (
@@ -46,7 +44,7 @@ from .render_sql import (
     PACKAGE_SNAPSHOT_SQL,
     RANKED_PACKAGES_SQL,
 )
-from .schema_sql import SCHEMA_SQL
+from .schema_sql import OWNER_SCAN_SCHEMA_MIGRATIONS, SCHEMA_SQL
 
 _RETRYABLE_MESSAGES = (
     "database is locked",
@@ -68,7 +66,7 @@ class _SqlIdentifier(str):
         return str.__new__(cls, quoted)
 
 
-class DatabaseRepository:  # pylint: disable=too-many-public-methods
+class DatabaseRepository(OwnerScanRepositoryMixin):  # pylint: disable=too-many-public-methods
     """Own bkg's SQLite schema, transactions, fallback reads, and cleanup."""
 
     def __init__(
@@ -102,6 +100,15 @@ class DatabaseRepository:  # pylint: disable=too-many-public-methods
             with _transaction(connection):
                 for statement in statements:
                     connection.execute(statement)
+                owner_scan_columns = {
+                    str(row[1])
+                    for row in connection.execute(
+                        'pragma table_info("bkg_owner_scans")'
+                    )
+                }
+                for column, statement in OWNER_SCAN_SCHEMA_MIGRATIONS:
+                    if column not in owner_scan_columns:
+                        connection.execute(statement)
 
         self._run_write(create)
 
@@ -556,132 +563,6 @@ class DatabaseRepository:  # pylint: disable=too-many-public-methods
                 )
 
         self._run_write(prune_normalized)
-
-    def begin_owner_scan(
-        self,
-        owner_id: str,
-        owner: str,
-        marker: str,
-        started_at: int,
-    ) -> None:
-        """Start a fresh resumable owner listing scan."""
-
-        self.ensure_schema()
-        self._run_write(
-            lambda connection: database_owner_scans.begin(
-                connection, owner_id, owner, marker, started_at
-            )
-        )
-
-    def owner_scan_active(self, owner_id: str, marker: str) -> bool:
-        """Return whether an owner scan marker can be resumed."""
-
-        self.ensure_schema()
-        return self._run_read(
-            lambda connection: database_owner_scans.active(connection, owner_id, marker)
-        )
-
-    def observe_owner_scan(
-        self,
-        owner_id: str,
-        marker: str,
-        packages: Sequence[OwnerScanPackage],
-        observed_at: int,
-    ) -> None:
-        """Persist package identities parsed from one owner listing page."""
-
-        self.ensure_schema()
-        self._run_write(
-            lambda connection: database_owner_scans.observe(
-                connection, owner_id, marker, packages, observed_at
-            )
-        )
-
-    def missing_owner_scan_packages(
-        self,
-        owner_id: str,
-        marker: str,
-    ) -> tuple[PackageRef, ...]:
-        """Return known packages absent from the staged owner listing."""
-
-        self.ensure_schema()
-        return self._run_read(
-            lambda connection: database_owner_scans.missing(
-                connection, owner_id, marker, self.settings.packages_table
-            )
-        )
-
-    def fail_owner_scan(
-        self,
-        failure: OwnerScanFailure,
-    ) -> int:
-        """Persist owner retry backoff after a failed scan or refresh."""
-
-        self.ensure_schema()
-        return self._run_write(
-            lambda connection: database_owner_scans.fail(
-                connection,
-                failure,
-                database_owner_scans.OwnerRetryPolicy(
-                    self.settings.owner_retry_initial_seconds,
-                    self.settings.owner_retry_max_seconds,
-                ),
-            )
-        )
-
-    def clear_owner_backoff(
-        self,
-        owner_id: str,
-        owner: str,
-        completed_at: int,
-    ) -> None:
-        """Clear owner retry state after successful direct refresh work."""
-
-        self.ensure_schema()
-        self._run_write(
-            lambda connection: database_owner_scans.clear_backoff(
-                connection, owner_id, owner, completed_at
-            )
-        )
-
-    def complete_owner_scan(
-        self,
-        owner_id: str,
-        marker: str,
-        scan_date: str,
-        completed_at: int,
-    ) -> OwnerScanResult:
-        """Reconcile one verified complete owner listing scan."""
-
-        self.ensure_schema()
-        return self._run_write(
-            lambda connection: database_owner_scans.complete(
-                connection,
-                database_owner_scans.OwnerScanCompletion(
-                    owner_id,
-                    marker,
-                    scan_date,
-                    completed_at,
-                ),
-                database_owner_scans.OwnerScanTables(
-                    self.settings.owners_table,
-                    self.settings.packages_table,
-                    self.settings.versions_table,
-                ),
-                database_owner_scans.OwnerRetryPolicy(
-                    self.settings.owner_retry_initial_seconds,
-                    self.settings.owner_retry_max_seconds,
-                ),
-            )
-        )
-
-    def deferred_owners(self, now: int) -> tuple[tuple[str, int], ...]:
-        """Return owners still waiting for their retry time."""
-
-        self.ensure_schema()
-        return self._run_read(
-            lambda connection: database_owner_scans.deferred(connection, now)
-        )
 
     def retire_owner(self, owner: str) -> int:
         """Remove one unavailable owner's normalized and legacy database data."""

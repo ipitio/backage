@@ -79,7 +79,9 @@ test_save_owner_queues_resolved_owner_id() {
     grep -Fxq '556677/Lazztech' <<<"$(get_BKG_set BKG_OWNERS_QUEUE)" || fail "Expected discovered org to be queued for owner updates"
 }
 
-test_page_package_enqueues_package() {
+test_page_package_selects_package_work() {
+    local args_file="$workdir/package-listing-args"
+
     setup_discovery_fixture
     init_bkg_state
 
@@ -89,66 +91,18 @@ test_page_package_enqueues_package() {
     owner=Lazztech
     owner_type=orgs
     fast_out=false
+    OWNER_SCAN_MARKER=scan-1
 
-    curl() {
-        cat <<'EOF'
-<div>
-  <a href="/orgs/Lazztech/packages/container/package/libre-closet">libre-closet</a>
-  <a href="/Lazztech/Libre-Closet">Libre-Closet</a>
-</div>
-EOF
-    }
-
-    run_parallel() {
-        local function_name=$1
-        local items=$2
-
-        while IFS= read -r item; do
-            [ -n "$item" ] || continue
-            "$function_name" "$item"
-        done <<<"$items"
+    bkg_python() {
+        printf '%s\n' "$*" >"$args_file"
+        printf '%s\n' '{"packages":[{"owner_type":"orgs","package_type":"container","repo":"Libre-Closet","package":"libre-closet"}],"observed_count":1,"has_more":false}'
     }
 
     page_package 1 >/dev/null
     popd >/dev/null
 
-    grep -Fxq 'container/Libre-Closet/libre-closet' <<<"$(get_BKG_set BKG_PACKAGES_Lazztech)" || fail "Expected queued package list to include Lazztech/libre-closet"
-}
-
-test_page_package_accepts_repositoryless_package() {
-    setup_discovery_fixture
-    init_bkg_state
-
-    pushd "$workdir" >/dev/null
-    : >packages_already_updated
-    owner_id=556677
-    owner=Lazztech
-    owner_type=orgs
-    fast_out=false
-
-    curl() {
-        cat <<'EOF'
-<div>
-  <a href="/orgs/Lazztech/packages/container/package/tools%2Fworker">tools/worker</a>
-  <a href="/Lazztech">Lazztech</a>
-</div>
-EOF
-    }
-
-    run_parallel() {
-        local function_name=$1
-        local items=$2
-
-        while IFS= read -r item; do
-            [ -n "$item" ] || continue
-            "$function_name" "$item"
-        done <<<"$items"
-    }
-
-    page_package 1 >/dev/null
-    popd >/dev/null
-
-    grep -Fxq 'container/tools%2Fworker/tools%2Fworker' <<<"$(get_BKG_set BKG_PACKAGES_Lazztech)" || fail "Expected repositoryless package to use its package slug as the repo bucket"
+    grep -Eq '^package list-page 556677 orgs Lazztech 1 scan-1 0000-00-00 [0-9]+$' "$args_file" || fail "Expected package page adapter to delegate its complete request to Python"
+    [ "$PACKAGE_PAGE_WORK" = 'container/Libre-Closet/libre-closet' ] || fail "Expected package page work to include Lazztech/libre-closet"
 }
 
 test_page_package_distinguishes_transport_failure_from_empty_listing() {
@@ -162,7 +116,7 @@ test_page_package_distinguishes_transport_failure_from_empty_listing() {
     owner=Lazztech
     owner_type=orgs
 
-    curl() {
+    bkg_python() {
         return 1
     }
 
@@ -282,6 +236,7 @@ test_unresolved_partial_owner_refresh_reconciles_complete_listing() {
     }
 
     page_package() {
+        PACKAGE_PAGE_WORK=""
         return 2
     }
 
@@ -319,15 +274,16 @@ test_stale_owner_scan_marker_restarts_from_first_page() {
     pushd "$workdir" >/dev/null
     : >packages_already_updated
     owner_id=556677
-    marker_key=$(owner_scan_marker_key)
-    set_BKG BKG_PAGE_"$owner_id" 7
+    marker_key=BKG_OWNER_SCAN_"$owner_id"
     set_BKG "$marker_key" stale-marker
+    set_BKG BKG_PAGE_"$owner_id" 7
 
     curl() {
         printf '%s\n' '<a href="/orgs/KnownOwner/people">people</a>'
     }
 
     page_package() {
+        PACKAGE_PAGE_WORK=""
         [ "$1" = "1" ] || fail "Expected stale owner scan to restart at page 1"
         [ "$OWNER_SCAN_MARKER" != "stale-marker" ] || fail "Expected stale owner scan marker to be replaced"
         case "$OWNER_SCAN_MARKER" in
@@ -529,6 +485,7 @@ test_remembered_no_package_connection_owner_is_filtered_but_manual_owner_is_not(
     init_bkg_state
     BKG_INDEX_DB="$workdir/no-package-owners.db"
     BKG_BATCH_FIRST_STARTED="$(date -u +%Y-%m-%d)"
+    set_BKG BKG_BATCH_MARKER test-batch
     mkdir -p "$BKG_INDEX_DIR"
     command sqlite3 "$BKG_INDEX_DB" "create table if not exists '$BKG_INDEX_TBL_PKG' (owner_id text, owner_type text not null, package_type text not null, owner text not null, repo text not null, package text not null, downloads integer not null, downloads_month integer not null, downloads_week integer not null, downloads_day integer not null, size integer not null, date text not null, primary key (owner_id, package, date));"
     set_BKG BKG_DISCOVERED_CONNECTION_OWNERS '4242/NoPackages'
@@ -538,6 +495,12 @@ test_remembered_no_package_connection_owner_is_filtered_but_manual_owner_is_not(
 
     curl() {
         printf '%s\n' '<div></div>'
+    }
+
+    page_package() {
+        PACKAGE_PAGE_WORK=""
+        sed -i '/^\(.*\/\)*'"$owner"'$/d' "$BKG_OWNERS"
+        return 2
     }
 
     update_owner '4242/NoPackages' >/dev/null || fail "Expected update_owner to handle owners with no packages"
@@ -571,8 +534,7 @@ source_project_script 'lib/owner.sh'
 run_test test_discovered_second_hop_org_survives_owner_admission
 run_test test_discovered_owner_admission_includes_all_candidates_below_cap
 run_test test_save_owner_queues_resolved_owner_id
-run_test test_page_package_enqueues_package
-run_test test_page_package_accepts_repositoryless_package
+run_test test_page_package_selects_package_work
 run_test test_page_package_distinguishes_transport_failure_from_empty_listing
 run_test test_partial_owner_refresh_uses_known_package_identity
 run_test test_unresolved_partial_owner_refresh_reconciles_complete_listing
