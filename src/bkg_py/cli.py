@@ -347,6 +347,15 @@ def _add_owner_parsers(subparsers: Any) -> None:
     refresh_plan_parser.add_argument("owner_id")
     refresh_plan_parser.add_argument("owner")
     refresh_plan_parser.add_argument("since")
+    refresh_packages_parser = owner_commands.add_parser(
+        "refresh-packages",
+        help="refresh newline-delimited owner package refs from stdin",
+    )
+    refresh_packages_parser.add_argument("owner_id")
+    refresh_packages_parser.add_argument("owner_type", choices=("orgs", "users"))
+    refresh_packages_parser.add_argument("owner")
+    refresh_packages_parser.add_argument("since")
+    refresh_packages_parser.add_argument("fast_out", choices=("true", "false"))
     verify_parser = owner_commands.add_parser(
         "verify-scan",
         help="verify known packages absent from one complete owner listing",

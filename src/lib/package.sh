@@ -5,6 +5,7 @@ source lib/util.sh
 
 PACKAGE_PAGE_WORK=""
 PACKAGE_PAGE_OWNER_MISSING=false
+PACKAGE_PAGE_LISTING_UNAVAILABLE=false
 
 page_package() {
     [ -n "$1" ] || return
@@ -14,9 +15,11 @@ page_package() {
     local batch_first_started
     local package_count
     local owner_missing
+    local listing_unavailable
     local status=0
     PACKAGE_PAGE_WORK=""
     PACKAGE_PAGE_OWNER_MISSING=false
+    PACKAGE_PAGE_LISTING_UNAVAILABLE=false
     batch_first_started=$(current_batch_first_started)
     [ -n "$batch_first_started" ] || batch_first_started="0000-00-00"
     echo "Starting $owner page $1..."
@@ -30,9 +33,14 @@ page_package() {
     package_count=$(jq -r '.observed_count' <<<"$listing") || return 1
     has_more=$(jq -r '.has_more' <<<"$listing") || return 1
     owner_missing=$(jq -r '.owner_missing' <<<"$listing") || return 1
+    listing_unavailable=$(jq -r '.listing_unavailable' <<<"$listing") || return 1
     [ "$owner_missing" = true ] && PACKAGE_PAGE_OWNER_MISSING=true
+    [ "$listing_unavailable" = true ] && PACKAGE_PAGE_LISTING_UNAVAILABLE=true
     (($1 > 1 || package_count > 0)) || sed -i '/^\(.*\/\)*'"$owner"'$/d' "$BKG_OWNERS"
     echo "Started $owner page $1"
+    if $PACKAGE_PAGE_LISTING_UNAVAILABLE; then
+        echo "Package listing unavailable for existing owner $owner; verifying known packages individually"
+    fi
     [ "$has_more" = true ] || return 2
 }
 

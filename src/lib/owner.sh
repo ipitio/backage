@@ -136,6 +136,16 @@ owner_refresh_backoff_clear() {
 		"$owner_id" "$owner" "$(date -u +%s)"
 }
 
+owner_refresh_packages() {
+	[ -n "$1" ] || return 0
+	local batch_first_started
+	batch_first_started=$(current_batch_first_started)
+	[ -n "$batch_first_started" ] || batch_first_started="0000-00-00"
+	bkg_python owner refresh-packages \
+		"$owner_id" "$owner_type" "$owner" "$batch_first_started" \
+		"${fast_out:-false}" <<<"$1"
+}
+
 owner_scan_verify_missing_packages() {
 	[ -n "${OWNER_SCAN_MARKER:-}" ] || return 1
 	local change_count
@@ -154,7 +164,7 @@ owner_scan_verify_missing_packages() {
 		'.packages[] | [.package_type, .repo, .package] | join("/")' \
 		<<<"$result") || return 1
 	if [ -n "$refresh_refs" ]; then
-		run_parallel update_package "$refresh_refs"
+		owner_refresh_packages "$refresh_refs"
 		status=$?
 	fi
 
@@ -1000,7 +1010,7 @@ update_owner() {
 		refresh_refs=$(jq -r \
 			'.packages[] | [.package_type, .repo, .package] | join("/")' \
 			<<<"$refresh_plan") || return 1
-		run_parallel update_package "$refresh_refs"
+		owner_refresh_packages "$refresh_refs"
 		(($? != 3)) || return 3
 		refresh_plan=$(bkg_python owner refresh-plan \
 			"$owner_id" "$owner" "$batch_first_started") || return $?
@@ -1032,7 +1042,7 @@ update_owner() {
 				owner_scan_clear_legacy_state
 				return 0
 			fi
-			run_parallel update_package "$PACKAGE_PAGE_WORK"
+			owner_refresh_packages "$PACKAGE_PAGE_WORK"
 			(($? != 3)) || return 3
 			bkg_python package finish-page \
 				"$owner_id" "$OWNER_SCAN_MARKER" "$page" \

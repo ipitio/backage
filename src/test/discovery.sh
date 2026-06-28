@@ -141,7 +141,7 @@ test_page_package_reports_confirmed_missing_owner() {
     owner_type=users
 
     bkg_python() {
-        printf '%s\n' '{"packages":[],"observed_count":0,"has_more":false,"owner_missing":true}'
+        printf '%s\n' '{"packages":[],"observed_count":0,"has_more":false,"owner_missing":true,"listing_unavailable":false}'
     }
 
     set +e
@@ -152,6 +152,37 @@ test_page_package_reports_confirmed_missing_owner() {
 
     [ "$status" -eq 2 ] || fail "Expected a confirmed missing owner to end pagination"
     $PACKAGE_PAGE_OWNER_MISSING || fail "Expected the owner worker to receive the confirmed-missing marker"
+}
+
+test_page_package_reports_unavailable_listing_for_existing_owner() {
+    local output
+    local output_file="$workdir/unavailable-listing-output"
+    local status
+
+    setup_discovery_fixture
+    init_bkg_state
+
+    pushd "$workdir" >/dev/null
+    owner_id=556677
+    owner=Available
+    owner_type=users
+
+    bkg_python() {
+        printf '%s\n' '{"packages":[],"observed_count":0,"has_more":false,"owner_missing":false,"listing_unavailable":true}'
+    }
+
+    set +e
+    page_package 1 >"$output_file"
+    status=$?
+    set -e
+    output=$(cat "$output_file")
+    popd >/dev/null
+
+    [ "$status" -eq 2 ] || fail "Expected an unavailable listing to end pagination"
+    ! $PACKAGE_PAGE_OWNER_MISSING || fail "Expected the existing owner to remain active"
+    $PACKAGE_PAGE_LISTING_UNAVAILABLE || fail "Expected package API verification marker"
+    grep -Fq "verifying known packages individually" <<<"$output" ||
+        fail "Expected a bounded unavailable-listing diagnostic"
 }
 
 test_partial_owner_refresh_uses_known_package_identity() {
@@ -185,18 +216,7 @@ test_partial_owner_refresh_uses_known_package_identity() {
         printf '%s\n' '<a href="/orgs/KnownOwner/people">people</a>'
     }
 
-    run_parallel() {
-        local function_name=$1
-        local items=$2
-        local item
-
-        while IFS= read -r item; do
-            [ -n "$item" ] || continue
-            "$function_name" "$item"
-        done <<<"$items"
-    }
-
-    update_package() {
+    owner_refresh_packages() {
         printf '%s\n' "$1" >"$captured"
         command sqlite3 "$BKG_INDEX_DB" "
             update '$BKG_INDEX_TBL_PKG'
@@ -245,18 +265,7 @@ test_unresolved_partial_owner_refresh_reconciles_complete_listing() {
         printf '%s\n' '<a href="/orgs/KnownOwner/people">people</a>'
     }
 
-    run_parallel() {
-        local function_name=$1
-        local items=$2
-        local item
-
-        while IFS= read -r item; do
-            [ -n "$item" ] || continue
-            "$function_name" "$item"
-        done <<<"$items"
-    }
-
-    update_package() {
+    owner_refresh_packages() {
         :
     }
 
@@ -562,6 +571,7 @@ run_test test_save_owner_queues_resolved_owner_id
 run_test test_page_package_selects_package_work
 run_test test_page_package_distinguishes_transport_failure_from_empty_listing
 run_test test_page_package_reports_confirmed_missing_owner
+run_test test_page_package_reports_unavailable_listing_for_existing_owner
 run_test test_partial_owner_refresh_uses_known_package_identity
 run_test test_unresolved_partial_owner_refresh_reconciles_complete_listing
 run_test test_stale_owner_scan_marker_restarts_from_first_page

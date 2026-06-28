@@ -80,6 +80,16 @@ class PackageListingWork:
     page: PackageListingPage
     packages: tuple[OwnerScanPackage, ...]
     owner_missing: bool = False
+    listing_unavailable: bool = False
+
+
+@dataclass(frozen=True)
+class PackageListingFetch:
+    """One listing page classified against the owner's current existence."""
+
+    page: PackageListingPage
+    owner_missing: bool = False
+    listing_unavailable: bool = False
 
 
 def _run_package_listing(
@@ -109,6 +119,7 @@ def _run_package_listing(
                 "observed_count": len(listing.page.packages),
                 "has_more": listing.page.has_more,
                 "owner_missing": listing.owner_missing,
+                "listing_unavailable": listing.listing_unavailable,
             },
             separators=(",", ":"),
         )
@@ -127,7 +138,8 @@ def _execute_package_listing(
         application.config.mode,
     )
     with application.stop.signal_handlers(), application.github_client() as client:
-        page, owner_missing = fetch_package_listing_page(client, request)
+        fetched = fetch_package_listing_page(client, request)
+        page = fetched.page
         if args.marker != "-":
             application.database.observe_owner_scan_page(
                 OwnerScanPage(
@@ -148,22 +160,30 @@ def _execute_package_listing(
             )
         else:
             packages = page.packages
-    return PackageListingWork(page, packages, owner_missing)
+    return PackageListingWork(
+        page,
+        packages,
+        fetched.owner_missing,
+        fetched.listing_unavailable,
+    )
 
 
 def fetch_package_listing_page(
     client: OwnerListingClient,
     request: PackageListingRequest,
-) -> tuple[PackageListingPage, bool]:
+) -> PackageListingFetch:
     """Fetch a listing and confirm whether a 404 means its owner is absent."""
 
     try:
-        return PackageListingService(client).fetch(request), False
+        return PackageListingFetch(PackageListingService(client).fetch(request))
     except GitHubNotFoundError:
         owner_path = f"{request.owner_type}/{quote(request.owner, safe='')}"
-        if client.rest_json_optional(owner_path) is not None:
-            raise
-        return PackageListingPage((), False), True
+        if client.rest_json_optional(owner_path) is None:
+            return PackageListingFetch(PackageListingPage((), False), True)
+        return PackageListingFetch(
+            PackageListingPage((), False),
+            listing_unavailable=True,
+        )
 
 
 def _run_package_scan(
