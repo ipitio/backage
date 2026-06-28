@@ -1,4 +1,3 @@
-2446375/miriagyjohi
 2452026/ASE-Inc
 2449094/Cyneek
 2448316/Docstoc
@@ -7,13 +6,10 @@
 2446509/Findo-zz
 2446519/HawkBlade124
 2452784/IPAMS
-2446574/Loganwheeler
 2451383/Mercurified
 2451628/NextLevelCreative
-2450200/PAmoto
 2446522/SOA2012-101078512
 2451469/Sophiacom
-2448031/XCENT
 2446500/ZwickTheGreat
 2446498/apejedi
 2446539/apexdeploy
@@ -40,7 +36,6 @@
 2446541/lunge2plow
 2447581/marquelmedia
 2452615/monstersarehere
-2446548/maziaramini
 2446554/msalaj
 2446510/naturalism
 2452804/mysql
@@ -63,7 +58,6 @@
 2446473/tellersky55
 2448393/tinyhabits
 2446527/tokkaka
-2446512/tupijarred
 2446528/tv0dahlia
 2450392/trystackcn
 2453148/upTee
@@ -76,7 +70,6 @@
 2454511/CMPUT301F12T02
 2454524/Amplifize
 2454792/akm-multisensor
-2454894/Planet3
 2455273/CSSS
 2455421/Fightclub
 2455589/CM10EF35L
@@ -84,12 +77,10 @@
 2455652/CMPUT301F12T09
 2455654/gr33n240
 2455844/click5blade
-2456129/AppXen
 2456130/mouth9drive
 2456338/hogedriven
 2456371/OTE-IDE
 2456372/ravigandhi
-2456499/Sentido-Labs
 2456500/besthdtvru850t70
 2457042/Rheinfire
 2457173/dmtx
@@ -194,13 +185,11 @@
 2463540/SimonCater
 2465861/SkelterGames
 2464595/SleddogSoftwareDevelopment
-2463531/Snarkvadim
 2468624/SolucionesAR
 2467457/TSRI
 2466199/TargetedIO
 2468765/TheDataWizard
 2466865/TheEscapeCharacters
-2465600/UMEngineering
 2466195/VPM3
 2463625/Wannafun
 2463523/XenoPsyche
@@ -252,7 +241,6 @@
 2463489/mphoya44
 2463563/niartib
 2463437/nic0woman
-2463502/niece51straw
 2465594/nonprofitfinancefund
 2468090/nonzeroid
 2464394/openbiz
@@ -279,7 +267,6 @@
 2463468/xuanpingren
 2469246/click5stream
 2469513/Riabit
-2469540/5tableflock
 2469641/Team-BoA
 2469869/JellyJollyTeam
 2469956/Axxes-zz
@@ -292,3 +279,4 @@
 2470486/trial6pain
 2470604/modomoto
 2470498/snow8inch
+2470635/Snupps
