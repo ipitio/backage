@@ -201,9 +201,12 @@ if git worktree list | grep -q "$BKG_INDEX"; then
     ! git worktree list | grep -q "$BKG_INDEX".bak || git worktree remove -f "$BKG_INDEX".bak &>/dev/null
 fi
 
+# we don't care if these commands fail and they mustn't prevent the script from continuing
 (git pull --rebase --autostash 2>/dev/null)
 (git merge --abort 2>/dev/null)
 (git pull --rebase --autostash -s ours &>/dev/null)
+
+# there may still be conflicts in owners.txt, just keep them all to be safe
 find . -type f -name '*.txt' -exec sed -i '/^<<<<<<<\|=======\|>>>>>>>/d' {} \; 2>/dev/null
 git add -- *.txt README.md 2>/dev/null || git add README.md 2>/dev/null || true
 

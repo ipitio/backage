@@ -10,6 +10,7 @@ from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
+from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any, cast
 
@@ -29,6 +30,32 @@ _SECONDARY_LIMIT_MARKERS = (
     "temporarily blocked",
 )
 _RATE_LIMIT_SELECTION = "rateLimit { cost remaining resetAt }"
+
+
+class _HtmlTitleParser(HTMLParser):
+    """Extract a compact title from an HTML error response."""
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.in_title = False
+        self.parts: list[str] = []
+
+    def handle_starttag(
+        self,
+        tag: str,
+        attrs: list[tuple[str, str | None]],
+    ) -> None:
+        del attrs
+        if tag.casefold() == "title":
+            self.in_title = True
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag.casefold() == "title":
+            self.in_title = False
+
+    def handle_data(self, data: str) -> None:
+        if self.in_title:
+            self.parts.append(data)
 
 
 class GitHubError(RuntimeError):
@@ -467,9 +494,7 @@ class GitHubClient:
     def _raise_for_status(self, response: httpx.Response) -> None:
         if response.is_success:
             return
-        body = response.text.strip().replace("\n", " ")
-        if len(body) > _ERROR_BODY_LIMIT:
-            body = f"{body[:_ERROR_BODY_PREFIX]}..."
+        body = _response_error_body(response)
         detail = f": {body}" if body else ""
         error_type = (
             GitHubNotFoundError
@@ -517,6 +542,25 @@ class GitHubClient:
         if not self.settings.token:
             return value
         return value.replace(self.settings.token, "[REDACTED]")
+
+
+def _response_error_body(response: httpx.Response) -> str:
+    body = response.text.strip()
+    content_type = response.headers.get("content-type", "").casefold()
+    if "text/html" in content_type or re.match(
+        r"(?:<!doctype\s+html|<html)(?:\s|>)",
+        body,
+        flags=re.IGNORECASE,
+    ):
+        parser = _HtmlTitleParser()
+        parser.feed(body)
+        title = " ".join(" ".join(parser.parts).split())
+        body = f"HTML response ({title})" if title else "HTML response"
+    else:
+        body = " ".join(body.split())
+    if len(body) > _ERROR_BODY_LIMIT:
+        body = f"{body[:_ERROR_BODY_PREFIX]}..."
+    return body
 
 
 def _with_rate_limit(query: str) -> str:

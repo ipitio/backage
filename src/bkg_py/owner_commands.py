@@ -5,11 +5,13 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from .database import DatabaseError
 from .database_models import OwnerScanPackage
+from .files import atomic_text_output
 from .github import GitHubError
 from .owner_package_updates import (
     OwnerPackageRefreshError,
@@ -17,11 +19,19 @@ from .owner_package_updates import (
     OwnerPackageRefreshRequest,
     OwnerPackageRefreshService,
 )
+from .owner_scan_pages import (
+    OwnerScanPageError,
+    OwnerScanPageExecution,
+    OwnerScanPageService,
+    OwnerScanPagesRequest,
+    OwnerScanPagesResult,
+)
 from .owner_updates import (
     OwnerScanVerificationRequest,
     OwnerScanVerificationService,
     OwnerUpdateError,
 )
+from .package_discovery import PackageDiscoveryError
 from .package_updates import PackageRefreshExecution, PackageRefreshPolicy
 from .result import ExitStatus
 from .runtime import GracefulStop
@@ -30,6 +40,7 @@ from .version_updates import DockerManifestInspector, VersionRefreshExecution
 if TYPE_CHECKING:
     from .application import ApplicationContext
     from .database_models import OwnerRefreshPlan
+    from .github import GitHubClient
     from .owner_updates import OwnerScanVerificationResult
 
 _PACKAGE_REF_FIELD_COUNT = 3
@@ -44,6 +55,7 @@ def run_owner(
     if args.owner_command not in {
         "refresh-packages",
         "refresh-plan",
+        "scan-pages",
         "verify-scan",
     }:
         print(f"unknown owner command: {args.owner_command}", file=sys.stderr)
@@ -59,6 +71,8 @@ def run_owner(
                 print(_refresh_plan_json(plan))
             elif args.owner_command == "refresh-packages":
                 _refresh_packages(args, application)
+            elif args.owner_command == "scan-pages":
+                _scan_pages(args, application)
             else:
                 with application.github_client() as client:
                     result = OwnerScanVerificationService(
@@ -84,7 +98,9 @@ def run_owner(
         GitHubError,
         OSError,
         OwnerPackageRefreshError,
+        OwnerScanPageError,
         OwnerUpdateError,
+        PackageDiscoveryError,
     ) as error:
         print(error, file=sys.stderr)
         return ExitStatus.NON_FATAL
@@ -108,41 +124,100 @@ def _refresh_packages(
         print(message, flush=True)
 
     with application.github_client() as client:
-        OwnerPackageRefreshService(
+        _package_refresh_service(
+            application,
+            client,
+            progress,
+            diagnostic,
+        ).refresh(_package_refresh_request(args, application, packages))
+
+
+def _scan_pages(
+    args: argparse.Namespace,
+    application: ApplicationContext,
+) -> None:
+    def diagnostic(message: str) -> None:
+        print(message, file=sys.stderr)
+
+    def progress(message: str) -> None:
+        print(message, flush=True)
+
+    with application.github_client() as client:
+        result = OwnerScanPageService(
             application.database,
             client,
-            OwnerPackageRefreshExecution(
-                PackageRefreshExecution(
-                    VersionRefreshExecution(
-                        application.worker_runner,
-                        DockerManifestInspector(application.process_runner),
-                        diagnostic=diagnostic,
-                    ),
-                    application.version_selection_settings,
-                    application.publication_limits,
-                    Path(application.config.optout_file),
-                    application.stop.check,
-                ),
-                application.concurrency_settings,
+            _package_refresh_service(
+                application,
+                client,
                 progress,
                 diagnostic,
             ),
-        ).refresh(
-            OwnerPackageRefreshRequest(
-                args.owner_id,
-                args.owner,
-                packages,
-                args.since,
-                application.config.versions_table,
-                Path(index_dir),
-                PackageRefreshPolicy(
-                    write_legacy=True,
-                    use_rest_api=bool(application.github_settings.token),
-                    fast_out=args.fast_out == "true",
-                    mode=application.config.mode,
-                ),
+            OwnerScanPageExecution(application.stop.check, progress),
+        ).scan(
+            OwnerScanPagesRequest(
+                args.owner_type,
+                args.marker,
+                args.start_page,
+                application.config.mode,
+                _package_refresh_request(args, application, ()),
             )
         )
+    result_file = Path(args.result_file)
+    with atomic_text_output(result_file) as output:
+        output.write(_scan_pages_json(result))
+        output.write("\n")
+
+
+def _package_refresh_service(
+    application: ApplicationContext,
+    client: GitHubClient,
+    progress: Callable[[str], None],
+    diagnostic: Callable[[str], None],
+) -> OwnerPackageRefreshService:
+    return OwnerPackageRefreshService(
+        application.database,
+        client,
+        OwnerPackageRefreshExecution(
+            PackageRefreshExecution(
+                VersionRefreshExecution(
+                    application.worker_runner,
+                    DockerManifestInspector(application.process_runner),
+                    diagnostic=diagnostic,
+                ),
+                application.version_selection_settings,
+                application.publication_limits,
+                Path(application.config.optout_file),
+                application.stop.check,
+            ),
+            application.concurrency_settings,
+            progress,
+            diagnostic,
+        ),
+    )
+
+
+def _package_refresh_request(
+    args: argparse.Namespace,
+    application: ApplicationContext,
+    packages: tuple[OwnerScanPackage, ...],
+) -> OwnerPackageRefreshRequest:
+    index_dir = application.config.index_dir
+    if index_dir is None:
+        raise OwnerUpdateError("BKG_INDEX_DIR is required")
+    return OwnerPackageRefreshRequest(
+        args.owner_id,
+        args.owner,
+        packages,
+        args.since,
+        application.config.versions_table,
+        Path(index_dir),
+        PackageRefreshPolicy(
+            write_legacy=True,
+            use_rest_api=bool(application.github_settings.token),
+            fast_out=args.fast_out == "true",
+            mode=application.config.mode,
+        ),
+    )
 
 
 def _package_refs(owner_type: str, value: str) -> tuple[OwnerScanPackage, ...]:
@@ -185,6 +260,20 @@ def _result_json(result: OwnerScanVerificationResult) -> str:
                 }
                 for change in result.changes
             ],
+        },
+        separators=(",", ":"),
+    )
+
+
+def _scan_pages_json(result: OwnerScanPagesResult) -> str:
+    return json.dumps(
+        {
+            "next_page": result.next_page,
+            "pages_processed": result.pages_processed,
+            "completed": result.completed,
+            "owner_missing": result.owner_missing,
+            "first_page_empty": result.first_page_empty,
+            "listing_unavailable": result.listing_unavailable,
         },
         separators=(",", ":"),
     )

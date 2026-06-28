@@ -324,6 +324,33 @@ def test_errors_and_settings_repr_redact_token() -> None:
     assert "[REDACTED]" in str(raised.value)
 
 
+def test_html_error_response_uses_compact_title() -> None:
+    """Transient HTML failure pages do not flood one-line diagnostics."""
+
+    body = """
+        <!DOCTYPE html>
+        <html><head><title>Unicorn! &middot; GitHub</title>
+        <style>large failure page</style></head><body>Try again</body></html>
+    """
+    client = _client(
+        httpx.MockTransport(
+            lambda _request: httpx.Response(
+                502,
+                text=body,
+                headers={"content-type": "text/html; charset=utf-8"},
+            )
+        ),
+        settings=_settings(max_attempts=1),
+    )
+
+    with pytest.raises(GitHubResponseError) as raised:
+        client.rest_json("example")
+
+    message = str(raised.value)
+    assert "HTML response (Unicorn!" in message
+    assert "large failure page" not in message
+
+
 def test_total_timeout_stops_retry_sequence() -> None:
     """The operation deadline bounds the entire retry sequence."""
 

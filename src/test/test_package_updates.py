@@ -25,6 +25,7 @@ from bkg_py.database_models import (
 from bkg_py.github import GitHubNotFoundError
 from bkg_py.package_updates import (
     PackageOptOuts,
+    PackageRefreshError,
     PackageRefreshExecution,
     PackageRefreshPolicy,
     PackageRefreshRequest,
@@ -248,6 +249,40 @@ def test_refresh_commits_versions_package_and_publication(
     assert client.rest_requests == [api_path]
     assert client.text_requests == [package_url, version_url]
     assert client.text_authentication == [True, True]
+
+
+def test_refresh_rejects_a_publication_marker_that_did_not_clear(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A refresh cannot report success while its files remain pending."""
+
+    package = _package()
+    repository = DatabaseRepository(DatabaseSettings(tmp_path / "index.db"))
+    destination = tmp_path / "index" / package.owner / package.repo / "Demo.json"
+    optout_file = tmp_path / "optout.txt"
+    optout_file.write_text("", encoding="utf-8")
+    package_url = "https://github.com/orgs/Example/packages/npm/package/Demo"
+    api_path = "orgs/Example/packages/npm/Demo/versions?per_page=30&page=1"
+    versions_url = "https://github.com/orgs/Example/packages/npm/Demo/versions?page=1"
+    metrics = "<span>Total downloads</span><span>1</span>"
+
+    def leave_pending(_package: PackageRef) -> None:
+        pass
+
+    monkeypatch.setattr(repository, "clear_package_publication", leave_pending)
+
+    with pytest.raises(PackageRefreshError, match="publication marker still pending"):
+        PackageRefreshService(
+            repository,
+            _FakeClient(
+                rest_values={api_path: []},
+                text_values={package_url: metrics, versions_url: "<div></div>"},
+            ),
+            _execution(optout_file),
+        ).refresh(_request(package, destination))
+
+    assert repository.package_publication_pending(package)
 
 
 def test_interrupted_publication_keeps_old_files_and_pending_marker(

@@ -195,6 +195,7 @@ class PackageRefreshService:  # pylint: disable=too-few-public-methods
             since=request.since,
         )
         self.repository.clear_package_publication(package)
+        self._verify_publication(request, publication, today)
         return PackageRefreshResult(
             "refreshed",
             package_written=package_written,
@@ -314,6 +315,43 @@ class PackageRefreshService:  # pylint: disable=too-few-public-methods
             raise PackageRefreshError(str(error)) from error
         finally:
             staged.unlink(missing_ok=True)
+
+    def _verify_publication(
+        self,
+        request: PackageRefreshRequest,
+        publication: PublicationResult,
+        today: str,
+    ) -> None:
+        package = request.package_ref
+        problems: list[str] = []
+        if not self.repository.package_updated_since(package, request.since):
+            problems.append("current package row missing")
+        if self.repository.package_publication_pending(package):
+            problems.append("publication marker still pending")
+
+        expected_files = (
+            (request.destination, publication.json_size),
+            (request.destination.with_suffix(".xml"), publication.xml_size),
+        )
+        for path, expected_size in expected_files:
+            try:
+                actual_size = path.stat().st_size
+            except FileNotFoundError:
+                problems.append(f"missing {path.name}")
+                continue
+            if actual_size != expected_size:
+                problems.append(
+                    f"{path.name} size {actual_size} does not match {expected_size}"
+                )
+
+        if not problems:
+            return
+        self.repository.mark_package_publication_pending(package, today)
+        identity = f"{package.owner}/{package.repo}/{package.package}"
+        raise PackageRefreshError(
+            f"package publication verification failed for {identity}: "
+            f"{'; '.join(problems)}"
+        )
 
 
 def _package_record(

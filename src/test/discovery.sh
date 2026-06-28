@@ -269,9 +269,8 @@ test_unresolved_partial_owner_refresh_reconciles_complete_listing() {
         :
     }
 
-    page_package() {
-        PACKAGE_PAGE_WORK=""
-        return 2
+    owner_scan_pages() {
+        OWNER_SCAN_PAGES_RESULT='{"next_page":2,"pages_processed":1,"completed":true,"owner_missing":false,"first_page_empty":true,"listing_unavailable":false}'
     }
 
     owner_scan_verify_missing_packages() {
@@ -316,8 +315,7 @@ test_stale_owner_scan_marker_restarts_from_first_page() {
         printf '%s\n' '<a href="/orgs/KnownOwner/people">people</a>'
     }
 
-    page_package() {
-        PACKAGE_PAGE_WORK=""
+    owner_scan_pages() {
         [ "$1" = "1" ] || fail "Expected stale owner scan to restart at page 1"
         [ "$OWNER_SCAN_MARKER" != "stale-marker" ] || fail "Expected stale owner scan marker to be replaced"
         case "$OWNER_SCAN_MARKER" in
@@ -326,7 +324,7 @@ test_stale_owner_scan_marker_restarts_from_first_page() {
         esac
         printf '%s\n' "$OWNER_SCAN_MARKER" >"$observed_marker_file"
         printf '%s\n' "$1" >"$observed_page_file"
-        return 2
+        OWNER_SCAN_PAGES_RESULT='{"next_page":2,"pages_processed":1,"completed":true,"owner_missing":false,"first_page_empty":true,"listing_unavailable":false}'
     }
 
     run_parallel() {
@@ -531,10 +529,8 @@ test_remembered_no_package_connection_owner_is_filtered_but_manual_owner_is_not(
         printf '%s\n' '<div></div>'
     }
 
-    page_package() {
-        PACKAGE_PAGE_WORK=""
-        sed -i '/^\(.*\/\)*'"$owner"'$/d' "$BKG_OWNERS"
-        return 2
+    owner_scan_pages() {
+        OWNER_SCAN_PAGES_RESULT='{"next_page":2,"pages_processed":1,"completed":true,"owner_missing":false,"first_page_empty":true,"listing_unavailable":false}'
     }
 
     update_owner '4242/NoPackages' >/dev/null || fail "Expected update_owner to handle owners with no packages"

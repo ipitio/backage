@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import json
 from pathlib import Path
 
 import pytest
@@ -11,13 +12,19 @@ from bkg_py import ExitStatus
 from bkg_py.cli import main
 from bkg_py.concurrency import BoundedWorkerRunner, ConcurrencySettings
 from bkg_py.database import DatabaseRepository, DatabaseSettings
-from bkg_py.database_models import OwnerScanPackage
+from bkg_py.database_models import OwnerScanPackage, PackageRecord, PackageRef
 from bkg_py.owner_package_updates import (
     OwnerPackageRefreshExecution,
     OwnerPackageRefreshRequest,
     OwnerPackageRefreshResult,
     OwnerPackageRefreshService,
     allocate_worker_counts,
+)
+from bkg_py.owner_scan_pages import (
+    OwnerScanPageExecution,
+    OwnerScanPageService,
+    OwnerScanPagesRequest,
+    OwnerScanPagesResult,
 )
 from bkg_py.package_updates import (
     PackageRefreshError,
@@ -198,3 +205,133 @@ def test_owner_refresh_packages_cli_reads_refs_from_stdin(
         OwnerScanPackage("orgs", "container", "repo-one", "pkg-one"),
         OwnerScanPackage("orgs", "npm", "repo-two", "pkg-two"),
     )
+
+
+def test_owner_page_service_advances_multiple_pages_with_one_client(
+    tmp_path: Path,
+) -> None:
+    """One bounded service pass stages and advances every fetched page."""
+
+    repository = DatabaseRepository(DatabaseSettings(tmp_path / "index.db"))
+    package = PackageRef(
+        "42",
+        "orgs",
+        "container",
+        "example",
+        "repo",
+        "package",
+    )
+    repository.write_package(PackageRecord(package, 1, 1, 1, 1, 1, "2026-06-28"))
+    marker = "batch-1:42:100"
+    repository.begin_owner_scan("42", "example", marker, 100)
+    first_url = (
+        "https://github.com/orgs/example/packages?visibility=public&per_page=100&page=1"
+    )
+    second_url = (
+        "https://github.com/orgs/example/packages?visibility=public&per_page=100&page=2"
+    )
+    client = FakeGitHubClient(
+        text_values={
+            first_url: """
+                <a href="/orgs/example/packages/container/package/package">pkg</a>
+                <a href="/example/repo">repo</a>
+                <a rel="next" href="?page=2">next</a>
+            """,
+            second_url: "<div></div>",
+        }
+    )
+    progress: list[str] = []
+    refresh_request = OwnerPackageRefreshRequest(
+        "42",
+        "example",
+        (),
+        "2026-06-28",
+        "versions",
+        tmp_path / "index",
+        PackageRefreshPolicy(True, True, False, 0),
+    )
+    timestamps = iter((101, 102, 103, 104))
+
+    result = OwnerScanPageService(
+        repository,
+        client,
+        OwnerPackageRefreshService(
+            repository,
+            client,
+            _execution(tmp_path, progress, []),
+        ),
+        OwnerScanPageExecution(
+            lambda: None,
+            progress.append,
+            now=lambda: next(timestamps),
+        ),
+    ).scan(
+        OwnerScanPagesRequest(
+            "orgs",
+            marker,
+            1,
+            0,
+            refresh_request,
+        )
+    )
+
+    assert result == OwnerScanPagesResult(3, 2, completed=True)
+    assert client.text_requests == [first_url, second_url]
+    cursor = repository.current_owner_scan("42", "batch-1")
+    assert cursor is not None
+    assert cursor.next_page == 3
+    assert progress == [
+        "Starting example page 1...",
+        "Started example page 1",
+        "Starting example page 2...",
+        "Started example page 2",
+    ]
+
+
+def test_owner_scan_pages_cli_writes_the_shell_result(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The page-loop command streams work and writes one structured result."""
+
+    captured: list[OwnerScanPagesRequest] = []
+
+    def scan(
+        _service: OwnerScanPageService,
+        request: OwnerScanPagesRequest,
+    ) -> OwnerScanPagesResult:
+        captured.append(request)
+        return OwnerScanPagesResult(8, 3, completed=False)
+
+    monkeypatch.setattr(OwnerScanPageService, "scan", scan)
+    monkeypatch.setenv("BKG_ROOT", str(tmp_path))
+    monkeypatch.setenv("BKG_INDEX_DB", str(tmp_path / "index.db"))
+    monkeypatch.setenv("BKG_INDEX_DIR", str(tmp_path / "index"))
+    monkeypatch.setenv("BKG_ENV", str(tmp_path / "state.env"))
+    result_file = tmp_path / "scan-result.json"
+
+    status = main(
+        [
+            "owner",
+            "scan-pages",
+            "42",
+            "orgs",
+            "example",
+            "scan-1",
+            "2026-06-28",
+            "5",
+            "false",
+            str(result_file),
+        ]
+    )
+
+    assert status == ExitStatus.SUCCESS
+    assert captured[0].start_page == 5
+    assert json.loads(result_file.read_text(encoding="utf-8")) == {
+        "next_page": 8,
+        "pages_processed": 3,
+        "completed": False,
+        "owner_missing": False,
+        "first_page_empty": False,
+        "listing_unavailable": False,
+    }

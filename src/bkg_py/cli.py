@@ -356,6 +356,18 @@ def _add_owner_parsers(subparsers: Any) -> None:
     refresh_packages_parser.add_argument("owner")
     refresh_packages_parser.add_argument("since")
     refresh_packages_parser.add_argument("fast_out", choices=("true", "false"))
+    scan_pages_parser = owner_commands.add_parser(
+        "scan-pages",
+        help="fetch, refresh, and advance one bounded owner listing pass",
+    )
+    scan_pages_parser.add_argument("owner_id")
+    scan_pages_parser.add_argument("owner_type", choices=("orgs", "users"))
+    scan_pages_parser.add_argument("owner")
+    scan_pages_parser.add_argument("marker")
+    scan_pages_parser.add_argument("since")
+    scan_pages_parser.add_argument("start_page", type=int)
+    scan_pages_parser.add_argument("fast_out", choices=("true", "false"))
+    scan_pages_parser.add_argument("result_file")
     verify_parser = owner_commands.add_parser(
         "verify-scan",
         help="verify known packages absent from one complete owner listing",

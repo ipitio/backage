@@ -146,6 +146,26 @@ owner_refresh_packages() {
 		"${fast_out:-false}" <<<"$1"
 }
 
+OWNER_SCAN_PAGES_RESULT=""
+
+owner_scan_pages() {
+	[ -n "$1" ] || return 1
+	local result_file
+	local status=0
+	result_file=$(mktemp) || return 1
+	OWNER_SCAN_PAGES_RESULT=""
+
+	bkg_python owner scan-pages \
+		"$owner_id" "$owner_type" "$owner" "$OWNER_SCAN_MARKER" \
+		"$(current_batch_first_started)" "$1" "${fast_out:-false}" \
+		"$result_file" || status=$?
+	if ((status == 0)); then
+		OWNER_SCAN_PAGES_RESULT=$(<"$result_file")
+	fi
+	rm -f "$result_file"
+	return "$status"
+}
+
 owner_scan_verify_missing_packages() {
 	[ -n "${OWNER_SCAN_MARKER:-}" ] || return 1
 	local change_count
@@ -991,8 +1011,10 @@ update_owner() {
 	local pending_count=0
 	local refresh_plan=""
 	local refresh_refs=""
+	local scan_result=""
 	local scan_completed=false
 	local scan_status=0
+	local next_page=""
 	start_page=""
 	batch_first_started=$(current_batch_first_started)
 	[ -n "$batch_first_started" ] || batch_first_started="0000-00-00"
@@ -1026,36 +1048,28 @@ update_owner() {
 	if $owner_scan_required; then
 		owner_scan_begin || return $?
 
-		for page in $(seq "$start_page" 100000); do
-			local pages_left=0
-			((page - start_page < 51)) || break
-			page_package "$page"
-			pages_left=$?
-			if ((pages_left == 3)); then
-				return 3
-			elif ((pages_left != 0 && pages_left != 2)); then
-				owner_scan_fail "owner package listing page $page failed" || return $?
-				return 0
-			fi
-			if $PACKAGE_PAGE_OWNER_MISSING; then
-				retire_missing_owner "$owner_id/$owner" || return $?
-				owner_scan_clear_legacy_state
-				return 0
-			fi
-			owner_refresh_packages "$PACKAGE_PAGE_WORK"
-			(($? != 3)) || return 3
-			bkg_python package finish-page \
-				"$owner_id" "$OWNER_SCAN_MARKER" "$page" \
-				"$(date -u +%s)" || return $?
-
-			if ((pages_left == 2)); then
-				scan_completed=true
-				break
-			fi
-		done
+		owner_scan_pages "$start_page"
+		scan_status=$?
+		if ((scan_status == 3)); then
+			return 3
+		elif ((scan_status != 0)); then
+			owner_scan_fail "owner package listing pass failed" || return $?
+			return 0
+		fi
+		scan_result=$OWNER_SCAN_PAGES_RESULT
+		scan_completed=$(jq -r '.completed' <<<"$scan_result") || return 1
+		next_page=$(jq -r '.next_page' <<<"$scan_result") || return 1
+		if [ "$(jq -r '.first_page_empty' <<<"$scan_result")" = true ]; then
+			sed -i '/^\(.*\/\)*'"$owner"'$/d' "$BKG_OWNERS"
+		fi
+		if [ "$(jq -r '.owner_missing' <<<"$scan_result")" = true ]; then
+			retire_missing_owner "$owner_id/$owner" || return $?
+			owner_scan_clear_legacy_state
+			return 0
+		fi
 
 		if ! $scan_completed; then
-			echo "Paused $owner owner scan at page $page"
+			echo "Paused $owner owner scan at page $next_page"
 			return 0
 		fi
 
