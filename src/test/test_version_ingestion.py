@@ -65,6 +65,9 @@ _CONTEXT = VersionListingContext(
 _API_PAGE_1 = (
     "orgs/Lazztech/packages/container/libre-closet/versions?per_page=30&page=1"
 )
+_API_PAGE_2 = (
+    "orgs/Lazztech/packages/container/libre-closet/versions?per_page=30&page=2"
+)
 _HTML_PAGE_1 = (
     "https://github.com/orgs/Lazztech/packages/container/libre-closet/versions?page=1"
 )
@@ -137,6 +140,34 @@ def test_loader_falls_back_to_html_for_unusable_api_data() -> None:
     assert diagnostics == [
         "Version API page 1 returned unusable data; falling back to HTML"
     ]
+
+
+def test_loader_accepts_an_empty_later_api_page_as_the_end() -> None:
+    """An empty REST page after page one ends pagination without HTML work."""
+
+    diagnostics: list[str] = []
+    client = _FakePageClient(
+        rest_values={
+            _API_PAGE_1: _api_candidates(30, 0),
+            _API_PAGE_2: [],
+        },
+        text_values={},
+    )
+    loader = VersionCandidateLoader(
+        client,
+        _CONTEXT,
+        use_rest_api=True,
+        diagnostic=diagnostics.append,
+    )
+
+    result = loader.select(
+        VersionSelectionSettings(max_tag_pages=0, append_tagged_limit=0)
+    )
+
+    assert len(result.candidates) == 30
+    assert client.rest_requests == [_API_PAGE_1, _API_PAGE_2]
+    assert not client.text_requests
+    assert not diagnostics
 
 
 def test_loader_falls_back_to_html_after_api_failure() -> None:

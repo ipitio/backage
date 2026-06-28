@@ -32,6 +32,7 @@ def test_listing_parser_associates_repositories_and_deduplicates_packages() -> N
     request = PackageListingRequest("orgs", "Example", 1, 0)
     html = """
         <a href="/orgs/Example/packages/container/package/alpha">alpha</a>
+        <a href="/orgs/Example/packages/container/package/alpha">alpha icon</a>
         <a href="/Example/AlphaRepo">repository</a>
         <a href="/orgs/Example/packages/container/package/alpha">alpha</a>
         <a href="/Example/AlphaRepo">repository</a>

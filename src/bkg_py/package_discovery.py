@@ -120,36 +120,42 @@ def parse_package_listing_html(
 
     parser = _AnchorParser()
     parser.feed(html)
-    packages: list[OwnerScanPackage] = []
+    packages: dict[tuple[str, str], OwnerScanPackage] = {}
     pending: tuple[str, str] | None = None
 
     for anchor in parser.anchors:
         package = _package_path(anchor.href, request)
         if package is not None:
+            if package == pending:
+                continue
             if pending is not None:
-                packages.append(_package_without_repository(request, pending))
+                packages.setdefault(
+                    pending,
+                    _package_without_repository(request, pending),
+                )
             pending = package
             continue
 
         repository = _repository_path(anchor.href, request.owner)
         if pending is not None and repository is not None:
             package_type, package_name = pending
-            packages.append(
-                OwnerScanPackage(
-                    request.owner_type,
-                    package_type,
-                    repository,
-                    package_name,
-                )
+            packages[pending] = OwnerScanPackage(
+                request.owner_type,
+                package_type,
+                repository,
+                package_name,
             )
             pending = None
 
     if pending is not None:
-        packages.append(_package_without_repository(request, pending))
+        packages.setdefault(
+            pending,
+            _package_without_repository(request, pending),
+        )
 
     unique_packages = tuple(
         sorted(
-            set(packages),
+            packages.values(),
             key=lambda package: (
                 package.package_type,
                 package.repo,

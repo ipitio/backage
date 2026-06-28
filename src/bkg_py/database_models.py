@@ -108,6 +108,20 @@ class OwnerScanWorkSelection:
 
 
 @dataclass(frozen=True)
+class OwnerRefreshPlan:
+    """Current-batch package work for one partially refreshed owner."""
+
+    partially_updated: bool
+    packages: tuple[OwnerScanPackage, ...]
+
+    @property
+    def pending_count(self) -> int:
+        """Return the number of packages still requiring refresh work."""
+
+        return len(self.packages)
+
+
+@dataclass(frozen=True)
 class OwnerScanResult:
     """The reconciliation result for one completed owner listing scan."""
 

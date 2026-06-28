@@ -136,32 +136,6 @@ owner_refresh_backoff_clear() {
 		"$owner_id" "$owner" "$(date -u +%s)"
 }
 
-owner_pending_package_count() {
-	local batch_first_started
-	batch_first_started=$(current_batch_first_started)
-	[ -n "$batch_first_started" ] || batch_first_started="0000-00-00"
-	sqlite3 "$BKG_INDEX_DB" "
-		select count(*)
-		from (
-			select 1
-			from $(sqlite_quote_identifier "$BKG_INDEX_TBL_PKG") current
-			where current.owner_id = $(sqlite_quote_literal "$owner_id")
-			group by owner_type, package_type, repo, package
-			having max(current.date) < $(sqlite_quote_literal "$batch_first_started")
-			   or exists (
-				select 1
-				from bkg_package_publications pending
-				where pending.owner_id = current.owner_id
-				  and pending.owner_type = current.owner_type
-				  and pending.package_type = current.package_type
-				  and pending.owner = current.owner
-				  and pending.repo = current.repo
-				  and pending.package = current.package
-			)
-		);
-	"
-}
-
 owner_scan_verify_missing_packages() {
 	[ -n "${OWNER_SCAN_MARKER:-}" ] || return 1
 	local change_count
@@ -1005,6 +979,7 @@ update_owner() {
 	local owner_scan_required=true
 	local owner_partially_updated=false
 	local pending_count=0
+	local refresh_plan=""
 	local refresh_refs=""
 	local scan_completed=false
 	local scan_status=0
@@ -1012,35 +987,24 @@ update_owner() {
 	batch_first_started=$(current_batch_first_started)
 	[ -n "$batch_first_started" ] || batch_first_started="0000-00-00"
 
-	if awk -F'|' -v owner_id_key="$owner_id" -v owner_key="$owner" '$1 == owner_id_key && $2 == owner_key { found = 1; exit } END { exit !found }' packages_already_updated; then
-		owner_partially_updated=true
+	refresh_plan=$(bkg_python owner refresh-plan \
+		"$owner_id" "$owner" "$batch_first_started") || return $?
+	owner_partially_updated=$(jq -r '.partially_updated' <<<"$refresh_plan") || return 1
+	if $owner_partially_updated; then
 		OWNER_SCAN_START_PAGE=""
 		owner_scan_load_active || return $?
 		start_page=$OWNER_SCAN_START_PAGE
 	fi
 
 	if $owner_partially_updated && [ -z "$start_page" ]; then
-		refresh_refs=$(sqlite3 "$BKG_INDEX_DB" "
-				select current.package_type || '/' || current.repo || '/' || current.package
-				from $(sqlite_quote_identifier "$BKG_INDEX_TBL_PKG") current
-				where current.owner_id = $(sqlite_quote_literal "$owner_id")
-				group by current.package_type, current.repo, current.package
-				having max(current.date) < $(sqlite_quote_literal "$batch_first_started")
-				   or exists (
-					select 1
-					from bkg_package_publications pending
-					where pending.owner_id = current.owner_id
-					  and pending.owner_type = current.owner_type
-					  and pending.package_type = current.package_type
-					  and pending.owner = current.owner
-					  and pending.repo = current.repo
-					  and pending.package = current.package
-				)
-				order by max(current.date) asc;
-			") || return $?
+		refresh_refs=$(jq -r \
+			'.packages[] | [.package_type, .repo, .package] | join("/")' \
+			<<<"$refresh_plan") || return 1
 		run_parallel update_package "$refresh_refs"
 		(($? != 3)) || return 3
-		pending_count=$(owner_pending_package_count) || return $?
+		refresh_plan=$(bkg_python owner refresh-plan \
+			"$owner_id" "$owner" "$batch_first_started") || return $?
+		pending_count=$(jq -r '.pending_count' <<<"$refresh_plan") || return 1
 		if ((pending_count > 0)); then
 			echo "$owner has $pending_count unresolved package refresh(es); verifying the complete owner listing"
 		else

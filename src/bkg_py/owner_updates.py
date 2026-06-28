@@ -62,6 +62,13 @@ class OwnerScanVerificationResult:
     changes: tuple[OwnerScanIdentityChange, ...]
 
 
+@dataclass(frozen=True)
+class _PackageVerification:
+    package: OwnerScanPackage | None
+    change: OwnerScanIdentityChange | None = None
+    absent_count: int = 0
+
+
 class OwnerScanVerificationService:  # pylint: disable=too-few-public-methods
     """Verify missing packages and reconcile mutable repository associations."""
 
@@ -87,52 +94,33 @@ class OwnerScanVerificationService:  # pylint: disable=too-few-public-methods
         )
         groups = _group_package_aliases(missing)
         verified: list[OwnerScanPackage] = []
+        forced_work: set[OwnerScanPackage] = set()
         changes: list[OwnerScanIdentityChange] = []
         absent_count = 0
 
         for aliases in groups:
-            self.check_stop()
-            package = aliases[0]
-            response = self.client.rest_json_optional(_package_api_path(package))
-            if response is None:
-                absent_count += len(aliases)
+            verification = self._verify_aliases(request, aliases)
+            absent_count += verification.absent_count
+            if verification.package is None:
                 continue
-            canonical = OwnerScanPackage(
-                package.owner_type,
-                package.package_type,
-                _repository_name(response.value, package.package),
-                package.package,
-            )
-            self.repository.reconcile_owner_scan_package(
-                request.owner_id,
-                request.marker,
-                canonical,
-                request.observed_at,
-            )
+            canonical = verification.package
             verified.append(canonical)
-            previous = tuple(
-                sorted(
-                    {alias.repo for alias in aliases if alias.repo != canonical.repo}
-                )
-            )
-            if previous:
-                changes.append(
-                    OwnerScanIdentityChange(
-                        canonical.package,
-                        previous,
-                        canonical.repo,
-                    )
-                )
+            if verification.change is not None:
+                forced_work.add(canonical)
+                changes.append(verification.change)
 
         packages = tuple(sorted(set(verified), key=_package_sort_key))
-        work = self.repository.owner_scan_packages_needing_refresh(
-            OwnerScanWorkSelection(
-                request.owner_id,
-                request.owner,
-                packages,
-                request.since,
+        selected_work = set(
+            self.repository.owner_scan_packages_needing_refresh(
+                OwnerScanWorkSelection(
+                    request.owner_id,
+                    request.owner,
+                    packages,
+                    request.since,
+                )
             )
         )
+        work = tuple(sorted(selected_work | forced_work, key=_package_sort_key))
         return OwnerScanVerificationResult(
             checked_count=len(groups),
             absent_count=absent_count,
@@ -140,6 +128,38 @@ class OwnerScanVerificationService:  # pylint: disable=too-few-public-methods
             work=work,
             changes=tuple(changes),
         )
+
+    def _verify_aliases(
+        self,
+        request: OwnerScanVerificationRequest,
+        aliases: tuple[PackageRef, ...],
+    ) -> _PackageVerification:
+        self.check_stop()
+        package = aliases[0]
+        response = self.client.rest_json_optional(_package_api_path(package))
+        if response is None:
+            return _PackageVerification(None, absent_count=len(aliases))
+        canonical = OwnerScanPackage(
+            package.owner_type,
+            package.package_type,
+            _repository_name(response.value, package.package),
+            package.package,
+        )
+        previous_repositories = self.repository.reconcile_owner_scan_package(
+            request.owner_id,
+            request.marker,
+            canonical,
+            request.observed_at,
+        )
+        previous = tuple(
+            repo for repo in previous_repositories if repo != canonical.repo
+        )
+        change = (
+            OwnerScanIdentityChange(canonical.package, previous, canonical.repo)
+            if previous
+            else None
+        )
+        return _PackageVerification(canonical, change)
 
 
 def _group_package_aliases(

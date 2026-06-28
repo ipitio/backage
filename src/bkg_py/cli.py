@@ -340,6 +340,13 @@ def _add_owner_parsers(subparsers: Any) -> None:
         dest="owner_command",
         required=True,
     )
+    refresh_plan_parser = owner_commands.add_parser(
+        "refresh-plan",
+        help="print current-batch direct package work for one owner",
+    )
+    refresh_plan_parser.add_argument("owner_id")
+    refresh_plan_parser.add_argument("owner")
+    refresh_plan_parser.add_argument("since")
     verify_parser = owner_commands.add_parser(
         "verify-scan",
         help="verify known packages absent from one complete owner listing",

@@ -143,12 +143,15 @@ test_docker_manifest_size_logs_actionable_fallbacks() {
 
 test_docker_manifest_size_calculates_layers_and_manifest_average() {
 	local layers_size
+	local empty_layers_size
 	local manifest_average_size
 
 	layers_size=$(docker_manifest_size '{"layers":[{"size":10},{"size":25},{"size":0}]}')
+	empty_layers_size=$(docker_manifest_size '{"SchemaV2Manifest":{"config":{"size":229},"layers":[]}}')
 	manifest_average_size=$(docker_manifest_size '{"manifests":[{"size":10},{"size":21},{"size":0}]}')
 
 	[ "$layers_size" = "35" ] || fail "Expected layer manifest size to sum positive layer sizes"
+	[ "$empty_layers_size" = "0" ] || fail "Expected a valid empty layer set to have size zero"
 	[ "$manifest_average_size" = "15" ] || fail "Expected manifest-list size to average positive manifest sizes"
 }
 

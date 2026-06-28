@@ -9,6 +9,7 @@ from typing import Any
 
 from . import database_owner_scans
 from .database_models import (
+    OwnerRefreshPlan,
     OwnerScanCursor,
     OwnerScanFailure,
     OwnerScanPackage,
@@ -152,17 +153,36 @@ class OwnerScanRepositoryMixin(ABC):
             )
         )
 
+    def owner_refresh_plan(
+        self,
+        owner_id: str,
+        owner: str,
+        since: str,
+    ) -> OwnerRefreshPlan:
+        """Return direct package work and partial-update state for an owner."""
+
+        self.ensure_schema()
+        return self._run_read(
+            lambda connection: database_owner_scans.owner_refresh_plan(
+                connection,
+                self.settings.packages_table,
+                owner_id,
+                owner,
+                since,
+            )
+        )
+
     def reconcile_owner_scan_package(
         self,
         owner_id: str,
         marker: str,
         package: OwnerScanPackage,
         observed_at: int,
-    ) -> None:
+    ) -> tuple[str, ...]:
         """Replace staged aliases with one verified package identity."""
 
         self.ensure_schema()
-        self._run_write(
+        return self._run_write(
             lambda connection: database_owner_scans.reconcile_package(
                 connection,
                 owner_id,

@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from . import database_packages
 from .database_models import (
     OwnerRecord,
+    OwnerRefreshPlan,
     OwnerScanCursor,
     OwnerScanFailure,
     OwnerScanPackage,
@@ -285,9 +286,31 @@ def _observe(
     packages: Sequence[OwnerScanPackage],
     observed_at: int,
 ) -> None:
+    identities = {
+        (package.owner_type, package.package_type, package.package): package
+        for package in packages
+    }
+    package_values = tuple(identities.values())
     connection.executemany(
         f"""
-        insert or ignore into {_SCAN_PACKAGES} (
+        delete from {_SCAN_PACKAGES}
+        where owner_id = ? and marker = ? and owner_type = ?
+          and package_type = ? and package = ?
+        """,
+        (
+            (
+                owner_id,
+                marker,
+                package.owner_type,
+                package.package_type,
+                package.package,
+            )
+            for package in package_values
+        ),
+    )
+    connection.executemany(
+        f"""
+        insert into {_SCAN_PACKAGES} (
             owner_id, marker, owner_type, package_type, repo, package
         ) values (?, ?, ?, ?, ?, ?)
         """,
@@ -300,7 +323,7 @@ def _observe(
                 package.repo,
                 package.package,
             )
-            for package in packages
+            for package in package_values
         ),
     )
     connection.execute(
@@ -315,16 +338,18 @@ def reconcile_package(
     marker: str,
     package: OwnerScanPackage,
     observed_at: int,
-) -> None:
+) -> tuple[str, ...]:
     """Replace staged repository identities for one verified package."""
 
     with _transaction(connection):
         _require_active(connection, owner_id, marker)
-        connection.execute(
+        rows = connection.execute(
             f"""
-            delete from {_SCAN_PACKAGES}
+            select distinct repo
+            from {_SCAN_PACKAGES}
             where owner_id = ? and marker = ? and owner_type = ?
               and package_type = ? and package = ?
+            order by repo
             """,
             (
                 owner_id,
@@ -333,8 +358,9 @@ def reconcile_package(
                 package.package_type,
                 package.package,
             ),
-        )
+        ).fetchall()
         _observe(connection, owner_id, marker, (package,), observed_at)
+    return tuple(str(row[0]) for row in rows)
 
 
 def packages_needing_refresh(
@@ -361,6 +387,53 @@ def packages_needing_refresh(
             selection.since,
         )
     )
+
+
+def owner_refresh_plan(
+    connection: sqlite3.Connection,
+    packages_table: str,
+    owner_id: str,
+    owner: str,
+    since: str,
+) -> OwnerRefreshPlan:
+    """Return direct package work when an owner is partially current."""
+
+    packages = _identifier(packages_table)
+    rows = connection.execute(
+        f"""
+        select current.owner_type, current.package_type,
+               current.repo, current.package, max(current.date),
+               max(case when pending.owner_id is null then 0 else 1 end),
+               max(
+                   case
+                       when current.owner = ? and current.date >= ?
+                            and pending.owner_id is null
+                       then 1 else 0
+                   end
+               )
+        from {packages} current
+        left join {_PACKAGE_PUBLICATIONS} pending
+          on pending.owner_id = current.owner_id
+         and pending.owner_type = current.owner_type
+         and pending.package_type = current.package_type
+         and pending.owner = current.owner
+         and pending.repo = current.repo
+         and pending.package = current.package
+        where current.owner_id = ?
+        group by current.owner_type, current.package_type,
+                 current.repo, current.package
+        order by max(current.date), current.owner_type, current.package_type,
+                 current.repo, current.package
+        """,
+        (owner, since, owner_id),
+    ).fetchall()
+
+    work = tuple(
+        OwnerScanPackage(*(str(value) for value in row[:4]))
+        for row in rows
+        if str(row[4]) < since or bool(row[5])
+    )
+    return OwnerRefreshPlan(any(bool(row[6]) for row in rows), work)
 
 
 def missing(

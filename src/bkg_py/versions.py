@@ -345,8 +345,9 @@ def manifest_size(manifest: str) -> ManifestSizeResult:
             diagnostic_summary=_sample_summary(manifest),
         )
 
-    layer_sizes = tuple(_positive_sizes(_array_items(data, "layers")))
-    if layer_sizes:
+    layer_items = tuple(_array_items(data, "layers"))
+    layer_sizes = tuple(_nonnegative_sizes(iter(layer_items)))
+    if layer_sizes or (_has_array(data, "layers") and not layer_items):
         return ManifestSizeResult(size=math.floor(sum(layer_sizes)))
 
     manifest_sizes = tuple(_positive_sizes(_array_items(data, "manifests")))
@@ -408,6 +409,26 @@ def _array_items(value: object, name: str) -> Iterator[object]:
         items = _as_list(mapping.get(name))
         if items is not None:
             yield from items
+
+
+def _has_array(value: object, name: str) -> bool:
+    return any(
+        _as_list(mapping.get(name)) is not None
+        for node in _walk(value)
+        if (mapping := _as_dict(node)) is not None
+    )
+
+
+def _nonnegative_sizes(items: Iterator[object]) -> Iterator[float]:
+    for item in items:
+        mapping = _as_dict(item)
+        if mapping is None:
+            continue
+        size = mapping.get("size")
+        if isinstance(size, bool) or not isinstance(size, int | float):
+            continue
+        if size >= 0:
+            yield float(size)
 
 
 def _positive_sizes(items: Iterator[object]) -> Iterator[float]:

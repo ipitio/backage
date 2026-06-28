@@ -235,6 +235,20 @@ def test_manifest_size_calculates_layers_and_manifest_average() -> None:
         ).size
         == 10
     )
+    docker_verbose = """
+    {
+      "Ref": "ghcr.io/example/scratch@sha256:abc",
+      "Descriptor": {"size": 313},
+      "SchemaV2Manifest": {
+        "schemaVersion": 2,
+        "config": {"size": 229},
+        "layers": []
+      }
+    }
+    """
+    empty_layers = manifest_size(docker_verbose)
+    assert empty_layers.size == 0
+    assert empty_layers.fallback_reason is None
 
 
 def test_manifest_size_describes_malformed_and_unsupported_shapes() -> None:

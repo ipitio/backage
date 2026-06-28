@@ -131,6 +131,9 @@ class VersionCandidateLoader:  # pylint: disable=too-few-public-methods
             )
             return None
 
+        if page_number > 1 and response.value == []:
+            return ()
+
         candidates = version_candidates_from_value(response.value)
         if not candidates or any(
             candidate.version_id == "-1" for candidate in candidates
