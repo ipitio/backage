@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -70,9 +71,9 @@ def _write_package(repository: DatabaseRepository, package: PackageRef) -> None:
 
 def _service(
     repository: DatabaseRepository,
-    check_stop: object = None,
+    check_stop: Callable[[], None] | None = None,
 ) -> OwnerPublicationService:
-    stop = check_stop if callable(check_stop) else lambda: None
+    stop = check_stop or (lambda: None)
     return OwnerPublicationService(
         repository,
         AggregateSettings(target_bytes=1_000_000),
@@ -150,5 +151,5 @@ def test_empty_owner_publication_removes_stale_aggregate_pair(tmp_path: Path) ->
     )
 
     assert result.package_count == 0
-    assert result.repositories == ()
+    assert not result.repositories
     assert not owner_directory.exists()

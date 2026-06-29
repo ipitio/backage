@@ -6,13 +6,21 @@ import argparse
 import json
 import sys
 from collections.abc import Callable
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from .database import DatabaseError
-from .database_models import OwnerScanPackage
+from .database_models import OwnerScanFailure, OwnerScanPackage
 from .files import atomic_text_output
 from .github import GitHubError
+from .owner_lifecycle import (
+    OwnerLifecycleExecution,
+    OwnerLifecycleRequest,
+    OwnerLifecycleResult,
+    OwnerLifecycleService,
+    OwnerLifecycleServices,
+)
 from .owner_package_updates import (
     OwnerPackageRefreshError,
     OwnerPackageRefreshExecution,
@@ -67,6 +75,7 @@ def run_owner(
         "scan-pages",
         "verify-scan",
         "publish",
+        "update",
     }:
         print(f"unknown owner command: {args.owner_command}", file=sys.stderr)
         return ExitStatus.NON_FATAL
@@ -85,6 +94,8 @@ def run_owner(
                 _scan_pages(args, application)
             elif args.owner_command == "publish":
                 print(_publication_json(_publish_owner(args, application)))
+            elif args.owner_command == "update":
+                _update_owner(args, application)
             else:
                 with application.github_client() as client:
                     result = OwnerScanVerificationService(
@@ -120,6 +131,111 @@ def run_owner(
         return ExitStatus.NON_FATAL
 
     return ExitStatus.SUCCESS
+
+
+def _update_owner(
+    args: argparse.Namespace,
+    application: ApplicationContext,
+) -> None:
+    def diagnostic(message: str) -> None:
+        print(message, file=sys.stderr)
+
+    def progress(message: str) -> None:
+        print(message, flush=True)
+
+    try:
+        with application.github_client() as client:
+            package_refresh = _package_refresh_service(
+                application,
+                client,
+                progress,
+                diagnostic,
+            )
+            pages = OwnerScanPageService(
+                application.database,
+                client,
+                package_refresh,
+                OwnerScanPageExecution(application.stop.check, progress),
+            )
+            result = OwnerLifecycleService(
+                application.database,
+                OwnerLifecycleServices(
+                    package_refresh,
+                    OwnerScanService(
+                        application.database,
+                        client,
+                        pages,
+                        package_refresh,
+                    ),
+                    OwnerPublicationService(
+                        application.database,
+                        application.aggregate_settings,
+                        application.publication_limits,
+                        application.stop.check,
+                    ),
+                ),
+                OwnerLifecycleExecution(application.state, progress),
+            ).update(
+                OwnerLifecycleRequest(
+                    args.owner_type,
+                    args.batch_marker,
+                    application.config.mode,
+                    _package_refresh_request(args, application, ()),
+                )
+            )
+    except (
+        DatabaseError,
+        GitHubError,
+        OSError,
+        OwnerPackageRefreshError,
+        OwnerScanPageError,
+        OwnerUpdateError,
+        PackageDiscoveryError,
+        PublicationError,
+        RenderingError,
+    ) as error:
+        result = _defer_owner_update(args, application, error, progress)
+
+    result_file = Path(args.result_file)
+    with atomic_text_output(result_file) as output:
+        output.write(_owner_lifecycle_json(result))
+        output.write("\n")
+
+
+def _defer_owner_update(
+    args: argparse.Namespace,
+    application: ApplicationContext,
+    error: Exception,
+    progress: Callable[[str], None],
+) -> OwnerLifecycleResult:
+    cursor = application.database.current_owner_scan(
+        args.owner_id,
+        args.batch_marker,
+    )
+    message = str(error) or type(error).__name__
+    failed_at = int(datetime.now(tz=UTC).timestamp())
+    retry_after = application.database.fail_owner_scan(
+        OwnerScanFailure(
+            args.owner_id,
+            args.owner,
+            cursor.marker if cursor is not None else None,
+            message,
+            failed_at,
+        )
+    )
+    application.state.delete_matching(
+        keys=(
+            f"BKG_OWNER_SCAN_{args.owner_id}",
+            f"BKG_PAGE_{args.owner_id}",
+        )
+    )
+    retry_time = datetime.fromtimestamp(retry_after, UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+    progress(f"Deferred {args.owner} after failed work ({message}) until {retry_time}")
+    return OwnerLifecycleResult(
+        "deferred",
+        retry_after=retry_after,
+        error=message,
+    )
 
 
 def _refresh_packages(
@@ -352,6 +468,36 @@ def _scan_pages_json(result: OwnerScanOutcome) -> str:
                         for package in reconciliation.completion.pending
                     ],
                     "retry_after": reconciliation.completion.retry_after,
+                }
+            ),
+        },
+        separators=(",", ":"),
+    )
+
+
+def _owner_lifecycle_json(result: OwnerLifecycleResult) -> str:
+    pages = result.scan.pages if result.scan is not None else None
+    publication = result.publication
+    return json.dumps(
+        {
+            "outcome": result.outcome,
+            "next_page": pages.next_page if pages is not None else 0,
+            "pages_processed": pages.pages_processed if pages is not None else 0,
+            "first_page_empty": (
+                pages.first_page_empty if pages is not None else False
+            ),
+            "listing_unavailable": (
+                pages.listing_unavailable if pages is not None else False
+            ),
+            "empty_owner_recorded": result.empty_owner_recorded,
+            "retry_after": result.retry_after,
+            "error": result.error,
+            "publication": (
+                None
+                if publication is None
+                else {
+                    "package_count": publication.package_count,
+                    "repositories": list(publication.repositories),
                 }
             ),
         },

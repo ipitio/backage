@@ -43,32 +43,6 @@ setup_discovery_fixture() {
     git -C "$index_repo" commit -qm init
 }
 
-stub_completed_owner_scan_result() {
-    local completion
-    completion=$(bkg_python database complete-owner-scan \
-        "$owner_id" "$OWNER_SCAN_MARKER" \
-        "$(current_batch_first_started)" "$(date -u +%s)")
-    jq -cn --argjson completion "$completion" '
-        {
-            next_page: 2,
-            pages_processed: 1,
-            completed: true,
-            owner_missing: false,
-            first_page_empty: true,
-            listing_unavailable: false,
-            reconciliation: {
-                checked_count: 0,
-                absent_count: 0,
-                identity_changes: [],
-                removed: $completion.removed,
-                pending_count: $completion.pending_count,
-                pending: $completion.pending,
-                retry_after: $completion.retry_after
-            }
-        }
-    '
-}
-
 test_discovered_second_hop_org_survives_owner_admission() {
     local admitted
 
@@ -211,180 +185,39 @@ test_page_package_reports_unavailable_listing_for_existing_owner() {
         fail "Expected a bounded unavailable-listing diagnostic"
 }
 
-test_partial_owner_refresh_uses_known_package_identity() {
-    local captured="$workdir/refreshed-package"
-    local today
-    local yesterday
-
-    setup_discovery_fixture
-    init_bkg_state
-    BKG_INDEX_DB="$workdir/partial-owner.db"
-    today=$(date -u +%Y-%m-%d)
-    yesterday=$(date -u -d yesterday +%Y-%m-%d)
-    BKG_BATCH_FIRST_STARTED=$today
-    set_BKG BKG_BATCH_FIRST_STARTED "$today"
-    set_BKG BKG_BATCH_MARKER test-batch
-    sqlite_ensure_index_schema >/dev/null
-    command sqlite3 "$BKG_INDEX_DB" "
-        insert into '$BKG_INDEX_TBL_PKG' (
-            owner_id, owner_type, package_type, owner, repo, package,
-            downloads, downloads_month, downloads_week, downloads_day,
-            size, date
-        ) values
-            ('556677', 'orgs', 'container', 'KnownOwner', 'FreshRepo', 'fresh', 1, 1, 1, 1, 1, '$today'),
-            ('556677', 'orgs', 'container', 'KnownOwner', 'StaleRepo', 'stale', 1, 1, 1, 1, 1, '$yesterday');
-    "
-
-    pushd "$workdir" >/dev/null
-    printf '%s\n' "556677|KnownOwner|FreshRepo|fresh|$today" >packages_already_updated
-
-    curl() {
-        printf '%s\n' '<a href="/orgs/KnownOwner/people">people</a>'
-    }
-
-    owner_refresh_packages() {
-        printf '%s\n' "$1" >"$captured"
-        command sqlite3 "$BKG_INDEX_DB" "
-            update '$BKG_INDEX_TBL_PKG'
-            set date = '$today'
-            where owner_id = '556677' and package = 'stale';
-        "
-    }
-
-    owner_repo_names_from_db() {
-        :
-    }
-
-    update_owner '556677/KnownOwner' >/dev/null || fail "Expected partial owner refresh to complete"
-    popd >/dev/null
-
-    [ "$(cat "$captured")" = 'container/StaleRepo/stale' ] || fail "Expected partial refresh to use the stored repository identity"
-}
-
-test_unresolved_partial_owner_refresh_reconciles_complete_listing() {
-    local today
-    local yesterday
-
-    setup_discovery_fixture
-    init_bkg_state
-    BKG_INDEX_DB="$workdir/partial-owner-reconcile.db"
-    today=$(date -u +%Y-%m-%d)
-    yesterday=$(date -u -d yesterday +%Y-%m-%d)
-    BKG_BATCH_FIRST_STARTED=$today
-    set_BKG BKG_BATCH_FIRST_STARTED "$today"
-    set_BKG BKG_BATCH_MARKER test-batch
-    sqlite_ensure_index_schema >/dev/null
-    command sqlite3 "$BKG_INDEX_DB" "
-        insert into '$BKG_INDEX_TBL_PKG' (
-            owner_id, owner_type, package_type, owner, repo, package,
-            downloads, downloads_month, downloads_week, downloads_day,
-            size, date
-        ) values
-            ('556677', 'orgs', 'container', 'KnownOwner', 'FreshRepo', 'fresh', 1, 1, 1, 1, 1, '$today'),
-            ('556677', 'orgs', 'container', 'KnownOwner', 'DeletedRepo', 'deleted', 1, 1, 1, 1, 1, '$yesterday');
-    "
-
-    pushd "$workdir" >/dev/null
-    printf '%s\n' "556677|KnownOwner|FreshRepo|fresh|$today" >packages_already_updated
-
-    curl() {
-        printf '%s\n' '<a href="/orgs/KnownOwner/people">people</a>'
-    }
-
-    owner_refresh_packages() {
-        :
-    }
-
-    owner_scan_pages() {
-        OWNER_SCAN_PAGES_RESULT=$(stub_completed_owner_scan_result)
-    }
-
-    owner_scan_verify_missing_packages() {
-        :
-    }
-
-    owner_repo_names_from_db() {
-        :
-    }
-
-    update_owner '556677/KnownOwner' >/dev/null || fail "Expected unresolved partial refresh to reconcile"
-    popd >/dev/null
-
-    [ "$(command sqlite3 "$BKG_INDEX_DB" "select count(*) from '$BKG_INDEX_TBL_PKG' where package = 'deleted';")" -eq 0 ] ||
-        fail "Expected a confirmed deleted package to be reconciled after direct refresh failed"
-}
-
-test_stale_owner_scan_marker_restarts_from_first_page() {
-    local marker_key
-    local observed_marker_file="$workdir/observed-marker"
-    local observed_page_file="$workdir/observed-page"
+test_update_owner_delegates_inner_lifecycle_to_python() {
+    local captured="$workdir/owner-update-args"
     local output
     local today
 
     setup_discovery_fixture
     init_bkg_state
-    BKG_INDEX_DB="$workdir/stale-owner-scan.db"
     today=$(date -u +%Y-%m-%d)
     BKG_BATCH_FIRST_STARTED=$today
     set_BKG BKG_BATCH_FIRST_STARTED "$today"
     set_BKG BKG_BATCH_MARKER test-batch
-    sqlite_ensure_index_schema >/dev/null
+    printf '%s\n' KnownOwner >"$BKG_OWNERS"
 
     pushd "$workdir" >/dev/null
-    : >packages_already_updated
-    owner_id=556677
-    marker_key=BKG_OWNER_SCAN_"$owner_id"
-    set_BKG "$marker_key" stale-marker
-    set_BKG BKG_PAGE_"$owner_id" 7
 
     curl() {
         printf '%s\n' '<a href="/orgs/KnownOwner/people">people</a>'
     }
 
-    owner_scan_pages() {
-        [ "$1" = "1" ] || fail "Expected stale owner scan to restart at page 1"
-        [ "$OWNER_SCAN_MARKER" != "stale-marker" ] || fail "Expected stale owner scan marker to be replaced"
-        case "$OWNER_SCAN_MARKER" in
-        test-batch:556677:*) ;;
-        *) fail "Expected replacement owner scan marker to include the current batch" ;;
-        esac
-        printf '%s\n' "$OWNER_SCAN_MARKER" >"$observed_marker_file"
-        printf '%s\n' "$1" >"$observed_page_file"
-        OWNER_SCAN_PAGES_RESULT=$(stub_completed_owner_scan_result)
+    bkg_python() {
+        local result_file=${!#}
+        printf '%s|%s|%s|%s|%s|%s|%s|%s\n' \
+            "$1" "$2" "$3" "$4" "$5" "$6" "$7" "$8" >"$captured"
+        printf '%s\n' '{"outcome":"updated","next_page":0,"first_page_empty":false}' >"$result_file"
     }
 
-    run_parallel() {
-        local function_name=$1
-        local items=$2
-        local item
-
-        while IFS= read -r item; do
-            [ -n "$item" ] || continue
-            "$function_name" "$item"
-        done <<<"$items"
-    }
-
-    update_package() {
-        :
-    }
-
-    query_api_optional() {
-        printf '%s\n' null
-    }
-
-    owner_repo_names_from_db() {
-        :
-    }
-
-    output=$(update_owner '556677/KnownOwner') || fail "Expected stale owner scan restart to complete"
+    output=$(update_owner '556677/KnownOwner') || fail "Expected delegated owner update to complete"
     popd >/dev/null
 
-    grep -Fq "Discarding stale owner scan marker for KnownOwner" <<<"$output" ||
-        fail "Expected stale owner scan marker warning"
-    [ "$(cat "$observed_page_file")" = "1" ] || fail "Expected restarted scan to visit page 1"
-    [ -s "$observed_marker_file" ] || fail "Expected restarted scan to use a replacement marker"
-    [ -z "$(get_BKG BKG_PAGE_556677)" ] || fail "Expected completed scan to clear resumed page state"
-    [ -z "$(get_BKG "$marker_key")" ] || fail "Expected completed scan to clear owner scan marker"
+    [ "$(cat "$captured")" = "owner|update|556677|orgs|KnownOwner|$today|test-batch|false" ] ||
+        fail "Expected update_owner to delegate one complete lifecycle request"
+    grep -Fq "Updated KnownOwner" <<<"$output" || fail "Expected completed owner log"
+    ! grep -Fxq KnownOwner "$BKG_OWNERS" || fail "Expected completed owner to leave the manual queue"
 }
 
 test_page_owner_merges_deduplicated_api_pages() {
@@ -544,24 +377,10 @@ test_remembered_no_package_connection_owner_is_filtered_but_manual_owner_is_not(
     BKG_INDEX_DB="$workdir/no-package-owners.db"
     BKG_BATCH_FIRST_STARTED="$(date -u +%Y-%m-%d)"
     set_BKG BKG_BATCH_MARKER test-batch
-    mkdir -p "$BKG_INDEX_DIR"
-    command sqlite3 "$BKG_INDEX_DB" "create table if not exists '$BKG_INDEX_TBL_PKG' (owner_id text, owner_type text not null, package_type text not null, owner text not null, repo text not null, package text not null, downloads integer not null, downloads_month integer not null, downloads_week integer not null, downloads_day integer not null, size integer not null, date text not null, primary key (owner_id, package, date));"
-    set_BKG BKG_DISCOVERED_CONNECTION_OWNERS '4242/NoPackages'
+    sqlite_ensure_index_schema >/dev/null
+    command sqlite3 "$BKG_INDEX_DB" "insert into '$BKG_INDEX_TBL_OWN' (owner_id, owner, date) values ('4242', 'NoPackages', '$BKG_BATCH_FIRST_STARTED');"
 
     pushd "$workdir" >/dev/null
-    : >packages_already_updated
-
-    curl() {
-        printf '%s\n' '<div></div>'
-    }
-
-    owner_scan_pages() {
-        OWNER_SCAN_PAGES_RESULT=$(stub_completed_owner_scan_result)
-    }
-
-    update_owner '4242/NoPackages' >/dev/null || fail "Expected update_owner to handle owners with no packages"
-
-    [ "$(command sqlite3 "$BKG_INDEX_DB" "select count(*) from '$BKG_INDEX_TBL_OWN' where owner_id = '4242' and owner = 'NoPackages' and date = '$BKG_BATCH_FIRST_STARTED';")" = '1' ] || fail "Expected no-package owner to be remembered in the owners table for the current batch"
 
     printf '%s\n' NoPackages >"$connections"
     : >"$owners_file"
@@ -594,9 +413,7 @@ run_test test_page_package_selects_package_work
 run_test test_page_package_distinguishes_transport_failure_from_empty_listing
 run_test test_page_package_reports_confirmed_missing_owner
 run_test test_page_package_reports_unavailable_listing_for_existing_owner
-run_test test_partial_owner_refresh_uses_known_package_identity
-run_test test_unresolved_partial_owner_refresh_reconciles_complete_listing
-run_test test_stale_owner_scan_marker_restarts_from_first_page
+run_test test_update_owner_delegates_inner_lifecycle_to_python
 run_test test_page_owner_merges_deduplicated_api_pages
 run_test test_graphql_discovery_paths_avoid_html_scraping
 run_test test_curl_orgs_ignores_blank_target

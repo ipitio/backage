@@ -383,6 +383,17 @@ def _add_owner_parsers(subparsers: Any) -> None:
     )
     publish_parser.add_argument("owner_id")
     publish_parser.add_argument("owner")
+    update_parser = owner_commands.add_parser(
+        "update",
+        help="run one resumable owner update lifecycle",
+    )
+    update_parser.add_argument("owner_id")
+    update_parser.add_argument("owner_type", choices=("orgs", "users"))
+    update_parser.add_argument("owner")
+    update_parser.add_argument("since")
+    update_parser.add_argument("batch_marker")
+    update_parser.add_argument("fast_out", choices=("true", "false"))
+    update_parser.add_argument("result_file")
 
 
 def _add_snapshot_parsers(subparsers: Any) -> None:

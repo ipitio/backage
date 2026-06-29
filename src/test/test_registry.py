@@ -17,7 +17,7 @@ class _Request:
     bearer_token: str | None
 
 
-class _FakeClient:
+class _FakeClient:  # pylint: disable=too-few-public-methods
     def __init__(self, responses: dict[str, list[str | Exception]]) -> None:
         self.responses = responses
         self.requests: list[_Request] = []
@@ -30,6 +30,8 @@ class _FakeClient:
         accept: str = "text/html",
         bearer_token: str | None = None,
     ) -> str:
+        """Return the next configured response for one registry URL."""
+
         assert not authenticated
         self.requests.append(_Request(url, accept, bearer_token))
         response = self.responses[url].pop(0)

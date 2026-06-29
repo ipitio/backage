@@ -56,204 +56,10 @@ queue_owner_id() {
 	}
 }
 
-owner_is_discovered_connection() {
-	[ -n "${owner_id:-}" ] || return 1
-	[ -n "${owner:-}" ] || return 1
-	awk -F'/' -v owner_id_key="$owner_id" -v owner_key="$owner" '$1 == owner_id_key && $2 == owner_key { found = 1; exit } END { exit !found }' < <(get_BKG_set BKG_DISCOVERED_CONNECTION_OWNERS)
-}
-
-remember_scanned_owner_without_packages() {
-	local batch_first_started=""
-	local owners_table_sql
-
-	[ -n "${owner_id:-}" ] || return 0
-	[ -n "${owner:-}" ] || return 0
-	batch_first_started=$(current_batch_first_started)
-	[ -n "$batch_first_started" ] || return 0
-	owner_is_discovered_connection || return 0
-
-	sqlite_ensure_index_schema >/dev/null || return $?
-	owners_table_sql=$(sqlite_quote_identifier "$BKG_INDEX_TBL_OWN")
-	sqlite3 "$BKG_INDEX_DB" "insert or replace into $owners_table_sql (owner_id, owner, date) values ($(sqlite_quote_literal "$owner_id"), $(sqlite_quote_literal "$owner"), $(sqlite_quote_literal "$batch_first_started"));" >/dev/null
-}
-
 owner_scan_clear_legacy_state() {
 	[ -n "${owner_id:-}" ] || return 0
 	del_BKG BKG_PAGE_"$owner_id"
 	del_BKG BKG_OWNER_SCAN_"$owner_id"
-	OWNER_SCAN_MARKER=""
-}
-
-owner_scan_load_active() {
-	[ -n "${owner_id:-}" ] || return 1
-	local batch_marker
-	local result
-	batch_marker=$(get_BKG BKG_BATCH_MARKER)
-	[ -n "$batch_marker" ] || return 1
-	result=$(bkg_python package active-scan "$owner_id" "$batch_marker") || return $?
-	OWNER_SCAN_START_PAGE=$(jq -r '.next_page // empty' <<<"$result") || return 1
-	if [ "$(jq -r '.discarded_legacy' <<<"$result")" = true ]; then
-		echo "Discarding stale owner scan marker for $owner; database state is authoritative"
-	fi
-}
-
-owner_scan_begin() {
-	[ -n "${owner_id:-}" ] || return 1
-	[ -n "${owner:-}" ] || return 1
-	local batch_marker
-	local result
-	local started_at
-
-	batch_marker=$(get_BKG BKG_BATCH_MARKER)
-	[ -n "$batch_marker" ] || return 1
-	started_at=$(date -u +%s)
-	result=$(bkg_python package begin-scan \
-		"$owner_id" "$owner" "$batch_marker" "$started_at") || return $?
-	if [ "$(jq -r '.discarded_legacy' <<<"$result")" = true ]; then
-		echo "Discarding stale owner scan marker for $owner; database state is authoritative"
-	fi
-	OWNER_SCAN_MARKER=$(jq -r '.marker' <<<"$result") || return 1
-	start_page=$(jq -r '.next_page' <<<"$result") || return 1
-	[ -n "$OWNER_SCAN_MARKER" ] || return 1
-	[[ "$start_page" =~ ^[1-9][0-9]*$ ]] || return 1
-}
-
-owner_scan_fail() {
-	[ -n "${owner_id:-}" ] || return 1
-	[ -n "${owner:-}" ] || return 1
-	local error=${1:-owner scan failed}
-	local marker=${OWNER_SCAN_MARKER:--}
-	local retry_after
-
-	retry_after=$(bkg_python database fail-owner-scan \
-		"$owner_id" "$owner" "$marker" "$error" "$(date -u +%s)") || return $?
-	owner_scan_clear_legacy_state
-	echo "Deferred $owner after failed work ($error) until $(date -u -d "@$retry_after" +%Y-%m-%dT%H:%M:%SZ)"
-}
-
-owner_refresh_backoff_clear() {
-	bkg_python database clear-owner-backoff \
-		"$owner_id" "$owner" "$(date -u +%s)"
-}
-
-owner_refresh_packages() {
-	[ -n "$1" ] || return 0
-	local batch_first_started
-	batch_first_started=$(current_batch_first_started)
-	[ -n "$batch_first_started" ] || batch_first_started="0000-00-00"
-	bkg_python owner refresh-packages \
-		"$owner_id" "$owner_type" "$owner" "$batch_first_started" \
-		"${fast_out:-false}" <<<"$1"
-}
-
-OWNER_SCAN_PAGES_RESULT=""
-
-owner_scan_pages() {
-	[ -n "$1" ] || return 1
-	local result_file
-	local status=0
-	result_file=$(mktemp) || return 1
-	OWNER_SCAN_PAGES_RESULT=""
-
-	bkg_python owner scan-pages \
-		"$owner_id" "$owner_type" "$owner" "$OWNER_SCAN_MARKER" \
-		"$(current_batch_first_started)" "$1" "${fast_out:-false}" \
-		"$result_file" || status=$?
-	if ((status == 0)); then
-		OWNER_SCAN_PAGES_RESULT=$(<"$result_file")
-	fi
-	rm -f "$result_file"
-	return "$status"
-}
-
-owner_scan_verify_missing_packages() {
-	[ -n "${OWNER_SCAN_MARKER:-}" ] || return 1
-	local change_count
-	local refresh_refs
-	local result
-	local status=0
-
-	result=$(bkg_python owner verify-scan \
-		"$owner_id" "$owner" "$OWNER_SCAN_MARKER" \
-		"$(current_batch_first_started)" "$(date -u +%s)") || return $?
-	change_count=$(jq -r '.identity_changes | length' <<<"$result") || return 1
-	if ((change_count > 0)); then
-		echo "Reconciled $change_count package repository association(s) for $owner"
-	fi
-	refresh_refs=$(jq -r \
-		'.packages[] | [.package_type, .repo, .package] | join("/")' \
-		<<<"$result") || return 1
-	if [ -n "$refresh_refs" ]; then
-		owner_refresh_packages "$refresh_refs"
-		status=$?
-	fi
-
-	return "$status"
-}
-
-owner_scan_remove_reconciled_files() {
-	[ -n "$1" ] || return 0
-	local package
-	local repo
-
-	while IFS=$'\t' read -r repo package; do
-		[ -n "$repo" ] || continue
-		[ -n "$package" ] || continue
-		rm -f -- "$BKG_INDEX_DIR/$owner/$repo/$package".json*
-		rm -f -- "$BKG_INDEX_DIR/$owner/$repo/$package".xml*
-		if ! find "$BKG_INDEX_DIR/$owner/$repo" -maxdepth 1 -type f -name '*.json' ! -name '.*' -print -quit 2>/dev/null | grep -q .; then
-			rm -rf -- "${BKG_INDEX_DIR:?}/${owner:?}/${repo:?}"
-		fi
-	done <<<"$1"
-}
-
-owner_scan_complete() {
-	[ -n "${OWNER_SCAN_MARKER:-}" ] || return 1
-	local pending_count
-	local pending_summary
-	local reconciled
-	local result
-	local retry_after
-
-	result=$(bkg_python database complete-owner-scan \
-		"$owner_id" "$OWNER_SCAN_MARKER" "$(current_batch_first_started)" "$(date -u +%s)") || return $?
-	reconciled=$(jq -r '.removed[]? | [.repo, .package] | @tsv' <<<"$result")
-	owner_scan_remove_reconciled_files "$reconciled"
-	pending_count=$(jq -r '.pending_count' <<<"$result")
-	pending_summary=$(jq -r \
-		'[.pending[:10][] | (.repo + "/" + .package)] | join(", ")' \
-		<<<"$result")
-	retry_after=$(jq -r '.retry_after' <<<"$result")
-	owner_scan_clear_legacy_state
-	if ((pending_count > 0)); then
-		((pending_count <= 10)) || pending_summary+=", ..."
-		echo "Deferred $owner with $pending_count incomplete package refresh(es) ($pending_summary) until $(date -u -d "@$retry_after" +%Y-%m-%dT%H:%M:%SZ)"
-	fi
-}
-
-owner_scan_apply_result() {
-	[ -n "$1" ] || return 1
-	local pending_count
-	local pending_summary
-	local reconciliation
-	local reconciled
-	local retry_after
-
-	reconciliation=$(jq -c '.reconciliation // empty' <<<"$1") || return 1
-	[ -n "$reconciliation" ] || return 1
-	reconciled=$(jq -r '.removed[]? | [.repo, .package] | @tsv' \
-		<<<"$reconciliation") || return 1
-	owner_scan_remove_reconciled_files "$reconciled"
-	pending_count=$(jq -r '.pending_count' <<<"$reconciliation") || return 1
-	pending_summary=$(jq -r \
-		'[.pending[:10][] | (.repo + "/" + .package)] | join(", ")' \
-		<<<"$reconciliation") || return 1
-	retry_after=$(jq -r '.retry_after' <<<"$reconciliation") || return 1
-	owner_scan_clear_legacy_state
-	if ((pending_count > 0)); then
-		((pending_count <= 10)) || pending_summary+=", ..."
-		echo "Deferred $owner with $pending_count incomplete package refresh(es) ($pending_summary) until $(date -u -d "@$retry_after" +%Y-%m-%dT%H:%M:%SZ)"
-	fi
 }
 
 graphql_owner_lookup_query() {
@@ -353,95 +159,53 @@ update_owner() {
 
 	echo "Updating $owner..."
 
-	# decode percent-encoded characters and make lowercase (eg. for docker manifest)
-	# shellcheck disable=SC2034
-	lower_owner=$(perl -pe 's/%([0-9A-Fa-f]{2})/chr(hex($1))/eg' <<<"${owner//%/%25}" | tr '[:upper:]' '[:lower:]')
-	(($? != 3)) || return 3
 	[ -n "$(grep -zoP 'href="/orgs/'"$owner"'/people"' <<<"$(curl "https://github.com/orgs/$owner/people")" | tr -d '\0')" ] && export owner_type="orgs" || export owner_type="users"
-	[ -d "$BKG_INDEX_DIR/$owner" ] || mkdir "$BKG_INDEX_DIR/$owner"
-	local start_page
+	local batch_marker=""
 	local batch_first_started=""
-	local owner_scan_required=true
-	local owner_partially_updated=false
-	local pending_count=0
-	local refresh_plan=""
-	local refresh_refs=""
-	local scan_result=""
-	local scan_completed=false
-	local scan_status=0
-	local next_page=""
-	start_page=""
+	local first_page_empty=false
+	local next_page=0
+	local outcome=""
+	local result_file=""
+	local update_result=""
+	local update_status=0
 	batch_first_started=$(current_batch_first_started)
 	[ -n "$batch_first_started" ] || batch_first_started="0000-00-00"
-
-	refresh_plan=$(bkg_python owner refresh-plan \
-		"$owner_id" "$owner" "$batch_first_started") || return $?
-	owner_partially_updated=$(jq -r '.partially_updated' <<<"$refresh_plan") || return 1
-	if $owner_partially_updated; then
-		OWNER_SCAN_START_PAGE=""
-		owner_scan_load_active || return $?
-		start_page=$OWNER_SCAN_START_PAGE
+	batch_marker=$(get_BKG BKG_BATCH_MARKER)
+	[ -n "$batch_marker" ] || return 1
+	result_file=$(mktemp) || return 1
+	bkg_python owner update \
+		"$owner_id" "$owner_type" "$owner" "$batch_first_started" \
+		"$batch_marker" "${fast_out:-false}" "$result_file" || update_status=$?
+	if ((update_status == 0)); then
+		update_result=$(<"$result_file")
 	fi
+	rm -f "$result_file"
+	((update_status == 0)) || return "$update_status"
+	outcome=$(jq -r '.outcome' <<<"$update_result") || return 1
+	first_page_empty=$(jq -r '.first_page_empty' <<<"$update_result") || return 1
+	next_page=$(jq -r '.next_page' <<<"$update_result") || return 1
 
-	if $owner_partially_updated && [ -z "$start_page" ]; then
-		refresh_refs=$(jq -r \
-			'.packages[] | [.package_type, .repo, .package] | join("/")' \
-			<<<"$refresh_plan") || return 1
-		owner_refresh_packages "$refresh_refs"
-		(($? != 3)) || return 3
-		refresh_plan=$(bkg_python owner refresh-plan \
-			"$owner_id" "$owner" "$batch_first_started") || return $?
-		pending_count=$(jq -r '.pending_count' <<<"$refresh_plan") || return 1
-		if ((pending_count > 0)); then
-			echo "$owner has $pending_count unresolved package refresh(es); verifying the complete owner listing"
-		else
-			owner_refresh_backoff_clear || return $?
-			owner_scan_required=false
-		fi
+	if $first_page_empty; then
+		sed -i '/^\(.*\/\)*'"$owner"'$/d' "$BKG_OWNERS"
 	fi
-
-	if $owner_scan_required; then
-		owner_scan_begin || return $?
-
-		owner_scan_pages "$start_page"
-		scan_status=$?
-		if ((scan_status == 3)); then
-			return 3
-		elif ((scan_status != 0)); then
-			owner_scan_fail "owner scan or reconciliation pass failed" || return $?
-			return 0
-		fi
-		scan_result=$OWNER_SCAN_PAGES_RESULT
-		scan_completed=$(jq -r '.completed' <<<"$scan_result") || return 1
-		next_page=$(jq -r '.next_page' <<<"$scan_result") || return 1
-		if [ "$(jq -r '.first_page_empty' <<<"$scan_result")" = true ]; then
-			sed -i '/^\(.*\/\)*'"$owner"'$/d' "$BKG_OWNERS"
-		fi
-		if [ "$(jq -r '.owner_missing' <<<"$scan_result")" = true ]; then
-			retire_missing_owner "$owner_id/$owner" || return $?
-			owner_scan_clear_legacy_state
-			return 0
-		fi
-
-		if ! $scan_completed; then
-			echo "Paused $owner owner scan at page $next_page"
-			return 0
-		fi
-
-		owner_scan_apply_result "$scan_result" || return $?
-	fi
-
-	local owner_publication
-	local package_count
-	cleanup_generated_json_sidecars "$BKG_INDEX_DIR/$owner"
-	echo "Creating $owner arrays..."
-	check_script_timeout || return $?
-	stop_requested && return 3
-	owner_publication=$(bkg_python owner publish "$owner_id" "$owner") || return $?
-	package_count=$(jq -r '.package_count' <<<"$owner_publication") || return 1
-	if ((package_count == 0)); then
-		remember_scanned_owner_without_packages || return $?
-	fi
+	case "$outcome" in
+	missing)
+		retire_missing_owner "$owner_id/$owner" || return $?
+		return 0
+		;;
+	paused)
+		echo "Paused $owner owner scan at page $next_page"
+		return 0
+		;;
+	deferred)
+		return 0
+		;;
+	updated) ;;
+	*)
+		echo "Unknown owner update outcome for $owner: $outcome" >&2
+		return 1
+		;;
+	esac
 
 	sed -i '/^\(.*\/\)*'"$owner"'$/d' "$BKG_OWNERS"
 	echo "Updated $owner"

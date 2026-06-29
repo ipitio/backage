@@ -35,7 +35,7 @@ def _ignore_diagnostic(_message: str) -> None:
     pass
 
 
-class RegistryTextClient(Protocol):
+class RegistryTextClient(Protocol):  # pylint: disable=too-few-public-methods
     """HTTP behavior needed to retrieve GHCR tokens and manifests."""
 
     def get_text(
@@ -186,7 +186,9 @@ def _preferred_child_digest(manifest: str) -> str | None:
         return None
 
     candidates = [
-        cast(dict[str, object], item) for item in manifests if isinstance(item, dict)
+        cast(dict[str, object], item)
+        for item in cast(list[object], manifests)
+        if isinstance(item, dict)
     ]
     return (
         _first_matching_digest(
