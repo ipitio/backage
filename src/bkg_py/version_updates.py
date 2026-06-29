@@ -2,19 +2,16 @@
 
 from __future__ import annotations
 
-import re
-import threading
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from decimal import Decimal, InvalidOperation
 from urllib.parse import unquote
 
 from .concurrency import BoundedWorkerRunner
 from .database import DatabaseRepository
 from .database_models import PackageRef, VersionMetrics, VersionRecord, VersionStage
 from .github import GitHubError
-from .runtime import CommandOptions, GracefulStop, ProcessRunner
+from .runtime import GracefulStop
 from .version_ingestion import VersionCandidateLoader, VersionPageClient
 from .version_selection import (
     VersionCandidate,
@@ -30,10 +27,6 @@ from .versions import (
     package_detail_html_url,
     package_version_detail_html_url,
 )
-
-_BADGE_SIZE_PATTERN = re.compile(r">([0-9]+(?:\.[0-9]+)?)\s*([^<]*)<")
-_SIZE_PATTERN = re.compile(r"^([0-9]+(?:\.[0-9]+)?)\s*([^\s]*)$")
-_SIZE_PREFIXES = "kMGTPEZY"
 
 DiagnosticSink = Callable[[str], None]
 ManifestInspector = Callable[[str], str]
@@ -103,25 +96,6 @@ class VersionDetailExecution:
     diagnostic: DiagnosticSink = _ignore_diagnostic
 
 
-class DockerManifestInspector:  # pylint: disable=too-few-public-methods
-    """Best-effort stop-aware adapter around ``docker manifest inspect``."""
-
-    def __init__(self, runner: ProcessRunner) -> None:
-        self.runner = runner
-
-    def __call__(self, reference: str) -> str:
-        try:
-            result = self.runner.run(
-                ("docker", "manifest", "inspect", "-v", reference),
-                options=CommandOptions(combine_output=True),
-            )
-        except OSError:
-            return ""
-        if result.returncode != 0:
-            return ""
-        return result.stdout.decode(errors="replace")
-
-
 class VersionDetailInspector:  # pylint: disable=too-few-public-methods
     """Turn one selected GitHub package version into a database record."""
 
@@ -136,8 +110,6 @@ class VersionDetailInspector:  # pylint: disable=too-few-public-methods
         self.inspect_manifest = execution.manifest_inspector
         self.authenticated = execution.authenticated
         self.diagnostic = execution.diagnostic
-        self._badge_lock = threading.Lock()
-        self._badge_size: int | None = None
 
     def inspect(self, candidate: VersionCandidate, *, today: str) -> VersionRecord:
         """Fetch and normalize one candidate's current metrics and size."""
@@ -171,9 +143,6 @@ class VersionDetailInspector:  # pylint: disable=too-few-public-methods
                 )
                 size = inspected.size
 
-            if size < 0:
-                size = self._package_badge_size()
-
         return VersionRecord(
             version_id=candidate.version_id,
             name=candidate.name,
@@ -205,17 +174,6 @@ class VersionDetailInspector:  # pylint: disable=too-few-public-methods
         package = unquote(self.context.package).lower()
         separator = "@" if version_name.startswith("sha256:") else ":"
         return f"ghcr.io/{owner}/{package}{separator}{version_name}"
-
-    def _package_badge_size(self) -> int:
-        with self._badge_lock:
-            if self._badge_size is not None:
-                return self._badge_size
-            context = self.context
-            html = self._get_optional_text(
-                f"https://ghcr-badge.egpl.dev/{context.owner}/{context.package}/size"
-            )
-            self._badge_size = parse_badge_size(html)
-            return self._badge_size
 
     def _report_manifest_fallback(
         self,
@@ -317,44 +275,6 @@ class VersionRefreshService:  # pylint: disable=too-few-public-methods
             raise VersionRefreshError(f"version detail update failed: {message}")
 
         return VersionRefreshResult(selection, records_written)
-
-
-def parse_size_value(value: str) -> int:
-    """Convert the human-readable size forms accepted by the shell fallback."""
-
-    match = _SIZE_PATTERN.fullmatch(value.strip())
-    if match is None:
-        return -1
-    try:
-        size = Decimal(match.group(1))
-    except InvalidOperation:
-        return -1
-
-    unit = match.group(2)
-    if unit:
-        prefix = unit[0]
-        exponent = _SIZE_PREFIXES.find(prefix) + 1
-        if exponent > 0:
-            if unit.endswith("iB"):
-                multiplier = 1024
-            elif unit.endswith("B"):
-                multiplier = 1000
-            elif unit.endswith("b"):
-                multiplier = 125
-            else:
-                multiplier = 1024
-            size *= Decimal(multiplier) ** exponent
-    return int(size)
-
-
-def parse_badge_size(html: str) -> int:
-    """Return the final numeric size advertised by a ghcr-badge response."""
-
-    matches = _BADGE_SIZE_PATTERN.findall(html)
-    if not matches:
-        return -1
-    number, unit = matches[-1]
-    return parse_size_value(f"{number} {unit.strip()}")
 
 
 def _unique_nonempty(values: tuple[str, ...]) -> tuple[str, ...]:

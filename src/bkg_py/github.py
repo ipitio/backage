@@ -69,6 +69,10 @@ class GitHubTransportError(GitHubError):
 class GitHubResponseError(GitHubError):
     """GitHub returned a non-success response."""
 
+    def __init__(self, message: str, *, status_code: int | None = None) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+
 
 class GitHubNotFoundError(GitHubResponseError):
     """GitHub reported that the requested resource does not exist."""
@@ -273,6 +277,7 @@ class GitHubClient:
         *,
         authenticated: bool = False,
         accept: str = "text/html",
+        bearer_token: str | None = None,
     ) -> str:
         """Request one text resource through the shared retry policy."""
 
@@ -286,6 +291,7 @@ class GitHubClient:
                         authenticated=authenticated,
                         accept=accept,
                         api_version=False,
+                        bearer_token=bearer_token,
                     ),
                     timeout=self._timeout(self._remaining(deadline)),
                 )
@@ -441,6 +447,7 @@ class GitHubClient:
         authenticated: bool,
         accept: str = "application/vnd.github+json",
         api_version: bool = True,
+        bearer_token: str | None = None,
     ) -> dict[str, str]:
         headers = {
             "Accept": accept,
@@ -448,7 +455,9 @@ class GitHubClient:
         }
         if api_version:
             headers["X-GitHub-Api-Version"] = "2022-11-28"
-        if authenticated and self.settings.token:
+        if bearer_token is not None:
+            headers["Authorization"] = f"Bearer {bearer_token}"
+        elif authenticated and self.settings.token:
             headers["Authorization"] = f"Bearer {self.settings.token}"
         return headers
 
@@ -505,7 +514,8 @@ class GitHubClient:
             self._redact(
                 f"GitHub returned HTTP {response.status_code} for "
                 f"{response.request.method} {response.request.url}{detail}"
-            )
+            ),
+            status_code=response.status_code,
         )
 
     def _raise_for_graphql_errors(self, value: object) -> None:

@@ -3,17 +3,24 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Protocol, cast
 from urllib.parse import quote
 
 from .database import DatabaseRepository
 from .database_models import (
     OwnerScanPackage,
+    OwnerScanResult,
     OwnerScanWorkSelection,
     PackageRef,
 )
 from .github import GitHubJsonResponse
+from .owner_package_updates import OwnerPackageRefreshService
+from .owner_scan_pages import (
+    OwnerScanPageService,
+    OwnerScanPagesRequest,
+    OwnerScanPagesResult,
+)
 
 StopCheck = Callable[[], None]
 
@@ -60,6 +67,22 @@ class OwnerScanVerificationResult:
     packages: tuple[OwnerScanPackage, ...]
     work: tuple[OwnerScanPackage, ...]
     changes: tuple[OwnerScanIdentityChange, ...]
+
+
+@dataclass(frozen=True)
+class OwnerScanReconciliation:
+    """Verification and database completion for one fully listed owner."""
+
+    verification: OwnerScanVerificationResult
+    completion: OwnerScanResult
+
+
+@dataclass(frozen=True)
+class OwnerScanOutcome:
+    """Page progress and optional reconciliation from one owner scan pass."""
+
+    pages: OwnerScanPagesResult
+    reconciliation: OwnerScanReconciliation | None = None
 
 
 @dataclass(frozen=True)
@@ -160,6 +183,63 @@ class OwnerScanVerificationService:  # pylint: disable=too-few-public-methods
             else None
         )
         return _PackageVerification(canonical, change)
+
+
+class OwnerScanService:  # pylint: disable=too-few-public-methods
+    """Run owner pages through verification and transactional completion."""
+
+    def __init__(
+        self,
+        repository: DatabaseRepository,
+        client: OwnerVerificationClient,
+        pages: OwnerScanPageService,
+        package_refresh: OwnerPackageRefreshService,
+    ) -> None:
+        self.repository = repository
+        self.client = client
+        self.pages = pages
+        self.package_refresh = package_refresh
+
+    def scan(self, request: OwnerScanPagesRequest) -> OwnerScanOutcome:
+        """Run one bounded pass and reconcile only after its final page."""
+
+        pages = self.pages.scan(request)
+        if not pages.completed or pages.owner_missing:
+            return OwnerScanOutcome(pages)
+
+        refresh_request = request.package_refresh
+        execution = self.pages.execution
+        verification = OwnerScanVerificationService(
+            self.repository,
+            self.client,
+            execution.check_stop,
+        ).verify(
+            OwnerScanVerificationRequest(
+                refresh_request.owner_id,
+                refresh_request.owner,
+                request.marker,
+                refresh_request.since,
+                execution.now(),
+            )
+        )
+        if verification.changes:
+            execution.progress(
+                f"Reconciled {len(verification.changes)} package repository "
+                f"association(s) for {refresh_request.owner}"
+            )
+        self.package_refresh.refresh(
+            replace(refresh_request, packages=verification.work)
+        )
+        completion = self.repository.complete_owner_scan(
+            refresh_request.owner_id,
+            request.marker,
+            refresh_request.since,
+            execution.now(),
+        )
+        return OwnerScanOutcome(
+            pages,
+            OwnerScanReconciliation(verification, completion),
+        )
 
 
 def _group_package_aliases(

@@ -26,6 +26,7 @@ from bkg_py.owner_scan_pages import (
     OwnerScanPagesRequest,
     OwnerScanPagesResult,
 )
+from bkg_py.owner_updates import OwnerScanService
 from bkg_py.package_updates import (
     PackageRefreshError,
     PackageRefreshExecution,
@@ -222,6 +223,15 @@ def test_owner_page_service_advances_multiple_pages_with_one_client(
         "package",
     )
     repository.write_package(PackageRecord(package, 1, 1, 1, 1, 1, "2026-06-28"))
+    departed = PackageRef(
+        "42",
+        "orgs",
+        "container",
+        "example",
+        "old-repo",
+        "departed",
+    )
+    repository.write_package(PackageRecord(departed, 1, 1, 1, 1, 1, "2026-06-27"))
     marker = "batch-1:42:100"
     repository.begin_owner_scan("42", "example", marker, 100)
     first_url = (
@@ -231,6 +241,7 @@ def test_owner_page_service_advances_multiple_pages_with_one_client(
         "https://github.com/orgs/example/packages?visibility=public&per_page=100&page=2"
     )
     client = FakeGitHubClient(
+        rest_values={"orgs/example/packages/container/departed": None},
         text_values={
             first_url: """
                 <a href="/orgs/example/packages/container/package/package">pkg</a>
@@ -238,7 +249,7 @@ def test_owner_page_service_advances_multiple_pages_with_one_client(
                 <a rel="next" href="?page=2">next</a>
             """,
             second_url: "<div></div>",
-        }
+        },
     )
     progress: list[str] = []
     refresh_request = OwnerPackageRefreshRequest(
@@ -250,21 +261,28 @@ def test_owner_page_service_advances_multiple_pages_with_one_client(
         tmp_path / "index",
         PackageRefreshPolicy(True, True, False, 0),
     )
-    timestamps = iter((101, 102, 103, 104))
+    timestamps = iter((101, 102, 103, 104, 105, 106))
 
-    result = OwnerScanPageService(
+    package_refresh = OwnerPackageRefreshService(
         repository,
         client,
-        OwnerPackageRefreshService(
-            repository,
-            client,
-            _execution(tmp_path, progress, []),
-        ),
+        _execution(tmp_path, progress, []),
+    )
+    pages = OwnerScanPageService(
+        repository,
+        client,
+        package_refresh,
         OwnerScanPageExecution(
             lambda: None,
             progress.append,
             now=lambda: next(timestamps),
         ),
+    )
+    result = OwnerScanService(
+        repository,
+        client,
+        pages,
+        package_refresh,
     ).scan(
         OwnerScanPagesRequest(
             "orgs",
@@ -275,11 +293,15 @@ def test_owner_page_service_advances_multiple_pages_with_one_client(
         )
     )
 
-    assert result == OwnerScanPagesResult(3, 2, completed=True)
+    assert result.pages == OwnerScanPagesResult(3, 2, completed=True)
+    assert result.reconciliation is not None
+    assert result.reconciliation.verification.checked_count == 1
+    assert result.reconciliation.completion.pending_count == 0
+    assert result.reconciliation.completion.removed == (departed,)
     assert client.text_requests == [first_url, second_url]
+    assert client.rest_requests == ["orgs/example/packages/container/departed"]
     cursor = repository.current_owner_scan("42", "batch-1")
-    assert cursor is not None
-    assert cursor.next_page == 3
+    assert cursor is None
     assert progress == [
         "Starting example page 1...",
         "Started example page 1",
@@ -334,4 +356,5 @@ def test_owner_scan_pages_cli_writes_the_shell_result(
         "owner_missing": False,
         "first_page_empty": False,
         "listing_unavailable": False,
+        "reconciliation": None,
     }

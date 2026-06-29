@@ -222,13 +222,13 @@ def test_extract_version_page_data_combines_metrics_and_manifest() -> None:
     }
 
 
-def test_manifest_size_calculates_layers_and_manifest_average() -> None:
-    """Known Docker and OCI manifest layouts keep the current size policy."""
+def test_manifest_size_calculates_resolved_layers_and_rejects_indexes() -> None:
+    """Only layer descriptors in a resolved platform manifest represent size."""
 
     assert manifest_size('{"layers":[{"size":10},{"size":25},{"size":0}]}').size == 35
-    assert (
-        manifest_size('{"manifests":[{"size":10},{"size":21},{"size":0}]}').size == 15
-    )
+    index = manifest_size('{"manifests":[{"size":10},{"size":21},{"size":0}]}')
+    assert index.size == -1
+    assert index.fallback_reason == "image index requires platform resolution"
     assert (
         manifest_size(
             '{"outer":{"layers":[{"size":4},{"size":6}]},"manifests":[{"size":100}]}'

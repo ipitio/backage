@@ -331,7 +331,7 @@ def extract_version_page_data(html: str) -> VersionPageData:
 
 
 def manifest_size(manifest: str) -> ManifestSizeResult:
-    """Calculate a container manifest size using bkg's current fallback rules."""
+    """Calculate compressed layer bytes for one resolved image manifest."""
 
     if not manifest:
         return ManifestSizeResult(size=-1)
@@ -350,10 +350,11 @@ def manifest_size(manifest: str) -> ManifestSizeResult:
     if layer_sizes or (_has_array(data, "layers") and not layer_items):
         return ManifestSizeResult(size=math.floor(sum(layer_sizes)))
 
-    manifest_sizes = tuple(_positive_sizes(_array_items(data, "manifests")))
-    if manifest_sizes:
+    if _has_array(data, "manifests"):
         return ManifestSizeResult(
-            size=math.floor(sum(manifest_sizes) / len(manifest_sizes))
+            size=-1,
+            fallback_reason="image index requires platform resolution",
+            diagnostic_summary=_shape_summary(data),
         )
 
     return ManifestSizeResult(
@@ -428,18 +429,6 @@ def _nonnegative_sizes(items: Iterator[object]) -> Iterator[float]:
         if isinstance(size, bool) or not isinstance(size, int | float):
             continue
         if size >= 0:
-            yield float(size)
-
-
-def _positive_sizes(items: Iterator[object]) -> Iterator[float]:
-    for item in items:
-        mapping = _as_dict(item)
-        if mapping is None:
-            continue
-        size = mapping.get("size")
-        if isinstance(size, bool) or not isinstance(size, int | float):
-            continue
-        if size > 0:
             yield float(size)
 
 

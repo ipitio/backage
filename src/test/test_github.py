@@ -22,6 +22,7 @@ from bkg_py.runtime import GracefulStop
 from bkg_py.state import StateStore
 
 TEST_TOKEN = "github_pat_secret"
+TEST_REGISTRY_TOKEN = "registry-token"
 
 
 def _settings(**overrides: object) -> GitHubSettings:
@@ -120,6 +121,28 @@ def test_text_request_retries_without_api_headers_or_accounting(
     assert state.get_int("BKG_CALLS_TO_API") == 0
 
 
+def test_text_request_accepts_an_explicit_registry_bearer_token() -> None:
+    """Non-API text requests can use a short-lived registry pull token."""
+
+    def respond(request: httpx.Request) -> httpx.Response:
+        assert request.url == "https://ghcr.io/v2/example/pkg/manifests/latest"
+        assert request.headers["authorization"] == f"Bearer {TEST_REGISTRY_TOKEN}"
+        assert request.headers["accept"] == "application/vnd.oci.image.manifest.v1+json"
+        assert "x-github-api-version" not in request.headers
+        return httpx.Response(200, text='{"layers":[]}')
+
+    client = _client(httpx.MockTransport(respond))
+
+    assert (
+        client.get_text(
+            "https://ghcr.io/v2/example/pkg/manifests/latest",
+            accept="application/vnd.oci.image.manifest.v1+json",
+            bearer_token=TEST_REGISTRY_TOKEN,
+        )
+        == '{"layers":[]}'
+    )
+
+
 def test_graphql_injects_and_accounts_for_reported_rate_cost(
     tmp_path: Path,
 ) -> None:
@@ -199,8 +222,9 @@ def test_optional_rest_returns_none_only_for_not_found() -> None:
     client = _client(httpx.MockTransport(lambda _request: httpx.Response(404, json={})))
 
     assert client.rest_json_optional("users/missing") is None
-    with pytest.raises(GitHubResponseError, match="HTTP 404"):
+    with pytest.raises(GitHubResponseError, match="HTTP 404") as captured:
         client.rest_json("users/missing")
+    assert captured.value.status_code == 404
 
 
 def test_graphql_errors_are_not_treated_as_missing_data() -> None:

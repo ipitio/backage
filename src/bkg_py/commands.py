@@ -734,7 +734,7 @@ def _run_version(args: argparse.Namespace) -> ExitStatus:
         if result.fallback_reason is not None:
             summary = result.diagnostic_summary or 'sample="<empty>"'
             print(
-                "Docker manifest size fallback for "
+                "Container manifest size fallback for "
                 f"{_manifest_size_context(args.context)}: "
                 f"{result.fallback_reason}; {summary}",
                 file=sys.stderr,
@@ -756,15 +756,18 @@ def _run_version_refresh(
 ) -> ExitStatus:
     from .database import DatabaseError
     from .github import GitHubError
+    from .registry import GHCRManifestInspector
     from .runtime import GracefulStop
     from .version_ingestion import VersionIngestionError
     from .version_updates import (
-        DockerManifestInspector,
         VersionRefreshError,
         VersionRefreshExecution,
         VersionRefreshRequest,
         VersionRefreshService,
     )
+
+    def diagnostic(message: str) -> None:
+        print(message, file=sys.stderr)
 
     try:
         with application.stop.signal_handlers(), application.github_client() as client:
@@ -773,8 +776,8 @@ def _run_version_refresh(
                 client,
                 VersionRefreshExecution(
                     application.worker_runner,
-                    DockerManifestInspector(application.process_runner),
-                    diagnostic=lambda message: print(message, file=sys.stderr),
+                    GHCRManifestInspector(client, diagnostic=diagnostic),
+                    diagnostic=diagnostic,
                 ),
             ).refresh(
                 VersionRefreshRequest(

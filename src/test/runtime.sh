@@ -108,88 +108,6 @@ test_background_job_running_ignores_completed_unreaped_child() {
 	wait "$pid"
 }
 
-test_docker_manifest_size_logs_actionable_fallbacks() {
-	local output_file="$workdir/manifest-size.out"
-	local stderr_file="$workdir/manifest-size.err"
-	local status=0
-
-	docker_manifest_size "" "alpha/pkg/empty embedded" >"$output_file" 2>"$stderr_file" || status=$?
-	[ "$status" -eq 0 ] || fail "Expected empty manifest size probing to remain non-fatal"
-	[ "$(cat "$output_file")" = "-1" ] || fail "Expected empty manifest size to fall back to -1"
-	[ ! -s "$stderr_file" ] || fail "Expected absent embedded manifest probes to stay quiet"
-
-	docker_manifest_size $'{"layers":[{"size":10}],"bad":"raw \001 control"}' "alpha/pkg/1 embedded manifest" >"$output_file" 2>"$stderr_file" || status=$?
-
-	[ "$status" -eq 0 ] || fail "Expected malformed manifest size probing to remain a non-fatal fallback"
-	[ "$(cat "$output_file")" = "-1" ] || fail "Expected malformed manifest size to fall back to -1"
-	assert_contains "$stderr_file" "Docker manifest size fallback for alpha/pkg/1 embedded manifest: malformed JSON"
-	assert_contains "$stderr_file" "sample="
-	assert_not_contains "$stderr_file" "jq: parse error"
-	if LC_ALL=C grep -q $'\001' "$stderr_file"; then
-		fail "Expected malformed manifest diagnostics to escape raw control characters"
-	fi
-
-	docker_manifest_size '{"mediaType":"application/vnd.oci.image.manifest.v1+json","schemaVersion":2,"config":{"size":99}}' "alpha/pkg/2 embedded manifest" >"$output_file" 2>"$stderr_file" || status=$?
-
-	[ "$status" -eq 0 ] || fail "Expected unsupported manifest size probing to remain a non-fatal fallback"
-	[ "$(cat "$output_file")" = "-1" ] || fail "Expected unsupported manifest size to fall back to -1"
-	assert_contains "$stderr_file" "Docker manifest size fallback for alpha/pkg/2 embedded manifest: unsupported shape"
-	assert_contains "$stderr_file" "json_type=object"
-	assert_contains "$stderr_file" "mediaTypes=application/vnd.oci.image.manifest.v1+json"
-	assert_contains "$stderr_file" "layerEntries=0"
-	assert_contains "$stderr_file" "manifestEntries=0"
-	assert_contains "$stderr_file" "positiveSizeFields=1"
-}
-
-test_docker_manifest_size_calculates_layers_and_manifest_average() {
-	local layers_size
-	local empty_layers_size
-	local manifest_average_size
-
-	layers_size=$(docker_manifest_size '{"layers":[{"size":10},{"size":25},{"size":0}]}')
-	empty_layers_size=$(docker_manifest_size '{"SchemaV2Manifest":{"config":{"size":229},"layers":[]}}')
-	manifest_average_size=$(docker_manifest_size '{"manifests":[{"size":10},{"size":21},{"size":0}]}')
-
-	[ "$layers_size" = "35" ] || fail "Expected layer manifest size to sum positive layer sizes"
-	[ "$empty_layers_size" = "0" ] || fail "Expected a valid empty layer set to have size zero"
-	[ "$manifest_average_size" = "15" ] || fail "Expected manifest-list size to average positive manifest sizes"
-}
-
-test_docker_manifest_inspect_skips_optional_command_failures() {
-	local fake_bin="$workdir/fake-docker-failure-bin"
-	local fake_docker="$fake_bin/docker"
-	local no_docker_bin="$workdir/no-docker-bin"
-	local output_file="$workdir/docker-manifest-inspect.out"
-	local stderr_file="$workdir/docker-manifest-inspect.err"
-	local original_path="$PATH"
-	local status=0
-
-	mkdir -p "$no_docker_bin"
-	PATH="$no_docker_bin"
-	docker_manifest_inspect "ghcr.io/example/pkg:latest" >"$output_file" 2>"$stderr_file" || status=$?
-	PATH="$original_path"
-
-	[ "$status" -eq 0 ] || fail "Expected missing docker to be an optional fallback"
-	[ ! -s "$output_file" ] || fail "Expected missing docker to produce no manifest text"
-	[ ! -s "$stderr_file" ] || fail "Expected missing docker to stay quiet"
-
-	mkdir -p "$fake_bin"
-	cat >"$fake_docker" <<'EOF'
-#!/bin/bash
-echo "docker failed" >&2
-exit 125
-EOF
-	chmod +x "$fake_docker"
-
-	PATH="$fake_bin:$original_path"
-	docker_manifest_inspect "ghcr.io/example/pkg:latest" >"$output_file" 2>"$stderr_file" || status=$?
-	PATH="$original_path"
-
-	[ "$status" -eq 0 ] || fail "Expected failed docker inspect to be an optional fallback"
-	[ ! -s "$output_file" ] || fail "Expected failed docker inspect to produce no manifest text"
-	[ ! -s "$stderr_file" ] || fail "Expected failed docker inspect to stay quiet"
-}
-
 test_cleanup_generated_json_sidecars_removes_adaptive_retry_artifacts() {
 	local sidecar_dir="$workdir/sidecar-cleanup"
 
@@ -1201,9 +1119,6 @@ run_test test_sqlite_ensure_index_schema_adds_query_indexes
 run_test test_batch_reset_uses_explicit_progress_only
 run_test test_sqlite_numeric_version_ids_use_builtin_glob
 run_test test_background_job_running_ignores_completed_unreaped_child
-run_test test_docker_manifest_size_logs_actionable_fallbacks
-run_test test_docker_manifest_size_calculates_layers_and_manifest_average
-run_test test_docker_manifest_inspect_skips_optional_command_failures
 run_test test_cleanup_generated_json_sidecars_removes_adaptive_retry_artifacts
 run_test test_cleanup_generated_json_sidecars_ignores_racy_missing_files
 run_test test_drop_replaced_legacy_version_tables_keeps_unreplaced_fallbacks

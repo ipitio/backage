@@ -43,6 +43,32 @@ setup_discovery_fixture() {
     git -C "$index_repo" commit -qm init
 }
 
+stub_completed_owner_scan_result() {
+    local completion
+    completion=$(bkg_python database complete-owner-scan \
+        "$owner_id" "$OWNER_SCAN_MARKER" \
+        "$(current_batch_first_started)" "$(date -u +%s)")
+    jq -cn --argjson completion "$completion" '
+        {
+            next_page: 2,
+            pages_processed: 1,
+            completed: true,
+            owner_missing: false,
+            first_page_empty: true,
+            listing_unavailable: false,
+            reconciliation: {
+                checked_count: 0,
+                absent_count: 0,
+                identity_changes: [],
+                removed: $completion.removed,
+                pending_count: $completion.pending_count,
+                pending: $completion.pending,
+                retry_after: $completion.retry_after
+            }
+        }
+    '
+}
+
 test_discovered_second_hop_org_survives_owner_admission() {
     local admitted
 
@@ -270,7 +296,7 @@ test_unresolved_partial_owner_refresh_reconciles_complete_listing() {
     }
 
     owner_scan_pages() {
-        OWNER_SCAN_PAGES_RESULT='{"next_page":2,"pages_processed":1,"completed":true,"owner_missing":false,"first_page_empty":true,"listing_unavailable":false}'
+        OWNER_SCAN_PAGES_RESULT=$(stub_completed_owner_scan_result)
     }
 
     owner_scan_verify_missing_packages() {
@@ -324,7 +350,7 @@ test_stale_owner_scan_marker_restarts_from_first_page() {
         esac
         printf '%s\n' "$OWNER_SCAN_MARKER" >"$observed_marker_file"
         printf '%s\n' "$1" >"$observed_page_file"
-        OWNER_SCAN_PAGES_RESULT='{"next_page":2,"pages_processed":1,"completed":true,"owner_missing":false,"first_page_empty":true,"listing_unavailable":false}'
+        OWNER_SCAN_PAGES_RESULT=$(stub_completed_owner_scan_result)
     }
 
     run_parallel() {
@@ -530,7 +556,7 @@ test_remembered_no_package_connection_owner_is_filtered_but_manual_owner_is_not(
     }
 
     owner_scan_pages() {
-        OWNER_SCAN_PAGES_RESULT='{"next_page":2,"pages_processed":1,"completed":true,"owner_missing":false,"first_page_empty":true,"listing_unavailable":false}'
+        OWNER_SCAN_PAGES_RESULT=$(stub_completed_owner_scan_result)
     }
 
     update_owner '4242/NoPackages' >/dev/null || fail "Expected update_owner to handle owners with no packages"

@@ -377,6 +377,12 @@ def _add_owner_parsers(subparsers: Any) -> None:
     verify_parser.add_argument("marker")
     verify_parser.add_argument("since")
     verify_parser.add_argument("observed_at", type=int)
+    publish_parser = owner_commands.add_parser(
+        "publish",
+        help="publish owner and repository aggregates from the database",
+    )
+    publish_parser.add_argument("owner_id")
+    publish_parser.add_argument("owner")
 
 
 def _add_snapshot_parsers(subparsers: Any) -> None:

@@ -31,6 +31,7 @@ from .package_discovery import (
 )
 from .package_updates import PackageRefreshError
 from .publication import PublicationError
+from .registry import GHCRManifestInspector
 from .result import ExitStatus
 from .runtime import GracefulStop
 from .state import StateValueError
@@ -331,6 +332,10 @@ def _execute_package_refresh(
 ) -> PackageRefreshResult:
     package = _package_ref(args)
     destination = index_dir / package.owner / package.repo / f"{package.package}.json"
+
+    def diagnostic(message: str) -> None:
+        print(message, file=sys.stderr)
+
     with application.stop.signal_handlers(), application.github_client() as client:
         return package_updates.PackageRefreshService(
             application.database,
@@ -338,8 +343,8 @@ def _execute_package_refresh(
             package_updates.PackageRefreshExecution(
                 version=version_updates.VersionRefreshExecution(
                     application.worker_runner,
-                    version_updates.DockerManifestInspector(application.process_runner),
-                    diagnostic=lambda message: print(message, file=sys.stderr),
+                    GHCRManifestInspector(client, diagnostic=diagnostic),
+                    diagnostic=diagnostic,
                 ),
                 selection=application.version_selection_settings,
                 publication_limits=application.publication_limits,

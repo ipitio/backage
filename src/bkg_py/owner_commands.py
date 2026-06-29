@@ -19,27 +19,36 @@ from .owner_package_updates import (
     OwnerPackageRefreshRequest,
     OwnerPackageRefreshService,
 )
+from .owner_publication import (
+    OwnerPublicationRequest,
+    OwnerPublicationResult,
+    OwnerPublicationService,
+)
 from .owner_scan_pages import (
     OwnerScanPageError,
     OwnerScanPageExecution,
     OwnerScanPageService,
     OwnerScanPagesRequest,
-    OwnerScanPagesResult,
 )
 from .owner_updates import (
+    OwnerScanOutcome,
+    OwnerScanService,
     OwnerScanVerificationRequest,
     OwnerScanVerificationService,
     OwnerUpdateError,
 )
 from .package_discovery import PackageDiscoveryError
 from .package_updates import PackageRefreshExecution, PackageRefreshPolicy
+from .publication import PublicationError
+from .registry import GHCRManifestInspector
+from .rendering import RenderingError
 from .result import ExitStatus
 from .runtime import GracefulStop
-from .version_updates import DockerManifestInspector, VersionRefreshExecution
+from .version_updates import VersionRefreshExecution
 
 if TYPE_CHECKING:
     from .application import ApplicationContext
-    from .database_models import OwnerRefreshPlan
+    from .database_models import OwnerRefreshPlan, PackageRef
     from .github import GitHubClient
     from .owner_updates import OwnerScanVerificationResult
 
@@ -57,6 +66,7 @@ def run_owner(
         "refresh-plan",
         "scan-pages",
         "verify-scan",
+        "publish",
     }:
         print(f"unknown owner command: {args.owner_command}", file=sys.stderr)
         return ExitStatus.NON_FATAL
@@ -73,6 +83,8 @@ def run_owner(
                 _refresh_packages(args, application)
             elif args.owner_command == "scan-pages":
                 _scan_pages(args, application)
+            elif args.owner_command == "publish":
+                print(_publication_json(_publish_owner(args, application)))
             else:
                 with application.github_client() as client:
                     result = OwnerScanVerificationService(
@@ -101,6 +113,8 @@ def run_owner(
         OwnerScanPageError,
         OwnerUpdateError,
         PackageDiscoveryError,
+        PublicationError,
+        RenderingError,
     ) as error:
         print(error, file=sys.stderr)
         return ExitStatus.NON_FATAL
@@ -143,16 +157,23 @@ def _scan_pages(
         print(message, flush=True)
 
     with application.github_client() as client:
-        result = OwnerScanPageService(
+        package_refresh = _package_refresh_service(
+            application,
+            client,
+            progress,
+            diagnostic,
+        )
+        pages = OwnerScanPageService(
             application.database,
             client,
-            _package_refresh_service(
-                application,
-                client,
-                progress,
-                diagnostic,
-            ),
+            package_refresh,
             OwnerScanPageExecution(application.stop.check, progress),
+        )
+        result = OwnerScanService(
+            application.database,
+            client,
+            pages,
+            package_refresh,
         ).scan(
             OwnerScanPagesRequest(
                 args.owner_type,
@@ -181,7 +202,7 @@ def _package_refresh_service(
             PackageRefreshExecution(
                 VersionRefreshExecution(
                     application.worker_runner,
-                    DockerManifestInspector(application.process_runner),
+                    GHCRManifestInspector(client, diagnostic=diagnostic),
                     diagnostic=diagnostic,
                 ),
                 application.version_selection_settings,
@@ -220,6 +241,27 @@ def _package_refresh_request(
     )
 
 
+def _publish_owner(
+    args: argparse.Namespace,
+    application: ApplicationContext,
+) -> OwnerPublicationResult:
+    index_dir = application.config.index_dir
+    if index_dir is None:
+        raise OwnerUpdateError("BKG_INDEX_DIR is required")
+    return OwnerPublicationService(
+        application.database,
+        application.aggregate_settings,
+        application.publication_limits,
+        application.stop.check,
+    ).publish(
+        OwnerPublicationRequest(
+            args.owner_id,
+            args.owner,
+            Path(index_dir),
+        )
+    )
+
+
 def _package_refs(owner_type: str, value: str) -> tuple[OwnerScanPackage, ...]:
     packages: list[OwnerScanPackage] = []
     for line_number, line in enumerate(value.splitlines(), start=1):
@@ -245,6 +287,16 @@ def _refresh_plan_json(plan: OwnerRefreshPlan) -> str:
     )
 
 
+def _publication_json(result: OwnerPublicationResult) -> str:
+    return json.dumps(
+        {
+            "package_count": result.package_count,
+            "repositories": list(result.repositories),
+        },
+        separators=(",", ":"),
+    )
+
+
 def _result_json(result: OwnerScanVerificationResult) -> str:
     return json.dumps(
         {
@@ -265,15 +317,43 @@ def _result_json(result: OwnerScanVerificationResult) -> str:
     )
 
 
-def _scan_pages_json(result: OwnerScanPagesResult) -> str:
+def _scan_pages_json(result: OwnerScanOutcome) -> str:
+    pages = result.pages
+    reconciliation = result.reconciliation
     return json.dumps(
         {
-            "next_page": result.next_page,
-            "pages_processed": result.pages_processed,
-            "completed": result.completed,
-            "owner_missing": result.owner_missing,
-            "first_page_empty": result.first_page_empty,
-            "listing_unavailable": result.listing_unavailable,
+            "next_page": pages.next_page,
+            "pages_processed": pages.pages_processed,
+            "completed": pages.completed,
+            "owner_missing": pages.owner_missing,
+            "first_page_empty": pages.first_page_empty,
+            "listing_unavailable": pages.listing_unavailable,
+            "reconciliation": (
+                None
+                if reconciliation is None
+                else {
+                    "checked_count": reconciliation.verification.checked_count,
+                    "absent_count": reconciliation.verification.absent_count,
+                    "identity_changes": [
+                        {
+                            "package": change.package,
+                            "previous_repositories": list(change.previous_repositories),
+                            "repository": change.repository,
+                        }
+                        for change in reconciliation.verification.changes
+                    ],
+                    "removed": [
+                        _package_ref_value(package)
+                        for package in reconciliation.completion.removed
+                    ],
+                    "pending_count": reconciliation.completion.pending_count,
+                    "pending": [
+                        _package_value(package)
+                        for package in reconciliation.completion.pending
+                    ],
+                    "retry_after": reconciliation.completion.retry_after,
+                }
+            ),
         },
         separators=(",", ":"),
     )
@@ -283,6 +363,17 @@ def _package_value(package: OwnerScanPackage) -> dict[str, str]:
     return {
         "owner_type": package.owner_type,
         "package_type": package.package_type,
+        "repo": package.repo,
+        "package": package.package,
+    }
+
+
+def _package_ref_value(package: PackageRef) -> dict[str, str]:
+    return {
+        "owner_id": package.owner_id,
+        "owner_type": package.owner_type,
+        "package_type": package.package_type,
+        "owner": package.owner,
         "repo": package.repo,
         "package": package.package,
     }

@@ -29,8 +29,6 @@ from bkg_py.version_updates import (
     VersionRefreshExecution,
     VersionRefreshRequest,
     VersionRefreshService,
-    parse_badge_size,
-    parse_size_value,
 )
 from bkg_py.versions import VersionListingContext
 
@@ -104,17 +102,6 @@ def _api_version(version_id: int) -> dict[str, object]:
     }
 
 
-def test_size_parser_matches_shell_fallback_units() -> None:
-    """Decimal, binary, and bit-rate size suffixes retain shell behavior."""
-
-    assert parse_size_value("2 MB") == 2_000_000
-    assert parse_size_value("2 MiB") == 2_097_152
-    assert parse_size_value("8 kb") == 1_000
-    assert parse_size_value("512") == 512
-    assert parse_size_value("unknown") == -1
-    assert parse_badge_size("<b>1 kB</b><strong>2 MB</strong>") == 2_000_000
-
-
 def test_detail_inspector_uses_embedded_manifest_and_oci_label() -> None:
     """Embedded metrics, layer sizes, and an OCI label form one version row."""
 
@@ -141,15 +128,13 @@ def test_detail_inspector_uses_embedded_manifest_and_oci_label() -> None:
     assert not inspected_references
 
 
-def test_detail_inspector_uses_manifest_then_cached_badge_fallback() -> None:
-    """Unknown container sizes inspect each version but fetch one package badge."""
+def test_detail_inspector_leaves_unknown_size_after_manifest_fallbacks() -> None:
+    """Unknown container sizes do not depend on an external badge service."""
 
-    badge_url = "https://ghcr-badge.egpl.dev/Example/Nested%2FImage/size"
     client = _FakeClient(
         text_values={
             _detail_url("8"): "",
             _detail_url("9"): "",
-            badge_url: "<span>3 MB</span>",
         }
     )
     references: list[str] = []
@@ -168,32 +153,32 @@ def test_detail_inspector_uses_manifest_then_cached_badge_fallback() -> None:
         today=_TODAY,
     )
 
-    assert first.metrics.size == 3_000_000
-    assert second.metrics.size == 3_000_000
+    assert first.metrics.size == -1
+    assert second.metrics.size == -1
     assert references == [
         "ghcr.io/example/nested/image:latest",
         "ghcr.io/example/nested/image@sha256:def",
     ]
-    assert client.text_requests.count(badge_url) == 1
-    assert client.text_authentication == [True, False, True]
+    assert client.text_requests == [_detail_url("8"), _detail_url("9")]
+    assert client.text_authentication == [True, True]
 
 
-def test_detail_inspector_uses_registry_manifest_before_badge() -> None:
-    """A registry manifest supplies size without requesting the badge fallback."""
+def test_detail_inspector_uses_registry_manifest_after_page_fallback() -> None:
+    """A registry manifest supplies size after the page lacks a manifest."""
 
     client = _FakeClient(text_values={_detail_url("10"): ""})
     inspector = VersionDetailInspector(
         client,
         _CONTEXT,
         VersionDetailExecution(
-            lambda _reference: '{"manifests":[{"size":10},{"size":20}]}'
+            lambda _reference: '{"layers":[{"size":10},{"size":20}]}'
         ),
     )
 
     record = inspector.inspect(VersionCandidate("10", "stable"), today=_TODAY)
 
-    assert record.metrics.size == 15
-    assert all("ghcr-badge" not in request for request in client.text_requests)
+    assert record.metrics.size == 30
+    assert client.text_requests == [_detail_url("10")]
 
 
 def test_detail_inspector_uses_package_page_for_fallback_candidate() -> None:

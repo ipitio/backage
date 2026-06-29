@@ -1,7 +1,7 @@
 #!/bin/bash
 # Backage library
 # Usage: ./lib.sh
-# Dependencies: git curl jq parallel python3 python3-httpx sqlite3 zstd libxml2-utils docker.io
+# Dependencies: git curl jq parallel python3 python3-httpx sqlite3 zstd libxml2-utils
 # Copyright (c) ipitio
 #
 # shellcheck disable=SC1090,SC1091,SC2015,SC2034
@@ -27,7 +27,7 @@ apt_install() {
 if [ -z "${BKG_UTIL_BOOTSTRAPPED:-}" ]; then
     if [ "${BKG_SKIP_DEP_VERIFY:-0}" != "1" ]; then
         echo "Verifying dependencies..."
-        apt_install git curl jq parallel python3 python3-httpx sqlite3 zstd libxml2-utils docker.io
+        apt_install git curl jq parallel python3 python3-httpx sqlite3 zstd libxml2-utils
         echo "Dependencies verified!"
     fi
 
@@ -713,22 +713,6 @@ curl_single_attempt() {
     exec env curl -sSLNZ --connect-timeout 60 -m 120 "$@" 2>/dev/null
 }
 
-docker_manifest_inspect_once() {
-    exec env docker manifest inspect -v "$1"
-}
-
-docker_manifest_inspect() {
-    local manifest
-    local status
-
-    command -v docker >/dev/null 2>&1 || return 0
-    manifest=$(run_command_with_stop_check --combine-output docker_manifest_inspect_once "$1")
-    status=$?
-    ((status != 3)) || return 3
-    ((status == 0)) || return 0
-    echo "$manifest"
-}
-
 # shellcheck disable=SC2120
 check_limit() {
     local total_calls
@@ -1312,21 +1296,6 @@ check_db() {
             return 1
         }
     done
-}
-
-docker_manifest_size() {
-    local manifest=$1
-    local context=${2:-manifest}
-    local status=0
-
-    [ -n "$manifest" ] || {
-        echo -1
-        return 0
-    }
-
-    bkg_python version manifest-size "$context" <<<"$manifest" || status=$?
-    ((status != 3)) || return 3
-    ((status == 0)) || echo -1
 }
 
 owner_get_id() {

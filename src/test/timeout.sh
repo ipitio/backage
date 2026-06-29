@@ -21,7 +21,7 @@ test_parallel_shell_func_timeout_fallback() {
 timeout_worker() {
 	echo 'jq: parse error: Invalid string: control characters from U+0000 through U+001F must be escaped' >&2
 	echo 'GitHub operation exceeded its total timeout' >&2
-	echo 'Docker manifest size fallback for alpha/pkg/1 embedded manifest: malformed JSON; sample="{\"bad\":\"raw \\u0001 control\"}"' >&2
+	echo 'Unable to derive container size from alpha/pkg/1 embedded manifest: malformed JSON; sample="{\"bad\":\"raw \\u0001 control\"}"' >&2
 	return 3
 }
 EOF
@@ -54,7 +54,7 @@ test_parallel_shell_func_timeout_stderr_filter_keeps_manifest_diagnostics() {
 		echo 'parallel: Starting no more jobs. Waiting for 2 jobs to finish.'
 		echo 'jq: parse error: Invalid string: control characters from U+0000 through U+001F must be escaped'
 		echo 'GitHub operation exceeded its total timeout'
-		printf '%s\n' 'Docker manifest size fallback for alpha/pkg/1 embedded manifest: malformed JSON; sample="{\"bad\":\"raw \\u0001 control\"}"'
+		printf '%s\n' 'Unable to derive container size from alpha/pkg/1 embedded manifest: malformed JSON; sample="{\"bad\":\"raw \\u0001 control\"}"'
 	} >"$stderr_file"
 
 	parallel_shell_func_print_timeout_stderr "$stderr_file" >"$output_file" 2>&1
@@ -63,7 +63,7 @@ test_parallel_shell_func_timeout_stderr_filter_keeps_manifest_diagnostics() {
 	assert_not_contains "$output_file" "parallel: Starting no more jobs."
 	assert_not_contains "$output_file" "jq: parse error:"
 	assert_not_contains "$output_file" "GitHub operation exceeded its total timeout"
-	assert_contains "$output_file" "Docker manifest size fallback for alpha/pkg/1 embedded manifest: malformed JSON"
+	assert_contains "$output_file" "Unable to derive container size from alpha/pkg/1 embedded manifest: malformed JSON"
 }
 
 test_curl_stops_retrying_after_timeout() {
@@ -155,44 +155,6 @@ EOF
 	PATH="$original_path"
 	[ "$status" -eq 3 ] || fail "Expected curl wrapper to return 3 after elapsed limit preflight, got $status"
 	[ ! -f "$attempts_file" ] || fail "Expected curl wrapper to avoid starting curl after elapsed limit preflight"
-}
-
-test_docker_manifest_inspect_stops_after_timeout() {
-	local fake_bin="$workdir/fake-docker-bin"
-	local fake_docker="$fake_bin/docker"
-	local started_file="$workdir/docker-started.txt"
-	local original_path="$PATH"
-	local started_at
-	local elapsed
-	local status=0
-
-	mkdir -p "$fake_bin"
-	cat >"$fake_docker" <<'EOF'
-#!/bin/bash
-printf 'started\n' >"$TEST_DOCKER_STARTED_FILE"
-printf 'BKG_TIMEOUT=1\n' >"$BKG_ENV"
-exec sleep 30
-EOF
-	chmod +x "$fake_docker"
-
-	BKG_ENV="$workdir/env-docker.env"
-	: >"$BKG_ENV"
-	TEST_DOCKER_STARTED_FILE="$started_file"
-	export TEST_DOCKER_STARTED_FILE BKG_ENV
-	PATH="$fake_bin:$original_path"
-	started_at=$(date +%s)
-
-	if docker_manifest_inspect "ghcr.io/example/pkg:latest" >/dev/null 2>&1; then
-		fail "Expected docker_manifest_inspect to stop with status 3 after timeout"
-	else
-		status=$?
-	fi
-
-	PATH="$original_path"
-	elapsed=$(( $(date +%s) - started_at ))
-	[ "$status" -eq 3 ] || fail "Expected docker_manifest_inspect to return 3 after timeout, got $status"
-	assert_file_exists "$started_file"
-	[ "$elapsed" -lt 10 ] || fail "Expected docker_manifest_inspect to interrupt promptly after timeout"
 }
 
 test_ytoxt_stops_after_timeout() {
@@ -305,44 +267,6 @@ test_parallel_async_wait_kills_blocked_workers_after_timeout() {
 	assert_contains "$started_file" "one"
 	[ "$elapsed" -lt 10 ] || fail "Expected parallel_async_wait to terminate blocked workers promptly"
 	unset -f blocking_async_worker
-}
-
-test_owner_build_json_array_to_file_enforces_elapsed_limit() {
-	local owner_dir="$workdir/owner-array-elapsed"
-	local output_file="$workdir/owner-array-output.json"
-	local status=0
-	local started_at
-	local elapsed
-	local now
-
-	mkdir -p "$owner_dir"
-	printf '%s\n' '{"id":1,"repo":"repo-one"}' >"$owner_dir/one.json"
-	printf '%s\n' '{"id":2,"repo":"repo-two"}' >"$owner_dir/two.json"
-	printf '%s\n' '{"old":true}' >"$output_file"
-
-	now=$(date -u +%s)
-	BKG_ENV="$workdir/env-owner-array-elapsed.env"
-	: >"$BKG_ENV"
-	set_BKG BKG_SCRIPT_START "$((now - 5))"
-	set_BKG BKG_RATE_LIMIT_START "$now"
-	set_BKG BKG_MIN_RATE_LIMIT_START "$now"
-	set_BKG BKG_CALLS_TO_API 0
-	set_BKG BKG_MIN_CALLS_TO_API 0
-	set_BKG BKG_TIMEOUT 0
-	BKG_MAX_LEN=3
-	started_at=$(date +%s)
-
-	if owner_build_json_array_to_file "$owner_dir" "$output_file"; then
-		fail "Expected owner_build_json_array_to_file to enforce the elapsed timeout"
-	else
-		status=$?
-	fi
-
-	elapsed=$(( $(date +%s) - started_at ))
-	[ "$status" -eq 3 ] || fail "Expected owner_build_json_array_to_file to return 3 after elapsed timeout, got $status"
-	jq -e '.old == true' "$output_file" >/dev/null || fail "Expected an interrupted owner aggregate to preserve its prior output"
-	[ "$(get_BKG BKG_TIMEOUT)" = "1" ] || fail "Expected Python aggregate interruption to persist BKG_TIMEOUT"
-	[ "$elapsed" -lt 10 ] || fail "Expected owner aggregate rendering to stop promptly after the elapsed limit"
 }
 
 test_owner_update_wait_notice_is_throttled() {
@@ -574,12 +498,10 @@ run_test test_parallel_shell_func_timeout_fallback
 run_test test_parallel_shell_func_timeout_stderr_filter_keeps_manifest_diagnostics
 run_test test_curl_stops_retrying_after_timeout
 run_test test_curl_checks_elapsed_limit_before_successful_request
-run_test test_docker_manifest_inspect_stops_after_timeout
 run_test test_ytoxt_stops_after_timeout
 run_test test_run_parallel_kills_blocked_workers_after_timeout
 run_test test_run_parallel_enforces_elapsed_limit_for_blocked_workers
 run_test test_parallel_async_wait_kills_blocked_workers_after_timeout
-run_test test_owner_build_json_array_to_file_enforces_elapsed_limit
 run_test test_owner_update_wait_notice_is_throttled
 run_test test_owner_update_force_stop_due_after_grace_period
 run_test test_run_owner_updates_halts_on_timeout
