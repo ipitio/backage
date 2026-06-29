@@ -436,6 +436,36 @@ def owner_refresh_plan(
     return OwnerRefreshPlan(any(bool(row[6]) for row in rows), work)
 
 
+def known_owner_type(
+    connection: sqlite3.Connection,
+    packages_table: str,
+    owner_id: str,
+    owner: str,
+) -> str | None:
+    """Return one unambiguous owner type already present in durable state."""
+
+    packages = _identifier(packages_table)
+    rows = connection.execute(
+        f"""
+        select distinct owner_type
+        from (
+            select owner_type
+            from {packages}
+            where owner_id = ? and owner = ? collate nocase
+            union all
+            select observed.owner_type
+            from {_SCAN_PACKAGES} observed
+            join {_SCANS} scan on scan.owner_id = observed.owner_id
+            where observed.owner_id = ? and scan.owner = ? collate nocase
+        )
+        order by owner_type
+        """,
+        (owner_id, owner, owner_id, owner),
+    ).fetchall()
+    values = tuple(str(row[0]) for row in rows if row[0] in ("orgs", "users"))
+    return values[0] if len(values) == 1 else None
+
+
 def missing(
     connection: sqlite3.Connection,
     owner_id: str,

@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable, Collection, Iterator
 from typing import Protocol
 
-from .github import GitHubError, GitHubJsonResponse
+from .github import GitHubError, GitHubJsonResponse, GitHubTextRequestPolicy
 from .version_selection import (
     VersionCandidate,
     VersionCandidatePage,
@@ -41,6 +41,7 @@ class VersionPageClient(Protocol):
         *,
         authenticated: bool = False,
         accept: str = "text/html",
+        policy: GitHubTextRequestPolicy | None = None,
     ) -> str:
         """Request one text response."""
 

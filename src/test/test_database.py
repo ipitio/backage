@@ -115,6 +115,30 @@ def _insert_legacy(
 
 
 class TestDatabaseRepository:
+    def test_known_owner_type_uses_package_and_active_scan_state(self) -> None:
+        """Existing durable owner state avoids a repeated identity request."""
+
+        with tempfile.TemporaryDirectory() as directory:
+            repository = DatabaseRepository(
+                DatabaseSettings(Path(directory) / "index.db")
+            )
+            package = _package()
+            assert repository.known_owner_type(package.owner_id, package.owner) is None
+
+            repository.write_package(PackageRecord(package, 1, 1, 1, 1, 1, _TODAY))
+            assert (
+                repository.known_owner_type(package.owner_id, package.owner) == "orgs"
+            )
+
+            repository.begin_owner_scan("7", "ScanOnly", "scan-1", 100)
+            repository.observe_owner_scan(
+                "7",
+                "scan-1",
+                (OwnerScanPackage("users", "npm", "repo", "package"),),
+                101,
+            )
+            assert repository.known_owner_type("7", "ScanOnly") == "users"
+
     """Exercise schema, retry, transaction, fallback, and cleanup behavior."""
 
     def test_table_identifiers_are_quoted_and_nul_is_rejected(self) -> None:

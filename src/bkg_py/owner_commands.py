@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 
 from .database import DatabaseError
 from .database_models import OwnerScanFailure, OwnerScanPackage
+from .discovery import OwnerIdentityCache, OwnerIdentityResolver
 from .files import atomic_text_output
 from .github import GitHubError
 from .owner_lifecycle import (
@@ -56,6 +57,7 @@ from .version_updates import VersionRefreshExecution
 
 if TYPE_CHECKING:
     from .application import ApplicationContext
+    from .database import DatabaseRepository
     from .database_models import OwnerRefreshPlan, PackageRef
     from .github import GitHubClient
     from .owner_updates import OwnerScanVerificationResult
@@ -145,6 +147,16 @@ def _update_owner(
 
     try:
         with application.github_client() as client:
+            owner_type = _resolve_owner_api_type(
+                args.owner_id,
+                args.owner,
+                application.database,
+                OwnerIdentityResolver(
+                    OwnerIdentityCache.from_config(application.config),
+                    client,
+                ),
+                progress,
+            )
             package_refresh = _package_refresh_service(
                 application,
                 client,
@@ -177,7 +189,7 @@ def _update_owner(
                 OwnerLifecycleExecution(application.state, progress),
             ).update(
                 OwnerLifecycleRequest(
-                    args.owner_type,
+                    owner_type,
                     args.batch_marker,
                     application.config.mode,
                     _package_refresh_request(args, application, ()),
@@ -200,6 +212,27 @@ def _update_owner(
     with atomic_text_output(result_file) as output:
         output.write(_owner_lifecycle_json(result))
         output.write("\n")
+
+
+def _resolve_owner_api_type(
+    owner_id: str,
+    owner: str,
+    repository: DatabaseRepository,
+    resolver: OwnerIdentityResolver,
+    progress: Callable[[str], None],
+) -> str:
+    known_type = repository.known_owner_type(owner_id, owner)
+    if known_type is not None:
+        return known_type
+    typename = resolver.owner_type(owner)
+    if typename == "Organization":
+        return "orgs"
+    if typename == "User":
+        return "users"
+    if typename is None:
+        progress(f"Owner type unavailable for {owner}; verifying authoritative absence")
+        return "users"
+    raise OwnerUpdateError(f"unsupported GitHub owner type for {owner}: {typename}")
 
 
 def _defer_owner_update(
@@ -320,6 +353,7 @@ def _package_refresh_service(
                     application.worker_runner,
                     GHCRManifestInspector(client, diagnostic=diagnostic),
                     diagnostic=diagnostic,
+                    metric_enrichment=application.metric_enrichment,
                 ),
                 application.version_selection_settings,
                 application.publication_limits,

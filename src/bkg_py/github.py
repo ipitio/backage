@@ -148,6 +148,20 @@ class GitHubSettings:  # pylint: disable=too-many-instance-attributes
 
 
 @dataclass(frozen=True)
+class GitHubTextRequestPolicy:
+    """Per-operation retry and deadline limits for one text resource."""
+
+    total_timeout: float
+    max_attempts: int
+
+    def __post_init__(self) -> None:
+        if self.total_timeout <= 0:
+            raise ValueError("text request total timeout must be positive")
+        if self.max_attempts < 1:
+            raise ValueError("text request attempts must be positive")
+
+
+@dataclass(frozen=True)
 class GitHubRuntime:
     """Injectable runtime hooks for graceful stopping and deterministic tests."""
 
@@ -271,18 +285,25 @@ class GitHubClient:
         except GitHubNotFoundError:
             return None
 
-    def get_text(
+    def get_text(  # pylint: disable=too-many-arguments
         self,
         url: str,
         *,
         authenticated: bool = False,
         accept: str = "text/html",
         bearer_token: str | None = None,
+        policy: GitHubTextRequestPolicy | None = None,
     ) -> str:
         """Request one text resource through the shared retry policy."""
 
-        deadline = self.runtime.clock() + self.settings.total_timeout
-        for attempt in range(1, self.settings.max_attempts + 1):
+        total_timeout = (
+            self.settings.total_timeout if policy is None else policy.total_timeout
+        )
+        max_attempts = (
+            self.settings.max_attempts if policy is None else policy.max_attempts
+        )
+        deadline = self.runtime.clock() + total_timeout
+        for attempt in range(1, max_attempts + 1):
             self.runtime.check_stop()
             try:
                 response = self._client.get(
@@ -296,12 +317,12 @@ class GitHubClient:
                     timeout=self._timeout(self._remaining(deadline)),
                 )
             except httpx.TransportError as error:
-                if attempt >= self.settings.max_attempts:
+                if attempt >= max_attempts:
                     raise self._transport_error(url, error) from error
                 self._sleep_before_retry(None, attempt, deadline)
                 continue
 
-            if self._should_retry(response) and attempt < self.settings.max_attempts:
+            if self._should_retry(response) and attempt < max_attempts:
                 self._sleep_before_retry(response, attempt, deadline)
                 continue
             self._raise_for_status(response)

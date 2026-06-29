@@ -778,6 +778,7 @@ def _run_version_refresh(
                     application.worker_runner,
                     GHCRManifestInspector(client, diagnostic=diagnostic),
                     diagnostic=diagnostic,
+                    metric_enrichment=application.metric_enrichment,
                 ),
             ).refresh(
                 VersionRefreshRequest(
@@ -786,6 +787,7 @@ def _run_version_refresh(
                     _boolean_argument(args.write_legacy),
                     _boolean_argument(args.use_rest_api),
                     args.since,
+                    authenticate_html=_version_html_authentication(application),
                 ),
                 application.version_selection_settings,
             )
@@ -802,6 +804,15 @@ def _run_version_refresh(
         return ExitStatus.NON_FATAL
     _print_version_refresh_result(result)
     return ExitStatus.SUCCESS
+
+
+def _version_html_authentication(application: ApplicationContext) -> bool:
+    from .package_updates import html_authentication_required
+
+    return html_authentication_required(
+        bool(application.github_settings.token),
+        application.config.mode,
+    )
 
 
 def _print_version_refresh_result(result: VersionRefreshResult) -> None:
@@ -855,6 +866,10 @@ def _run_application_command(
         from .owner_commands import run_owner
 
         runner = run_owner
+    elif args.command == "orchestration":
+        from .orchestration_commands import run_orchestration
+
+        runner = run_orchestration
     else:
         parser.error(f"unknown command: {args.command}")
         return ExitStatus.FAILURE

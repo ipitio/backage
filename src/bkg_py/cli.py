@@ -56,7 +56,25 @@ def build_parser() -> argparse.ArgumentParser:
     _add_version_parsers(subparsers)
     _add_package_parsers(subparsers)
     _add_owner_parsers(subparsers)
+    _add_orchestration_parsers(subparsers)
     return parser
+
+
+def _add_orchestration_parsers(subparsers: Any) -> None:
+    orchestration_parser = subparsers.add_parser(
+        "orchestration",
+        help="run migrated application orchestration decisions",
+    )
+    orchestration_commands = orchestration_parser.add_subparsers(
+        dest="orchestration_command",
+        required=True,
+    )
+    begin_run_parser = orchestration_commands.add_parser(
+        "begin-run",
+        help="atomically initialize persisted state for one application run",
+    )
+    begin_run_parser.add_argument("today")
+    begin_run_parser.add_argument("started_at", type=int)
 
 
 def _add_database_parsers(subparsers: Any) -> None:
@@ -388,7 +406,6 @@ def _add_owner_parsers(subparsers: Any) -> None:
         help="run one resumable owner update lifecycle",
     )
     update_parser.add_argument("owner_id")
-    update_parser.add_argument("owner_type", choices=("orgs", "users"))
     update_parser.add_argument("owner")
     update_parser.add_argument("since")
     update_parser.add_argument("batch_marker")

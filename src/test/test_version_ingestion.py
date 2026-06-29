@@ -7,7 +7,7 @@ from collections.abc import Mapping
 import httpx
 import pytest
 
-from bkg_py.github import GitHubError, GitHubJsonResponse
+from bkg_py.github import GitHubError, GitHubJsonResponse, GitHubTextRequestPolicy
 from bkg_py.version_ingestion import (
     VersionCandidateLoader,
     VersionIngestionError,
@@ -43,11 +43,13 @@ class _FakePageClient:
         *,
         authenticated: bool = False,
         accept: str = "text/html",
+        policy: GitHubTextRequestPolicy | None = None,
     ) -> str:
         """Return one configured public HTML value or failure."""
 
         assert not authenticated
         assert accept == "text/html"
+        assert policy is None
         self.text_requests.append(url)
         value = self.text_values[url]
         if isinstance(value, Exception):

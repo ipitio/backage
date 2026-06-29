@@ -3,13 +3,20 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from threading import Lock
 from urllib.parse import unquote
 
 from .concurrency import BoundedWorkerRunner
 from .database import DatabaseRepository
 from .database_models import PackageRef, VersionMetrics, VersionRecord, VersionStage
+from .enrichment import (
+    METRIC_TEXT_REQUEST_POLICY,
+    VERSION_METRIC_SCOPE,
+    MetricEnrichmentCircuit,
+    transient_enrichment_error,
+)
 from .github import GitHubError
 from .runtime import GracefulStop
 from .version_ingestion import VersionCandidateLoader, VersionPageClient
@@ -30,6 +37,7 @@ from .versions import (
 
 DiagnosticSink = Callable[[str], None]
 ManifestInspector = Callable[[str], str]
+VersionRecordFallback = Callable[[str], VersionRecord | None]
 
 
 def _utc_today() -> str:
@@ -38,6 +46,10 @@ def _utc_today() -> str:
 
 def _ignore_diagnostic(_message: str) -> None:
     pass
+
+
+def _no_fallback_record(_version_id: str) -> VersionRecord | None:
+    return None
 
 
 class VersionRefreshError(RuntimeError):
@@ -53,6 +65,7 @@ class VersionRefreshRequest:
     write_legacy: bool
     use_rest_api: bool
     since: str = "0000-00-00"
+    authenticate_html: bool = False
     mark_publication_pending: bool = False
 
     @property
@@ -67,6 +80,33 @@ class VersionRefreshRequest:
             package_type=package.package_type,
             package=package.package,
         )
+
+
+class _LazyVersionRecordFallback:  # pylint: disable=too-few-public-methods
+    """Load latest historical version rows only after enrichment fails."""
+
+    def __init__(
+        self,
+        repository: DatabaseRepository,
+        request: VersionRefreshRequest,
+        current: tuple[VersionRecord, ...],
+    ) -> None:
+        self._repository = repository
+        self._request = request
+        self._lock = Lock()
+        self._records = (
+            _latest_version_records(current) if request.since == "0000-00-00" else None
+        )
+
+    def __call__(self, version_id: str) -> VersionRecord | None:
+        with self._lock:
+            if self._records is None:
+                source = self._repository.version_rows(
+                    self._request.package_ref,
+                    legacy_table=self._request.legacy_table,
+                )
+                self._records = _latest_version_records(source.rows)
+            return self._records.get(version_id)
 
 
 @dataclass(frozen=True)
@@ -85,6 +125,9 @@ class VersionRefreshExecution:
     manifest_inspector: ManifestInspector
     diagnostic: DiagnosticSink = _ignore_diagnostic
     today: Callable[[], str] = _utc_today
+    metric_enrichment: MetricEnrichmentCircuit = field(
+        default_factory=MetricEnrichmentCircuit
+    )
 
 
 @dataclass(frozen=True)
@@ -94,6 +137,10 @@ class VersionDetailExecution:
     manifest_inspector: ManifestInspector
     authenticated: bool = False
     diagnostic: DiagnosticSink = _ignore_diagnostic
+    metric_enrichment: MetricEnrichmentCircuit = field(
+        default_factory=MetricEnrichmentCircuit
+    )
+    fallback_record: VersionRecordFallback = _no_fallback_record
 
 
 class VersionDetailInspector:  # pylint: disable=too-few-public-methods
@@ -110,6 +157,8 @@ class VersionDetailInspector:  # pylint: disable=too-few-public-methods
         self.inspect_manifest = execution.manifest_inspector
         self.authenticated = execution.authenticated
         self.diagnostic = execution.diagnostic
+        self.metric_enrichment = execution.metric_enrichment
+        self.fallback_record = execution.fallback_record
 
     def inspect(self, candidate: VersionCandidate, *, today: str) -> VersionRecord:
         """Fetch and normalize one candidate's current metrics and size."""
@@ -118,7 +167,8 @@ class VersionDetailInspector:  # pylint: disable=too-few-public-methods
             self._detail_url(candidate.version_id),
             authenticated=self.authenticated,
         )
-        page_data = extract_version_page_data(html)
+        page_data = extract_version_page_data(html or "")
+        fallback = self.fallback_record(candidate.version_id) if html is None else None
         tags = candidate.tags
         size = -1
 
@@ -143,26 +193,71 @@ class VersionDetailInspector:  # pylint: disable=too-few-public-methods
                 )
                 size = inspected.size
 
+        if fallback is not None:
+            if size < 0:
+                size = fallback.metrics.size
+            if not tags:
+                tags = tuple(fallback.tags.split(","))
+
+        metrics = (
+            VersionMetrics(
+                size,
+                fallback.metrics.downloads,
+                fallback.metrics.downloads_month,
+                fallback.metrics.downloads_week,
+                fallback.metrics.downloads_day,
+            )
+            if fallback is not None
+            else VersionMetrics(
+                size,
+                page_data.metrics.total,
+                page_data.metrics.month,
+                page_data.metrics.week,
+                page_data.metrics.day,
+            )
+        )
+
         return VersionRecord(
             version_id=candidate.version_id,
             name=candidate.name,
-            metrics=VersionMetrics(
-                size=size,
-                downloads=page_data.metrics.total,
-                downloads_month=page_data.metrics.month,
-                downloads_week=page_data.metrics.week,
-                downloads_day=page_data.metrics.day,
-            ),
+            metrics=metrics,
             date=today,
             tags=",".join(_unique_nonempty(tags)),
         )
 
-    def _get_optional_text(self, url: str, *, authenticated: bool = False) -> str:
-        try:
-            return self.client.get_text(url, authenticated=authenticated)
-        except GitHubError as error:
-            self.diagnostic(f"Version detail request failed for {url}: {error}")
-            return ""
+    def _get_optional_text(
+        self,
+        url: str,
+        *,
+        authenticated: bool = False,
+    ) -> str | None:
+        with self.metric_enrichment.request(VERSION_METRIC_SCOPE) as enabled:
+            if not enabled:
+                return None
+            try:
+                html = self.client.get_text(
+                    url,
+                    authenticated=authenticated,
+                    policy=METRIC_TEXT_REQUEST_POLICY,
+                )
+            except GitHubError as error:
+                cooldown = None
+                if transient_enrichment_error(error):
+                    cooldown = self.metric_enrichment.record_transient_failure(
+                        VERSION_METRIC_SCOPE
+                    )
+                else:
+                    self.metric_enrichment.record_success(VERSION_METRIC_SCOPE)
+                self.diagnostic(f"Version detail request failed for {url}: {error}")
+                if cooldown is not None:
+                    self.diagnostic(
+                        "Pausing GitHub metric enrichment for "
+                        f"{cooldown:g}s after repeated transient failures; "
+                        "using available data"
+                    )
+                return None
+            self.metric_enrichment.record_success(VERSION_METRIC_SCOPE)
+            return html
 
     def _detail_url(self, version_id: str) -> str:
         if version_id == "-1":
@@ -230,8 +325,14 @@ class VersionRefreshService:  # pylint: disable=too-few-public-methods
             request.listing_context,
             VersionDetailExecution(
                 self.execution.manifest_inspector,
-                authenticated=request.use_rest_api,
+                authenticated=request.authenticate_html,
                 diagnostic=self.execution.diagnostic,
+                metric_enrichment=self.execution.metric_enrichment,
+                fallback_record=_LazyVersionRecordFallback(
+                    self.repository,
+                    request,
+                    existing.rows,
+                ),
             ),
         )
         today = self.execution.today()
@@ -279,3 +380,14 @@ class VersionRefreshService:  # pylint: disable=too-few-public-methods
 
 def _unique_nonempty(values: tuple[str, ...]) -> tuple[str, ...]:
     return tuple(dict.fromkeys(value.strip() for value in values if value.strip()))
+
+
+def _latest_version_records(
+    records: tuple[VersionRecord, ...],
+) -> dict[str, VersionRecord]:
+    latest: dict[str, VersionRecord] = {}
+    for record in records:
+        previous = latest.get(record.version_id)
+        if previous is None or record.date > previous.date:
+            latest[record.version_id] = record
+    return latest

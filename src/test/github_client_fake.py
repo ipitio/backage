@@ -6,7 +6,7 @@ from collections.abc import Callable, Mapping
 
 import httpx
 
-from bkg_py.github import GitHubJsonResponse
+from bkg_py.github import GitHubJsonResponse, GitHubTextRequestPolicy
 
 
 class FakeGitHubClient:
@@ -23,6 +23,7 @@ class FakeGitHubClient:
         self.rest_requests: list[str] = []
         self.text_requests: list[str] = []
         self.text_authentication: list[bool] = []
+        self.text_policies: list[GitHubTextRequestPolicy | None] = []
 
     def rest_json(self, path: str) -> GitHubJsonResponse:
         """Return one configured REST response."""
@@ -45,6 +46,7 @@ class FakeGitHubClient:
         *,
         authenticated: bool = False,
         accept: str = "text/html",
+        policy: GitHubTextRequestPolicy | None = None,
     ) -> str:
         """Return one configured public text response."""
 
@@ -52,6 +54,7 @@ class FakeGitHubClient:
             raise ValueError(f"unsupported fake response type: {accept}")
         self.text_requests.append(url)
         self.text_authentication.append(authenticated)
+        self.text_policies.append(policy)
         value = self.text_values[url]
         if isinstance(value, Exception):
             raise value

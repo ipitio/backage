@@ -16,6 +16,7 @@ from bkg_py.github import (
     GitHubResponseError,
     GitHubRuntime,
     GitHubSettings,
+    GitHubTextRequestPolicy,
     GitHubTransportError,
 )
 from bkg_py.runtime import GracefulStop
@@ -119,6 +120,26 @@ def test_text_request_retries_without_api_headers_or_accounting(
     assert attempts == 2
     assert sleeps == [0.25]
     assert state.get_int("BKG_CALLS_TO_API") == 0
+
+
+def test_text_request_policy_can_disable_retries_for_optional_work() -> None:
+    """Optional enrichment can fail quickly without changing global HTTP policy."""
+
+    attempts = 0
+
+    def respond(_request: httpx.Request) -> httpx.Response:
+        nonlocal attempts
+        attempts += 1
+        return httpx.Response(503, text="try later")
+
+    client = _client(httpx.MockTransport(respond))
+
+    with pytest.raises(GitHubResponseError, match="HTTP 503"):
+        client.get_text(
+            "https://github.com/example/pkg/versions",
+            policy=GitHubTextRequestPolicy(total_timeout=30, max_attempts=1),
+        )
+    assert attempts == 1
 
 
 def test_text_request_accepts_an_explicit_registry_bearer_token() -> None:

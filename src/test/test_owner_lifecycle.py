@@ -19,6 +19,7 @@ from bkg_py.database_models import (
     PackageRecord,
     PackageRef,
 )
+from bkg_py.discovery import OwnerIdentityResolver
 from bkg_py.owner_lifecycle import (
     OwnerLifecycleExecution,
     OwnerLifecycleRequest,
@@ -332,14 +333,31 @@ def test_owner_update_cli_persists_backoff_and_reports_a_deferred_result(
 ) -> None:
     """Retryable inner failures remain successful, durable worker outcomes."""
 
+    requests: list[OwnerLifecycleRequest] = []
+
     def fail_update(
         _service: OwnerLifecycleService,
         _request_value: OwnerLifecycleRequest,
     ) -> OwnerLifecycleResult:
+        requests.append(_request_value)
         raise OwnerUpdateError("temporary owner failure")
 
+    def unexpected_owner_type_lookup(
+        _resolver: OwnerIdentityResolver,
+        _owner: str,
+    ) -> str:
+        raise AssertionError("known owner type should not use GraphQL")
+
     monkeypatch.setattr(OwnerLifecycleService, "update", fail_update)
+    monkeypatch.setattr(
+        OwnerIdentityResolver,
+        "owner_type",
+        unexpected_owner_type_lookup,
+    )
     database_path = tmp_path / "index.db"
+    repository = DatabaseRepository(DatabaseSettings(database_path))
+    _package_ref, package_record = _package("known")
+    repository.write_package(package_record)
     result_path = tmp_path / "result.json"
     monkeypatch.setenv("BKG_ROOT", str(tmp_path))
     monkeypatch.setenv("BKG_INDEX_DB", str(database_path))
@@ -351,7 +369,6 @@ def test_owner_update_cli_persists_backoff_and_reports_a_deferred_result(
             "owner",
             "update",
             "42",
-            "orgs",
             "Example",
             _TODAY,
             "batch-1",
@@ -361,9 +378,10 @@ def test_owner_update_cli_persists_backoff_and_reports_a_deferred_result(
     )
 
     result = json.loads(result_path.read_text(encoding="utf-8"))
-    deferred = DatabaseRepository(DatabaseSettings(database_path)).deferred_owners(0)
+    deferred = repository.deferred_owners(0)
     assert status == ExitStatus.SUCCESS
     assert result["outcome"] == "deferred"
     assert result["error"] == "temporary owner failure"
+    assert requests[0].owner_type == "orgs"
     assert deferred == (("Example", result["retry_after"]),)
     assert "Deferred Example after failed work" in capsys.readouterr().out

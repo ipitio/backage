@@ -12,6 +12,11 @@ from pathlib import Path
 
 from .database import DatabaseError, DatabaseRepository
 from .database_models import PackageRecord, PackageRef, VersionRecord
+from .enrichment import (
+    METRIC_TEXT_REQUEST_POLICY,
+    PACKAGE_METRIC_SCOPE,
+    transient_enrichment_error,
+)
 from .github import GitHubError, GitHubNotFoundError
 from .publication import (
     PublicationError,
@@ -38,6 +43,14 @@ from .versions import (
 
 DiagnosticSink = Callable[[str], None]
 StopCheck = Callable[[], None]
+_PRIVATE_CAPABLE_MODE = 3
+_UNKNOWN_METRICS = DownloadMetrics(-1, -1, -1, -1)
+
+
+def html_authentication_required(use_rest_api: bool, mode: int) -> bool:
+    """Return whether HTML enrichment may need private package access."""
+
+    return use_rest_api and mode >= _PRIVATE_CAPABLE_MODE
 
 
 class PackageRefreshError(RuntimeError):
@@ -52,6 +65,12 @@ class PackageRefreshPolicy:
     use_rest_api: bool
     fast_out: bool
     mode: int
+
+    @property
+    def authenticate_html(self) -> bool:
+        """Return whether HTML enrichment may need private package access."""
+
+        return html_authentication_required(self.use_rest_api, self.mode)
 
 
 @dataclass(frozen=True)
@@ -164,7 +183,7 @@ class PackageRefreshService:  # pylint: disable=too-few-public-methods
         if not already_updated:
             advertised_metrics = self._package_metrics(
                 package,
-                authenticated=request.policy.use_rest_api,
+                authenticated=request.policy.authenticate_html,
             )
             if advertised_metrics is None:
                 return PackageRefreshResult("metadata_unavailable")
@@ -211,21 +230,42 @@ class PackageRefreshService:  # pylint: disable=too-few-public-methods
     ) -> DownloadMetrics | None:
         context = _listing_context(package)
         url = package_detail_html_url(context)
-        try:
-            html = self.client.get_text(url, authenticated=authenticated)
-        except GitHubNotFoundError:
-            return None
-        except GitHubError as error:
-            self.execution.version.diagnostic(
-                f"Package detail request failed for {url}: {error}"
-            )
-            return None
+        enrichment = self.execution.version.metric_enrichment
+        with enrichment.request(PACKAGE_METRIC_SCOPE) as enabled:
+            if not enabled:
+                return _UNKNOWN_METRICS
+            try:
+                html = self.client.get_text(
+                    url,
+                    authenticated=authenticated,
+                    policy=METRIC_TEXT_REQUEST_POLICY,
+                )
+            except GitHubNotFoundError:
+                enrichment.record_success(PACKAGE_METRIC_SCOPE)
+                return None
+            except GitHubError as error:
+                cooldown = None
+                if transient_enrichment_error(error):
+                    cooldown = enrichment.record_transient_failure(PACKAGE_METRIC_SCOPE)
+                else:
+                    enrichment.record_success(PACKAGE_METRIC_SCOPE)
+                self.execution.version.diagnostic(
+                    f"Package detail request failed for {url}: {error}"
+                )
+                if cooldown is not None:
+                    self.execution.version.diagnostic(
+                        "Pausing GitHub metric enrichment for "
+                        f"{cooldown:g}s after repeated transient failures; "
+                        "using available data"
+                    )
+                return _UNKNOWN_METRICS
+            enrichment.record_success(PACKAGE_METRIC_SCOPE)
         if "Total downloads" not in html:
             self.execution.version.diagnostic(
                 f"Package detail page has no download metrics for "
                 f"{package.owner}/{package.package}"
             )
-            return None
+            return _UNKNOWN_METRICS
         return extract_download_metrics(html)
 
     def _refresh_versions(
@@ -243,14 +283,16 @@ class PackageRefreshService:  # pylint: disable=too-few-public-methods
                     execution.manifest_inspector,
                     diagnostic=execution.diagnostic,
                     today=lambda: today,
+                    metric_enrichment=execution.metric_enrichment,
                 ),
             ).refresh(
                 VersionRefreshRequest(
-                    request.package_ref,
-                    request.legacy_table,
-                    request.policy.write_legacy,
-                    request.policy.use_rest_api,
-                    request.since,
+                    package_ref=request.package_ref,
+                    legacy_table=request.legacy_table,
+                    write_legacy=request.policy.write_legacy,
+                    use_rest_api=request.policy.use_rest_api,
+                    since=request.since,
+                    authenticate_html=request.policy.authenticate_html,
                     mark_publication_pending=True,
                 ),
                 self.execution.selection,

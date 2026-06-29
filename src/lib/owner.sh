@@ -159,7 +159,6 @@ update_owner() {
 
 	echo "Updating $owner..."
 
-	[ -n "$(grep -zoP 'href="/orgs/'"$owner"'/people"' <<<"$(curl "https://github.com/orgs/$owner/people")" | tr -d '\0')" ] && export owner_type="orgs" || export owner_type="users"
 	local batch_marker=""
 	local batch_first_started=""
 	local first_page_empty=false
@@ -174,7 +173,7 @@ update_owner() {
 	[ -n "$batch_marker" ] || return 1
 	result_file=$(mktemp) || return 1
 	bkg_python owner update \
-		"$owner_id" "$owner_type" "$owner" "$batch_first_started" \
+		"$owner_id" "$owner" "$batch_first_started" \
 		"$batch_marker" "${fast_out:-false}" "$result_file" || update_status=$?
 	if ((update_status == 0)); then
 		update_result=$(<"$result_file")

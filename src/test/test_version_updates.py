@@ -20,6 +20,12 @@ from bkg_py.database_models import (
     VersionRecord,
     VersionStage,
 )
+from bkg_py.enrichment import (
+    METRIC_TEXT_REQUEST_POLICY,
+    MetricEnrichmentCircuit,
+    MetricEnrichmentSettings,
+)
+from bkg_py.github import GitHubTransportError
 from bkg_py.result import ExitStatus
 from bkg_py.runtime import GracefulStop
 from bkg_py.version_selection import VersionCandidate, VersionSelectionSettings
@@ -84,12 +90,12 @@ def _package_ref(*, package_type: str = "npm") -> PackageRef:
     )
 
 
-def _record(version_id: str) -> VersionRecord:
+def _record(version_id: str, *, date: str = _TODAY) -> VersionRecord:
     return VersionRecord(
         version_id=version_id,
         name=f"version-{version_id}",
         metrics=VersionMetrics(1, 2, 3, 4, 5),
-        date=_TODAY,
+        date=date,
         tags="",
     )
 
@@ -247,6 +253,73 @@ def test_refresh_skips_existing_versions_and_flushes_one_batch(tmp_path: Path) -
     assert result.selection.selected_ids == ("2", "1")
     assert [row.version_id for row in rows] == ["1", "2"]
     assert client.text_requests == [_detail_url("2", package_type="npm")]
+
+
+def test_refresh_pauses_failing_detail_requests_and_preserves_stored_metrics(
+    tmp_path: Path,
+) -> None:
+    """Repeated transport failures use stored metrics without stalling the owner."""
+
+    package = _package_ref()
+    repository = DatabaseRepository(DatabaseSettings(tmp_path / "index.db"))
+    repository.flush_version_stage(
+        VersionStage(
+            package,
+            "legacy_versions",
+            False,
+            (_record("1", date="2026-06-19"),),
+        )
+    )
+    api_path = "orgs/Example/packages/npm/Nested%2FImage/versions?per_page=30&page=1"
+    failure = GitHubTransportError("temporary detail transport failure")
+    client = _FakeClient(
+        rest_values={api_path: [_api_version(1), _api_version(2), _api_version(3)]},
+        text_values={
+            _detail_url("1", package_type="npm"): failure,
+            _detail_url("2", package_type="npm"): failure,
+        },
+    )
+    diagnostics: list[str] = []
+    service = VersionRefreshService(
+        repository,
+        client,
+        VersionRefreshExecution(
+            BoundedWorkerRunner(ConcurrencySettings(max_workers=3)),
+            lambda _reference: "",
+            diagnostic=diagnostics.append,
+            today=lambda: _TODAY,
+            metric_enrichment=MetricEnrichmentCircuit(
+                MetricEnrichmentSettings(
+                    max_concurrent=1,
+                    failure_threshold=2,
+                )
+            ),
+        ),
+    )
+
+    result = service.refresh(
+        VersionRefreshRequest(package, "legacy_versions", False, True, _TODAY),
+        VersionSelectionSettings(max_tag_pages=0, append_tagged_limit=0),
+    )
+
+    rows = {
+        row.version_id: row
+        for row in repository.version_rows(package, since=_TODAY).rows
+    }
+    assert result.records_written == 3
+    assert client.text_requests == [
+        _detail_url("1", package_type="npm"),
+        _detail_url("2", package_type="npm"),
+    ]
+    assert rows["1"].metrics == _record("1").metrics
+    assert rows["1"].date == _TODAY
+    assert rows["2"].metrics.downloads == -1
+    assert rows["3"].metrics.downloads == -1
+    assert client.text_policies == [
+        METRIC_TEXT_REQUEST_POLICY,
+        METRIC_TEXT_REQUEST_POLICY,
+    ]
+    assert sum("Pausing GitHub metric enrichment" in line for line in diagnostics) == 1
 
 
 def test_refresh_flushes_completed_rows_before_graceful_stop(tmp_path: Path) -> None:

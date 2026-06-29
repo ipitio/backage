@@ -200,21 +200,17 @@ test_update_owner_delegates_inner_lifecycle_to_python() {
 
     pushd "$workdir" >/dev/null
 
-    curl() {
-        printf '%s\n' '<a href="/orgs/KnownOwner/people">people</a>'
-    }
-
     bkg_python() {
         local result_file=${!#}
-        printf '%s|%s|%s|%s|%s|%s|%s|%s\n' \
-            "$1" "$2" "$3" "$4" "$5" "$6" "$7" "$8" >"$captured"
+        printf '%s|%s|%s|%s|%s|%s|%s\n' \
+            "$1" "$2" "$3" "$4" "$5" "$6" "$7" >"$captured"
         printf '%s\n' '{"outcome":"updated","next_page":0,"first_page_empty":false}' >"$result_file"
     }
 
     output=$(update_owner '556677/KnownOwner') || fail "Expected delegated owner update to complete"
     popd >/dev/null
 
-    [ "$(cat "$captured")" = "owner|update|556677|orgs|KnownOwner|$today|test-batch|false" ] ||
+    [ "$(cat "$captured")" = "owner|update|556677|KnownOwner|$today|test-batch|false" ] ||
         fail "Expected update_owner to delegate one complete lifecycle request"
     grep -Fq "Updated KnownOwner" <<<"$output" || fail "Expected completed owner log"
     ! grep -Fxq KnownOwner "$BKG_OWNERS" || fail "Expected completed owner to leave the manual queue"

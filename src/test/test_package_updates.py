@@ -22,7 +22,8 @@ from bkg_py.database_models import (
     VersionRecord,
     VersionStage,
 )
-from bkg_py.github import GitHubNotFoundError
+from bkg_py.enrichment import METRIC_TEXT_REQUEST_POLICY
+from bkg_py.github import GitHubNotFoundError, GitHubTransportError
 from bkg_py.package_updates import (
     PackageOptOuts,
     PackageRefreshError,
@@ -125,6 +126,14 @@ def test_optouts_support_literal_and_component_regex_entries() -> None:
     assert PackageOptOuts(("Example/Packages/Demo",)).matches(package)
     assert PackageOptOuts((r"/^Exa//^Pack//^Dem",)).matches(package)
     assert not PackageOptOuts(("Example/Other",)).matches(package)
+
+
+def test_html_authentication_is_reserved_for_private_capable_modes() -> None:
+    """A token alone does not change public HTML enrichment requests."""
+
+    assert not PackageRefreshPolicy(False, True, False, 0).authenticate_html
+    assert PackageRefreshPolicy(False, True, False, 3).authenticate_html
+    assert not PackageRefreshPolicy(False, False, False, 3).authenticate_html
 
 
 def test_package_refresh_cli_dispatches_shell_arguments(
@@ -248,7 +257,45 @@ def test_refresh_commits_versions_package_and_publication(
     assert rendered["version"][0]["id"] == 7
     assert client.rest_requests == [api_path]
     assert client.text_requests == [package_url, version_url]
-    assert client.text_authentication == [True, True]
+    assert client.text_authentication == [False, False]
+    assert client.text_policies == [
+        METRIC_TEXT_REQUEST_POLICY,
+        METRIC_TEXT_REQUEST_POLICY,
+    ]
+
+
+def test_transient_package_metrics_continue_with_previous_totals(
+    tmp_path: Path,
+) -> None:
+    """Optional package metrics do not block version and publication work."""
+
+    package = _package()
+    repository = DatabaseRepository(DatabaseSettings(tmp_path / "index.db"))
+    repository.write_package(replace(_package_record(package), date="2026-06-25"))
+    destination = tmp_path / "index" / package.owner / package.repo / "Demo.json"
+    optout_file = tmp_path / "optout.txt"
+    optout_file.write_text("", encoding="utf-8")
+    api_path = "orgs/Example/packages/npm/Demo/versions?per_page=30&page=1"
+    package_url = "https://github.com/orgs/Example/packages/npm/package/Demo"
+    version_url = "https://github.com/orgs/Example/packages/npm/Demo/8"
+    client = _FakeClient(
+        rest_values={api_path: [{"id": 8, "name": "release-8", "tags": ["edge"]}]},
+        text_values={
+            package_url: GitHubTransportError("temporary package metrics failure"),
+            version_url: "<span>Total downloads</span><span>4</span>",
+        },
+    )
+
+    result = PackageRefreshService(
+        repository,
+        client,
+        _execution(optout_file),
+    ).refresh(_request(package, destination))
+
+    rendered = json.loads(destination.read_text(encoding="utf-8"))
+    assert result.outcome == "refreshed"
+    assert rendered["raw_downloads"] == 1_500
+    assert rendered["version"][0]["raw_downloads"] == 4
 
 
 def test_refresh_rejects_a_publication_marker_that_did_not_clear(

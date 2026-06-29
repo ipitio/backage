@@ -172,6 +172,19 @@ class OwnerScanRepositoryMixin(ABC):
             )
         )
 
+    def known_owner_type(self, owner_id: str, owner: str) -> str | None:
+        """Return an unambiguous owner type from package or active scan state."""
+
+        self.ensure_schema()
+        return self._run_read(
+            lambda connection: database_owner_scans.known_owner_type(
+                connection,
+                self.settings.packages_table,
+                owner_id,
+                owner,
+            )
+        )
+
     def reconcile_owner_scan_package(
         self,
         owner_id: str,

@@ -12,6 +12,7 @@ from .concurrency import BoundedWorkerRunner, ConcurrencySettings
 from .config import RuntimeConfig
 from .database import DatabaseRepository
 from .database_settings import DatabaseSettings
+from .enrichment import MetricEnrichmentCircuit
 from .github import (
     GitHubClient,
     GitHubRateAccounting,
@@ -113,6 +114,12 @@ class ApplicationContext:
             self.concurrency_settings,
             check_stop=self.stop.check,
         )
+
+    @cached_property
+    def metric_enrichment(self) -> MetricEnrichmentCircuit:
+        """Return application-scoped backpressure for optional metric pages."""
+
+        return MetricEnrichmentCircuit(check_stop=self.stop.check)
 
     @cached_property
     def process_runner(self) -> ProcessRunner:
