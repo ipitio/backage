@@ -115,6 +115,8 @@ def _insert_legacy(
 
 
 class TestDatabaseRepository:
+    """Exercise schema, retry, transaction, fallback, and cleanup behavior."""
+
     def test_known_owner_type_uses_package_and_active_scan_state(self) -> None:
         """Existing durable owner state avoids a repeated identity request."""
 
@@ -138,8 +140,6 @@ class TestDatabaseRepository:
                 101,
             )
             assert repository.known_owner_type("7", "ScanOnly") == "users"
-
-    """Exercise schema, retry, transaction, fallback, and cleanup behavior."""
 
     def test_table_identifiers_are_quoted_and_nul_is_rejected(self) -> None:
         """Configured names remain identifiers even when they resemble SQL."""

@@ -35,10 +35,7 @@ jobs:
         with:
           version: "0.11.19"
 
-      - name: Quality checks
-        run: bash src/test/quality.sh
-
-      - name: Regression tests
+      - name: Quality and regression checks
         run: bash src/test/regression.sh
 
       - name: Set up Docker Buildx
