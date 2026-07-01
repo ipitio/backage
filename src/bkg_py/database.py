@@ -14,6 +14,8 @@ from .database_models import (
     PackageRecord,
     PackageRef,
     PackageSnapshot,
+    PackageWorkItem,
+    PackageWorkPlan,
     RankedPackage,
     VersionLimitEstimate,
     VersionRecord,
@@ -217,6 +219,87 @@ class DatabaseRepository(OwnerScanRepositoryMixin):  # pylint: disable=too-many-
                 since,
             )
         )
+
+    def package_work_plan(self, since: str) -> PackageWorkPlan:
+        """Read the current package batch plan from one database snapshot."""
+
+        self.ensure_schema()
+        packages = _SqlIdentifier(self.settings.packages_table)
+        owners = _SqlIdentifier(self.settings.owners_table)
+
+        def load(connection: sqlite3.Connection) -> PackageWorkPlan:
+            with _read_snapshot(connection):
+                package_rows = connection.execute(
+                    _sql(
+                        """
+                        select owner_id, owner, repo, package,
+                               max(date) as max_date
+                        from {packages}
+                        group by owner_id, owner, repo, package
+                        order by max_date asc
+                        """,
+                        packages=packages,
+                    )
+                ).fetchall()
+                completed_rows = connection.execute(
+                    _sql(
+                        """
+                        select current.owner_id, current.owner, current.repo,
+                               current.package, max(current.date) as max_date
+                        from {packages} current
+                        where not exists (
+                            select 1
+                            from bkg_package_publications pending
+                            where pending.owner_id = current.owner_id
+                              and pending.owner_type = current.owner_type
+                              and pending.package_type = current.package_type
+                              and pending.owner = current.owner
+                              and pending.repo = current.repo
+                              and pending.package = current.package
+                        )
+                        group by current.owner_id, current.owner,
+                                 current.repo, current.package
+                        having max(current.date) >= ?
+                        order by max_date asc
+                        """,
+                        packages=packages,
+                    ),
+                    (since,),
+                ).fetchall()
+                owner_rows = connection.execute(
+                    _sql(
+                        """
+                        select owner
+                        from (
+                            select owner, min(date) as first_date
+                            from {packages}
+                            group by owner
+                            union all
+                            select owner, min(date) as first_date
+                            from {owners}
+                            where date >= ?
+                            group by owner
+                        )
+                        group by owner
+                        order by min(first_date), owner
+                        """,
+                        packages=packages,
+                        owners=owners,
+                    ),
+                    (since,),
+                ).fetchall()
+
+            all_packages = tuple(_package_work_item(row) for row in package_rows)
+            completed = tuple(_package_work_item(row) for row in completed_rows)
+            completed_set = set(completed)
+            return PackageWorkPlan(
+                all_packages,
+                completed,
+                tuple(item for item in all_packages if item not in completed_set),
+                tuple(str(row[0]) for row in owner_rows),
+            )
+
+        return self._run_read(load)
 
     def maximum_package_downloads(self, package: PackageRef) -> int:
         """Return the largest previously stored total download count."""
@@ -839,6 +922,10 @@ def _sql(statement: str, /, **identifiers: _SqlIdentifier) -> str:
     return statement.format_map(identifiers)
 
 
+def _package_work_item(row: tuple[Any, ...]) -> PackageWorkItem:
+    return PackageWorkItem(*(str(value) for value in row))
+
+
 def _table_exists(connection: sqlite3.Connection, table_name: str) -> bool:
     return (
         connection.execute(
@@ -857,6 +944,17 @@ def _table_exists(connection: sqlite3.Connection, table_name: str) -> bool:
 @contextmanager
 def _transaction(connection: sqlite3.Connection) -> Generator[None, None, None]:
     connection.execute("begin immediate")
+    try:
+        yield
+    except BaseException:
+        connection.rollback()
+        raise
+    connection.commit()
+
+
+@contextmanager
+def _read_snapshot(connection: sqlite3.Connection) -> Generator[None, None, None]:
+    connection.execute("begin")
     try:
         yield
     except BaseException:

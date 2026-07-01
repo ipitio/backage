@@ -75,6 +75,47 @@ def _add_orchestration_parsers(subparsers: Any) -> None:
     )
     begin_run_parser.add_argument("today")
     begin_run_parser.add_argument("started_at", type=int)
+    complete_batch_parser = orchestration_commands.add_parser(
+        "complete-batch-if-exhausted",
+        help="atomically start a new batch when no package work remains",
+    )
+    complete_batch_parser.add_argument("today")
+    complete_batch_parser.add_argument("remaining", type=int)
+    daily_gate_parser = orchestration_commands.add_parser(
+        "daily-gate-should-skip",
+        help="check whether a daily phase is complete for this run context",
+    )
+    daily_gate_parser.add_argument("key")
+    daily_gate_parser.add_argument("today")
+    daily_gate_parser.add_argument(
+        "source_published_today",
+        choices=("true", "false"),
+    )
+    complete_gate_parser = orchestration_commands.add_parser(
+        "complete-daily-gate",
+        help="mark a daily phase complete for this run context",
+    )
+    complete_gate_parser.add_argument("key")
+    complete_gate_parser.add_argument("today")
+    owner_phase_parser = orchestration_commands.add_parser(
+        "owner-phase-decision",
+        help="decide whether owner-phase status permits snapshot publication",
+    )
+    owner_phase_parser.add_argument("phase_status", type=int)
+    owner_phase_parser.add_argument("run_status", type=int, nargs="?", default=0)
+    update_owners_parser = orchestration_commands.add_parser(
+        "update-owners",
+        help="update the persisted owner queue in one shared Python process",
+    )
+    update_owners_parser.add_argument("since")
+    update_owners_parser.add_argument("batch_marker")
+    update_owners_parser.add_argument("fast_out", choices=("true", "false"))
+    package_plan_parser = orchestration_commands.add_parser(
+        "prepare-package-plan",
+        help="write package-work compatibility files from one database snapshot",
+    )
+    package_plan_parser.add_argument("since")
+    package_plan_parser.add_argument("directory")
 
 
 def _add_database_parsers(subparsers: Any) -> None:

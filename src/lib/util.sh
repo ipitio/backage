@@ -393,39 +393,6 @@ ensure_pages_dotfiles_visible() {
     : >"$1/.nojekyll" || return 1
 }
 
-daily_gate_completed_today() {
-    [ -n "$1" ] || return 1
-    local today_value=${2:-$(date -u +%Y-%m-%d)}
-    [ "$(get_BKG "$1")" = "$(daily_gate_state_value "$today_value")" ]
-}
-
-generate_batch_marker() {
-    printf '%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)-$$"
-}
-
-daily_gate_batch_marker() {
-    local marker
-
-    marker=$(get_BKG BKG_BATCH_MARKER)
-    [ -n "$marker" ] || marker="${BKG_BATCH_FIRST_STARTED:-}"
-    [ -n "$marker" ] || marker="default"
-    printf '%s\n' "$marker"
-}
-
-daily_gate_rest_to_top() {
-    local rest_to_top
-
-    rest_to_top=$(get_BKG BKG_REST_TO_TOP)
-    [ -n "$rest_to_top" ] || rest_to_top="${BKG_REST_TO_TOP:-0}"
-    [ -n "$rest_to_top" ] || rest_to_top="0"
-    printf '%s\n' "$rest_to_top"
-}
-
-daily_gate_state_value() {
-    local today_value=${1:-$(date -u +%Y-%m-%d)}
-    printf '%s|%s|%s\n' "$today_value" "$(daily_gate_batch_marker)" "$(daily_gate_rest_to_top)"
-}
-
 master_branch_has_commit_today() {
     local today_value=${1:-$(date -u +%Y-%m-%d)}
     local today_start_epoch=""
@@ -441,15 +408,16 @@ master_branch_has_commit_today() {
 daily_gate_should_skip_today() {
     [ -n "$1" ] || return 1
     local today_value=${2:-$(date -u +%Y-%m-%d)}
+    local source_published_today=false
 
-    daily_gate_completed_today "$1" "$today_value" || return 1
-    master_branch_has_commit_today "$today_value"
+    master_branch_has_commit_today "$today_value" && source_published_today=true
+    bkg_python orchestration daily-gate-should-skip "$1" "$today_value" "$source_published_today"
 }
 
 mark_daily_gate_completed() {
     [ -n "$1" ] || return 1
     local today_value=${2:-$(date -u +%Y-%m-%d)}
-    set_BKG "$1" "$(daily_gate_state_value "$today_value")"
+    bkg_python orchestration complete-daily-gate "$1" "$today_value"
 }
 
 get_BKG_set() {

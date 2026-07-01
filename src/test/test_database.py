@@ -141,6 +141,42 @@ class TestDatabaseRepository:
             )
             assert repository.known_owner_type("7", "ScanOnly") == "users"
 
+    def test_package_work_plan_preserves_batch_and_publication_state(self) -> None:
+        """One snapshot separates current published rows from pending work."""
+
+        with tempfile.TemporaryDirectory() as directory:
+            repository = DatabaseRepository(
+                DatabaseSettings(Path(directory) / "index.db")
+            )
+            old_package = PackageRef(
+                "1", "users", "container", "Alpha", "repo-a", "pkg-a"
+            )
+            current_package = PackageRef(
+                "2", "users", "container", "Beta", "repo-b", "pkg-b"
+            )
+            unpublished_package = PackageRef(
+                "3", "orgs", "container", "Gamma", "repo-c", "pkg-c"
+            )
+            repository.write_package(
+                PackageRecord(old_package, 1, 1, 1, 1, 1, _YESTERDAY)
+            )
+            repository.write_package(
+                PackageRecord(current_package, 1, 1, 1, 1, 1, _TODAY)
+            )
+            repository.write_package_pending_publication(
+                PackageRecord(unpublished_package, 1, 1, 1, 1, 1, _TODAY)
+            )
+            repository.write_owner(OwnerRecord("4", "Empty", _TODAY))
+            repository.write_owner(OwnerRecord("5", "OldEmpty", _YESTERDAY))
+
+            plan = repository.package_work_plan(_TODAY)
+
+            assert len(plan.packages) == 3
+            assert plan.packages[0].owner == "Alpha"
+            assert tuple(item.owner for item in plan.completed) == ("Beta",)
+            assert {item.owner for item in plan.pending} == {"Alpha", "Gamma"}
+            assert plan.owners == ("Alpha", "Beta", "Empty", "Gamma")
+
     def test_table_identifiers_are_quoted_and_nul_is_rejected(self) -> None:
         """Configured names remain identifiers even when they resemble SQL."""
 

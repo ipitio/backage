@@ -85,7 +85,7 @@ class OwnerLifecycleRequest:
 
 @dataclass(frozen=True)
 class OwnerLifecycleResult:
-    """Outcome consumed by the outer Bash owner policy adapter."""
+    """Outcome consumed by the outer owner policy."""
 
     outcome: OwnerLifecycleOutcome
     scan: OwnerScanOutcome | None = None

@@ -161,6 +161,27 @@ class PackageRecord:
 
 
 @dataclass(frozen=True)
+class PackageWorkItem:
+    """Shell-compatible package identity and latest update date."""
+
+    owner_id: str
+    owner: str
+    repo: str
+    package: str
+    date: str
+
+
+@dataclass(frozen=True)
+class PackageWorkPlan:
+    """Current package work and owner ordering captured from one snapshot."""
+
+    packages: tuple[PackageWorkItem, ...]
+    completed: tuple[PackageWorkItem, ...]
+    pending: tuple[PackageWorkItem, ...]
+    owners: tuple[str, ...]
+
+
+@dataclass(frozen=True)
 class RankedPackage:
     """A latest package row with owner-wide and repository-local ranks."""
 

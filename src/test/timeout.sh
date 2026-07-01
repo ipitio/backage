@@ -269,70 +269,8 @@ test_parallel_async_wait_kills_blocked_workers_after_timeout() {
 	unset -f blocking_async_worker
 }
 
-test_owner_update_wait_notice_is_throttled() {
-	local started_at=0
-	local last_notice_at=0
-	local original_message
-	local followup_message
-	local throttled_message
-
-	date() {
-		if [ "$1" = "-u" ] && [ "$2" = "+%s" ]; then
-			printf '%s\n' "${TEST_FAKE_NOW:-0}"
-			return 0
-		fi
-
-		command date "$@"
-	}
-
-	TEST_FAKE_NOW=100
-	owner_update_wait_notice "$started_at" "$last_notice_at"
-	started_at=$OWNER_UPDATE_WAIT_STARTED
-	last_notice_at=$OWNER_UPDATE_WAIT_LAST_NOTICE
-	original_message=$OWNER_UPDATE_WAIT_MESSAGE
-
-	TEST_FAKE_NOW=130
-	owner_update_wait_notice "$started_at" "$last_notice_at"
-	started_at=$OWNER_UPDATE_WAIT_STARTED
-	last_notice_at=$OWNER_UPDATE_WAIT_LAST_NOTICE
-	throttled_message=$OWNER_UPDATE_WAIT_MESSAGE
-
-	TEST_FAKE_NOW=401
-	owner_update_wait_notice "$started_at" "$last_notice_at"
-	followup_message=$OWNER_UPDATE_WAIT_MESSAGE
-
-	[ "$original_message" = "Waiting for active owner updates to stop..." ] || fail "Expected initial wait message"
-	[ -z "$throttled_message" ] || fail "Expected wait message to be throttled before interval elapses"
-	[ "$followup_message" = "Still waiting for active owner updates to stop after 301s..." ] || fail "Expected throttled follow-up wait message"
-	unset TEST_FAKE_NOW
-	unset -f date
-}
-
-test_owner_update_force_stop_due_after_grace_period() {
-	date() {
-		if [ "$1" = "-u" ] && [ "$2" = "+%s" ]; then
-			printf '%s\n' "${TEST_FAKE_NOW:-0}"
-			return 0
-		fi
-
-		command date "$@"
-	}
-
-	TEST_FAKE_NOW=250
-	owner_update_force_stop_due 100 180
-	[ "$OWNER_UPDATE_FORCE_STOP_DUE" = "false" ] || fail "Expected force stop to remain disabled before grace period"
-
-	TEST_FAKE_NOW=280
-	owner_update_force_stop_due 100 180
-	[ "$OWNER_UPDATE_FORCE_STOP_DUE" = "true" ] || fail "Expected force stop to activate after grace period"
-
-	unset TEST_FAKE_NOW
-	unset -f date
-}
-
 test_run_owner_updates_halts_on_timeout() {
 	local args_file="$workdir/owner-update.args"
-	local stdin_file="$workdir/owner-update.stdin"
 	local started_at
 	local elapsed
 	local status=0
@@ -341,22 +279,18 @@ test_run_owner_updates_halts_on_timeout() {
 		printf '1/alpha\n2/beta\n'
 	}
 
-	git() {
-		if [ "$1" = "branch" ] && [ "$2" = "--show-current" ]; then
-			echo master
-			return 0
-		fi
-
-		command git "$@"
+	current_batch_first_started() {
+		printf '%s\n' 2026-07-01
 	}
-
-	parallel_shell_func() {
-		printf '%s\n' "$@" >"$args_file"
-		cat >"$stdin_file"
+	get_BKG() {
+		[ "$1" = BKG_BATCH_MARKER ] && printf '%s\n' batch-1
+	}
+	bkg_python() {
+		printf '%s\n' "$*" >"$args_file"
 		return 3
 	}
 
-	GITHUB_OWNER=ipitio
+	fast_out=false
 	started_at=$(date +%s)
 
 	if run_owner_updates; then
@@ -368,35 +302,44 @@ test_run_owner_updates_halts_on_timeout() {
 
 	[ "$status" -eq 3 ] || fail "Expected run_owner_updates to return 3, got $status"
 	[ "$elapsed" -lt 10 ] || fail "Expected run_owner_updates to notice completed workers promptly"
-	assert_contains "$args_file" "update_owner"
-	assert_contains "$args_file" "--halt"
-	assert_contains "$args_file" "soon,fail=1"
-	assert_contains "$stdin_file" "1/alpha"
-	assert_contains "$stdin_file" "2/beta"
+	assert_contains "$args_file" "orchestration update-owners 2026-07-01 batch-1 false"
+	unset -f current_batch_first_started
+	unset -f get_BKG
+	unset -f bkg_python
 }
 
 test_owner_update_status_keeps_graceful_timeout_publishable() {
 	local output_file="$workdir/owner-timeout-status.out"
 	local status=0
 
+	bkg_python() {
+		[ "$*" = "orchestration owner-phase-decision 3 0" ] || fail "Unexpected owner phase decision arguments: $*"
+		printf 'publish\t3\tReached BKG_MAX_LEN, stopping after persisting state...\n'
+	}
 	return_code=0
 	handle_owner_update_status 3 >"$output_file" 2>&1 || status=$?
 
 	[ "$status" -eq 0 ] || fail "Expected graceful owner timeout to keep publishing path available"
 	[ "$return_code" -eq 3 ] || fail "Expected graceful owner timeout to persist return_code 3"
 	assert_contains "$output_file" "Reached BKG_MAX_LEN"
+	unset -f bkg_python
 }
 
 test_owner_update_status_aborts_unexpected_failure() {
 	local output_file="$workdir/owner-failure-status.out"
 	local status=0
 
+	bkg_python() {
+		[ "$*" = "orchestration owner-phase-decision 1 0" ] || fail "Unexpected owner phase decision arguments: $*"
+		printf 'abort\t1\tOwner updates failed with status 1; stopping before snapshot publication.\n'
+	}
 	return_code=0
 	handle_owner_update_status 1 >"$output_file" 2>&1 || status=$?
 
 	[ "$status" -eq 1 ] || fail "Expected unexpected owner failure to abort with status 1"
 	[ "$return_code" -eq 0 ] || fail "Expected unexpected owner failure not to mark graceful timeout"
 	assert_contains "$output_file" "stopping before snapshot publication"
+	unset -f bkg_python
 }
 
 test_query_api_checks_elapsed_limit_before_request() {
@@ -502,8 +445,6 @@ run_test test_ytoxt_stops_after_timeout
 run_test test_run_parallel_kills_blocked_workers_after_timeout
 run_test test_run_parallel_enforces_elapsed_limit_for_blocked_workers
 run_test test_parallel_async_wait_kills_blocked_workers_after_timeout
-run_test test_owner_update_wait_notice_is_throttled
-run_test test_owner_update_force_stop_due_after_grace_period
 run_test test_run_owner_updates_halts_on_timeout
 run_test test_owner_update_status_keeps_graceful_timeout_publishable
 run_test test_owner_update_status_aborts_unexpected_failure

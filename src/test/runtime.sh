@@ -67,11 +67,42 @@ test_sqlite_ensure_index_schema_adds_query_indexes() {
 	BKG_INDEX_DB="$original_db"
 }
 
-test_batch_reset_uses_explicit_progress_only() {
-	batch_should_reset 0 || fail "Expected exhausted work queue to reset"
-	! batch_should_reset 35815 || fail "Database allocation stability must not reset an active batch"
-	! batch_should_reset 500 || fail "A completion-count threshold must not reset an unfinished batch"
-	! batch_should_reset 1 || fail "A small nonempty tail must remain eligible for completion"
+test_sync_batch_progress_reads_python_transition() {
+	local calls_file="$workdir/batch-progress-calls.txt"
+
+	bkg_python() {
+		printf '%s\n' "$*" >"$calls_file"
+		printf 'false\t2026-06-28\n'
+	}
+
+	sync_batch_progress 2026-06-29 1
+
+	[ "$BKG_BATCH_RESET" = "false" ] || fail "Expected unfinished work to preserve the active batch"
+	[ "$BKG_BATCH_FIRST_STARTED" = "2026-06-28" ] || fail "Expected the Python batch start date"
+	assert_contains "$calls_file" "orchestration complete-batch-if-exhausted 2026-06-29 1"
+	unset -f bkg_python
+}
+
+test_prepare_package_plan_validates_python_summary() {
+	local calls_file="$workdir/package-plan-calls.txt"
+	local summary
+
+	bkg_python() {
+		printf '%s\n' "$*" >"$calls_file"
+		printf '12\t7\t5\n'
+	}
+
+	summary=$(prepare_package_plan 2026-06-29 "$workdir/plan")
+	[ "$summary" = $'12\t7\t5' ] || fail "Expected validated package plan counts"
+	assert_contains "$calls_file" "orchestration prepare-package-plan 2026-06-29 $workdir/plan"
+
+	bkg_python() {
+		printf 'invalid\n'
+	}
+	if prepare_package_plan 2026-06-29 "$workdir/plan" >/dev/null 2>&1; then
+		fail "Expected an invalid package plan summary to fail"
+	fi
+	unset -f bkg_python
 }
 
 test_sqlite_numeric_version_ids_use_builtin_glob() {
@@ -394,86 +425,24 @@ test_run_owner_page_discovery_caps_at_one_page() {
 	unset -f page_owner
 }
 
-test_daily_gate_helpers_track_per_day() {
-	BKG_ENV="$workdir/env-daily-gate.env"
-	: >"$BKG_ENV"
-	set_BKG BKG_BATCH_MARKER batch-1
-	set_BKG BKG_REST_TO_TOP 0
-
-	if daily_gate_completed_today BKG_LAST_EXPLORE_DATE 2026-04-10; then
-		fail "Expected daily gate to be incomplete before it is marked"
-	fi
-
-	mark_daily_gate_completed BKG_LAST_EXPLORE_DATE 2026-04-10
-	daily_gate_completed_today BKG_LAST_EXPLORE_DATE 2026-04-10 || fail "Expected daily gate to be complete for the marked day"
-
-	if daily_gate_completed_today BKG_LAST_EXPLORE_DATE 2026-04-11; then
-		fail "Expected daily gate to be incomplete for a different day"
-	fi
-}
-
-test_daily_gate_skip_depends_on_master_commit_today() {
-	BKG_ENV="$workdir/env-daily-gate-skip.env"
-	: >"$BKG_ENV"
-	set_BKG BKG_BATCH_MARKER batch-1
-	set_BKG BKG_REST_TO_TOP 0
-	mark_daily_gate_completed BKG_LAST_EXPLORE_DATE 2026-04-10
+test_daily_gate_helpers_delegate_context_to_python() {
+	local calls_file="$workdir/daily-gate-calls.txt"
 
 	master_branch_has_commit_today() {
-		[ "$1" = "2026-04-10" ] || fail "Expected skip helper to pass the current day into master_branch_has_commit_today"
-		return 1
-	}
-
-	if daily_gate_should_skip_today BKG_LAST_EXPLORE_DATE 2026-04-10; then
-		fail "Expected daily gate skip to stay disabled when master has no commit today"
-	fi
-
-	unset -f master_branch_has_commit_today
-
-	master_branch_has_commit_today() {
+		[ "$1" = "2026-04-10" ] || fail "Expected the current day in the Git probe"
 		return 0
+	}
+	bkg_python() {
+		printf '%s\n' "$*" >>"$calls_file"
 	}
 
 	daily_gate_should_skip_today BKG_LAST_EXPLORE_DATE 2026-04-10 || fail "Expected daily gate skip to activate once master has a commit today"
-	unset -f master_branch_has_commit_today
-}
-
-test_daily_gate_skip_resets_on_new_batch_marker() {
-	BKG_ENV="$workdir/env-daily-gate-batch.env"
-	: >"$BKG_ENV"
-	set_BKG BKG_BATCH_MARKER batch-1
-	set_BKG BKG_REST_TO_TOP 0
 	mark_daily_gate_completed BKG_LAST_EXPLORE_DATE 2026-04-10
 
-	master_branch_has_commit_today() {
-		return 0
-	}
-
-	daily_gate_should_skip_today BKG_LAST_EXPLORE_DATE 2026-04-10 || fail "Expected daily gate skip to apply for the current batch marker"
-	set_BKG BKG_BATCH_MARKER batch-2
-	if daily_gate_should_skip_today BKG_LAST_EXPLORE_DATE 2026-04-10; then
-		fail "Expected daily gate skip to be cleared after the batch marker changes"
-	fi
+	assert_contains "$calls_file" "orchestration daily-gate-should-skip BKG_LAST_EXPLORE_DATE 2026-04-10 true"
+	assert_contains "$calls_file" "orchestration complete-daily-gate BKG_LAST_EXPLORE_DATE 2026-04-10"
 	unset -f master_branch_has_commit_today
-}
-
-test_daily_gate_skip_resets_on_rest_to_top_change() {
-	BKG_ENV="$workdir/env-daily-gate-rest.env"
-	: >"$BKG_ENV"
-	set_BKG BKG_BATCH_MARKER batch-1
-	set_BKG BKG_REST_TO_TOP 0
-	mark_daily_gate_completed BKG_LAST_EXPLORE_DATE 2026-04-10
-
-	master_branch_has_commit_today() {
-		return 0
-	}
-
-	daily_gate_should_skip_today BKG_LAST_EXPLORE_DATE 2026-04-10 || fail "Expected daily gate skip to apply for the current BKG_REST_TO_TOP value"
-	set_BKG BKG_REST_TO_TOP 1
-	if daily_gate_should_skip_today BKG_LAST_EXPLORE_DATE 2026-04-10; then
-		fail "Expected daily gate skip to be cleared after BKG_REST_TO_TOP changes"
-	fi
-	unset -f master_branch_has_commit_today
+	unset -f bkg_python
 }
 
 test_check_limit_retries_missing_script_start_once() {
@@ -1116,7 +1085,8 @@ source_project_script "bkg.sh"
 
 run_test test_sqlite_retries_transient_write_failure
 run_test test_sqlite_ensure_index_schema_adds_query_indexes
-run_test test_batch_reset_uses_explicit_progress_only
+run_test test_sync_batch_progress_reads_python_transition
+run_test test_prepare_package_plan_validates_python_summary
 run_test test_sqlite_numeric_version_ids_use_builtin_glob
 run_test test_background_job_running_ignores_completed_unreaped_child
 run_test test_cleanup_generated_json_sidecars_removes_adaptive_retry_artifacts
@@ -1131,10 +1101,7 @@ run_test test_bkg_python_forwards_unexported_http_settings
 run_test test_ensure_pages_dotfiles_visible_writes_nojekyll
 run_test test_run_owner_page_discovery_stops_on_code_2
 run_test test_run_owner_page_discovery_caps_at_one_page
-run_test test_daily_gate_helpers_track_per_day
-run_test test_daily_gate_skip_depends_on_master_commit_today
-run_test test_daily_gate_skip_resets_on_new_batch_marker
-run_test test_daily_gate_skip_resets_on_rest_to_top_change
+run_test test_daily_gate_helpers_delegate_context_to_python
 run_test test_check_limit_retries_missing_script_start_once
 run_test test_query_graphql_api_delegates_query_to_python
 run_test test_graphql_owner_type_delegates_to_python_discovery

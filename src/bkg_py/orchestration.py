@@ -6,12 +6,22 @@ import os
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
+from typing import Literal
 
+from .result import ExitStatus
 from .state import StateStore
 
 MarkerFactory = Callable[[], str]
+OwnerPhaseAction = Literal["publish", "abort"]
 _PRIMARY_RATE_WINDOW_SECONDS = 3600
 _SECONDARY_RATE_WINDOW_SECONDS = 60
+_MAX_PROCESS_STATUS = 255
+_DAILY_GATE_KEYS = frozenset(
+    {
+        "BKG_LAST_EXPLORE_DATE",
+        "BKG_LAST_OWNERS_QUEUE_DATE",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -22,8 +32,50 @@ class RunInitialization:
     batch_marker: str
 
 
-class BatchRuntimeService:  # pylint: disable=too-few-public-methods
-    """Initialize one run through a single atomic persisted-state transition."""
+@dataclass(frozen=True)
+class BatchTransition:
+    """Durable batch state after applying current work progress."""
+
+    reset: bool
+    batch_first_started: str
+
+
+@dataclass(frozen=True)
+class OwnerPhaseDecision:
+    """Top-level action after the concurrent owner-update phase."""
+
+    action: OwnerPhaseAction
+    run_status: int
+    message: str = ""
+
+
+class RunOutcomePolicy:  # pylint: disable=too-few-public-methods
+    """Map completed phase statuses into top-level publication decisions."""
+
+    @staticmethod
+    def owner_updates(phase_status: int, run_status: int = 0) -> OwnerPhaseDecision:
+        """Preserve graceful publication while aborting unexpected failures."""
+
+        _validate_process_status(phase_status, "owner phase")
+        _validate_process_status(run_status, "run")
+        if phase_status == 0:
+            return OwnerPhaseDecision("publish", run_status)
+        if phase_status == ExitStatus.GRACEFUL_STOP:
+            return OwnerPhaseDecision(
+                "publish",
+                int(ExitStatus.GRACEFUL_STOP),
+                "Reached BKG_MAX_LEN, stopping after persisting state...",
+            )
+        return OwnerPhaseDecision(
+            "abort",
+            phase_status,
+            f"Owner updates failed with status {phase_status}; "
+            "stopping before snapshot publication.",
+        )
+
+
+class BatchRuntimeService:
+    """Own durable run, batch, and daily-gate decisions."""
 
     def __init__(self, state: StateStore) -> None:
         self.state = state
@@ -80,16 +132,95 @@ class BatchRuntimeService:  # pylint: disable=too-few-public-methods
         )
         return RunInitialization(batch_first_started, batch_marker)
 
+    def complete_batch_if_exhausted(
+        self,
+        today: str,
+        remaining: int,
+        *,
+        marker_factory: MarkerFactory | None = None,
+    ) -> BatchTransition:
+        """Start a new batch atomically only after all current work is complete."""
+
+        _validate_date(today)
+        if remaining < 0:
+            raise ValueError("remaining package count cannot be negative")
+        if remaining > 0:
+            return BatchTransition(
+                reset=False,
+                batch_first_started=(
+                    self.state.get("BKG_BATCH_FIRST_STARTED") or today
+                ),
+            )
+
+        batch_marker = (marker_factory or _new_batch_marker)()
+        self.state.set_many(
+            {
+                "BKG_BATCH_FIRST_STARTED": today,
+                "BKG_BATCH_MARKER": batch_marker,
+            }
+        )
+        return BatchTransition(reset=True, batch_first_started=today)
+
+    def should_skip_daily_gate(
+        self,
+        key: str,
+        today: str,
+        *,
+        source_published_today: bool,
+    ) -> bool:
+        """Return whether this batch context already completed a daily phase."""
+
+        _validate_date(today)
+        _validate_daily_gate_key(key)
+        if not source_published_today:
+            return False
+        snapshot = self.state.snapshot()
+        return snapshot.get(key) == _daily_gate_state_value(snapshot, today)
+
+    def complete_daily_gate(self, key: str, today: str) -> None:
+        """Persist completion for the current date, batch, and queue direction."""
+
+        _validate_date(today)
+        _validate_daily_gate_key(key)
+        snapshot = self.state.snapshot()
+        value = _daily_gate_state_value(snapshot, today)
+        if snapshot.get(key) != value:
+            self.state.set(key, value)
+
 
 def _validate_run_start(today: str, started_at: int) -> None:
+    _validate_date(today)
+    if started_at <= 0:
+        raise ValueError("run start time must be positive")
+
+
+def _validate_date(today: str) -> None:
     try:
         parsed = date.fromisoformat(today)
     except ValueError as error:
         raise ValueError(f"invalid UTC run date: {today}") from error
     if parsed.isoformat() != today:
         raise ValueError(f"invalid UTC run date: {today}")
-    if started_at <= 0:
-        raise ValueError("run start time must be positive")
+
+
+def _validate_daily_gate_key(key: str) -> None:
+    if key not in _DAILY_GATE_KEYS:
+        raise ValueError(f"unsupported daily gate: {key}")
+
+
+def _validate_process_status(status: int, label: str) -> None:
+    if not 0 <= status <= _MAX_PROCESS_STATUS:
+        raise ValueError(f"invalid {label} status: {status}")
+
+
+def _daily_gate_state_value(snapshot: Mapping[str, str], today: str) -> str:
+    batch_marker = (
+        snapshot.get("BKG_BATCH_MARKER")
+        or snapshot.get("BKG_BATCH_FIRST_STARTED")
+        or "default"
+    )
+    rest_to_top = snapshot.get("BKG_REST_TO_TOP") or "0"
+    return f"{today}|{batch_marker}|{rest_to_top}"
 
 
 def _state_int(snapshot: Mapping[str, str], key: str, default: int = 0) -> int:
@@ -116,3 +247,7 @@ def _rate_window(
 def _batch_marker(started_at: int) -> str:
     timestamp = datetime.fromtimestamp(started_at, UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     return f"{timestamp}-{os.getpid()}"
+
+
+def _new_batch_marker() -> str:
+    return _batch_marker(int(datetime.now(UTC).timestamp()))

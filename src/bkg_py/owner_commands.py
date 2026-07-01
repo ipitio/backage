@@ -5,29 +5,22 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from collections.abc import Callable
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from .database import DatabaseError
-from .database_models import OwnerScanFailure, OwnerScanPackage
-from .discovery import OwnerIdentityCache, OwnerIdentityResolver
+from .database_models import OwnerScanPackage
 from .files import atomic_text_output
 from .github import GitHubError
-from .owner_lifecycle import (
-    OwnerLifecycleExecution,
-    OwnerLifecycleRequest,
-    OwnerLifecycleResult,
-    OwnerLifecycleService,
-    OwnerLifecycleServices,
+from .owner_lifecycle import OwnerLifecycleResult
+from .owner_operations import (
+    OwnerOperationExecution,
+    OwnerUpdateOperation,
+    OwnerUpdateRequest,
+    build_package_refresh_request,
+    build_package_refresh_service,
 )
-from .owner_package_updates import (
-    OwnerPackageRefreshError,
-    OwnerPackageRefreshExecution,
-    OwnerPackageRefreshRequest,
-    OwnerPackageRefreshService,
-)
+from .owner_package_updates import OwnerPackageRefreshError
 from .owner_publication import (
     OwnerPublicationRequest,
     OwnerPublicationResult,
@@ -47,19 +40,14 @@ from .owner_updates import (
     OwnerUpdateError,
 )
 from .package_discovery import PackageDiscoveryError
-from .package_updates import PackageRefreshExecution, PackageRefreshPolicy
 from .publication import PublicationError
-from .registry import GHCRManifestInspector
 from .rendering import RenderingError
 from .result import ExitStatus
 from .runtime import GracefulStop
-from .version_updates import VersionRefreshExecution
 
 if TYPE_CHECKING:
     from .application import ApplicationContext
-    from .database import DatabaseRepository
     from .database_models import OwnerRefreshPlan, PackageRef
-    from .github import GitHubClient
     from .owner_updates import OwnerScanVerificationResult
 
 _PACKAGE_REF_FIELD_COUNT = 3
@@ -145,68 +133,24 @@ def _update_owner(
     def progress(message: str) -> None:
         print(message, flush=True)
 
-    try:
-        with application.github_client() as client:
-            owner_type = _resolve_owner_api_type(
-                args.owner_id,
-                args.owner,
-                application.database,
-                OwnerIdentityResolver(
-                    OwnerIdentityCache.from_config(application.config),
-                    client,
-                ),
-                progress,
-            )
-            package_refresh = _package_refresh_service(
-                application,
-                client,
+    with application.github_client() as client:
+        result = OwnerUpdateOperation(
+            application,
+            client,
+            OwnerOperationExecution(
+                application.concurrency_settings,
                 progress,
                 diagnostic,
+            ),
+        ).update(
+            OwnerUpdateRequest(
+                args.owner_id,
+                args.owner,
+                args.since,
+                args.batch_marker,
+                args.fast_out == "true",
             )
-            pages = OwnerScanPageService(
-                application.database,
-                client,
-                package_refresh,
-                OwnerScanPageExecution(application.stop.check, progress),
-            )
-            result = OwnerLifecycleService(
-                application.database,
-                OwnerLifecycleServices(
-                    package_refresh,
-                    OwnerScanService(
-                        application.database,
-                        client,
-                        pages,
-                        package_refresh,
-                    ),
-                    OwnerPublicationService(
-                        application.database,
-                        application.aggregate_settings,
-                        application.publication_limits,
-                        application.stop.check,
-                    ),
-                ),
-                OwnerLifecycleExecution(application.state, progress),
-            ).update(
-                OwnerLifecycleRequest(
-                    owner_type,
-                    args.batch_marker,
-                    application.config.mode,
-                    _package_refresh_request(args, application, ()),
-                )
-            )
-    except (
-        DatabaseError,
-        GitHubError,
-        OSError,
-        OwnerPackageRefreshError,
-        OwnerScanPageError,
-        OwnerUpdateError,
-        PackageDiscoveryError,
-        PublicationError,
-        RenderingError,
-    ) as error:
-        result = _defer_owner_update(args, application, error, progress)
+        )
 
     result_file = Path(args.result_file)
     with atomic_text_output(result_file) as output:
@@ -214,70 +158,10 @@ def _update_owner(
         output.write("\n")
 
 
-def _resolve_owner_api_type(
-    owner_id: str,
-    owner: str,
-    repository: DatabaseRepository,
-    resolver: OwnerIdentityResolver,
-    progress: Callable[[str], None],
-) -> str:
-    known_type = repository.known_owner_type(owner_id, owner)
-    if known_type is not None:
-        return known_type
-    typename = resolver.owner_type(owner)
-    if typename == "Organization":
-        return "orgs"
-    if typename == "User":
-        return "users"
-    if typename is None:
-        progress(f"Owner type unavailable for {owner}; verifying authoritative absence")
-        return "users"
-    raise OwnerUpdateError(f"unsupported GitHub owner type for {owner}: {typename}")
-
-
-def _defer_owner_update(
-    args: argparse.Namespace,
-    application: ApplicationContext,
-    error: Exception,
-    progress: Callable[[str], None],
-) -> OwnerLifecycleResult:
-    cursor = application.database.current_owner_scan(
-        args.owner_id,
-        args.batch_marker,
-    )
-    message = str(error) or type(error).__name__
-    failed_at = int(datetime.now(tz=UTC).timestamp())
-    retry_after = application.database.fail_owner_scan(
-        OwnerScanFailure(
-            args.owner_id,
-            args.owner,
-            cursor.marker if cursor is not None else None,
-            message,
-            failed_at,
-        )
-    )
-    application.state.delete_matching(
-        keys=(
-            f"BKG_OWNER_SCAN_{args.owner_id}",
-            f"BKG_PAGE_{args.owner_id}",
-        )
-    )
-    retry_time = datetime.fromtimestamp(retry_after, UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
-    progress(f"Deferred {args.owner} after failed work ({message}) until {retry_time}")
-    return OwnerLifecycleResult(
-        "deferred",
-        retry_after=retry_after,
-        error=message,
-    )
-
-
 def _refresh_packages(
     args: argparse.Namespace,
     application: ApplicationContext,
 ) -> None:
-    index_dir = application.config.index_dir
-    if index_dir is None:
-        raise OwnerUpdateError("BKG_INDEX_DIR is required")
     packages = _package_refs(args.owner_type, sys.stdin.read())
 
     def diagnostic(message: str) -> None:
@@ -286,13 +170,21 @@ def _refresh_packages(
     def progress(message: str) -> None:
         print(message, flush=True)
 
+    request = OwnerUpdateRequest(
+        args.owner_id,
+        args.owner,
+        args.since,
+        "",
+        args.fast_out == "true",
+    )
     with application.github_client() as client:
-        _package_refresh_service(
+        build_package_refresh_service(
             application,
             client,
+            application.concurrency_settings,
             progress,
             diagnostic,
-        ).refresh(_package_refresh_request(args, application, packages))
+        ).refresh(build_package_refresh_request(request, application, packages))
 
 
 def _scan_pages(
@@ -305,10 +197,18 @@ def _scan_pages(
     def progress(message: str) -> None:
         print(message, flush=True)
 
+    request = OwnerUpdateRequest(
+        args.owner_id,
+        args.owner,
+        args.since,
+        args.marker,
+        args.fast_out == "true",
+    )
     with application.github_client() as client:
-        package_refresh = _package_refresh_service(
+        package_refresh = build_package_refresh_service(
             application,
             client,
+            application.concurrency_settings,
             progress,
             diagnostic,
         )
@@ -329,66 +229,13 @@ def _scan_pages(
                 args.marker,
                 args.start_page,
                 application.config.mode,
-                _package_refresh_request(args, application, ()),
+                build_package_refresh_request(request, application, ()),
             )
         )
     result_file = Path(args.result_file)
     with atomic_text_output(result_file) as output:
         output.write(_scan_pages_json(result))
         output.write("\n")
-
-
-def _package_refresh_service(
-    application: ApplicationContext,
-    client: GitHubClient,
-    progress: Callable[[str], None],
-    diagnostic: Callable[[str], None],
-) -> OwnerPackageRefreshService:
-    return OwnerPackageRefreshService(
-        application.database,
-        client,
-        OwnerPackageRefreshExecution(
-            PackageRefreshExecution(
-                VersionRefreshExecution(
-                    application.worker_runner,
-                    GHCRManifestInspector(client, diagnostic=diagnostic),
-                    diagnostic=diagnostic,
-                    metric_enrichment=application.metric_enrichment,
-                ),
-                application.version_selection_settings,
-                application.publication_limits,
-                Path(application.config.optout_file),
-                application.stop.check,
-            ),
-            application.concurrency_settings,
-            progress,
-            diagnostic,
-        ),
-    )
-
-
-def _package_refresh_request(
-    args: argparse.Namespace,
-    application: ApplicationContext,
-    packages: tuple[OwnerScanPackage, ...],
-) -> OwnerPackageRefreshRequest:
-    index_dir = application.config.index_dir
-    if index_dir is None:
-        raise OwnerUpdateError("BKG_INDEX_DIR is required")
-    return OwnerPackageRefreshRequest(
-        args.owner_id,
-        args.owner,
-        packages,
-        args.since,
-        application.config.versions_table,
-        Path(index_dir),
-        PackageRefreshPolicy(
-            write_legacy=True,
-            use_rest_api=bool(application.github_settings.token),
-            fast_out=args.fast_out == "true",
-            mode=application.config.mode,
-        ),
-    )
 
 
 def _publish_owner(

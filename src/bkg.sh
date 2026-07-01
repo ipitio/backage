@@ -17,141 +17,48 @@
 
 source lib/owner.sh
 
-owner_update_wait_notice() {
-	local started_at=${1:-0}
-	local last_notice_at=${2:-0}
-	local now
-	local elapsed
-	local notice_interval=300
-
-	OWNER_UPDATE_WAIT_STARTED=$started_at
-	OWNER_UPDATE_WAIT_LAST_NOTICE=$last_notice_at
-	OWNER_UPDATE_WAIT_MESSAGE=""
-	now=$(date -u +%s)
-
-	if ((OWNER_UPDATE_WAIT_STARTED == 0)); then
-		OWNER_UPDATE_WAIT_STARTED=$now
-		OWNER_UPDATE_WAIT_LAST_NOTICE=$now
-		OWNER_UPDATE_WAIT_MESSAGE="Waiting for active owner updates to stop..."
-		return
-	fi
-
-	if ((now - OWNER_UPDATE_WAIT_LAST_NOTICE < notice_interval)); then
-		return
-	fi
-
-	OWNER_UPDATE_WAIT_LAST_NOTICE=$now
-	elapsed=$((now - OWNER_UPDATE_WAIT_STARTED))
-	OWNER_UPDATE_WAIT_MESSAGE="Still waiting for active owner updates to stop after ${elapsed}s..."
-}
-
-owner_update_force_stop_due() {
-	local started_at=${1:-0}
-	local grace_period=${2:-180}
-	local now
-
-	OWNER_UPDATE_FORCE_STOP_DUE=false
-	((started_at > 0)) || return
-	now=$(date -u +%s)
-	if ((now - started_at >= grace_period)); then
-		OWNER_UPDATE_FORCE_STOP_DUE=true
-	fi
-}
-
-owner_update_collect_child_pids() {
-	local root_pid=$1
-	local child_pid
-
-	[ -n "$root_pid" ] || return
-
-	while IFS= read -r child_pid; do
-		child_pid=$(awk '{print $1}' <<<"$child_pid")
-		[ -n "$child_pid" ] || continue
-		printf '%s\n' "$child_pid"
-		owner_update_collect_child_pids "$child_pid"
-	done < <(ps -o pid= --ppid "$root_pid" 2>/dev/null)
-}
-
-owner_update_force_stop() {
-	local root_pid=$1
-	local pid
-	local -a pids=()
-
-	[ -n "$root_pid" ] || return
-
-	while IFS= read -r pid; do
-		[ -n "$pid" ] || continue
-		pids+=("$pid")
-	done < <(owner_update_collect_child_pids "$root_pid")
-
-	pids+=("$root_pid")
-	terminate_pids_with_grace "${pids[@]}"
-}
-
 run_owner_updates() {
 	local owners_queue
-	local status=0
-	local updates_pid=""
-	local stop_wait_started=0
-	local last_wait_notice=0
-	local graceful_stop_window=${BKG_OWNER_UPDATE_STOP_GRACE:-180}
-	local forced_stop=false
-	local elapsed=0
+	local batch_first_started
+	local batch_marker
 	owners_queue=$(get_BKG_set BKG_OWNERS_QUEUE)
 	[ -n "$owners_queue" ] || return 0
-
-	if [[ "$GITHUB_OWNER" = "ipitio" && "$(git branch --show-current)" = "master" ]]; then
-		(
-			printf '%s\n' "$owners_queue" | parallel_shell_func "$BKG_ROOT/src/lib/owner.sh" update_owner --lb --halt soon,fail=1
-		) &
-		updates_pid=$!
-
-		while background_job_running "$updates_pid"; do
-			sleep 1
-			background_job_running "$updates_pid" || break
-			script_stop_requested || continue
-			owner_update_wait_notice "$stop_wait_started" "$last_wait_notice"
-			stop_wait_started=$OWNER_UPDATE_WAIT_STARTED
-			last_wait_notice=$OWNER_UPDATE_WAIT_LAST_NOTICE
-			[ -z "$OWNER_UPDATE_WAIT_MESSAGE" ] || echo "$OWNER_UPDATE_WAIT_MESSAGE"
-
-			owner_update_force_stop_due "$stop_wait_started" "$graceful_stop_window"
-			if ! $forced_stop && $OWNER_UPDATE_FORCE_STOP_DUE; then
-				elapsed=$(( $(date -u +%s) - stop_wait_started ))
-				echo "Graceful stop window exceeded after ${elapsed}s; force-stopping active owner updates..."
-				owner_update_force_stop "$updates_pid"
-				forced_stop=true
-			fi
-		done
-
-		wait "$updates_pid"
-		status=$?
-		if $forced_stop && [ "$(get_BKG BKG_TIMEOUT)" = "1" ]; then
-			status=3
-		fi
-	else # typically fewer owners
-		run_parallel update_owner "$owners_queue"
-		status=$?
-	fi
-
-	return "$status"
+	batch_first_started=$(current_batch_first_started)
+	[ -n "$batch_first_started" ] || batch_first_started="0000-00-00"
+	batch_marker=$(get_BKG BKG_BATCH_MARKER)
+	[ -n "$batch_marker" ] || return 1
+	bkg_python orchestration update-owners \
+		"$batch_first_started" "$batch_marker" "${fast_out:-false}"
 }
 
 handle_owner_update_status() {
 	local phase_status=${1:-0}
+	local decision
+	local action
+	local decided_status
+	local message
 
-	if ((phase_status == 3)); then
-		return_code=3
-		echo "Reached BKG_MAX_LEN, stopping after persisting state..."
+	decision=$(bkg_python orchestration owner-phase-decision "$phase_status" "$return_code") || return $?
+	IFS=$'\t' read -r action decided_status message <<<"$decision"
+	[[ "$decided_status" =~ ^[0-9]+$ ]] || {
+		echo "Invalid owner phase decision from Python: $decision" >&2
+		return 1
+	}
+	case "$action" in
+	publish)
+		return_code=$decided_status
+		[ -z "$message" ] || echo "$message"
 		return 0
-	fi
-
-	if ((phase_status != 0)); then
-		echo "Owner updates failed with status $phase_status; stopping before snapshot publication." >&2
-		return "$phase_status"
-	fi
-
-	return 0
+		;;
+	abort)
+		[ -z "$message" ] || echo "$message" >&2
+		return "$decided_status"
+		;;
+	*)
+		echo "Invalid owner phase decision from Python: $decision" >&2
+		return 1
+		;;
+	esac
 }
 
 run_owner_page_discovery() {
@@ -198,10 +105,38 @@ log_prequeue_elapsed_once() {
 	log_startup_phase "pre-queue-work" "${BKG_STARTUP_STARTED_AT:-0}"
 }
 
-batch_should_reset() {
-	local remaining=${1:-0}
+prepare_package_plan() {
+	local since=$1
+	local directory=${2:-.}
+	local summary
+	local total
+	local completed
+	local pending
 
-	((remaining == 0))
+	summary=$(bkg_python orchestration prepare-package-plan "$since" "$directory") || return $?
+	IFS=$'\t' read -r total completed pending <<<"$summary"
+	[[ "$total" =~ ^[0-9]+$ && "$completed" =~ ^[0-9]+$ && "$pending" =~ ^[0-9]+$ ]] || {
+		echo "Invalid package plan summary from Python: $summary" >&2
+		return 1
+	}
+	printf '%s\t%s\t%s\n' "$total" "$completed" "$pending"
+}
+
+sync_batch_progress() {
+	local today_value=$1
+	local remaining=$2
+	local transition
+
+	transition=$(bkg_python orchestration complete-batch-if-exhausted "$today_value" "$remaining") || return $?
+	IFS=$'\t' read -r BKG_BATCH_RESET BKG_BATCH_FIRST_STARTED <<<"$transition"
+	if [ "$BKG_BATCH_RESET" != "true" ] && [ "$BKG_BATCH_RESET" != "false" ]; then
+		echo "Invalid batch transition from Python: $transition" >&2
+		return 1
+	fi
+	[ -n "$BKG_BATCH_FIRST_STARTED" ] || {
+		echo "Python batch transition omitted the batch start date" >&2
+		return 1
+	}
 }
 
 db_restore_signature_file() {
@@ -321,6 +256,7 @@ main() {
 	local owners
 	local repos
 	local packages
+	local pkg_all
 	local pkg_done
 	local pkg_left
 	local db_size_curr
@@ -337,6 +273,7 @@ main() {
 	local owners_table_sql
 	local packages_table_sql
 	local batch_first_started_sql
+	local package_plan_summary
 	connections=$(mktemp) || exit 1
 	temp_connections=$(mktemp) || exit 1
 
@@ -375,45 +312,9 @@ main() {
 	sqlite_ensure_index_schema || return $?
 	owners_table_sql=$(sqlite_quote_identifier "$BKG_INDEX_TBL_OWN")
 	packages_table_sql=$(sqlite_quote_identifier "$BKG_INDEX_TBL_PKG")
-	batch_first_started_sql=$(sqlite_quote_literal "$BKG_BATCH_FIRST_STARTED")
-	sqlite3 "$BKG_INDEX_DB" "
-		select current.owner_id, current.owner, current.repo, current.package,
-		       max(current.date) as max_date
-		from $packages_table_sql current
-		where not exists (
-			select 1
-			from bkg_package_publications pending
-			where pending.owner_id = current.owner_id
-			  and pending.owner_type = current.owner_type
-			  and pending.package_type = current.package_type
-			  and pending.owner = current.owner
-			  and pending.repo = current.repo
-			  and pending.package = current.package
-		)
-		group by current.owner_id, current.owner, current.repo, current.package
-		having max(current.date) >= $batch_first_started_sql
-		order by max_date asc;
-	" >packages_already_updated
-	sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, repo, package, max(date) as max_date from $packages_table_sql group by owner_id, owner, repo, package order by date asc;" >packages_all
-	sqlite3 "$BKG_INDEX_DB" "
-		select owner
-		from (
-			select owner, min(date) as first_date
-			from $packages_table_sql
-			group by owner
-			union all
-			select owner, min(date) as first_date
-			from $owners_table_sql
-			where date >= $batch_first_started_sql
-			group by owner
-		)
-		group by owner
-		order by min(first_date), owner;
-	" >all_owners_in_db
-	grep -vFxf packages_already_updated packages_all >packages_to_update
-	pkg_done=$(wc -l <packages_already_updated)
-	pkg_left=$(wc -l <packages_to_update)
-	echo "all: $(wc -l <packages_all)"
+	package_plan_summary=$(prepare_package_plan "$BKG_BATCH_FIRST_STARTED" ".") || return $?
+	IFS=$'\t' read -r pkg_all pkg_done pkg_left <<<"$package_plan_summary"
+	echo "all: $pkg_all"
 	echo "done: $pkg_done"
 	echo "left: $pkg_left"
 	db_size_curr=$(stat -c %s "$BKG_INDEX_DB")
@@ -468,7 +369,7 @@ main() {
 					fi
 
 					clean_owners "$connections"
-					if ! daily_gate_completed_today BKG_LAST_EXPLORE_DATE "$today" && ((return_code != 3)); then
+					if ((return_code != 3)); then
 						mark_daily_gate_completed BKG_LAST_EXPLORE_DATE "$today"
 					fi
 					# shellcheck disable=SC2319
@@ -496,11 +397,8 @@ main() {
 				if ((return_code == 3)); then
 					echo "Reached BKG_MAX_LEN, stopping after persisting state..."
 				else
-				if batch_should_reset "$pkg_left"; then
-					# reset the batch
-					BKG_BATCH_FIRST_STARTED=$today
-					set_BKG BKG_BATCH_FIRST_STARTED "$today"
-					set_BKG BKG_BATCH_MARKER "$(generate_batch_marker)"
+				sync_batch_progress "$today" "$pkg_left" || return $?
+				if $BKG_BATCH_RESET; then
 					rm -f packages_to_update
 					\cp packages_all packages_to_update
 					: >packages_already_updated
