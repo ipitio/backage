@@ -108,12 +108,13 @@ log_prequeue_elapsed_once() {
 prepare_package_plan() {
 	local since=$1
 	local directory=${2:-.}
+	local reset=${3:-false}
 	local summary
 	local total
 	local completed
 	local pending
 
-	summary=$(bkg_python orchestration prepare-package-plan "$since" "$directory") || return $?
+	summary=$(bkg_python orchestration prepare-package-plan "$since" "$directory" "$reset") || return $?
 	IFS=$'\t' read -r total completed pending <<<"$summary"
 	[[ "$total" =~ ^[0-9]+$ && "$completed" =~ ^[0-9]+$ && "$pending" =~ ^[0-9]+$ ]] || {
 		echo "Invalid package plan summary from Python: $summary" >&2
@@ -270,9 +271,7 @@ main() {
 	local rest_first
 	local request_limit=100
 	local phase_started_at=0
-	local owners_table_sql
 	local packages_table_sql
-	local batch_first_started_sql
 	local package_plan_summary
 	connections=$(mktemp) || exit 1
 	temp_connections=$(mktemp) || exit 1
@@ -310,7 +309,6 @@ main() {
 	}
 	phase_started_at=$(startup_phase_started_at)
 	sqlite_ensure_index_schema || return $?
-	owners_table_sql=$(sqlite_quote_identifier "$BKG_INDEX_TBL_OWN")
 	packages_table_sql=$(sqlite_quote_identifier "$BKG_INDEX_TBL_PKG")
 	package_plan_summary=$(prepare_package_plan "$BKG_BATCH_FIRST_STARTED" ".") || return $?
 	IFS=$'\t' read -r pkg_all pkg_done pkg_left <<<"$package_plan_summary"
@@ -399,15 +397,9 @@ main() {
 				else
 				sync_batch_progress "$today" "$pkg_left" || return $?
 				if $BKG_BATCH_RESET; then
-					rm -f packages_to_update
-					\cp packages_all packages_to_update
-					: >packages_already_updated
+					prepare_package_plan "$BKG_BATCH_FIRST_STARTED" "." true >/dev/null || return $?
 				fi
 
-				awk -F'|' '{print $2}' packages_already_updated | awk '!seen[$0]++' >owners_updated
-				awk -F'|' '{print $2}' packages_to_update | awk '!seen[$0]++' >all_owners_tu
-				grep -Fxf owners_updated all_owners_tu >owners_partially_updated
-				grep -vFxf owners_updated all_owners_tu >owners_stale
 				bkg_python database deferred-owners "$(date -u +%s)" >owners_deferred || return $?
 				while IFS=$'\t' read -r deferred_owner retry_after; do
 					[ -n "$deferred_owner" ] || continue
@@ -415,8 +407,6 @@ main() {
 				done <owners_deferred
 				sort "$connections" | uniq -c | sort -nr | awk '{print $2}' >"$connections".bak
 				mv "$connections".bak "$connections"
-				batch_first_started_sql=$(sqlite_quote_literal "$BKG_BATCH_FIRST_STARTED")
-				sqlite3 "$BKG_INDEX_DB" "select owner from $owners_table_sql where date >= $batch_first_started_sql order by owner asc;" >owners_scanned_without_packages
 				grep -vFxf owners_scanned_without_packages "$connections" >"$connections".filtered || :
 				mv "$connections".filtered "$connections"
 				clean_owners "$BKG_OWNERS"

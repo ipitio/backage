@@ -94,7 +94,7 @@ test_prepare_package_plan_validates_python_summary() {
 
 	summary=$(prepare_package_plan 2026-06-29 "$workdir/plan")
 	[ "$summary" = $'12\t7\t5' ] || fail "Expected validated package plan counts"
-	assert_contains "$calls_file" "orchestration prepare-package-plan 2026-06-29 $workdir/plan"
+	assert_contains "$calls_file" "orchestration prepare-package-plan 2026-06-29 $workdir/plan false"
 
 	bkg_python() {
 		printf 'invalid\n'

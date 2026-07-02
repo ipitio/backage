@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Protocol
 
@@ -34,15 +34,34 @@ class PackageWorkPlanService:  # pylint: disable=too-few-public-methods
     def __init__(self, repository: PackageWorkPlanRepository) -> None:
         self.repository = repository
 
-    def prepare(self, since: str, directory: Path) -> PackageWorkPlanSummary:
+    def prepare(
+        self,
+        since: str,
+        directory: Path,
+        *,
+        reset: bool = False,
+    ) -> PackageWorkPlanSummary:
         """Write one package plan while preserving current file formats."""
 
         plan = self.repository.package_work_plan(since)
+        if reset:
+            plan = replace(plan, completed=(), pending=plan.packages)
         directory.mkdir(parents=True, exist_ok=True)
         _write_items(directory / "packages_all", plan.packages)
         _write_items(directory / "packages_already_updated", plan.completed)
         _write_items(directory / "packages_to_update", plan.pending)
         _write_lines(directory / "all_owners_in_db", plan.owners)
+        _write_lines(directory / "owners_updated", plan.updated_owners)
+        _write_lines(directory / "all_owners_tu", plan.pending_owners)
+        _write_lines(
+            directory / "owners_partially_updated",
+            plan.partially_updated_owners,
+        )
+        _write_lines(directory / "owners_stale", plan.stale_owners)
+        _write_lines(
+            directory / "owners_scanned_without_packages",
+            plan.scanned_without_packages,
+        )
         return PackageWorkPlanSummary(
             len(plan.packages),
             len(plan.completed),

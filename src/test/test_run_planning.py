@@ -34,6 +34,7 @@ def test_package_work_plan_writes_existing_intermediate_formats(
             completed=(second,),
             pending=(first,),
             owners=("Alpha", "Beta", "Empty"),
+            scanned_without_packages=("Empty",),
         )
     )
     output = tmp_path / "plan"
@@ -56,3 +57,59 @@ def test_package_work_plan_writes_existing_intermediate_formats(
     assert (output / "all_owners_in_db").read_text(encoding="utf-8") == (
         "Alpha\nBeta\nEmpty\n"
     )
+    assert (output / "owners_updated").read_text(encoding="utf-8") == "Beta\n"
+    assert (output / "all_owners_tu").read_text(encoding="utf-8") == "Alpha\n"
+    assert (output / "owners_partially_updated").read_text(encoding="utf-8") == ""
+    assert (output / "owners_stale").read_text(encoding="utf-8") == "Alpha\n"
+    assert (output / "owners_scanned_without_packages").read_text(
+        encoding="utf-8"
+    ) == "Empty\n"
+
+
+def test_reset_plan_marks_every_package_pending(tmp_path: Path) -> None:
+    """A same-day batch reset does not inherit earlier completed work."""
+
+    package = PackageWorkItem("1", "Alpha", "repo", "pkg", "2026-07-01")
+    repository = _Repository(
+        PackageWorkPlan(
+            packages=(package,),
+            completed=(package,),
+            pending=(),
+            owners=("Alpha",),
+            scanned_without_packages=(),
+        )
+    )
+
+    summary = PackageWorkPlanService(repository).prepare(
+        "2026-07-01",
+        tmp_path,
+        reset=True,
+    )
+
+    assert summary.completed == 0
+    assert summary.pending == 1
+    assert (tmp_path / "packages_already_updated").read_text(encoding="utf-8") == ""
+    assert (tmp_path / "packages_to_update").read_text(encoding="utf-8") == (
+        "1|Alpha|repo|pkg|2026-07-01\n"
+    )
+    assert (tmp_path / "owners_stale").read_text(encoding="utf-8") == "Alpha\n"
+
+
+def test_package_plan_classifies_partial_owners_in_pending_order() -> None:
+    """Owner queue inputs preserve pending order and split partial from stale."""
+
+    alpha_done = PackageWorkItem("1", "Alpha", "one", "done", "2026-07-01")
+    alpha_pending = PackageWorkItem("1", "Alpha", "one", "todo", "2026-06-30")
+    beta_pending = PackageWorkItem("2", "Beta", "two", "todo", "2026-06-30")
+    plan = PackageWorkPlan(
+        packages=(alpha_done, alpha_pending, beta_pending),
+        completed=(alpha_done,),
+        pending=(beta_pending, alpha_pending),
+        owners=("Alpha", "Beta"),
+        scanned_without_packages=(),
+    )
+
+    assert plan.updated_owners == ("Alpha",)
+    assert plan.pending_owners == ("Beta", "Alpha")
+    assert plan.partially_updated_owners == ("Alpha",)
+    assert plan.stale_owners == ("Beta",)

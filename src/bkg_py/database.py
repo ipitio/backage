@@ -22,6 +22,7 @@ from .database_models import (
     VersionSource,
     VersionStage,
 )
+from .database_owner_identities import OwnerIdentityRepositoryMixin
 from .database_owner_repository import OwnerScanRepositoryMixin
 from .database_settings import DatabaseSettings
 from .database_support import DatabaseError
@@ -68,7 +69,10 @@ class _SqlIdentifier(str):
         return str.__new__(cls, quoted)
 
 
-class DatabaseRepository(OwnerScanRepositoryMixin):  # pylint: disable=too-many-public-methods
+class DatabaseRepository(  # pylint: disable=too-many-public-methods
+    OwnerIdentityRepositoryMixin,
+    OwnerScanRepositoryMixin,
+):
     """Own bkg's SQLite schema, transactions, fallback reads, and cleanup."""
 
     def __init__(
@@ -288,6 +292,17 @@ class DatabaseRepository(OwnerScanRepositoryMixin):  # pylint: disable=too-many-
                     ),
                     (since,),
                 ).fetchall()
+                empty_owner_rows = connection.execute(
+                    _sql(
+                        """
+                        select owner from {owners}
+                        where date >= ?
+                        order by owner asc
+                        """,
+                        owners=owners,
+                    ),
+                    (since,),
+                ).fetchall()
 
             all_packages = tuple(_package_work_item(row) for row in package_rows)
             completed = tuple(_package_work_item(row) for row in completed_rows)
@@ -297,6 +312,7 @@ class DatabaseRepository(OwnerScanRepositoryMixin):  # pylint: disable=too-many-
                 completed,
                 tuple(item for item in all_packages if item not in completed_set),
                 tuple(str(row[0]) for row in owner_rows),
+                tuple(str(row[0]) for row in empty_owner_rows),
             )
 
         return self._run_read(load)

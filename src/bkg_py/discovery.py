@@ -220,6 +220,11 @@ class OwnerIdentityResolver:
 
         return self._rest_owner_lookup(owner_ref_login(candidate))
 
+    def resolve_owner_fresh(self, value: str) -> OwnerLookupResult:
+        """Resolve one login through GitHub without trusting a persisted ID."""
+
+        return self._rest_owner_lookup(owner_ref_login(value))
+
     def resolve_candidate_file(
         self,
         candidates_path: Path,

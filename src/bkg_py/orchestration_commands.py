@@ -70,6 +70,7 @@ def _prepare_package_plan(
         summary = PackageWorkPlanService(application.database).prepare(
             args.since,
             Path(args.directory),
+            reset=args.reset == "true",
         )
     sys.stdout.write(f"{summary.total}\t{summary.completed}\t{summary.pending}\n")
     return ExitStatus.SUCCESS

@@ -80,6 +80,28 @@ def test_cache_replaces_stale_ref_and_reports_conflicts(tmp_path: Path) -> None:
     assert cache.lookup("beta") is None
 
 
+def test_fresh_owner_resolution_bypasses_a_stale_identity_cache(
+    tmp_path: Path,
+) -> None:
+    """Alias cleanup verifies GitHub's current ID before deleting old rows."""
+
+    cache = OwnerIdentityCache(tmp_path / "owner-id-cache.txt")
+    cache.cache("100/Alpha")
+
+    def respond(request: httpx.Request) -> httpx.Response:
+        assert request.url == "https://api.github.com/users/Alpha"
+        return httpx.Response(
+            200,
+            json={"id": 200, "login": "Alpha", "type": "User"},
+        )
+
+    resolver = OwnerIdentityResolver(cache, _client(httpx.MockTransport(respond)))
+
+    assert resolver.resolve_owner("Alpha").owner_ref == "100/Alpha"
+    assert resolver.resolve_owner_fresh("Alpha").owner_ref == "200/Alpha"
+    assert cache.lookup("Alpha") == "200/Alpha"
+
+
 def test_resolve_candidate_file_uses_cache_before_network(tmp_path: Path) -> None:
     """Cached owner refs are emitted without touching GitHub."""
 

@@ -116,6 +116,12 @@ def _add_orchestration_parsers(subparsers: Any) -> None:
     )
     package_plan_parser.add_argument("since")
     package_plan_parser.add_argument("directory")
+    package_plan_parser.add_argument(
+        "reset",
+        choices=("true", "false"),
+        nargs="?",
+        default="false",
+    )
 
 
 def _add_database_parsers(subparsers: Any) -> None:

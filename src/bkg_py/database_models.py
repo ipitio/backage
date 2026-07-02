@@ -137,6 +137,14 @@ class OwnerScanResult:
 
 
 @dataclass(frozen=True)
+class OwnerIdentityCleanup:
+    """Superseded owner identities and orphaned generated package paths."""
+
+    alias_ids: tuple[str, ...]
+    orphaned_packages: tuple[PackageRef, ...]
+
+
+@dataclass(frozen=True)
 class OwnerScanFailure:
     """One failed owner scan or direct refresh attempt."""
 
@@ -179,6 +187,37 @@ class PackageWorkPlan:
     completed: tuple[PackageWorkItem, ...]
     pending: tuple[PackageWorkItem, ...]
     owners: tuple[str, ...]
+    scanned_without_packages: tuple[str, ...]
+
+    @property
+    def updated_owners(self) -> tuple[str, ...]:
+        """Return owners with at least one completed package in plan order."""
+
+        return _unique_work_owners(self.completed)
+
+    @property
+    def pending_owners(self) -> tuple[str, ...]:
+        """Return owners with at least one pending package in plan order."""
+
+        return _unique_work_owners(self.pending)
+
+    @property
+    def partially_updated_owners(self) -> tuple[str, ...]:
+        """Return pending owners that also have completed package work."""
+
+        updated = set(self.updated_owners)
+        return tuple(owner for owner in self.pending_owners if owner in updated)
+
+    @property
+    def stale_owners(self) -> tuple[str, ...]:
+        """Return pending owners with no completed package work."""
+
+        updated = set(self.updated_owners)
+        return tuple(owner for owner in self.pending_owners if owner not in updated)
+
+
+def _unique_work_owners(items: tuple[PackageWorkItem, ...]) -> tuple[str, ...]:
+    return tuple(dict.fromkeys(item.owner for item in items))
 
 
 @dataclass(frozen=True)

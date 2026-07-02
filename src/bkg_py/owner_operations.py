@@ -2,15 +2,16 @@
 
 from __future__ import annotations
 
+import shutil
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
 
 from .application import ApplicationContext
 from .concurrency import BoundedWorkerRunner, ConcurrencySettings
 from .database import DatabaseError, DatabaseRepository
-from .database_models import OwnerScanFailure, OwnerScanPackage
+from .database_models import OwnerScanFailure, OwnerScanPackage, PackageRef
 from .discovery import OwnerIdentityCache, OwnerIdentityResolver
 from .github import GitHubClient, GitHubError
 from .owner_lifecycle import (
@@ -84,6 +85,7 @@ class OwnerUpdateOperation:  # pylint: disable=too-few-public-methods
         """Run one owner and persist retry backoff for expected failures."""
 
         try:
+            request = self._reconcile_owner_identity(request)
             owner_type = _resolve_owner_api_type(
                 request.owner_id,
                 request.owner,
@@ -154,6 +156,53 @@ class OwnerUpdateOperation:  # pylint: disable=too-few-public-methods
                 self.execution.progress,
             )
 
+    def _reconcile_owner_identity(
+        self,
+        request: OwnerUpdateRequest,
+    ) -> OwnerUpdateRequest:
+        aliases = self.application.database.owner_alias_ids(
+            request.owner_id,
+            request.owner,
+        )
+        if not aliases:
+            return request
+
+        resolved = self.identity.resolve_owner_fresh(request.owner)
+        if resolved.owner_ref is None:
+            raise OwnerUpdateError(
+                f"could not verify current owner identity for {request.owner}"
+            )
+        verified_id, separator, verified_owner = resolved.owner_ref.partition("/")
+        if not separator or not verified_id.isdecimal() or not verified_owner:
+            raise OwnerUpdateError(
+                f"GitHub returned an invalid owner identity for {request.owner}"
+            )
+
+        cleanup = self.application.database.retire_owner_aliases(
+            verified_id,
+            request.owner,
+        )
+        self.application.state.delete_matching(
+            keys=(
+                key
+                for alias_id in cleanup.alias_ids
+                for key in (
+                    f"BKG_OWNER_SCAN_{alias_id}",
+                    f"BKG_PAGE_{alias_id}",
+                )
+            )
+        )
+        _remove_orphaned_package_files(
+            self.application.config.index_dir,
+            cleanup.orphaned_packages,
+        )
+        self.execution.progress(
+            f"Reconciled {request.owner} to owner ID {verified_id}; retired "
+            f"{len(cleanup.alias_ids)} superseded ID(s) and "
+            f"{len(cleanup.orphaned_packages)} orphaned package path(s)"
+        )
+        return replace(request, owner_id=verified_id)
+
 
 def build_package_refresh_service(
     application: ApplicationContext,
@@ -188,6 +237,28 @@ def build_package_refresh_service(
             diagnostic,
         ),
     )
+
+
+def _remove_orphaned_package_files(
+    index_dir: str | None,
+    packages: tuple[PackageRef, ...],
+) -> None:
+    if index_dir is None:
+        raise OwnerUpdateError("BKG_INDEX_DIR is required")
+    root = Path(index_dir)
+    for package in packages:
+        repo_directory = root / package.owner / package.repo
+        if not repo_directory.is_dir():
+            continue
+        prefixes = (f"{package.package}.json", f"{package.package}.xml")
+        for path in repo_directory.iterdir():
+            if path.name.startswith(prefixes) and (path.is_file() or path.is_symlink()):
+                path.unlink(missing_ok=True)
+        if not any(
+            path.is_file() and path.suffix == ".json" and not path.name.startswith(".")
+            for path in repo_directory.iterdir()
+        ):
+            shutil.rmtree(repo_directory)
 
 
 def build_package_refresh_request(
