@@ -893,16 +893,18 @@ def run_command(
 
         status = validate_generated_file(args.file)
     elif args.command == "select-owners":
-        from .owner_queue import OwnerQueueSelector
+        from .owner_queue import OwnerQueuePaths, OwnerQueueSelector
 
         selector = OwnerQueueSelector(
             rest_first=args.rest_first,
-            connections_file=Path(args.connections_file),
             request_limit=args.request_limit,
             current_owner=args.current_owner,
-            manual_file=Path(args.manual_file),
-            index_dir=Path(args.index_dir),
-            state_dir=Path.cwd(),
+            paths=OwnerQueuePaths(
+                connections_file=Path(args.connections_file),
+                manual_file=Path(args.manual_file),
+                index_dir=Path(args.index_dir),
+                state_dir=Path.cwd(),
+            ),
         )
         selected = selector.select_with_reasons()
         sys.stdout.writelines(f"{owner}\n" for owner, _reason in selected)

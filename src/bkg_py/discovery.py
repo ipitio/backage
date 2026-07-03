@@ -233,32 +233,38 @@ class OwnerIdentityResolver:
     ) -> list[str]:
         """Resolve owner candidates from a file and optionally write missing names."""
 
-        candidates = [
+        candidates = tuple(
             line
             for line in candidates_path.read_text(encoding="utf-8").splitlines()
             if line
-        ]
-        if not candidates:
-            return []
+        )
+        output, missing_output = self.resolve_candidates(candidates)
         if missing_path is not None:
             missing_path.parent.mkdir(parents=True, exist_ok=True)
-            missing_path.write_text("", encoding="utf-8")
+            missing_path.write_text(
+                "".join(f"{owner}\n" for owner in missing_output),
+                encoding="utf-8",
+            )
+        return list(output)
 
-        state = self._collect_candidate_state(candidates)
+    def resolve_candidates(
+        self,
+        candidates: Iterable[str],
+    ) -> tuple[tuple[str, ...], tuple[str, ...]]:
+        """Resolve candidate values and return canonical refs and confirmed misses."""
+
+        normalized = tuple(candidate for candidate in candidates if candidate)
+        if not normalized:
+            return (), ()
+        state = self._collect_candidate_state(normalized)
         if state.unresolved and self.client.settings.token:
             self._resolve_graphql_batches(
                 state.unresolved,
                 state.resolved_by_owner,
                 state.missing_by_owner,
             )
-
-        output, missing_output = self._resolved_candidate_output(candidates, state)
-        if missing_path is not None:
-            missing_path.write_text(
-                "".join(f"{owner}\n" for owner in missing_output),
-                encoding="utf-8",
-            )
-        return output
+        output, missing = self._resolved_candidate_output(normalized, state)
+        return tuple(output), tuple(missing)
 
     def _collect_candidate_state(
         self,

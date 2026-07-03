@@ -172,11 +172,6 @@ post_stop_current_index_snapshot_archive_file() {
 	post_stop_bkg_python snapshot current-archive
 }
 
-post_stop_ytox() {
-	[ -n "$1" ] || return 1
-	post_stop_bkg_python json-to-xml "$1" >/dev/null
-}
-
 startup_index_snapshot_archive_file() {
 	local snapshot_file
 
@@ -254,24 +249,21 @@ drop_replaced_legacy_version_tables() {
 
 main() {
 	local rotated=false
-	local owners
-	local repos
-	local packages
 	local pkg_all
 	local pkg_done
 	local pkg_left
 	local db_size_curr
-	local db_size_prev
 	local connections
 	local return_code=0
 	local phase_status=0
 	local opted_out
 	local opted_out_before
-	local owners_queue_source
+	local discovery_in_python=false
+	local include_manual=true
 	local rest_first
+	local skip_explore=false
 	local request_limit=100
 	local phase_started_at=0
-	local packages_table_sql
 	local package_plan_summary
 	connections=$(mktemp) || exit 1
 	temp_connections=$(mktemp) || exit 1
@@ -309,16 +301,13 @@ main() {
 	}
 	phase_started_at=$(startup_phase_started_at)
 	sqlite_ensure_index_schema || return $?
-	packages_table_sql=$(sqlite_quote_identifier "$BKG_INDEX_TBL_PKG")
 	package_plan_summary=$(prepare_package_plan "$BKG_BATCH_FIRST_STARTED" ".") || return $?
 	IFS=$'\t' read -r pkg_all pkg_done pkg_left <<<"$package_plan_summary"
 	echo "all: $pkg_all"
 	echo "done: $pkg_done"
 	echo "left: $pkg_left"
 	db_size_curr=$(stat -c %s "$BKG_INDEX_DB")
-	db_size_prev=$(get_BKG BKG_DIFF)
 	[ -n "$db_size_curr" ] || db_size_curr=0
-	[ -n "$db_size_prev" ] || db_size_prev=0
 	clean_owners "$BKG_OPTOUT"
 	opted_out=$(wc -l <"$BKG_OPTOUT")
 	opted_out_before=$(get_BKG BKG_OUT)
@@ -332,161 +321,116 @@ main() {
 				grep -oP '^[^\/]+' "$BKG_OPTOUT" | parallel_shell_func "$BKG_ROOT/src/lib/owner.sh" save_owner --lb
 				return_code=1
 			else
-				if [ "$GITHUB_OWNER" = "ipitio" ]; then
-					if daily_gate_should_skip_today BKG_LAST_EXPLORE_DATE "$today"; then
-						: >"$connections"
-						echo "Skipping explore; already ran today"
+				skip_explore=false
+				if [ "$GITHUB_OWNER" = "ipitio" ] && daily_gate_should_skip_today BKG_LAST_EXPLORE_DATE "$today"; then
+					skip_explore=true
+				fi
+				discovery_in_python=false
+				if [ -n "${GITHUB_TOKEN:-}" ]; then
+					bkg_python orchestration discover-owners \
+						"$today" "$skip_explore" "$connections" packages_all
+					phase_status=$?
+					if ((phase_status == 0)); then
+						discovery_in_python=true
+					elif ((phase_status == 3)); then
+						return_code=3
+					else
+						echo "Authenticated discovery failed; using the shell fallback"
+					fi
+				fi
+
+				if ! $discovery_in_python && ((return_code != 3)); then
+					if [ "$GITHUB_OWNER" = "ipitio" ]; then
+						if $skip_explore; then
+							: >"$connections"
+							echo "Skipping explore; already ran today"
+						else
+							phase_started_at=$(startup_phase_started_at)
+							BKG_DISCOVERY_SHELL_FALLBACK=true explore "$GITHUB_OWNER" >"$connections"
+							phase_status=$?
+							((phase_status != 3)) || return_code=3
+							BKG_DISCOVERY_SHELL_FALLBACK=true explore "$GITHUB_OWNER/$GITHUB_REPO" >>"$connections"
+							phase_status=$?
+							((phase_status != 3)) || return_code=3
+							log_startup_phase "discover-connections" "$phase_started_at"
+							clean_owners "$connections"
+
+							if ((return_code != 3)); then
+								phase_started_at=$(startup_phase_started_at)
+								while read -r connection; do
+									[ -n "$connection" ] || continue
+									BKG_DISCOVERY_SHELL_FALLBACK=true curl_orgs "$connection" >>"$temp_connections"
+									phase_status=$?
+									if ((phase_status == 3)); then
+										return_code=3
+										break
+									fi
+								done <"$connections"
+								cat "$temp_connections" >>"$connections"
+								clean_owners "$connections"
+								log_startup_phase "expand-connection-orgs" "$phase_started_at"
+							fi
+						fi
+
+						clean_owners "$connections"
+						if ((return_code != 3)); then
+							mark_daily_gate_completed BKG_LAST_EXPLORE_DATE "$today"
+						fi
+						# shellcheck disable=SC2319
+						BKG_PAGE_ALL=$(
+							(($(wc -l <"$BKG_OWNERS") < $(($(sort -u "$connections" | wc -l) + 100))))
+							echo "$?"
+						)
+						if ((return_code != 3)); then
+							phase_started_at=$(startup_phase_started_at)
+							run_owner_page_discovery
+							phase_status=$?
+							((phase_status != 3)) || return_code=3
+							log_startup_phase "page-owner-discovery" "$phase_started_at"
+						fi
 					else
 						phase_started_at=$(startup_phase_started_at)
-						explore "$GITHUB_OWNER" >"$connections"
+						BKG_DISCOVERY_SHELL_FALLBACK=true get_membership "$GITHUB_OWNER" >"$connections"
 						phase_status=$?
 						((phase_status != 3)) || return_code=3
-						explore "$GITHUB_OWNER/$GITHUB_REPO" >>"$connections"
-						phase_status=$?
-						((phase_status != 3)) || return_code=3
-						log_startup_phase "discover-connections" "$phase_started_at"
-						clean_owners "$connections"
-
-						if ((return_code != 3)); then
-
-							# get orgs of connections
-							phase_started_at=$(startup_phase_started_at)
-							while read -r connection; do
-								[ -n "$connection" ] || continue
-								curl_orgs "$connection" >>"$temp_connections"
-								phase_status=$?
-								if ((phase_status == 3)); then
-									return_code=3
-									break
-								fi
-							done <"$connections"
-							cat "$temp_connections" >>"$connections"
-							clean_owners "$connections"
-							log_startup_phase "expand-connection-orgs" "$phase_started_at"
-						fi
+						[ "$BKG_IS_FIRST" = "false" ] || : >"$BKG_OWNERS"
+						[ "$BKG_IS_FIRST" = "false" ] || : >"$BKG_OPTOUT"
+						log_startup_phase "discover-membership" "$phase_started_at"
 					fi
-
-					clean_owners "$connections"
-					if ((return_code != 3)); then
-						mark_daily_gate_completed BKG_LAST_EXPLORE_DATE "$today"
-					fi
-					# shellcheck disable=SC2319
-					BKG_PAGE_ALL=$(
-						(($(wc -l <"$BKG_OWNERS") < $(($(sort -u "$connections" | wc -l) + 100))))
-						echo "$?"
-					)
-					if ((return_code != 3)); then
-						phase_started_at=$(startup_phase_started_at)
-						run_owner_page_discovery
-						phase_status=$?
-						((phase_status != 3)) || return_code=3
-						log_startup_phase "page-owner-discovery" "$phase_started_at"
-					fi
-				else
-					phase_started_at=$(startup_phase_started_at)
-					get_membership "$GITHUB_OWNER" >"$connections"
-					phase_status=$?
-					((phase_status != 3)) || return_code=3
-					[ "$BKG_IS_FIRST" = "false" ] || : >"$BKG_OWNERS"
-					[ "$BKG_IS_FIRST" = "false" ] || : >"$BKG_OPTOUT"
-					log_startup_phase "discover-membership" "$phase_started_at"
 				fi
 
 				if ((return_code == 3)); then
 					echo "Reached BKG_MAX_LEN, stopping after persisting state..."
 				else
-				sync_batch_progress "$today" "$pkg_left" || return $?
-				if $BKG_BATCH_RESET; then
-					prepare_package_plan "$BKG_BATCH_FIRST_STARTED" "." true >/dev/null || return $?
-				fi
+					sync_batch_progress "$today" "$pkg_left" || return $?
+					if $BKG_BATCH_RESET; then
+						prepare_package_plan "$BKG_BATCH_FIRST_STARTED" "." true >/dev/null || return $?
+					fi
 
-				bkg_python database deferred-owners "$(date -u +%s)" >owners_deferred || return $?
-				while IFS=$'\t' read -r deferred_owner retry_after; do
-					[ -n "$deferred_owner" ] || continue
-					echo "Deferred $deferred_owner until $(date -u -d "@$retry_after" +%Y-%m-%dT%H:%M:%SZ)"
-				done <owners_deferred
-				sort "$connections" | uniq -c | sort -nr | awk '{print $2}' >"$connections".bak
-				mv "$connections".bak "$connections"
-				grep -vFxf owners_scanned_without_packages "$connections" >"$connections".filtered || :
-				mv "$connections".filtered "$connections"
-				clean_owners "$BKG_OWNERS"
-				grep -vFxf all_owners_in_db "$BKG_OWNERS" >owners.tmp
-				mv owners.tmp "$BKG_OWNERS"
-				rest_first=$(get_BKG BKG_REST_TO_TOP)
-				log_prequeue_elapsed_once
-				phase_started_at=$(startup_phase_started_at)
-				owners_queue_source="$BKG_OWNERS"
-				if daily_gate_should_skip_today BKG_LAST_OWNERS_QUEUE_DATE "$today"; then
-					owners_queue_source=/dev/null
-					echo "Skipping owners.txt queue; already ran today"
-				fi
-				local owner_candidates_file
-				owner_candidates_file=$(mktemp) || return 1
-				local owner_ids_file
-				owner_ids_file=$(mktemp) || {
-					rm -f "$owner_candidates_file"
-					return 1
-				}
-				local missing_owners_file
-				missing_owners_file=$(mktemp) || {
-					rm -f "$owner_candidates_file" "$owner_ids_file"
-					return 1
-				}
-				local owner_reasons_file
-				owner_reasons_file=$(mktemp) || {
-					rm -f "$owner_candidates_file" "$owner_ids_file" "$missing_owners_file"
-					return 1
-				}
-				export BKG_OWNER_QUEUE_REASONS_FILE=$owner_reasons_file
-				# BKG_INDEX_DIR is initialized by the update.sh entrypoint.
-				# shellcheck disable=SC2153
-				bash lib/get.sh "$rest_first" "$connections" $request_limit "$GITHUB_OWNER" "$owners_queue_source" "$BKG_INDEX_DIR" "$owner_reasons_file" >"$owner_candidates_file"
-				phase_status=$?
-				((phase_status != 3)) || return_code=3
-				if ((return_code != 3)); then
-					if [ -s "$owner_candidates_file" ]; then
-						resolve_owner_ids "$owner_candidates_file" "$missing_owners_file" >"$owner_ids_file"
-					else
-						: >"$owner_ids_file"
+					rest_first=$(get_BKG BKG_REST_TO_TOP)
+					log_prequeue_elapsed_once
+					phase_started_at=$(startup_phase_started_at)
+					include_manual=true
+					if daily_gate_should_skip_today BKG_LAST_OWNERS_QUEUE_DATE "$today"; then
+						include_manual=false
+						echo "Skipping owners.txt queue; already ran today"
 					fi
+					bkg_python orchestration prepare-owner-queue \
+						"$rest_first" "$connections" "$request_limit" \
+						"$include_manual" "." "$(date -u +%s)"
 					phase_status=$?
-					((phase_status != 3)) || return_code=3
-				fi
-				if ((return_code != 3)); then
-					set_BKG BKG_DISCOVERED_CONNECTION_OWNERS ""
-					if [ -s "$owner_ids_file" ]; then
-						while IFS= read -r owner_ref; do
-							[ -n "$owner_ref" ] || continue
-							set_BKG_set BKG_DISCOVERED_CONNECTION_OWNERS "$owner_ref" >/dev/null
-						done < <(awk -F'/' 'NR==FNR { discovered[$0] = 1; next } { owner = $NF; if (owner in discovered) print $0 }' "$connections" "$owner_ids_file")
+					if ((phase_status == 3)); then
+						return_code=3
+					elif ((phase_status != 0)); then
+						return "$phase_status"
 					fi
-					[ ! -s "$owner_ids_file" ] || parallel_shell_func "$BKG_ROOT/src/lib/owner.sh" queue_owner_id --lb <"$owner_ids_file"
-					phase_status=$?
-					((phase_status != 3)) || return_code=3
-				fi
-				if ((return_code != 3)) && [ -s "$missing_owners_file" ]; then
-					while IFS= read -r owner_name; do
-						[ -n "$owner_name" ] || continue
-						retire_missing_owner "$owner_name" || {
-							phase_status=$?
-							((phase_status != 3)) || return_code=3
-							((phase_status == 3)) || return "$phase_status"
-							break
-						}
-					done < <(sort -u "$missing_owners_file")
-				fi
-				rm -f "$owner_candidates_file"
-				rm -f "$owner_ids_file"
-				rm -f "$missing_owners_file"
-				rm -f "$owner_reasons_file"
-				unset BKG_OWNER_QUEUE_REASONS_FILE
-				if [ "$owners_queue_source" != "/dev/null" ] && ((return_code != 3)); then
-					mark_daily_gate_completed BKG_LAST_OWNERS_QUEUE_DATE "$today"
-				fi
-				log_startup_phase "queue-discovered-owners" "$phase_started_at"
-				rm -f all_owners_in_db all_owners_tu owners_updated owners_partially_updated owners_stale owners_deferred owners_scanned_without_packages
-				set_BKG BKG_DIFF "$db_size_curr"
-				set_BKG BKG_REST_TO_TOP "$((1 - rest_first))"
+					if $include_manual && ((return_code != 3)); then
+						mark_daily_gate_completed BKG_LAST_OWNERS_QUEUE_DATE "$today"
+					fi
+					log_startup_phase "queue-discovered-owners" "$phase_started_at"
+					rm -f all_owners_in_db all_owners_tu owners_updated owners_partially_updated owners_stale owners_scanned_without_packages
+					set_BKG BKG_DIFF "$db_size_curr"
+					set_BKG BKG_REST_TO_TOP "$((1 - rest_first))"
 				fi
 			fi
 		else
@@ -503,6 +447,8 @@ main() {
 		rm -f "$connections"
 		rm -f "$temp_connections"
 		BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
+		# BKG_INDEX_DIR is initialized by the update.sh entrypoint.
+		# shellcheck disable=SC2153
 		[ -d "$BKG_INDEX_DIR" ] || mkdir "$BKG_INDEX_DIR"
 
 		if ((return_code != 3)); then
@@ -530,7 +476,6 @@ main() {
 		fi
 
 		set_BKG BKG_OUT "$(wc -l <"$BKG_OPTOUT")"
-		sqlite3 "$BKG_INDEX_DB" "select owner_id, owner, repo, package from $packages_table_sql;" | sort -u >packages_all
 		echo "Preparing the database snapshot..."
 		checkpoint_database_for_archive
 
@@ -550,37 +495,8 @@ main() {
 	fi
 
 	echo "Hydrating templates and cleaning up..."
-	cleanup_generated_json_sidecars "$BKG_INDEX_DIR"
-	[ ! -f "$BKG_ROOT"/CHANGELOG.md ] || rm -f "$BKG_ROOT"/CHANGELOG.md
-	\cp templates/.CHANGELOG.md "$BKG_ROOT"/CHANGELOG.md
-	owners=$(awk -F'|' '{print $1}' packages_all | sort -u | wc -l)
-	repos=$(awk -F'|' '{print $1"|"$3}' packages_all | sort -u | wc -l)
-	packages=$(wc -l <packages_all)
-	sed -i 's/\[DATE\]/'"$(date -u +%F)"'/g; s/\[OWNERS\]/'"$owners"'/g; s/\[REPOS\]/'"$repos"'/g; s/\[PACKAGES\]/'"$packages"'/g' "$BKG_ROOT"/CHANGELOG.md
-	! $rotated || echo "P.S. The database was rotated, but you can find all previous data under the [latest release](https://github.com/$GITHUB_OWNER/$GITHUB_REPO/releases/latest)." >>"$BKG_ROOT"/CHANGELOG.md
-	[ ! -f "$BKG_ROOT"/README.md ] || rm -f "$BKG_ROOT"/README.md
-	\cp templates/.README.md "$BKG_ROOT"/README.md
-	sed -i 's/<GITHUB_OWNER>/'"$GITHUB_OWNER"'/g; s/<GITHUB_REPO>/'"$GITHUB_REPO"'/g; s/<GITHUB_BRANCH>/'"$GITHUB_BRANCH"'/g; s/\[PACKAGES\]/'"$packages"'/g; s/\[DATE\]/'"$today"'/g' "$BKG_ROOT"/README.md
-		sed -i '/^BKG_VERSIONS_.*=/d; /^BKG_PACKAGES_.*=/d; /^BKG_OWNERS_.*=/d; /^BKG_PAGE_[0-9].*=/d; /^BKG_OWNER_SCAN_.*=/d; /^BKG_TIMEOUT=/d' "$BKG_ENV"
-	\cp "$BKG_ROOT"/README.md "$BKG_INDEX_DIR"/README.md
-	# shellcheck disable=SC2016
-	sed -i 's/src\/img\/logo-b.webp/logo-b.webp/g; s/```py/```prolog/g; s/```js/```jboss-cli/g' "$BKG_INDEX_DIR"/README.md
-	\cp img/logo-b.webp "$BKG_INDEX_DIR"/logo-b.webp
-	\cp img/logo.ico "$BKG_INDEX_DIR"/favicon.ico
-	\cp templates/.index.html "$BKG_INDEX_DIR"/index.html
-	\cp templates/fxp.min.js "$BKG_INDEX_DIR"/fxp.min.js
-	sed -i 's/GITHUB_REPO/'"$GITHUB_REPO"'/g' "$BKG_INDEX_DIR"/index.html
-	rm -f packages_already_updated packages_all packages_to_update
-	echo "{
-        \"owners\":\"$(numfmt <<<"$owners")\",
-        \"repos\":\"$(numfmt <<<"$repos")\",
-        \"packages\":\"$(numfmt <<<"$packages")\",
-        \"raw_owners\":$owners,
-        \"raw_repos\":$repos,
-        \"raw_packages\":$packages,
-        \"date\":\"$today\"
-    }" | tr -d '\n' | jq -c . >"$BKG_INDEX_DIR"/.json
-	post_stop_ytox "$BKG_INDEX_DIR"/.json || return $?
+	post_stop_bkg_python orchestration publish-run-summary "$today" "$rotated" "." || return $?
+	del_BKG BKG_TIMEOUT
 	echo "Done!"
 	return $return_code
 }

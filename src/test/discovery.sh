@@ -398,6 +398,25 @@ test_remembered_no_package_connection_owner_is_filtered_but_manual_owner_is_not(
     popd >/dev/null
 }
 
+test_shell_discovery_fallback_bypasses_python_retry() {
+    local orgs
+
+    setup_discovery_fixture
+    init_bkg_state
+    GITHUB_TOKEN=dummy
+
+    bkg_python() {
+        fail "Expected the explicit shell fallback to bypass Python discovery"
+    }
+
+    curl() {
+        printf '%s\n' '<a href="/orgs/FallbackOrg/people">FallbackOrg</a>'
+    }
+
+    orgs=$(BKG_DISCOVERY_SHELL_FALLBACK=true curl_orgs example)
+    grep -Fxq FallbackOrg <<<"$orgs" || fail "Expected the shell fallback to retain HTML organization discovery"
+}
+
 trap cleanup EXIT
 
 source_project_script 'lib/owner.sh'
@@ -414,5 +433,6 @@ run_test test_page_owner_merges_deduplicated_api_pages
 run_test test_graphql_discovery_paths_avoid_html_scraping
 run_test test_curl_orgs_ignores_blank_target
 run_test test_remembered_no_package_connection_owner_is_filtered_but_manual_owner_is_not
+run_test test_shell_discovery_fallback_bypasses_python_retry
 
 echo "Second-hop discovery regression test passed"

@@ -3,11 +3,17 @@
 from __future__ import annotations
 
 import random
+import re
 import subprocess
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
 from .runtime import resolve_executable
+
+_IGNORED_OWNER_PATH = re.compile(
+    r"^(?:.*/)*(?:solutions|sponsors|enterprise|premium-support)$"
+)
 
 
 def _read_lines(path: Path) -> list[str]:
@@ -15,6 +21,26 @@ def _read_lines(path: Path) -> list[str]:
         return path.read_text(encoding="utf-8").splitlines()
     except OSError:
         return []
+
+
+def normalize_owner_lines(lines: Iterable[str]) -> tuple[str, ...]:
+    """Normalize and de-duplicate owner values accepted by discovery."""
+
+    owners: list[str] = []
+    seen: set[str] = set()
+    for line in lines:
+        owner = line.replace('"', "").strip()
+        if (
+            not owner
+            or owner == "0/"
+            or owner.startswith("null/")
+            or _IGNORED_OWNER_PATH.fullmatch(owner) is not None
+            or owner in seen
+        ):
+            continue
+        seen.add(owner)
+        owners.append(owner)
+    return tuple(owners)
 
 
 def _requests(lines: list[str], count: int = 1) -> list[str]:
@@ -104,16 +130,25 @@ def _insert_into(
 
 
 @dataclass(frozen=True)
-class OwnerQueueSelector:
-    """Inputs and state files used to assemble the next owner candidate queue."""
+class OwnerQueuePaths:
+    """Filesystem inputs used by owner queue selection."""
 
-    rest_first: str
     connections_file: Path
-    request_limit: int
-    current_owner: str
     manual_file: Path
     index_dir: Path
     state_dir: Path
+
+
+@dataclass(frozen=True)
+class OwnerQueueSelector:
+    """Inputs and state used to assemble the next owner candidate queue."""
+
+    rest_first: str
+    request_limit: int
+    current_owner: str
+    paths: OwnerQueuePaths
+    include_manual: bool = True
+    deferred_owners: tuple[str, ...] | None = None
 
     def history_owners(self) -> list[str]:
         """Return indexed owners ordered from least to most recently changed."""
@@ -124,7 +159,7 @@ class OwnerQueueSelector:
                 [
                     git,
                     "-C",
-                    str(self.index_dir),
+                    str(self.paths.index_dir),
                     "ls-tree",
                     "-d",
                     "--name-only",
@@ -140,7 +175,7 @@ class OwnerQueueSelector:
                 [
                     git,
                     "-C",
-                    str(self.index_dir),
+                    str(self.paths.index_dir),
                     "log",
                     "--name-only",
                     "--pretty=format:%ct",
@@ -190,14 +225,20 @@ class OwnerQueueSelector:
         """Return owner candidates paired with their highest-priority reason."""
 
         generator = generator or random.SystemRandom()
-        connections = _read_lines(self.connections_file)
-        manual = _read_lines(self.manual_file)
-        known_owners = _read_lines(self.state_dir / "all_owners_in_db")
-        stale = _read_lines(self.state_dir / "owners_stale")
-        partially_updated = _read_lines(self.state_dir / "owners_partially_updated")
+        connections = _read_lines(self.paths.connections_file)
+        manual = _read_lines(self.paths.manual_file) if self.include_manual else []
+        known_owners = _read_lines(self.paths.state_dir / "all_owners_in_db")
+        stale = _read_lines(self.paths.state_dir / "owners_stale")
+        partially_updated = _read_lines(
+            self.paths.state_dir / "owners_partially_updated"
+        )
         deferred = {
             _owner_key(line.split("\t", maxsplit=1)[0])
-            for line in _read_lines(self.state_dir / "owners_deferred")
+            for line in (
+                self.deferred_owners
+                if self.deferred_owners is not None
+                else tuple(_read_lines(self.paths.state_dir / "owners_deferred"))
+            )
             if line
         }
         history = self.history_owners()

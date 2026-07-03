@@ -309,6 +309,7 @@ bkg_python() {
         BKG_MAX_VERSION_PAGES \
         BKG_TAG_CACHE_PAGES \
         BKG_APPEND_TAGGED_VERSIONS_LIMIT \
+        BKG_OWNER_DISCOVERY_MAX_PAGES \
         BKG_PARALLEL_ASYNC_MAX_JOBS \
         BKG_OWNER_UPDATE_STOP_GRACE \
         BKG_OWNER_ARRAY_VERSION_LIMIT \
@@ -1312,7 +1313,7 @@ curl_orgs() {
 
     [ -n "$target" ] || return 0
 
-    if [ -n "${GITHUB_TOKEN:-}" ] && [[ "$target" != orgs/* ]] && [[ "$target" != *\?* ]] && [[ "$target" != */*/* ]]; then
+    if [ -n "${GITHUB_TOKEN:-}" ] && [ "${BKG_DISCOVERY_SHELL_FALLBACK:-false}" != true ] && [[ "$target" != orgs/* ]] && [[ "$target" != *\?* ]] && [[ "$target" != */*/* ]]; then
         if [ -n "$resolve_names" ]; then
             orgs=$(bkg_python discovery orgs "$target" --resolve) || status=$?
         else
@@ -1365,7 +1366,7 @@ explore() {
     [ "$is_repo" = true ] && local graph=("stargazers" "watchers" "forks" "collaborators") || local graph=("followers" "following" "people")
     [ -z "$2" ] || graph=("$2")
 
-    if [ -n "${GITHUB_TOKEN:-}" ]; then
+    if [ -n "${GITHUB_TOKEN:-}" ] && [ "${BKG_DISCOVERY_SHELL_FALLBACK:-false}" != true ]; then
         if [ -n "${2:-}" ]; then
             nodes=$(bkg_python discovery explore "$node" "$2") || status=$?
         else
@@ -1378,7 +1379,7 @@ explore() {
         fi
     fi
 
-    if [ "$is_repo" = false ] && [ -n "${GITHUB_TOKEN:-}" ]; then
+    if [ "$is_repo" = false ] && [ -n "${GITHUB_TOKEN:-}" ] && [ "${BKG_DISCOVERY_SHELL_FALLBACK:-false}" != true ]; then
         graphql_owner_type=$(graphql_owner_type "$node")
         status=$?
         ((status != 3)) || return 3
@@ -1390,7 +1391,7 @@ explore() {
         while true; do
             nodes=""
 
-            if [ -n "${GITHUB_TOKEN:-}" ] && [ "$edge" != "collaborators" ]; then
+            if [ -n "${GITHUB_TOKEN:-}" ] && [ "${BKG_DISCOVERY_SHELL_FALLBACK:-false}" != true ] && [ "$edge" != "collaborators" ]; then
                 if [ "$is_repo" = true ]; then
                     graphql_repo_discovery_nodes "$node" "$edge" "$cursor"
                     status=$?
@@ -1474,7 +1475,7 @@ get_membership() {
     local status=0
     owner=$(cut -d'/' -f2 <<<"$1")
 
-    if [ -n "${GITHUB_TOKEN:-}" ]; then
+    if [ -n "${GITHUB_TOKEN:-}" ] && [ "${BKG_DISCOVERY_SHELL_FALLBACK:-false}" != true ]; then
         people=$(bkg_python discovery membership "$1") || status=$?
         ((status != 3)) || return 3
         if ((status == 0)); then

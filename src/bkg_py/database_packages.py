@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import sqlite3
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 from contextlib import contextmanager
 
-from .database_models import PackageRecord, PackageRef
+from .database_models import PackageInventory, PackageRecord, PackageRef
 from .database_support import DatabaseError
 from .database_values import package_values
 
@@ -134,6 +134,53 @@ def maximum_downloads(
     if row is None or row[0] is None:
         return -1
     return int(row[0])
+
+
+def inventory(
+    connection: sqlite3.Connection,
+    packages_table: str,
+    check_stop: Callable[[], None],
+) -> PackageInventory:
+    """Count distinct package paths, owner IDs, and owner repositories."""
+
+    rows = connection.execute(
+        _sql(
+            """
+            select owner_id, repo
+            from (
+                select owner_id, owner, repo, package
+                from {packages}
+                group by owner_id, owner, repo, package
+            )
+            order by owner_id, repo
+            """,
+            packages=_SqlIdentifier(packages_table),
+        )
+    )
+    owner_count = 0
+    repository_count = 0
+    package_count = 0
+    previous_owner: str | None = None
+    previous_repository: tuple[str, str] | None = None
+
+    for index, row in enumerate(rows):
+        if index % 1024 == 0:
+            check_stop()
+        owner_id = str(row[0])
+        repository = (owner_id, str(row[1]))
+        package_count += 1
+        if owner_id != previous_owner:
+            owner_count += 1
+            previous_owner = owner_id
+        if repository != previous_repository:
+            repository_count += 1
+            previous_repository = repository
+
+    return PackageInventory(
+        owners=owner_count,
+        repositories=repository_count,
+        packages=package_count,
+    )
 
 
 def mark_publication_pending(

@@ -122,6 +122,31 @@ def _add_orchestration_parsers(subparsers: Any) -> None:
         nargs="?",
         default="false",
     )
+    owner_queue_parser = orchestration_commands.add_parser(
+        "prepare-owner-queue",
+        help="resolve discovered candidates and persist the next owner queue",
+    )
+    owner_queue_parser.add_argument("rest_first")
+    owner_queue_parser.add_argument("connections_file")
+    owner_queue_parser.add_argument("request_limit", type=int)
+    owner_queue_parser.add_argument("include_manual", choices=("true", "false"))
+    owner_queue_parser.add_argument("working_directory")
+    owner_queue_parser.add_argument("now", type=int)
+    discovery_phase_parser = orchestration_commands.add_parser(
+        "discover-owners",
+        help="run the authenticated global or membership discovery phase",
+    )
+    discovery_phase_parser.add_argument("today")
+    discovery_phase_parser.add_argument("skip_explore", choices=("true", "false"))
+    discovery_phase_parser.add_argument("connections_file")
+    discovery_phase_parser.add_argument("packages_all_file")
+    run_publication_parser = orchestration_commands.add_parser(
+        "publish-run-summary",
+        help="publish final source and index summaries from committed database rows",
+    )
+    run_publication_parser.add_argument("today")
+    run_publication_parser.add_argument("rotated", choices=("true", "false"))
+    run_publication_parser.add_argument("working_directory")
 
 
 def _add_database_parsers(subparsers: Any) -> None:

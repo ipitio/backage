@@ -216,6 +216,15 @@ class PackageWorkPlan:
         return tuple(owner for owner in self.pending_owners if owner not in updated)
 
 
+@dataclass(frozen=True)
+class PackageInventory:
+    """Counts used by the top-level index and source-branch summaries."""
+
+    owners: int
+    repositories: int
+    packages: int
+
+
 def _unique_work_owners(items: tuple[PackageWorkItem, ...]) -> tuple[str, ...]:
     return tuple(dict.fromkeys(item.owner for item in items))
 

@@ -122,6 +122,16 @@ class OwnerBatchEffects:
                 )
         return OwnerBatchItem(owner, result.outcome)
 
+    def retire_unavailable(self, owner: str) -> None:
+        """Retire one authoritatively missing owner discovered before queueing."""
+
+        if _OWNER_PATTERN.fullmatch(owner) is None:
+            raise ValueError(f"invalid owner name for retirement: {owner}")
+        with self._lock:
+            self._retire_storage(owner)
+            self._remove_manual_owner(owner)
+            self.progress(f"Retired unavailable owner {owner}")
+
     def _retire(
         self,
         owner: QueuedOwner,
@@ -129,20 +139,23 @@ class OwnerBatchEffects:
         remove_manual: bool,
         announce: bool,
     ) -> None:
-        self.repository.retire_owner(owner.owner)
+        self._retire_storage(owner.owner)
         self.state.delete_matching(
             keys=(
                 f"BKG_OWNER_SCAN_{owner.owner_id}",
                 f"BKG_PAGE_{owner.owner_id}",
             )
         )
-        owner_dir = self.index_dir / owner.owner
-        if owner_dir.exists():
-            shutil.rmtree(owner_dir)
         if remove_manual:
             self._remove_manual_owner(owner.owner)
         if announce:
             self.progress(f"Retired unavailable owner {owner.owner}")
+
+    def _retire_storage(self, owner: str) -> None:
+        self.repository.retire_owner(owner)
+        owner_dir = self.index_dir / owner
+        if owner_dir.exists():
+            shutil.rmtree(owner_dir)
 
     def _remove_manual_owner(self, owner: str) -> None:
         lines = self.owners_file.read_text(encoding="utf-8").splitlines()

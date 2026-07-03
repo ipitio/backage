@@ -11,6 +11,7 @@ from typing import Any
 from . import database_owner_scans, database_packages, database_version_stages
 from .database_models import (
     OwnerRecord,
+    PackageInventory,
     PackageRecord,
     PackageRef,
     PackageSnapshot,
@@ -316,6 +317,18 @@ class DatabaseRepository(  # pylint: disable=too-many-public-methods
             )
 
         return self._run_read(load)
+
+    def package_inventory(self) -> PackageInventory:
+        """Count published package identities, owners, and repositories."""
+
+        self.ensure_schema()
+        return self._run_read(
+            lambda connection: database_packages.inventory(
+                connection,
+                self.settings.packages_table,
+                self._check_stop,
+            )
+        )
 
     def maximum_package_downloads(self, package: PackageRef) -> int:
         """Return the largest previously stored total download count."""
