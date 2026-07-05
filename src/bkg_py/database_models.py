@@ -109,10 +109,11 @@ class OwnerScanWorkSelection:
 
 @dataclass(frozen=True)
 class OwnerRefreshPlan:
-    """Current-batch package work for one partially refreshed owner."""
+    """Current-batch package work and direct-refresh eligibility."""
 
     partially_updated: bool
     packages: tuple[OwnerScanPackage, ...]
+    has_current_data: bool = False
 
     @property
     def pending_count(self) -> int:

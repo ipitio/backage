@@ -258,26 +258,30 @@ class OwnerQueueSelector:
             result.extend(connection_matches)
             return result
 
+        candidates = _requests(manual)
+        if self.rest_first != "0":
+            candidates.extend(remaining(stale))
+
+        # Finish work already in the active package batch before admitting the
+        # bounded discovery and history backlog.
+        candidates.extend(
+            _insert_into(
+                remaining(partially_updated, self.request_limit),
+                remaining(stale),
+                generator,
+            )
+        )
         discovered = _unique(
             _requests(manual)
             + ([self.current_owner] if self.current_owner else [])
             + connections,
             discard_empty=True,
         )
-        candidates = _not_matching(known_owners, discovered)
+        candidates.extend(_not_matching(known_owners, discovered))
         candidates.extend(
             _not_matching(
                 known_owners,
                 remaining(history),
-            )
-        )
-        if self.rest_first != "0":
-            candidates.extend(remaining(stale))
-        candidates.extend(
-            _insert_into(
-                remaining(partially_updated, self.request_limit),
-                remaining(stale),
-                generator,
             )
         )
 

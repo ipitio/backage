@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 
 from bkg_py.owner_batch import OwnerBatchEffects
-from bkg_py.owner_queue import OwnerQueueSelector
+from bkg_py.owner_queue import OwnerQueuePaths, OwnerQueueSelector
 from bkg_py.owner_queue_operations import (
     OwnerQueuePreparationExecution,
     OwnerQueuePreparationPaths,
@@ -77,6 +77,42 @@ def _no_history(_selector: OwnerQueueSelector) -> list[str]:
     """Keep queue selection independent of the test repository history."""
 
     return []
+
+
+def test_queue_selection_prioritizes_pending_work_over_discovery(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A discovery backlog cannot crowd active package work out of the queue."""
+
+    working = tmp_path / "working"
+    index = tmp_path / "index"
+    working.mkdir()
+    index.mkdir()
+    connections = tmp_path / "connections"
+    owners = tmp_path / "owners.txt"
+    _write_lines(connections, *(f"discovered-{index}" for index in range(10)))
+    _write_lines(owners)
+    _write_lines(working / "all_owners_in_db", "partial", "stale")
+    _write_lines(working / "owners_partially_updated", "partial")
+    _write_lines(working / "owners_stale", "stale")
+    monkeypatch.setattr(OwnerQueueSelector, "history_owners", _no_history)
+
+    selector = OwnerQueueSelector(
+        rest_first="0",
+        request_limit=1,
+        current_owner="",
+        paths=OwnerQueuePaths(connections, owners, index, working),
+    )
+
+    selected = selector.select_with_reasons(random.Random(0))  # noqa: S311
+
+    assert {owner for owner, _reason in selected[:2]} == {"partial", "stale"}
+    assert {reason for _owner, reason in selected[:2]} == {
+        "partially-updated",
+        "stale",
+    }
+    assert len(selected) == 4
 
 
 def test_queue_preparation_owns_normalization_resolution_and_effects(

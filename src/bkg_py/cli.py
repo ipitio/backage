@@ -69,12 +69,26 @@ def _add_orchestration_parsers(subparsers: Any) -> None:
         dest="orchestration_command",
         required=True,
     )
+    _add_run_state_parsers(orchestration_commands)
+    _add_orchestration_operation_parsers(orchestration_commands)
+
+
+def _add_run_state_parsers(orchestration_commands: Any) -> None:
+    """Add run-state and package-plan orchestration commands."""
+
     begin_run_parser = orchestration_commands.add_parser(
         "begin-run",
         help="atomically initialize persisted state for one application run",
     )
     begin_run_parser.add_argument("today")
     begin_run_parser.add_argument("started_at", type=int)
+    prepare_run_parser = orchestration_commands.add_parser(
+        "prepare-run",
+        help="initialize run state and publish the current package-work plan",
+    )
+    prepare_run_parser.add_argument("today")
+    prepare_run_parser.add_argument("started_at", type=int)
+    prepare_run_parser.add_argument("working_directory")
     complete_batch_parser = orchestration_commands.add_parser(
         "complete-batch-if-exhausted",
         help="atomically start a new batch when no package work remains",
@@ -122,6 +136,11 @@ def _add_orchestration_parsers(subparsers: Any) -> None:
         nargs="?",
         default="false",
     )
+
+
+def _add_orchestration_operation_parsers(orchestration_commands: Any) -> None:
+    """Add discovery, queue, and publication orchestration commands."""
+
     owner_queue_parser = orchestration_commands.add_parser(
         "prepare-owner-queue",
         help="resolve discovered candidates and persist the next owner queue",

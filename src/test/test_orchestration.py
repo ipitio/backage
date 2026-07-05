@@ -325,3 +325,50 @@ def test_prepare_package_plan_cli_uses_the_configured_database(
     assert capsys.readouterr().out == "1\t1\t0\n"
     assert (output / "packages_already_updated").is_file()
     assert (output / "packages_to_update").read_text(encoding="utf-8") == ""
+
+
+def test_prepare_run_cli_prints_validated_startup_summary(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """The launcher receives one compact summary after startup preparation."""
+
+    database_path = tmp_path / "index.db"
+    repository = DatabaseRepository(DatabaseSettings(database_path))
+    package = PackageRef(
+        "1",
+        "users",
+        "container",
+        "Alpha",
+        "repo",
+        "package",
+    )
+    repository.write_package(PackageRecord(package, 1, 1, 1, 1, 1, "2026-06-28"))
+    optouts = tmp_path / "optout.txt"
+    optouts.write_text("Owner\n", encoding="utf-8")
+    state_path = tmp_path / "state.env"
+    StateStore(state_path).set("BKG_OUT", 0)
+    monkeypatch.setenv("BKG_ROOT", str(tmp_path))
+    monkeypatch.setenv("BKG_ENV", str(state_path))
+    monkeypatch.setenv("BKG_INDEX_DB", str(database_path))
+    monkeypatch.setenv("BKG_OPTOUT", str(optouts))
+    monkeypatch.setenv("BKG_OWNER_ID_CACHE", str(tmp_path / "owner-cache.txt"))
+
+    status = main(
+        [
+            "orchestration",
+            "prepare-run",
+            "2026-06-29",
+            "1000",
+            str(tmp_path / "plan"),
+        ]
+    )
+
+    captured = capsys.readouterr()
+    values = captured.out.strip().split("\t")
+    assert status == ExitStatus.SUCCESS
+    assert values[:4] == ["2026-06-29", "1", "0", "1"]
+    assert values[4].isdecimal()
+    assert values[5:] == ["1", "true"]
+    assert "prepare-package-state" in captured.err

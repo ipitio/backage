@@ -127,7 +127,7 @@ class OwnerLifecycleService:  # pylint: disable=too-few-public-methods
             refresh_request.since,
         )
         cursor: OwnerScanCursor | None = None
-        if plan.partially_updated:
+        if plan.has_current_data:
             cursor = self._current_scan(request)
             if cursor is None:
                 self.services.package_refresh.refresh(

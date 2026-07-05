@@ -50,6 +50,12 @@ from .run_publication import (
     RunPublicationRequest,
     RunPublicationService,
 )
+from .run_startup import (
+    RunStartupExecution,
+    RunStartupRequest,
+    RunStartupService,
+    RunStartupServices,
+)
 from .runtime import GracefulStop
 from .snapshots import SnapshotError
 from .state import StateValueError
@@ -72,8 +78,8 @@ def run_orchestration(
             with application.stop.signal_handlers():
                 return _update_owners(args, application)
 
-        if args.orchestration_command == "prepare-package-plan":
-            status = _prepare_package_plan(args, application)
+        if args.orchestration_command in {"prepare-run", "prepare-package-plan"}:
+            status = _run_planning_command(args, application)
         elif args.orchestration_command == "discover-owners":
             with application.stop.signal_handlers():
                 status = _discover_owners(args, application)
@@ -123,6 +129,15 @@ def _owner_phase_decision(args: argparse.Namespace) -> ExitStatus:
     return ExitStatus.SUCCESS
 
 
+def _run_planning_command(
+    args: argparse.Namespace,
+    application: ApplicationContext,
+) -> ExitStatus:
+    if args.orchestration_command == "prepare-run":
+        return _prepare_run(args, application)
+    return _prepare_package_plan(args, application)
+
+
 def _prepare_package_plan(
     args: argparse.Namespace,
     application: ApplicationContext,
@@ -134,6 +149,47 @@ def _prepare_package_plan(
             reset=args.reset == "true",
         )
     sys.stdout.write(f"{summary.total}\t{summary.completed}\t{summary.pending}\n")
+    return ExitStatus.SUCCESS
+
+
+def _prepare_run(
+    args: argparse.Namespace,
+    application: ApplicationContext,
+) -> ExitStatus:
+    config = application.config
+    if config.index_db is None:
+        raise ValueError("BKG_INDEX_DB is required")
+
+    def progress(message: str) -> None:
+        sys.stderr.write(f"{message}\n")
+        sys.stderr.flush()
+
+    with application.stop.signal_handlers():
+        result = RunStartupService(
+            RunStartupServices(
+                application.database,
+                application.snapshots,
+                application.state,
+                OwnerIdentityCache.from_config(config),
+            ),
+            RunStartupExecution(application.stop.check, progress),
+        ).prepare(
+            RunStartupRequest(
+                args.today,
+                args.started_at,
+                Path(args.working_directory),
+                Path(config.index_db),
+                Path(config.optout_file),
+                config.github_owner,
+            )
+        )
+    summary = result.package_plan
+    fast_out = str(result.fast_out).lower()
+    sys.stdout.write(
+        f"{result.batch_first_started}\t{summary.total}\t{summary.completed}\t"
+        f"{summary.pending}\t{result.database_size}\t{result.opted_out}\t"
+        f"{fast_out}\n"
+    )
     return ExitStatus.SUCCESS
 
 

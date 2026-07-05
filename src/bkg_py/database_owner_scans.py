@@ -396,7 +396,7 @@ def owner_refresh_plan(
     owner: str,
     since: str,
 ) -> OwnerRefreshPlan:
-    """Return direct package work when an owner is partially current."""
+    """Return package work and whether current data permits direct recovery."""
 
     packages = _identifier(packages_table)
     rows = connection.execute(
@@ -408,6 +408,12 @@ def owner_refresh_plan(
                    case
                        when current.owner = ? and current.date >= ?
                             and pending.owner_id is null
+                       then 1 else 0
+                   end
+               ),
+               max(
+                   case
+                       when current.owner = ? and current.date >= ?
                        then 1 else 0
                    end
                )
@@ -425,7 +431,7 @@ def owner_refresh_plan(
         order by max(current.date), current.owner_type, current.package_type,
                  current.repo, current.package
         """,
-        (owner, since, owner_id),
+        (owner, since, owner, since, owner_id),
     ).fetchall()
 
     work = tuple(
@@ -433,7 +439,11 @@ def owner_refresh_plan(
         for row in rows
         if str(row[4]) < since or bool(row[5])
     )
-    return OwnerRefreshPlan(any(bool(row[6]) for row in rows), work)
+    return OwnerRefreshPlan(
+        any(bool(row[6]) for row in rows),
+        work,
+        any(bool(row[7]) for row in rows),
+    )
 
 
 def known_owner_type(

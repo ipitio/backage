@@ -128,6 +128,7 @@ class _PackageRefresher:  # pylint: disable=too-few-public-methods
             self.repository.write_package(
                 PackageRecord(reference, 1, 1, 1, 1, 1, request.since)
             )
+            self.repository.clear_package_publication(reference)
         return OwnerPackageRefreshResult(())
 
 
@@ -209,6 +210,38 @@ def test_direct_partial_refresh_publishes_without_starting_a_scan(
     )
     assert not scanner.requests
     assert len(publisher.requests) == 1
+
+
+def test_publication_only_work_is_replayed_without_owner_discovery(
+    tmp_path: Path,
+) -> None:
+    """Current package data can recover interrupted file publication directly."""
+
+    repository = DatabaseRepository(DatabaseSettings(tmp_path / "index.db"))
+    pending_ref, pending = _package("pending")
+    repository.write_package_pending_publication(pending)
+    refresher = _PackageRefresher(repository)
+    scanner = _Scanner()
+
+    result = _service(
+        repository,
+        refresher,
+        scanner,
+        _Publisher(1),
+        _execution(StateStore(tmp_path / "state.env")),
+    ).update(_request(tmp_path))
+
+    assert result.outcome == "updated"
+    assert refresher.requests[0].packages == (
+        OwnerScanPackage(
+            pending_ref.owner_type,
+            pending_ref.package_type,
+            pending_ref.repo,
+            pending_ref.package,
+        ),
+    )
+    assert not repository.package_publication_pending(pending_ref)
+    assert not scanner.requests
 
 
 def test_unresolved_direct_refresh_falls_back_to_complete_owner_scan(

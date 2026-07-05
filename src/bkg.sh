@@ -123,6 +123,42 @@ prepare_package_plan() {
 	printf '%s\t%s\t%s\n' "$total" "$completed" "$pending"
 }
 
+prepare_run() {
+	local today_value=$1
+	local started_at=$2
+	local directory=${3:-.}
+	local summary
+	local batch_started
+	local total
+	local completed
+	local pending
+	local database_size
+	local opted_out_count
+	local fast_out_value
+
+	summary=$(bkg_python orchestration prepare-run "$today_value" "$started_at" "$directory") || return $?
+	IFS=$'\t' read -r batch_started total completed pending database_size opted_out_count fast_out_value <<<"$summary"
+	[[ "$total" =~ ^[0-9]+$ && "$completed" =~ ^[0-9]+$ && "$pending" =~ ^[0-9]+$ ]] || {
+		echo "Invalid startup package summary from Python: $summary" >&2
+		return 1
+	}
+	[[ "$database_size" =~ ^[0-9]+$ && "$opted_out_count" =~ ^[0-9]+$ ]] || {
+		echo "Invalid startup storage summary from Python: $summary" >&2
+		return 1
+	}
+	[ -n "$batch_started" ] || {
+		echo "Python startup omitted the batch start date" >&2
+		return 1
+	}
+	[ "$fast_out_value" = "true" ] || [ "$fast_out_value" = "false" ] || {
+		echo "Invalid startup opt-out transition from Python: $summary" >&2
+		return 1
+	}
+	printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+		"$batch_started" "$total" "$completed" "$pending" \
+		"$database_size" "$opted_out_count" "$fast_out_value"
+}
+
 sync_batch_progress() {
 	local today_value=$1
 	local remaining=$2
@@ -252,18 +288,17 @@ main() {
 	local pkg_done
 	local pkg_left
 	local db_size_curr
+	local opted_out
 	local connections
 	local return_code=0
 	local phase_status=0
-	local opted_out
-	local opted_out_before
 	local discovery_in_python=false
 	local include_manual=true
 	local rest_first
 	local skip_explore=false
 	local request_limit=100
 	local phase_started_at=0
-	local package_plan_summary
+	local startup_summary
 	connections=$(mktemp) || exit 1
 	temp_connections=$(mktemp) || exit 1
 
@@ -286,32 +321,11 @@ main() {
 	BKG_SCRIPT_START=$(date -u +%s)
 	BKG_STARTUP_STARTED_AT=$BKG_SCRIPT_START
 	BKG_QUEUE_START_LOGGED=0
-	BKG_BATCH_FIRST_STARTED=$(bkg_python orchestration begin-run "$today" "$BKG_SCRIPT_START") || return $?
-	reset_owner_id_cache || return 1
-
-	if current_index_snapshot_archive_file >/dev/null 2>&1; then
-		phase_started_at=$(startup_phase_started_at)
-		restore_db_from_index_snapshot_if_needed || :
-		log_startup_phase "restore-db-from-snapshot" "$phase_started_at"
-	fi
-
-	[ -f "$BKG_INDEX_DB" ] || {
-		[ -f "$BKG_INDEX_DB".bak ] && mv "$BKG_INDEX_DB".bak "$BKG_INDEX_DB" || sqlite3 "$BKG_INDEX_DB" ""
-	}
-	phase_started_at=$(startup_phase_started_at)
-	sqlite_ensure_index_schema || return $?
-	package_plan_summary=$(prepare_package_plan "$BKG_BATCH_FIRST_STARTED" ".") || return $?
-	IFS=$'\t' read -r pkg_all pkg_done pkg_left <<<"$package_plan_summary"
+	startup_summary=$(prepare_run "$today" "$BKG_SCRIPT_START" ".") || return $?
+	IFS=$'\t' read -r BKG_BATCH_FIRST_STARTED pkg_all pkg_done pkg_left db_size_curr opted_out fast_out <<<"$startup_summary"
 	echo "all: $pkg_all"
 	echo "done: $pkg_done"
 	echo "left: $pkg_left"
-	db_size_curr=$(stat -c %s "$BKG_INDEX_DB")
-	[ -n "$db_size_curr" ] || db_size_curr=0
-	clean_owners "$BKG_OPTOUT"
-	opted_out=$(wc -l <"$BKG_OPTOUT")
-	opted_out_before=$(get_BKG BKG_OUT)
-	fast_out=$([ "$GITHUB_OWNER" = "ipitio" ] && [ -n "$opted_out_before" ] && ((opted_out_before < opted_out)) && echo "true" || echo "false")
-	log_startup_phase "prepare-package-state" "$phase_started_at"
 
 	if [ "$BKG_MODE" -ne 2 ]; then
 		if [ "$BKG_MODE" -eq 0 ] || [ "$BKG_MODE" -eq 3 ]; then
@@ -410,7 +424,7 @@ main() {
 				else
 					sync_batch_progress "$today" "$pkg_left" || return $?
 					if $BKG_BATCH_RESET; then
-						prepare_package_plan "$BKG_BATCH_FIRST_STARTED" "." true >/dev/null || return $?
+						prepare_package_plan "$BKG_BATCH_FIRST_STARTED" "." >/dev/null || return $?
 					fi
 
 					rest_first=$(get_BKG BKG_REST_TO_TOP)

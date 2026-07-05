@@ -170,3 +170,25 @@ def test_owner_refresh_plan_uses_normalized_rows_and_publication_state(
     complete = repository.owner_refresh_plan(current.owner_id, current.owner, _TODAY)
     assert complete.partially_updated
     assert complete.pending_count == 0
+
+
+def test_owner_refresh_plan_recovers_publication_only_work_directly(
+    tmp_path: Path,
+) -> None:
+    """Current data remains directly usable while every file is pending."""
+
+    repository = DatabaseRepository(DatabaseSettings(tmp_path / "index.db"))
+    unpublished = _package("pending-repo", "pending")
+    repository.write_package_pending_publication(_record(unpublished))
+
+    plan = repository.owner_refresh_plan(
+        unpublished.owner_id,
+        unpublished.owner,
+        _TODAY,
+    )
+
+    assert not plan.partially_updated
+    assert plan.has_current_data
+    assert plan.packages == (
+        OwnerScanPackage("orgs", "container", "pending-repo", "pending"),
+    )

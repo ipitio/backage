@@ -105,6 +105,29 @@ test_prepare_package_plan_validates_python_summary() {
 	unset -f bkg_python
 }
 
+test_prepare_run_validates_python_summary() {
+	local calls_file="$workdir/prepare-run-calls.txt"
+	local summary
+
+	bkg_python() {
+		printf '%s\n' "$*" >"$calls_file"
+		printf '2026-06-28\t12\t7\t5\t4096\t2\ttrue\n'
+	}
+
+	summary=$(prepare_run 2026-06-29 1000 "$workdir/plan")
+	[ "$summary" = $'2026-06-28\t12\t7\t5\t4096\t2\ttrue' ] ||
+		fail "Expected validated startup summary"
+	assert_contains "$calls_file" "orchestration prepare-run 2026-06-29 1000 $workdir/plan"
+
+	bkg_python() {
+		printf '2026-06-28\t12\t7\t5\tbad\t2\ttrue\n'
+	}
+	if prepare_run 2026-06-29 1000 "$workdir/plan" >/dev/null 2>&1; then
+		fail "Expected an invalid startup summary to fail"
+	fi
+	unset -f bkg_python
+}
+
 test_sqlite_numeric_version_ids_use_builtin_glob() {
 	local rows
 
@@ -1064,6 +1087,7 @@ run_test test_sqlite_retries_transient_write_failure
 run_test test_sqlite_ensure_index_schema_adds_query_indexes
 run_test test_sync_batch_progress_reads_python_transition
 run_test test_prepare_package_plan_validates_python_summary
+run_test test_prepare_run_validates_python_summary
 run_test test_sqlite_numeric_version_ids_use_builtin_glob
 run_test test_background_job_running_ignores_completed_unreaped_child
 run_test test_cleanup_generated_json_sidecars_removes_adaptive_retry_artifacts

@@ -143,6 +143,14 @@ class OwnerIdentityCache:
         except FileNotFoundError:
             return []
 
+    def reset(self) -> None:
+        """Start one run with an empty owner identity cache."""
+
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self._lock_path.unlink(missing_ok=True)
+        with atomic_text_output(self.path):
+            pass
+
     def lookup(self, value: str) -> str | None:
         """Return an unambiguous cached owner reference for a login."""
 
