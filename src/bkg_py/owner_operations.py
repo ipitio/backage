@@ -11,7 +11,12 @@ from pathlib import Path
 from .application import ApplicationContext
 from .concurrency import BoundedWorkerRunner, ConcurrencySettings
 from .database import DatabaseError, DatabaseRepository
-from .database_models import OwnerScanFailure, OwnerScanPackage, PackageRef
+from .database_models import (
+    OwnerScanFailure,
+    OwnerScanPackage,
+    PackageBatch,
+    PackageRef,
+)
 from .discovery import OwnerIdentityCache, OwnerIdentityResolver
 from .github import GitHubClient, GitHubError
 from .owner_lifecycle import (
@@ -133,7 +138,6 @@ class OwnerUpdateOperation:  # pylint: disable=too-few-public-methods
             ).update(
                 OwnerLifecycleRequest(
                     owner_type,
-                    request.batch_marker,
                     self.application.config.mode,
                     build_package_refresh_request(request, self.application, ()),
                 )
@@ -275,7 +279,7 @@ def build_package_refresh_request(
         request.owner_id,
         request.owner,
         packages,
-        request.since,
+        PackageBatch(request.since, request.batch_marker),
         application.config.versions_table,
         Path(index_dir),
         PackageRefreshPolicy(

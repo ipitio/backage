@@ -14,9 +14,14 @@ class _Repository:
     plan: PackageWorkPlan
     requested_since: list[str] = field(default_factory=list[str])
 
-    def package_work_plan(self, since: str) -> PackageWorkPlan:
+    def package_work_plan(
+        self,
+        since: str,
+        batch_marker: str = "",
+    ) -> PackageWorkPlan:
         """Return the configured plan and record its batch date."""
 
+        del batch_marker
         self.requested_since.append(since)
         return self.plan
 

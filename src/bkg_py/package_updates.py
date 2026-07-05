@@ -82,6 +82,7 @@ class PackageRefreshRequest:
     since: str
     destination: Path
     policy: PackageRefreshPolicy
+    batch_marker: str = ""
 
 
 @dataclass(frozen=True)
@@ -177,7 +178,11 @@ class PackageRefreshService:  # pylint: disable=too-few-public-methods
             return PackageRefreshResult("fast_out")
 
         today = self.execution.version.today()
-        already_updated = self.repository.package_updated_since(package, request.since)
+        already_updated = (
+            self.repository.package_completed_in_batch(package, request.batch_marker)
+            if request.batch_marker
+            else self.repository.package_updated_since(package, request.since)
+        )
         version_result: VersionRefreshResult | None = None
         advertised_metrics: DownloadMetrics | None = None
         if not already_updated:
@@ -187,7 +192,11 @@ class PackageRefreshService:  # pylint: disable=too-few-public-methods
             )
             if advertised_metrics is None:
                 return PackageRefreshResult("metadata_unavailable")
-            version_result = self._refresh_versions(request, today)
+            version_result = self._refresh_versions(
+                request,
+                today,
+                force_refresh=bool(request.batch_marker),
+            )
 
         source = self.repository.version_rows(
             package,
@@ -215,6 +224,11 @@ class PackageRefreshService:  # pylint: disable=too-few-public-methods
         )
         self.repository.clear_package_publication(package)
         self._verify_publication(request, publication, today)
+        self.repository.mark_package_batch_completed(
+            package,
+            request.batch_marker,
+            today,
+        )
         return PackageRefreshResult(
             "refreshed",
             package_written=package_written,
@@ -272,6 +286,8 @@ class PackageRefreshService:  # pylint: disable=too-few-public-methods
         self,
         request: PackageRefreshRequest,
         today: str,
+        *,
+        force_refresh: bool,
     ) -> VersionRefreshResult | None:
         execution = self.execution.version
         try:
@@ -296,6 +312,7 @@ class PackageRefreshService:  # pylint: disable=too-few-public-methods
                     mark_publication_pending=True,
                 ),
                 self.execution.selection,
+                force_refresh=force_refresh,
             )
         except (
             DatabaseError,

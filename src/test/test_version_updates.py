@@ -255,6 +255,45 @@ def test_refresh_skips_existing_versions_and_flushes_one_batch(tmp_path: Path) -
     assert client.text_requests == [_detail_url("2", package_type="npm")]
 
 
+def test_force_refresh_reinspects_existing_same_day_versions(tmp_path: Path) -> None:
+    """A new batch generation refreshes details already written today."""
+
+    package = _package_ref()
+    repository = DatabaseRepository(DatabaseSettings(tmp_path / "index.db"))
+    repository.flush_version_stage(
+        VersionStage(package, "legacy_versions", False, (_record("1"),))
+    )
+    api_path = "orgs/Example/packages/npm/Nested%2FImage/versions?per_page=30&page=1"
+    client = _FakeClient(
+        rest_values={api_path: [_api_version(1)]},
+        text_values={_detail_url("1", package_type="npm"): _metrics_html()},
+    )
+    service = VersionRefreshService(
+        repository,
+        client,
+        VersionRefreshExecution(
+            BoundedWorkerRunner(ConcurrencySettings(max_workers=1)),
+            lambda _reference: "",
+            today=lambda: _TODAY,
+        ),
+    )
+
+    result = service.refresh(
+        VersionRefreshRequest(
+            package,
+            "legacy_versions",
+            False,
+            True,
+            _TODAY,
+        ),
+        VersionSelectionSettings(max_tag_pages=0, append_tagged_limit=0),
+        force_refresh=True,
+    )
+
+    assert result.records_written == 1
+    assert client.text_requests == [_detail_url("1", package_type="npm")]
+
+
 def test_refresh_pauses_failing_detail_requests_and_preserves_stored_metrics(
     tmp_path: Path,
 ) -> None:

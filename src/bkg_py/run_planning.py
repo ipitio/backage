@@ -13,7 +13,11 @@ from .files import atomic_text_output
 class PackageWorkPlanRepository(Protocol):  # pylint: disable=too-few-public-methods
     """Database read needed to prepare one package-work plan."""
 
-    def package_work_plan(self, since: str) -> PackageWorkPlan:
+    def package_work_plan(
+        self,
+        since: str,
+        batch_marker: str = "",
+    ) -> PackageWorkPlan:
         """Return current package work and owner ordering."""
 
         raise NotImplementedError
@@ -39,11 +43,12 @@ class PackageWorkPlanService:  # pylint: disable=too-few-public-methods
         since: str,
         directory: Path,
         *,
+        batch_marker: str = "",
         reset: bool = False,
     ) -> PackageWorkPlanSummary:
         """Write one package plan while preserving current file formats."""
 
-        plan = self.repository.package_work_plan(since)
+        plan = self.repository.package_work_plan(since, batch_marker)
         if reset:
             plan = replace(plan, completed=(), pending=plan.packages)
         directory.mkdir(parents=True, exist_ok=True)

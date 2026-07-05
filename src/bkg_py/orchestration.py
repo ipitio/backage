@@ -157,6 +157,7 @@ class BatchRuntimeService:
             {
                 "BKG_BATCH_FIRST_STARTED": today,
                 "BKG_BATCH_MARKER": batch_marker,
+                "BKG_PACKAGE_PROGRESS_MARKER": batch_marker,
             }
         )
         return BatchTransition(reset=True, batch_first_started=today)

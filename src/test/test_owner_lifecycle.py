@@ -16,6 +16,7 @@ from bkg_py.database_models import (
     OwnerScanPage,
     OwnerScanResult,
     OwnerScanStart,
+    PackageBatch,
     PackageRecord,
     PackageRef,
 )
@@ -63,13 +64,12 @@ def _package(name: str, date: str = _TODAY) -> tuple[PackageRef, PackageRecord]:
 def _request(tmp_path: Path) -> OwnerLifecycleRequest:
     return OwnerLifecycleRequest(
         "orgs",
-        "batch-1",
         0,
         OwnerPackageRefreshRequest(
             "42",
             "Example",
             (),
-            _TODAY,
+            PackageBatch(_TODAY, "batch-1"),
             "versions",
             tmp_path / "index",
             PackageRefreshPolicy(True, True, False, 0),
@@ -129,6 +129,11 @@ class _PackageRefresher:  # pylint: disable=too-few-public-methods
                 PackageRecord(reference, 1, 1, 1, 1, 1, request.since)
             )
             self.repository.clear_package_publication(reference)
+            self.repository.mark_package_batch_completed(
+                reference,
+                request.batch_marker,
+                request.since,
+            )
         return OwnerPackageRefreshResult(())
 
 
@@ -186,6 +191,11 @@ def test_direct_partial_refresh_publishes_without_starting_a_scan(
     stale_ref, stale = _package("stale", "2026-06-28")
     repository.write_package(current)
     repository.write_package(stale)
+    repository.mark_package_batch_completed(
+        current.package_ref,
+        "batch-1",
+        _TODAY,
+    )
     refresher = _PackageRefresher(repository)
     scanner = _Scanner()
     publisher = _Publisher(2)

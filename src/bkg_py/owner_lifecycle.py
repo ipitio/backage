@@ -78,9 +78,14 @@ class OwnerLifecycleRequest:
     """Configuration for one resumable inner owner update."""
 
     owner_type: str
-    batch_marker: str
     mode: int
     package_refresh: OwnerPackageRefreshRequest
+
+    @property
+    def batch_marker(self) -> str:
+        """Return the package batch marker shared by every lifecycle phase."""
+
+        return self.package_refresh.batch_marker
 
 
 @dataclass(frozen=True)
@@ -125,6 +130,7 @@ class OwnerLifecycleService:  # pylint: disable=too-few-public-methods
             refresh_request.owner_id,
             refresh_request.owner,
             refresh_request.since,
+            request.batch_marker,
         )
         cursor: OwnerScanCursor | None = None
         if plan.has_current_data:
@@ -137,6 +143,7 @@ class OwnerLifecycleService:  # pylint: disable=too-few-public-methods
                     refresh_request.owner_id,
                     refresh_request.owner,
                     refresh_request.since,
+                    request.batch_marker,
                 )
                 if plan.pending_count == 0:
                     self.repository.clear_owner_backoff(

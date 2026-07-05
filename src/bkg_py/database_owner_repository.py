@@ -7,9 +7,10 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable, Sequence
 from typing import Any
 
-from . import database_owner_scans
+from . import database_owner_plans, database_owner_scans
 from .database_models import (
     OwnerRefreshPlan,
+    OwnerRefreshSelection,
     OwnerScanCursor,
     OwnerScanFailure,
     OwnerScanPackage,
@@ -146,7 +147,7 @@ class OwnerScanRepositoryMixin(ABC):
 
         self.ensure_schema()
         return self._run_read(
-            lambda connection: database_owner_scans.packages_needing_refresh(
+            lambda connection: database_owner_plans.packages_needing_refresh(
                 connection,
                 self.settings.packages_table,
                 selection,
@@ -158,17 +159,16 @@ class OwnerScanRepositoryMixin(ABC):
         owner_id: str,
         owner: str,
         since: str,
+        batch_marker: str = "",
     ) -> OwnerRefreshPlan:
         """Return direct package work and partial-update state for an owner."""
 
         self.ensure_schema()
         return self._run_read(
-            lambda connection: database_owner_scans.owner_refresh_plan(
+            lambda connection: database_owner_plans.owner_refresh_plan(
                 connection,
                 self.settings.packages_table,
-                owner_id,
-                owner,
-                since,
+                OwnerRefreshSelection(owner_id, owner, since, batch_marker),
             )
         )
 

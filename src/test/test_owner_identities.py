@@ -97,3 +97,35 @@ def test_retire_owner_aliases_preserves_current_package_paths(
     assert not marker_ids
     assert shared_legacy in tables
     assert orphan_legacy not in tables
+
+
+def test_retire_owner_aliases_removes_legacy_null_owner_ids(
+    tmp_path: Path,
+) -> None:
+    """Malformed nullable package identities cannot hold a batch open forever."""
+
+    database_path = tmp_path / "index.db"
+    repository = DatabaseRepository(DatabaseSettings(database_path))
+    current = _package("200", "shared", "same")
+    repository.write_package(PackageRecord(current, 2, 2, 2, 2, 2, _TODAY))
+    with sqlite3.connect(database_path) as connection:
+        connection.execute(
+            """
+            insert into packages (
+                owner_id, owner_type, package_type, owner, repo, package,
+                downloads, downloads_month, downloads_week, downloads_day,
+                size, date
+            ) values (null, 'users', 'container', 'Alpha', 'shared', 'same',
+                      1, 1, 1, 1, 1, ?)
+            """,
+            (_YESTERDAY,),
+        )
+
+    assert len(repository.package_work_plan(_TODAY).pending) == 1
+    assert repository.owner_alias_ids("200", "alpha") == ("",)
+
+    cleanup = repository.retire_owner_aliases("200", "alpha")
+
+    assert cleanup.alias_ids == ("",)
+    assert not cleanup.orphaned_packages
+    assert not repository.package_work_plan(_TODAY).pending

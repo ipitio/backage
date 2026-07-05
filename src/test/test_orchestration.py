@@ -127,6 +127,7 @@ def test_complete_batch_if_exhausted_resets_only_finished_work(tmp_path: Path) -
     assert completed.batch_first_started == "2026-06-29"
     assert state.get("BKG_BATCH_FIRST_STARTED") == "2026-06-29"
     assert state.get("BKG_BATCH_MARKER") == "batch-next"
+    assert state.get("BKG_PACKAGE_PROGRESS_MARKER") == "batch-next"
     assert state.get("BKG_UNKNOWN") == "preserved"
 
 

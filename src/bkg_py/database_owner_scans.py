@@ -7,17 +7,15 @@ from collections.abc import Generator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 
-from . import database_packages
+from . import database_batch_progress, database_packages
 from .database_models import (
     OwnerRecord,
-    OwnerRefreshPlan,
     OwnerScanCursor,
     OwnerScanFailure,
     OwnerScanPackage,
     OwnerScanPage,
     OwnerScanResult,
     OwnerScanStart,
-    OwnerScanWorkSelection,
     PackageRef,
 )
 from .database_support import DatabaseError
@@ -25,6 +23,7 @@ from .database_support import DatabaseError
 _SCANS = '"bkg_owner_scans"'
 _SCAN_PACKAGES = '"bkg_owner_scan_packages"'
 _PACKAGE_PUBLICATIONS = '"bkg_package_publications"'
+_BATCH_PROGRESS = database_batch_progress.TABLE
 
 
 @dataclass(frozen=True)
@@ -363,89 +362,6 @@ def reconcile_package(
     return tuple(str(row[0]) for row in rows)
 
 
-def packages_needing_refresh(
-    connection: sqlite3.Connection,
-    packages_table: str,
-    selection: OwnerScanWorkSelection,
-) -> tuple[OwnerScanPackage, ...]:
-    """Select observed packages needing data refresh or file publication."""
-
-    return tuple(
-        package
-        for package in selection.packages
-        if database_packages.needs_refresh(
-            connection,
-            packages_table,
-            PackageRef(
-                selection.owner_id,
-                package.owner_type,
-                package.package_type,
-                selection.owner,
-                package.repo,
-                package.package,
-            ),
-            selection.since,
-        )
-    )
-
-
-def owner_refresh_plan(
-    connection: sqlite3.Connection,
-    packages_table: str,
-    owner_id: str,
-    owner: str,
-    since: str,
-) -> OwnerRefreshPlan:
-    """Return package work and whether current data permits direct recovery."""
-
-    packages = _identifier(packages_table)
-    rows = connection.execute(
-        f"""
-        select current.owner_type, current.package_type,
-               current.repo, current.package, max(current.date),
-               max(case when pending.owner_id is null then 0 else 1 end),
-               max(
-                   case
-                       when current.owner = ? and current.date >= ?
-                            and pending.owner_id is null
-                       then 1 else 0
-                   end
-               ),
-               max(
-                   case
-                       when current.owner = ? and current.date >= ?
-                       then 1 else 0
-                   end
-               )
-        from {packages} current
-        left join {_PACKAGE_PUBLICATIONS} pending
-          on pending.owner_id = current.owner_id
-         and pending.owner_type = current.owner_type
-         and pending.package_type = current.package_type
-         and pending.owner = current.owner
-         and pending.repo = current.repo
-         and pending.package = current.package
-        where current.owner_id = ?
-        group by current.owner_type, current.package_type,
-                 current.repo, current.package
-        order by max(current.date), current.owner_type, current.package_type,
-                 current.repo, current.package
-        """,
-        (owner, since, owner, since, owner_id),
-    ).fetchall()
-
-    work = tuple(
-        OwnerScanPackage(*(str(value) for value in row[:4]))
-        for row in rows
-        if str(row[4]) < since or bool(row[5])
-    )
-    return OwnerRefreshPlan(
-        any(bool(row[6]) for row in rows),
-        work,
-        any(bool(row[7]) for row in rows),
-    )
-
-
 def known_owner_type(
     connection: sqlite3.Connection,
     packages_table: str,
@@ -721,6 +637,7 @@ def _delete_packages(
             """,
             parameters,
         )
+        database_batch_progress.retire_package(connection, package)
 
 
 def _scan_outcome(
@@ -774,6 +691,10 @@ def _pending_scan_packages(
     completion: OwnerScanCompletion,
     packages: str,
 ) -> tuple[OwnerScanPackage, ...]:
+    marker_prefix, separator, started_at = completion.marker.rpartition(
+        f":{completion.owner_id}:"
+    )
+    batch_marker = marker_prefix if separator and started_at.isdecimal() else ""
     rows = connection.execute(
         f"""
         select observed.owner_type, observed.package_type,
@@ -790,6 +711,18 @@ def _pending_scan_packages(
               and current.repo = observed.repo
               and current.package = observed.package
               and current.date >= ?
+              and (
+                  ? = '' or exists (
+                      select 1 from {_BATCH_PROGRESS} progress
+                      where progress.owner_id = current.owner_id
+                        and progress.owner_type = current.owner_type
+                        and progress.package_type = current.package_type
+                        and progress.owner = current.owner
+                        and progress.repo = current.repo
+                        and progress.package = current.package
+                        and progress.batch_marker = ?
+                  )
+              )
               and not exists (
                   select 1 from {_PACKAGE_PUBLICATIONS} pending
                   where pending.owner_id = current.owner_id
@@ -807,6 +740,8 @@ def _pending_scan_packages(
             completion.owner_id,
             completion.marker,
             completion.scan_date,
+            batch_marker,
+            batch_marker,
         ),
     ).fetchall()
     return tuple(OwnerScanPackage(*(str(value) for value in row)) for row in rows)
@@ -945,6 +880,7 @@ def retire_owner(
             )
             deleted += cursor.rowcount
         database_packages.retire_owner_publications(connection, owner)
+        database_batch_progress.retire_owner(connection, owner)
         connection.execute(
             f"""
             delete from {_SCAN_PACKAGES}

@@ -12,7 +12,12 @@ from bkg_py import ExitStatus
 from bkg_py.cli import main
 from bkg_py.concurrency import BoundedWorkerRunner, ConcurrencySettings
 from bkg_py.database import DatabaseRepository, DatabaseSettings
-from bkg_py.database_models import OwnerScanPackage, PackageRecord, PackageRef
+from bkg_py.database_models import (
+    OwnerScanPackage,
+    PackageBatch,
+    PackageRecord,
+    PackageRef,
+)
 from bkg_py.owner_package_updates import (
     OwnerPackageRefreshExecution,
     OwnerPackageRefreshRequest,
@@ -118,7 +123,7 @@ def test_owner_package_refresh_continues_after_expected_package_failure(
             "42",
             "example",
             packages,
-            "2026-06-28",
+            PackageBatch("2026-06-28"),
             "versions",
             tmp_path / "index",
             PackageRefreshPolicy(True, True, False, 0),
@@ -154,7 +159,7 @@ def test_owner_package_refresh_propagates_graceful_stop(
         "42",
         "example",
         (OwnerScanPackage("orgs", "container", "repo", "package"),),
-        "2026-06-28",
+        PackageBatch("2026-06-28"),
         "versions",
         tmp_path / "index",
         PackageRefreshPolicy(True, True, False, 0),
@@ -223,6 +228,7 @@ def test_owner_page_service_advances_multiple_pages_with_one_client(
         "package",
     )
     repository.write_package(PackageRecord(package, 1, 1, 1, 1, 1, "2026-06-28"))
+    repository.mark_package_batch_completed(package, "batch-1", "2026-06-28")
     departed = PackageRef(
         "42",
         "orgs",
@@ -256,7 +262,7 @@ def test_owner_page_service_advances_multiple_pages_with_one_client(
         "42",
         "example",
         (),
-        "2026-06-28",
+        PackageBatch("2026-06-28", "batch-1"),
         "versions",
         tmp_path / "index",
         PackageRefreshPolicy(True, True, False, 0),

@@ -302,6 +302,8 @@ class VersionRefreshService:  # pylint: disable=too-few-public-methods
         self,
         request: VersionRefreshRequest,
         settings: VersionSelectionSettings,
+        *,
+        force_refresh: bool = False,
     ) -> VersionRefreshResult:
         """Run a complete package-version refresh through one Python process."""
 
@@ -318,7 +320,9 @@ class VersionRefreshService:  # pylint: disable=too-few-public-methods
             diagnostic=self.execution.diagnostic,
         ).select(
             settings,
-            already_updated={row.version_id for row in existing.rows},
+            already_updated=(
+                set() if force_refresh else {row.version_id for row in existing.rows}
+            ),
         )
         inspector = VersionDetailInspector(
             self.client,

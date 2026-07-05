@@ -137,6 +137,7 @@ class OwnerScanPageService:  # pylint: disable=too-few-public-methods
                     owner,
                     page.packages,
                     refresh_request.since,
+                    refresh_request.batch_marker,
                 )
             )
             self.package_refresh.refresh(replace(refresh_request, packages=work))

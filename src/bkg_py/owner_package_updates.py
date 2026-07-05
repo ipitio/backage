@@ -8,7 +8,7 @@ from pathlib import Path
 
 from .concurrency import BoundedWorkerRunner, ConcurrencySettings
 from .database import DatabaseError, DatabaseRepository
-from .database_models import OwnerScanPackage, PackageRef
+from .database_models import OwnerScanPackage, PackageBatch, PackageRef
 from .github import GitHubError
 from .package_updates import (
     PackageRefreshError,
@@ -36,10 +36,22 @@ class OwnerPackageRefreshRequest:
     owner_id: str
     owner: str
     packages: tuple[OwnerScanPackage, ...]
-    since: str
+    batch: PackageBatch
     versions_table: str
     index_dir: Path
     policy: PackageRefreshPolicy
+
+    @property
+    def since(self) -> str:
+        """Return the active batch's package-date cutoff."""
+
+        return self.batch.since
+
+    @property
+    def batch_marker(self) -> str:
+        """Return the active package refresh generation."""
+
+        return self.batch.marker
 
 
 @dataclass(frozen=True)
@@ -221,6 +233,7 @@ class OwnerPackageRefreshService:  # pylint: disable=too-few-public-methods
             request.since,
             destination,
             request.policy,
+            request.batch_marker,
         )
 
 

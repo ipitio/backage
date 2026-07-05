@@ -88,6 +88,7 @@ def test_startup_prepares_state_plan_cache_and_optouts(tmp_path: Path) -> None:
     assert cache.path.read_text(encoding="utf-8") == ""
     assert optouts.read_text(encoding="utf-8") == "Alpha\nBeta\n"
     assert state.get("BKG_SCRIPT_START") == "1000"
+    assert state.get("BKG_PACKAGE_PROGRESS_MARKER") == state.get("BKG_BATCH_MARKER")
     assert (tmp_path / "plan" / "packages_to_update").is_file()
     assert progress == ["Startup phase 'prepare-package-state' completed in 0s"]
 

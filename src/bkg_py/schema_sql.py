@@ -89,6 +89,21 @@ SCHEMA_SQL = (
     )
     """,
     """
+    create table if not exists "bkg_package_batch_progress" (
+        owner_id text not null,
+        owner_type text not null,
+        package_type text not null,
+        owner text not null,
+        repo text not null,
+        package text not null,
+        batch_marker text not null,
+        completed_at text not null,
+        primary key (
+            owner_id, owner_type, package_type, owner, repo, package
+        )
+    )
+    """,
+    """
     create index if not exists "idx_bkg_owners_date_owner"
     on {owners} (date, owner)
     """,
@@ -123,6 +138,10 @@ SCHEMA_SQL = (
     """
     create index if not exists "idx_bkg_package_publications_owner"
     on "bkg_package_publications" (owner_id, owner, repo, package)
+    """,
+    """
+    create index if not exists "idx_bkg_package_batch_progress_marker"
+    on "bkg_package_batch_progress" (batch_marker, owner_id, owner)
     """,
     "pragma auto_vacuum = full",
 )

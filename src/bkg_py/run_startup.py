@@ -89,9 +89,21 @@ class RunStartupService:  # pylint: disable=too-few-public-methods
         phase_started_at = self.execution.now()
         self._recover_database_backup(request.database_path)
         self.services.repository.ensure_schema()
+        progress_marker = self.services.state.get("BKG_PACKAGE_PROGRESS_MARKER")
+        if progress_marker != initialized.batch_marker:
+            if progress_marker is None:
+                self.services.repository.bootstrap_package_batch(
+                    initialized.batch_marker,
+                    initialized.batch_first_started,
+                )
+            self.services.state.set(
+                "BKG_PACKAGE_PROGRESS_MARKER",
+                initialized.batch_marker,
+            )
         summary = PackageWorkPlanService(self.services.repository).prepare(
             initialized.batch_first_started,
             request.working_directory,
+            batch_marker=initialized.batch_marker,
         )
         opted_out = _normalize_owner_file(request.optout_file)
         previous_opted_out = self.services.state.get("BKG_OUT")

@@ -26,6 +26,7 @@ class _SqlIdentifier(str):
 _SCANS = _SqlIdentifier("bkg_owner_scans")
 _SCAN_PACKAGES = _SqlIdentifier("bkg_owner_scan_packages")
 _PACKAGE_PUBLICATIONS = _SqlIdentifier("bkg_package_publications")
+_BATCH_PROGRESS = _SqlIdentifier("bkg_package_batch_progress")
 
 
 @dataclass(frozen=True)
@@ -64,9 +65,10 @@ class OwnerIdentityRepositoryMixin(ABC):
             lambda connection: connection.execute(
                 _sql(
                     """
-                select distinct owner_id from {packages}
-                where owner = ? collate nocase and owner_id != ?
-                order by owner_id
+                select distinct coalesce(owner_id, '') from {packages}
+                where owner = ? collate nocase
+                  and (owner_id is null or owner_id != ?)
+                order by coalesce(owner_id, '')
                 """,
                     packages=packages,
                 ),
@@ -140,8 +142,9 @@ def _alias_ids(
     rows = connection.execute(
         _sql(
             """
-        select owner_id from {packages}
-        where owner = ? collate nocase and owner_id != ?
+        select coalesce(owner_id, '') from {packages}
+        where owner = ? collate nocase
+          and (owner_id is null or owner_id != ?)
         union
         select owner_id from {owners}
         where owner = ? collate nocase and owner_id != ?
@@ -168,11 +171,11 @@ def _orphaned_packages(
     rows = connection.execute(
         _sql(
             """
-        select distinct alias.owner_id, alias.owner_type,
+        select distinct coalesce(alias.owner_id, ''), alias.owner_type,
                alias.package_type, alias.owner, alias.repo, alias.package
         from {packages} alias
         where alias.owner = ? collate nocase
-          and alias.owner_id != ?
+          and (alias.owner_id is null or alias.owner_id != ?)
           and not exists (
               select 1 from {packages} current
               where current.owner_id = ?
@@ -213,7 +216,8 @@ def _delete_alias_rows(
             _sql(
                 """
             delete from {table}
-            where owner = ? collate nocase and owner_id != ?
+            where owner = ? collate nocase
+              and (owner_id is null or owner_id != ?)
             """,
                 table=table,
             ),
@@ -223,9 +227,21 @@ def _delete_alias_rows(
         _sql(
             """
         delete from {publications}
-        where owner = ? collate nocase and owner_id != ?
+        where owner = ? collate nocase
+          and (owner_id is null or owner_id != ?)
         """,
             publications=_PACKAGE_PUBLICATIONS,
+        ),
+        (context.owner, context.owner_id),
+    )
+    connection.execute(
+        _sql(
+            """
+        delete from {progress}
+        where owner = ? collate nocase
+          and (owner_id is null or owner_id != ?)
+        """,
+            progress=_BATCH_PROGRESS,
         ),
         (context.owner, context.owner_id),
     )

@@ -157,6 +157,7 @@ def _execute_package_listing(
                     args.owner,
                     page.packages,
                     args.since,
+                    application.state.get("BKG_BATCH_MARKER") or "",
                 )
             )
         else:
@@ -293,6 +294,7 @@ def _print_observed_work(
             args.owner,
             packages,
             args.since,
+            application.state.get("BKG_BATCH_MARKER") or "",
         )
     ):
         print(f"{package.package_type}/{package.repo}/{package.package}")
@@ -363,6 +365,7 @@ def _execute_package_refresh(
                     _boolean_argument(args.fast_out),
                     application.config.mode,
                 ),
+                application.state.get("BKG_BATCH_MARKER") or "",
             )
         )
 

@@ -47,6 +47,7 @@ class OwnerScanVerificationRequest:
     marker: str
     since: str
     observed_at: int
+    batch_marker: str = ""
 
 
 @dataclass(frozen=True)
@@ -140,6 +141,7 @@ class OwnerScanVerificationService:  # pylint: disable=too-few-public-methods
                     request.owner,
                     packages,
                     request.since,
+                    request.batch_marker,
                 )
             )
         )
@@ -220,6 +222,7 @@ class OwnerScanService:  # pylint: disable=too-few-public-methods
                 request.marker,
                 refresh_request.since,
                 execution.now(),
+                refresh_request.batch_marker,
             )
         )
         if verification.changes:

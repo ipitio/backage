@@ -76,6 +76,7 @@ def run_owner(
                     args.owner_id,
                     args.owner,
                     args.since,
+                    application.state.get("BKG_BATCH_MARKER") or "",
                 )
                 print(_refresh_plan_json(plan))
             elif args.owner_command == "refresh-packages":
@@ -99,6 +100,7 @@ def run_owner(
                             args.marker,
                             args.since,
                             args.observed_at,
+                            application.state.get("BKG_BATCH_MARKER") or "",
                         )
                     )
                 print(_result_json(result))

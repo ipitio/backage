@@ -290,6 +290,7 @@ class TestDatabaseRepository:
                 "versions",
                 "bkg_owner_scans",
                 "bkg_owner_scan_packages",
+                "bkg_package_batch_progress",
             } <= tables
             assert retained == "keep"
             assert "next_page" in scan_columns

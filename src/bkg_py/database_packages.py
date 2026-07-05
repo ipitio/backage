@@ -6,6 +6,7 @@ import sqlite3
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
 
+from . import database_batch_progress
 from .database_models import PackageInventory, PackageRecord, PackageRef
 from .database_support import DatabaseError
 from .database_values import package_values
@@ -286,6 +287,7 @@ def retire(
                 package_values(package),
             )
         clear_publication(connection, package)
+        database_batch_progress.retire_package(connection, package)
 
 
 def retire_owner_publications(connection: sqlite3.Connection, owner: str) -> None:

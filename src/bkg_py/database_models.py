@@ -105,6 +105,25 @@ class OwnerScanWorkSelection:
     owner: str
     packages: tuple[OwnerScanPackage, ...]
     since: str
+    batch_marker: str = ""
+
+
+@dataclass(frozen=True)
+class PackageBatch:
+    """Date cutoff and durable generation marker for package refresh work."""
+
+    since: str
+    marker: str = ""
+
+
+@dataclass(frozen=True)
+class OwnerRefreshSelection:
+    """Owner identity and active batch used to select direct package work."""
+
+    owner_id: str
+    owner: str
+    since: str
+    batch_marker: str = ""
 
 
 @dataclass(frozen=True)

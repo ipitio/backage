@@ -192,3 +192,38 @@ def test_owner_refresh_plan_recovers_publication_only_work_directly(
     assert plan.packages == (
         OwnerScanPackage("orgs", "container", "pending-repo", "pending"),
     )
+
+
+def test_owner_refresh_plan_distinguishes_same_day_batch_generations(
+    tmp_path: Path,
+) -> None:
+    """Owner planning agrees with the global plan for every batch marker."""
+
+    repository = DatabaseRepository(DatabaseSettings(tmp_path / "index.db"))
+    package = _package("current-repo", "current")
+    repository.write_package(_record(package))
+
+    first = repository.owner_refresh_plan(
+        package.owner_id,
+        package.owner,
+        _TODAY,
+        "batch-1",
+    )
+    assert first.pending_count == 1
+
+    repository.mark_package_batch_completed(package, "batch-1", _TODAY)
+    completed = repository.owner_refresh_plan(
+        package.owner_id,
+        package.owner,
+        _TODAY,
+        "batch-1",
+    )
+    assert completed.pending_count == 0
+
+    next_batch = repository.owner_refresh_plan(
+        package.owner_id,
+        package.owner,
+        _TODAY,
+        "batch-2",
+    )
+    assert next_batch.pending_count == 1
