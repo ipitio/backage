@@ -5,7 +5,7 @@ on:
     - cron: "0 * * * *"
 
 concurrency:
-  group: ${{ github.ref }}
+  group: ${{ github.repository }}-database-publication
   cancel-in-progress: false
 
 defaults:

@@ -34,8 +34,15 @@ from .owner_queue_operations import (
     OwnerQueuePreparationRequest,
     OwnerQueuePreparationService,
     OwnerQueuePreparationServices,
+    TargetedOwnerQueueService,
 )
 from .result import ExitStatus
+from .run_finalization import (
+    RunFinalizationExecution,
+    RunFinalizationRequest,
+    RunFinalizationService,
+    RunFinalizationServices,
+)
 from .run_planning import PackageWorkPlanService
 from .run_publication import (
     RunPublicationIdentity,
@@ -44,6 +51,7 @@ from .run_publication import (
     RunPublicationService,
 )
 from .runtime import GracefulStop
+from .snapshots import SnapshotError
 from .state import StateValueError
 
 if TYPE_CHECKING:
@@ -72,8 +80,20 @@ def run_orchestration(
         elif args.orchestration_command == "prepare-owner-queue":
             with application.stop.signal_handlers():
                 status = _prepare_owner_queue(args, application)
-        elif args.orchestration_command == "publish-run-summary":
-            status = _publish_run_summary(args, application)
+        elif args.orchestration_command in {
+            "prepare-targeted-owner-queue",
+            "prepare-optout-owner-queue",
+        }:
+            with application.stop.signal_handlers():
+                status = _prepare_targeted_owner_queue(
+                    args,
+                    application,
+                    optouts=(
+                        args.orchestration_command == "prepare-optout-owner-queue"
+                    ),
+                )
+        elif args.orchestration_command in {"publish-run-summary", "finalize-run"}:
+            status = _run_publication_command(args, application)
         else:
             status = _run_batch_runtime(args, application)
         return status
@@ -86,6 +106,7 @@ def run_orchestration(
         DiscoveryError,
         GitHubError,
         OSError,
+        SnapshotError,
         StateValueError,
         ValueError,
     ) as error:
@@ -116,34 +137,97 @@ def _prepare_package_plan(
     return ExitStatus.SUCCESS
 
 
-def _publish_run_summary(
+def _run_publication_command(
     args: argparse.Namespace,
     application: ApplicationContext,
 ) -> ExitStatus:
+    if args.orchestration_command == "finalize-run":
+        return _finalize_run(args, application)
+    return _publish_run_summary(args, application)
+
+
+def _publication_request(
+    args: argparse.Namespace,
+    application: ApplicationContext,
+    *,
+    rotated: bool,
+) -> RunPublicationRequest:
     config = application.config
     if config.index_dir is None:
         raise ValueError("BKG_INDEX_DIR is required")
     if config.github_branch is None:
         raise ValueError("GITHUB_BRANCH is required")
+    return RunPublicationRequest(
+        paths=RunPublicationPaths(
+            root=Path(config.root),
+            index_directory=Path(config.index_dir),
+            working_directory=Path(args.working_directory),
+        ),
+        identity=RunPublicationIdentity(
+            github_owner=config.github_owner,
+            github_repo=config.github_repo,
+            github_branch=config.github_branch,
+        ),
+        today=args.today,
+        rotated=rotated,
+    )
+
+
+def _publish_run_summary(
+    args: argparse.Namespace,
+    application: ApplicationContext,
+) -> ExitStatus:
     with application.stop.signal_handlers():
         RunPublicationService(
             application.database,
             application.state,
             application.stop.check,
         ).publish(
-            RunPublicationRequest(
-                paths=RunPublicationPaths(
-                    root=Path(config.root),
-                    index_directory=Path(config.index_dir),
-                    working_directory=Path(args.working_directory),
-                ),
-                identity=RunPublicationIdentity(
-                    github_owner=config.github_owner,
-                    github_repo=config.github_repo,
-                    github_branch=config.github_branch,
-                ),
-                today=args.today,
+            _publication_request(
+                args,
+                application,
                 rotated=args.rotated == "true",
+            )
+        )
+    return ExitStatus.SUCCESS
+
+
+def _finalize_run(
+    args: argparse.Namespace,
+    application: ApplicationContext,
+) -> ExitStatus:
+    config = application.config
+
+    def progress(message: str) -> None:
+        sys.stdout.write(f"{message}\n")
+        sys.stdout.flush()
+
+    with application.stop.signal_handlers():
+        RunFinalizationService(
+            RunFinalizationServices(
+                application.database,
+                application.snapshots,
+                RunPublicationService(
+                    application.database,
+                    application.state,
+                    application.stop.check,
+                ),
+                application.state,
+            ),
+            RunFinalizationExecution(application.stop.check, progress),
+        ).finalize(
+            RunFinalizationRequest(
+                publication=_publication_request(
+                    args,
+                    application,
+                    rotated=False,
+                ),
+                optout_file=Path(config.optout_file),
+                batch_first_started=(
+                    application.state.get("BKG_BATCH_FIRST_STARTED") or args.today
+                ),
+                prepare_snapshot=args.prepare_snapshot == "true",
+                rotation_threshold_bytes=(config.snapshot_rotation_threshold_bytes),
             )
         )
     return ExitStatus.SUCCESS
@@ -194,14 +278,40 @@ def _discover_owners(
                 identity=DiscoveryPhaseIdentity(
                     config.github_owner,
                     config.github_repo,
-                    config.github_owner == "ipitio",
+                    config.github_owner == "ipitio" and config.mode in {0, 3},
                 ),
                 today=args.today,
                 skip_explore=args.skip_explore == "true",
-                first_run=config.is_first != "false",
+                first_run=config.is_first != "false" and config.mode in {0, 3},
                 owner_page_limit=config.owner_discovery_max_pages,
             )
         )
+    return ExitStatus.SUCCESS
+
+
+def _prepare_targeted_owner_queue(
+    args: argparse.Namespace,
+    application: ApplicationContext,
+    *,
+    optouts: bool,
+) -> ExitStatus:
+    config = application.config
+
+    def progress(message: str) -> None:
+        sys.stdout.write(f"{message}\n")
+        sys.stdout.flush()
+
+    with application.github_client() as client:
+        service = TargetedOwnerQueueService(
+            OwnerIdentityResolver(OwnerIdentityCache.from_config(config), client),
+            application.state,
+            application.stop.check,
+            progress,
+        )
+        if optouts:
+            service.prepare_optouts(Path(config.optout_file))
+        else:
+            service.prepare(config.github_owner, Path(args.connections_file))
     return ExitStatus.SUCCESS
 
 

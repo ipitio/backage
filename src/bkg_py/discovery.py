@@ -23,6 +23,7 @@ _REST_OWNER_LOOKUP_PREFIXES = ("users", "orgs")
 _REPOSITORY_GRAPHQL_EDGES = frozenset({"stargazers", "watchers", "forks"})
 _REPOSITORY_DISCOVERY_EDGES = ("stargazers", "watchers", "forks", "collaborators")
 _OWNER_DISCOVERY_EDGES = ("followers", "following", "people")
+_REST_PAGE_SIZE = 100
 
 
 class DiscoveryError(RuntimeError):
@@ -421,15 +422,51 @@ class OwnerIdentityResolver:
         return self._explore_owner(node, edge)
 
     def membership(self, owner_ref: str) -> tuple[str, ...]:
-        """Return members or organizations for the configured GitHub owner."""
+        """Return public members or organizations for the configured owner."""
 
         owner = owner_ref_login(owner_ref)
-        owner_type = self.owner_type(owner)
+        owner_type = self._rest_owner_type(owner)
         if owner_type == "Organization":
-            return self._paged_owner_nodes(owner, "people", owner_type)
+            return self._paged_rest_logins(f"orgs/{quote(owner, safe='')}/members")
         if owner_type == "User":
-            return self.organization_logins(owner)
+            return self._paged_rest_logins(f"users/{quote(owner, safe='')}/orgs")
         raise DiscoveryError(f"owner type not found for {owner}")
+
+    def _rest_owner_type(self, login: str) -> str | None:
+        if not login:
+            return None
+        response = self.client.rest_json_optional(f"users/{quote(login, safe='')}")
+        if response is None:
+            return None
+        value: object = response.value
+        if not isinstance(value, dict):
+            return None
+        owner_type: object = cast(dict[str, object], value).get("type")
+        if isinstance(owner_type, str) and owner_type in {"Organization", "User"}:
+            return owner_type
+        return None
+
+    def _paged_rest_logins(self, path: str) -> tuple[str, ...]:
+        page = 1
+        logins: list[str] = []
+        while True:
+            response = self.client.rest_json(
+                f"{path}?per_page={_REST_PAGE_SIZE}&page={page}"
+            )
+            if not isinstance(response.value, list):
+                raise DiscoveryError(f"invalid REST membership response: {path}")
+            items = cast(list[object], response.value)
+            logins.extend(
+                login
+                for item in items
+                if isinstance(item, dict)
+                and isinstance(login := cast(dict[str, object], item).get("login"), str)
+                and login
+            )
+            if len(items) < _REST_PAGE_SIZE:
+                break
+            page += 1
+        return tuple(logins)
 
     def owner_page(
         self,

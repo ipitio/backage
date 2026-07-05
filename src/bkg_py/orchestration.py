@@ -175,7 +175,9 @@ class BatchRuntimeService:
         if not source_published_today:
             return False
         snapshot = self.state.snapshot()
-        return snapshot.get(key) == _daily_gate_state_value(snapshot, today)
+        context, direction = _daily_gate_context(snapshot, today)
+        completed = _completed_daily_gate_directions(snapshot.get(key), context)
+        return direction in completed
 
     def complete_daily_gate(self, key: str, today: str) -> None:
         """Persist completion for the current date, batch, and queue direction."""
@@ -183,7 +185,10 @@ class BatchRuntimeService:
         _validate_date(today)
         _validate_daily_gate_key(key)
         snapshot = self.state.snapshot()
-        value = _daily_gate_state_value(snapshot, today)
+        context, direction = _daily_gate_context(snapshot, today)
+        completed = _completed_daily_gate_directions(snapshot.get(key), context)
+        completed.add(direction)
+        value = f"{context}|{','.join(sorted(completed))}"
         if snapshot.get(key) != value:
             self.state.set(key, value)
 
@@ -213,14 +218,23 @@ def _validate_process_status(status: int, label: str) -> None:
         raise ValueError(f"invalid {label} status: {status}")
 
 
-def _daily_gate_state_value(snapshot: Mapping[str, str], today: str) -> str:
+def _daily_gate_context(snapshot: Mapping[str, str], today: str) -> tuple[str, str]:
     batch_marker = (
         snapshot.get("BKG_BATCH_MARKER")
         or snapshot.get("BKG_BATCH_FIRST_STARTED")
         or "default"
     )
     rest_to_top = snapshot.get("BKG_REST_TO_TOP") or "0"
-    return f"{today}|{batch_marker}|{rest_to_top}"
+    return f"{today}|{batch_marker}", rest_to_top
+
+
+def _completed_daily_gate_directions(value: str | None, context: str) -> set[str]:
+    if not value:
+        return set()
+    stored_context, separator, directions = value.rpartition("|")
+    if not separator or stored_context != context:
+        return set()
+    return {direction for direction in directions.split(",") if direction}
 
 
 def _state_int(snapshot: Mapping[str, str], key: str, default: int = 0) -> int:

@@ -365,6 +365,14 @@ class SnapshotStore:
         except sqlite3.Error as error:
             raise SnapshotError(str(error)) from error
 
+    def database_size(self) -> int:
+        """Return the live database size, or zero when it does not exist."""
+
+        try:
+            return self.paths.index_db.stat().st_size
+        except FileNotFoundError:
+            return 0
+
     def prepare_database_snapshot(self) -> Path:
         """Atomically copy the checkpointed database into the current archive."""
 

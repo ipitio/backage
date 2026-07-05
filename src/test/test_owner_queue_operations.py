@@ -17,6 +17,7 @@ from bkg_py.owner_queue_operations import (
     OwnerQueuePreparationRequest,
     OwnerQueuePreparationService,
     OwnerQueuePreparationServices,
+    TargetedOwnerQueueService,
 )
 from bkg_py.state import StateStore
 
@@ -172,3 +173,65 @@ def test_queue_preparation_owns_normalization_resolution_and_effects(
     assert "Queued Beta (reason: connection)" in messages
     assert "Retired unavailable owner missing" in messages
     assert any(message.startswith("Deferred deferred until ") for message in messages)
+
+
+def test_targeted_owner_queue_resolves_configured_owner_and_memberships(
+    tmp_path: Path,
+) -> None:
+    """Targeted modes queue every resolvable owner without global selection."""
+
+    connections = tmp_path / "connections"
+    _write_lines(connections, "alpha", "99/Beta", "alpha", "missing")
+    state = StateStore(tmp_path / "state.env")
+    resolver = _Resolver()
+    messages: list[str] = []
+    service = TargetedOwnerQueueService(
+        resolver,
+        state,
+        lambda: None,
+        messages.append,
+    )
+
+    result = service.prepare("service", connections)
+
+    assert result.candidates == 4
+    assert result.queued == 3
+    assert result.missing == 1
+    assert resolver.candidates == ("service", "alpha", "99/Beta", "missing")
+    assert state.get_set("BKG_OWNERS_QUEUE") == [
+        "2/service",
+        "3/Alpha",
+        "99/Beta",
+    ]
+    assert messages == ["Queued service", "Queued Alpha", "Queued Beta"]
+
+
+def test_targeted_owner_queue_extracts_and_resolves_optout_owners(
+    tmp_path: Path,
+) -> None:
+    """The fast opt-out path batches unique owners from component entries."""
+
+    optouts = tmp_path / "optout.txt"
+    _write_lines(
+        optouts,
+        "alpha/repository/package",
+        "beta/repository/package",
+        "alpha/other/package",
+        "missing/repository/package",
+    )
+    state = StateStore(tmp_path / "state.env")
+    resolver = _Resolver()
+    service = TargetedOwnerQueueService(
+        resolver,
+        state,
+        lambda: None,
+        lambda _message: None,
+    )
+
+    result = service.prepare_optouts(optouts)
+
+    assert result.candidates == 3
+    assert result.queued == 2
+    assert result.missing == 1
+    assert resolver.candidates == ("alpha", "beta", "missing")
+    assert state.get_set("BKG_OWNERS_QUEUE") == ["3/Alpha", "99/Beta"]

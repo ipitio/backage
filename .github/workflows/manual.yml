@@ -12,8 +12,8 @@ on:
       - closed
 
 concurrency:
-  group: ${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.repository }}-database-publication
+  cancel-in-progress: false
 
 defaults:
   run:

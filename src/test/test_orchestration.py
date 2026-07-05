@@ -130,10 +130,10 @@ def test_complete_batch_if_exhausted_resets_only_finished_work(tmp_path: Path) -
     assert state.get("BKG_UNKNOWN") == "preserved"
 
 
-def test_daily_gate_tracks_date_batch_direction_and_source_publish(
+def test_daily_gate_tracks_date_batch_directions_and_source_publish(
     tmp_path: Path,
 ) -> None:
-    """Daily phases rerun whenever any durable scheduling context changes."""
+    """Daily phases complete once per queue direction in each batch context."""
 
     state = StateStore(tmp_path / "state.env")
     state.set_many(
@@ -170,6 +170,20 @@ def test_daily_gate_tracks_date_batch_direction_and_source_publish(
         "2026-06-29",
         source_published_today=True,
     )
+    service.complete_daily_gate(key, "2026-06-29")
+    state.set("BKG_REST_TO_TOP", 0)
+    assert service.should_skip_daily_gate(
+        key,
+        "2026-06-29",
+        source_published_today=True,
+    )
+    state.set("BKG_REST_TO_TOP", 1)
+    assert service.should_skip_daily_gate(
+        key,
+        "2026-06-29",
+        source_published_today=True,
+    )
+    assert state.get(key) == "2026-06-29|batch-2|0,1"
     assert not service.should_skip_daily_gate(
         key,
         "2026-06-30",

@@ -248,7 +248,6 @@ drop_replaced_legacy_version_tables() {
 }
 
 main() {
-	local rotated=false
 	local pkg_all
 	local pkg_done
 	local pkg_left
@@ -318,8 +317,15 @@ main() {
 		if [ "$BKG_MODE" -eq 0 ] || [ "$BKG_MODE" -eq 3 ]; then
 			if $fast_out; then
 				log_prequeue_elapsed_once
-				grep -oP '^[^\/]+' "$BKG_OPTOUT" | parallel_shell_func "$BKG_ROOT/src/lib/owner.sh" save_owner --lb
-				return_code=1
+				bkg_python orchestration prepare-optout-owner-queue
+				phase_status=$?
+				if ((phase_status == 3)); then
+					return_code=3
+				elif ((phase_status != 0)); then
+					return "$phase_status"
+				else
+					return_code=1
+				fi
 			else
 				skip_explore=false
 				if [ "$GITHUB_OWNER" = "ipitio" ] && daily_gate_should_skip_today BKG_LAST_EXPLORE_DATE "$today"; then
@@ -435,11 +441,33 @@ main() {
 			fi
 		else
 			log_prequeue_elapsed_once
-			save_owner "$GITHUB_OWNER"
 			phase_started_at=$(startup_phase_started_at)
-			get_membership "$GITHUB_OWNER" >"$connections"
-			if [ -s "$connections" ]; then
-				parallel_shell_func "$BKG_ROOT/src/lib/owner.sh" save_owner --lb <"$connections" || while read -r connection; do save_owner "$connection"; done <"$connections"
+			discovery_in_python=false
+			if [ -n "${GITHUB_TOKEN:-}" ]; then
+				bkg_python orchestration discover-owners \
+					"$today" false "$connections" packages_all
+				phase_status=$?
+				if ((phase_status == 0)); then
+					discovery_in_python=true
+				elif ((phase_status == 3)); then
+					return_code=3
+				else
+					echo "Authenticated discovery failed; using the shell fallback"
+				fi
+			fi
+			if ! $discovery_in_python && ((return_code != 3)); then
+				BKG_DISCOVERY_SHELL_FALLBACK=true get_membership "$GITHUB_OWNER" >"$connections"
+				phase_status=$?
+				((phase_status != 3)) || return_code=3
+			fi
+			if ((return_code != 3)); then
+				bkg_python orchestration prepare-targeted-owner-queue "$connections"
+				phase_status=$?
+				if ((phase_status == 3)); then
+					return_code=3
+				elif ((phase_status != 0)); then
+					return "$phase_status"
+				fi
 			fi
 			log_startup_phase "queue-membership-owners" "$phase_started_at"
 		fi
@@ -475,28 +503,13 @@ main() {
 			handle_owner_update_status "$phase_status" || return $?
 		fi
 
-		set_BKG BKG_OUT "$(wc -l <"$BKG_OPTOUT")"
-		echo "Preparing the database snapshot..."
-		checkpoint_database_for_archive
-
-		# rotate the database if it's greater than 2GB
-		if [ "$(stat -c %s "$BKG_INDEX_DB" 2>/dev/null || echo 0)" -ge 2000000000 ]; then
-			rotated=true
-			echo "Rotating the database..."
-			rotate_database_snapshot_if_needed 2000000000 "$BKG_BATCH_FIRST_STARTED"
-			echo "Rotated the database"
-		fi
-
-		if prepare_database_snapshot_for_archive; then
-			echo "Prepared the database snapshot"
-		else
-			echo "Failed to prepare the database snapshot!"
-		fi
 	fi
 
-	echo "Hydrating templates and cleaning up..."
-	post_stop_bkg_python orchestration publish-run-summary "$today" "$rotated" "." || return $?
+	if [ "$BKG_MODE" -ne 2 ]; then
+		post_stop_bkg_python orchestration finalize-run "$today" true "." || return $?
+	else
+		post_stop_bkg_python orchestration finalize-run "$today" false "." || return $?
+	fi
 	del_BKG BKG_TIMEOUT
-	echo "Done!"
 	return $return_code
 }

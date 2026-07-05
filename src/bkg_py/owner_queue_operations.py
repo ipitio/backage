@@ -202,6 +202,66 @@ class OwnerQueuePreparationService:  # pylint: disable=too-few-public-methods
         return len(missing_owners)
 
 
+@dataclass(frozen=True)
+class TargetedOwnerQueueResult:
+    """Counts produced when queueing one owner and its memberships."""
+
+    candidates: int
+    queued: int
+    missing: int
+
+
+class TargetedOwnerQueueService:  # pylint: disable=too-few-public-methods
+    """Resolve and queue every owner selected by a targeted update mode."""
+
+    def __init__(
+        self,
+        resolver: OwnerCandidateResolver,
+        state: StateStore,
+        check_stop: StopCheck,
+        progress: MessageSink,
+    ) -> None:
+        self.resolver = resolver
+        self.state = state
+        self.check_stop = check_stop
+        self.progress = progress
+
+    def prepare(
+        self,
+        current_owner: str,
+        connections_path: Path,
+    ) -> TargetedOwnerQueueResult:
+        """Persist all resolvable configured-owner and membership candidates."""
+
+        return self._prepare(
+            normalize_owner_lines((current_owner, *_read_lines(connections_path)))
+        )
+
+    def prepare_optouts(self, optout_path: Path) -> TargetedOwnerQueueResult:
+        """Persist every resolvable owner named by an opt-out entry."""
+
+        return self._prepare(
+            normalize_owner_lines(
+                line.split("/", maxsplit=1)[0] for line in _read_lines(optout_path)
+            )
+        )
+
+    def _prepare(
+        self,
+        candidates: tuple[str, ...],
+    ) -> TargetedOwnerQueueResult:
+        self.check_stop()
+        resolved, missing = self.resolver.resolve_candidates(candidates)
+        queued = 0
+        for owner_ref in resolved:
+            self.check_stop()
+            if not self.state.add_to_set("BKG_OWNERS_QUEUE", owner_ref):
+                continue
+            queued += 1
+            self.progress(f"Queued {_owner_login(owner_ref)}")
+        return TargetedOwnerQueueResult(len(candidates), queued, len(missing))
+
+
 def _prepare_connections(paths: OwnerQueuePreparationPaths) -> tuple[str, ...]:
     lines = _read_lines(paths.connections)
     counts = Counter(lines)

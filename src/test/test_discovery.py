@@ -578,36 +578,14 @@ def test_explore_user_includes_organizations_once(tmp_path: Path) -> None:
 
 
 def test_membership_returns_organization_members(tmp_path: Path) -> None:
-    """Membership traversal maps organization owners to people results."""
+    """Membership traversal uses integration-compatible REST pagination."""
 
     def respond(request: httpx.Request) -> httpx.Response:
-        payload = json.loads(request.content)
-        query = payload["query"]
-        if "__typename" in query:
-            owner = {"__typename": "Organization"}
-        elif "membersWithRole(first:100)" in query:
-            owner = {
-                "membersWithRole": {
-                    "nodes": [{"login": "member", "databaseId": 401}],
-                    "pageInfo": {"hasNextPage": False, "endCursor": None},
-                }
-            }
-        else:
-            pytest.fail(f"unexpected query: {query}")
-            raise AssertionError
-        return httpx.Response(
-            200,
-            json={
-                "data": {
-                    "owner": owner,
-                    "rateLimit": {
-                        "cost": 1,
-                        "remaining": 4999,
-                        "resetAt": "2026-06-16T23:00:00Z",
-                    },
-                }
-            },
-        )
+        if request.url.path == "/users/github":
+            return httpx.Response(200, json={"type": "Organization"})
+        assert request.url.path == "/orgs/github/members"
+        assert dict(request.url.params) == {"per_page": "100", "page": "1"}
+        return httpx.Response(200, json=[{"login": "member"}])
 
     resolver = OwnerIdentityResolver(
         OwnerIdentityCache(tmp_path / "owner-id-cache.txt"),
@@ -615,6 +593,24 @@ def test_membership_returns_organization_members(tmp_path: Path) -> None:
     )
 
     assert resolver.membership("1/github") == ("member",)
+
+
+def test_membership_returns_user_organizations(tmp_path: Path) -> None:
+    """User deployments discover public organizations without GraphQL access."""
+
+    def respond(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/users/ipitio":
+            return httpx.Response(200, json={"type": "User"})
+        assert request.url.path == "/users/ipitio/orgs"
+        assert dict(request.url.params) == {"per_page": "100", "page": "1"}
+        return httpx.Response(200, json=[{"login": "ExampleOrg"}])
+
+    resolver = OwnerIdentityResolver(
+        OwnerIdentityCache(tmp_path / "owner-id-cache.txt"),
+        _client(httpx.MockTransport(respond)),
+    )
+
+    assert resolver.membership("2/ipitio") == ("ExampleOrg",)
 
 
 def test_organization_logins_can_emit_resolved_refs(tmp_path: Path) -> None:

@@ -69,6 +69,7 @@ class RuntimeConfig:  # pylint: disable=too-many-instance-attributes
     tag_cache_pages: int = 3
     append_tagged_versions_limit: int = 30
     owner_discovery_max_pages: int = 1
+    snapshot_rotation_threshold_bytes: int = 2_000_000_000
     parallel_async_max_jobs: int = max(1, (os.cpu_count() or 1) * 2)
     owner_update_stop_grace: float = 180.0
 
@@ -124,6 +125,10 @@ class RuntimeConfig:  # pylint: disable=too-many-instance-attributes
             owner_discovery_max_pages=_env_nonnegative_int(
                 "BKG_OWNER_DISCOVERY_MAX_PAGES",
                 1,
+            ),
+            snapshot_rotation_threshold_bytes=_env_positive_int(
+                "BKG_SNAPSHOT_ROTATION_THRESHOLD_BYTES",
+                2_000_000_000,
             ),
             parallel_async_max_jobs=_env_positive_int(
                 "BKG_PARALLEL_ASYNC_MAX_JOBS",
