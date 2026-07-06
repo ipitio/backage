@@ -281,3 +281,5 @@
 3007060/ishopiSmile
 3007061/cycledish1
 3007064/thejobpost
+3007065/muppetnuts
+3007066/opentripplanner
