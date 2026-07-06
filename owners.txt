@@ -1,14 +1,10 @@
-2997006/AboveGroundLabs
 2997592/AiolosSoftware
-2994424/AmericanaExchange
 2991295/AnaCarlacr
 2991360/AndrewPrifer
 2992095/AppyBoys
-2995692/AudioProcessingEffects
 2997185/Avocarrot
 2994412/BSGSatish
 2997032/BluetrainMobile
-2993398/ButterKit
 2991374/CUECS
 2997554/CoDaS-Lab
 2991588/Cocacolaclaimuklondon
@@ -27,12 +23,9 @@
 2997130/LeadingThePack
 2991353/LeboyX
 2994163/Lnplan
-2991373/NadeenS
 2992963/PredictionIO
-2991963/RHMGLtd
 2994158/Radious-group
 2993971/Robocademy
-2991371/SHBaldwin
 2997763/STJr
 2991310/Shinenite
 2991375/Snowkyrion
@@ -40,7 +33,6 @@
 2997665/TeamFlawless
 2993139/Tenkiv
 2991315/TheMajorStudios
-2992054/Tvorba
 2997960/WebServicesManagement
 2991366/Yanghaoran
 2996432/Z5Tech
@@ -58,10 +50,8 @@
 2995186/beowulf-scanner
 2996378/bitcoinx
 2993942/blazingio
-2991302/bpgabrielli
 2992223/breakingnewsnetwork
 2994425/bsgitsoft
-2991328/bucamehuxu
 2991293/canadaclose0
 2991306/carrotpin28
 2991372/centhawk0
@@ -85,7 +75,6 @@
 2991339/devolchok
 2992176/digitalFAMILY
 2991380/dka224
-2991977/drccolumbia
 2991309/drweavil
 2991347/eadsd
 2997779/ecitizens
@@ -204,8 +193,6 @@
 2997980/gigglyicelander8
 3001755/githooks
 3002971/go-sql-driver
-2997991/grycftc
-2999573/hbang
 2997983/heartdaisy1
 2997986/heightenergy46
 3001990/hiveshare
@@ -220,18 +207,15 @@
 2998016/jhendryck
 3001824/joeyespo-archive
 2998017/johncrosby
-2997978/joseph-c-marion
 2997990/kaijic
 3000375/kanchoku
 3005857/kkresearch
 2997977/kobekdonn
 2998034/koreyflynt
-3005183/kungkengorts
 3001134/labristechnology
 2998028/larissaland
 3002943/lookerbe
 2997972/lsaraiva
-2998027/lumbercollar8
 2998182/makanipower
 2997970/manxmimosa3
 3005768/maqcsa
@@ -239,7 +223,6 @@
 2998020/mhid
 2998029/milose
 3003146/mozilla-gumi
-2998026/music44enemy
 3000697/mydevcommunity
 2999555/neotenic
 2998049/nounena
@@ -260,7 +243,6 @@
 2998052/sailor83week
 2998011/sammannion
 2997998/scottjustin5000
-2998059/search8dahlia
 2997974/sexwax
 3006190/shadowsocks
 2998000/sinkjudge28
@@ -294,3 +276,4 @@
 2997989/zerosoup
 2997963/zippersummer4
 3006744/clamra
+3006745/NickVi
