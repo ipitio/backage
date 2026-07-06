@@ -75,11 +75,11 @@ test_sync_batch_progress_reads_python_transition() {
 		printf 'false\t2026-06-28\n'
 	}
 
-	sync_batch_progress 2026-06-29 1
+	sync_batch_progress 2026-06-29 12 7
 
 	[ "$BKG_BATCH_RESET" = "false" ] || fail "Expected unfinished work to preserve the active batch"
 	[ "$BKG_BATCH_FIRST_STARTED" = "2026-06-28" ] || fail "Expected the Python batch start date"
-	assert_contains "$calls_file" "orchestration complete-batch-if-exhausted 2026-06-29 1"
+	assert_contains "$calls_file" "orchestration complete-batch-if-exhausted 2026-06-29 12 7"
 	unset -f bkg_python
 }
 
