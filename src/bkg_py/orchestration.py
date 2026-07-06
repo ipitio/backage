@@ -13,6 +13,7 @@ from .state import StateStore
 
 MarkerFactory = Callable[[], str]
 OwnerPhaseAction = Literal["publish", "abort"]
+_BATCH_COMPLETION_LIMIT = 10_000
 _PRIMARY_RATE_WINDOW_SECONDS = 3600
 _SECONDARY_RATE_WINDOW_SECONDS = 60
 _MAX_PROCESS_STATUS = 255
@@ -135,16 +136,16 @@ class BatchRuntimeService:
     def complete_batch_if_exhausted(
         self,
         today: str,
-        remaining: int,
+        total: int,
+        completed: int,
         *,
         marker_factory: MarkerFactory | None = None,
     ) -> BatchTransition:
-        """Start a new batch atomically only after all current work is complete."""
+        """Start a new batch once the active batch reaches its completion target."""
 
         _validate_date(today)
-        if remaining < 0:
-            raise ValueError("remaining package count cannot be negative")
-        if remaining > 0:
+        _validate_package_counts(total, completed)
+        if completed < _batch_completion_target(total):
             return BatchTransition(
                 reset=False,
                 batch_first_started=(
@@ -219,6 +220,15 @@ def _validate_process_status(status: int, label: str) -> None:
         raise ValueError(f"invalid {label} status: {status}")
 
 
+def _validate_package_counts(total: int, completed: int) -> None:
+    if total < 0:
+        raise ValueError("total package count cannot be negative")
+    if completed < 0:
+        raise ValueError("completed package count cannot be negative")
+    if completed > total:
+        raise ValueError("completed package count cannot exceed total package count")
+
+
 def _daily_gate_context(snapshot: Mapping[str, str], today: str) -> tuple[str, str]:
     batch_marker = (
         snapshot.get("BKG_BATCH_MARKER")
@@ -257,6 +267,10 @@ def _rate_window(
     if window_started_at <= 0 or window_started_at + duration <= started_at:
         return started_at, 0
     return window_started_at, max(0, calls)
+
+
+def _batch_completion_target(total: int) -> int:
+    return min(_BATCH_COMPLETION_LIMIT, total)
 
 
 def _batch_marker(started_at: int) -> str:

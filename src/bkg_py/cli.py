@@ -91,10 +91,11 @@ def _add_run_state_parsers(orchestration_commands: Any) -> None:
     prepare_run_parser.add_argument("working_directory")
     complete_batch_parser = orchestration_commands.add_parser(
         "complete-batch-if-exhausted",
-        help="atomically start a new batch when no package work remains",
+        help="atomically start a new batch once the active batch reaches its completion target",
     )
     complete_batch_parser.add_argument("today")
-    complete_batch_parser.add_argument("remaining", type=int)
+    complete_batch_parser.add_argument("total", type=int)
+    complete_batch_parser.add_argument("completed", type=int)
     daily_gate_parser = orchestration_commands.add_parser(
         "daily-gate-should-skip",
         help="check whether a daily phase is complete for this run context",

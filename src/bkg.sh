@@ -161,10 +161,11 @@ prepare_run() {
 
 sync_batch_progress() {
 	local today_value=$1
-	local remaining=$2
+	local total=$2
+	local completed=$3
 	local transition
 
-	transition=$(bkg_python orchestration complete-batch-if-exhausted "$today_value" "$remaining") || return $?
+	transition=$(bkg_python orchestration complete-batch-if-exhausted "$today_value" "$total" "$completed") || return $?
 	IFS=$'\t' read -r BKG_BATCH_RESET BKG_BATCH_FIRST_STARTED <<<"$transition"
 	if [ "$BKG_BATCH_RESET" != "true" ] && [ "$BKG_BATCH_RESET" != "false" ]; then
 		echo "Invalid batch transition from Python: $transition" >&2
@@ -422,7 +423,7 @@ main() {
 				if ((return_code == 3)); then
 					echo "Reached BKG_MAX_LEN, stopping after persisting state..."
 				else
-					sync_batch_progress "$today" "$pkg_left" || return $?
+					sync_batch_progress "$today" "$pkg_all" "$pkg_done" || return $?
 					if $BKG_BATCH_RESET; then
 						prepare_package_plan "$BKG_BATCH_FIRST_STARTED" "." >/dev/null || return $?
 					fi

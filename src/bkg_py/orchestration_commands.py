@@ -434,7 +434,8 @@ def _run_batch_runtime(
     elif args.orchestration_command == "complete-batch-if-exhausted":
         transition = service.complete_batch_if_exhausted(
             args.today,
-            args.remaining,
+            args.total,
+            args.completed,
         )
         reset = str(transition.reset).lower()
         sys.stdout.write(f"{reset}\t{transition.batch_first_started}\n")

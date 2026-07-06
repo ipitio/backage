@@ -98,8 +98,10 @@ def test_begin_run_resets_expired_or_invalid_rate_windows(tmp_path: Path) -> Non
     assert state.get_int("BKG_MIN_CALLS_TO_API") == 0
 
 
-def test_complete_batch_if_exhausted_resets_only_finished_work(tmp_path: Path) -> None:
-    """An unfinished tail preserves the batch; exhaustion replaces it atomically."""
+def test_complete_batch_if_exhausted_resets_only_at_completion_target(
+    tmp_path: Path,
+) -> None:
+    """An active batch stays put until completed work reaches its capped target."""
 
     state = StateStore(tmp_path / "state.env")
     state.set_many(
@@ -111,7 +113,7 @@ def test_complete_batch_if_exhausted_resets_only_finished_work(tmp_path: Path) -
     )
     service = BatchRuntimeService(state)
 
-    active = service.complete_batch_if_exhausted("2026-06-29", 1)
+    active = service.complete_batch_if_exhausted("2026-06-29", 10_001, 9_999)
 
     assert not active.reset
     assert active.batch_first_started == "2026-06-28"
@@ -119,7 +121,8 @@ def test_complete_batch_if_exhausted_resets_only_finished_work(tmp_path: Path) -
 
     completed = service.complete_batch_if_exhausted(
         "2026-06-29",
-        0,
+        10_001,
+        10_000,
         marker_factory=lambda: "batch-next",
     )
 
@@ -129,6 +132,36 @@ def test_complete_batch_if_exhausted_resets_only_finished_work(tmp_path: Path) -
     assert state.get("BKG_BATCH_MARKER") == "batch-next"
     assert state.get("BKG_PACKAGE_PROGRESS_MARKER") == "batch-next"
     assert state.get("BKG_UNKNOWN") == "preserved"
+
+
+def test_complete_batch_if_exhausted_uses_total_when_below_cap(
+    tmp_path: Path,
+) -> None:
+    """Small batches roll only after every package in that batch completes."""
+
+    state = StateStore(tmp_path / "state.env")
+    state.set_many(
+        {
+            "BKG_BATCH_FIRST_STARTED": "2026-06-28",
+            "BKG_BATCH_MARKER": "batch-existing",
+        }
+    )
+    service = BatchRuntimeService(state)
+
+    active = service.complete_batch_if_exhausted("2026-06-29", 3, 2)
+
+    assert not active.reset
+    assert state.get("BKG_BATCH_MARKER") == "batch-existing"
+
+    completed = service.complete_batch_if_exhausted(
+        "2026-06-29",
+        3,
+        3,
+        marker_factory=lambda: "batch-next",
+    )
+
+    assert completed.reset
+    assert state.get("BKG_BATCH_MARKER") == "batch-next"
 
 
 def test_daily_gate_tracks_date_batch_directions_and_source_publish(
@@ -243,7 +276,8 @@ def test_begin_run_cli_uses_the_configured_state_file(
             "orchestration",
             "complete-batch-if-exhausted",
             "2026-06-30",
-            "0",
+            "1",
+            "1",
         ]
     )
     assert status == ExitStatus.SUCCESS
