@@ -1,4 +1,3 @@
-2991375/Snowkyrion
 2997665/TeamFlawless
 2991315/TheMajorStudios
 2991366/Yanghaoran
@@ -43,7 +42,6 @@
 2998015/Inclave
 2998031/Jeanseb23
 3000686/LocaNet
-2998961/MasteringOpenCV
 2997966/Mouffok
 2997982/Mrbagino
 3005976/MultiTenant
@@ -51,7 +49,6 @@
 2998056/NMTC
 3003566/NyaElektriska
 3002709/PolibudaInfo
-3003452/PracticeUpdate
 2999198/ProductiveLeap
 3004108/SCIEG
 2997996/Skupper
@@ -86,7 +83,6 @@
 2998740/bigelephant
 2998023/birchpants98
 3002821/bluecorn
-2998014/brittany2e
 3001722/cac-tus
 2998013/cactuspvc51
 2998057/caitlinedwards
@@ -313,7 +309,6 @@
 3007746/enricator
 3010589/eskalacja
 3012566/exameron
-3007759/fallsanedi6ovh
 3007748/ferrushin
 3008197/fillta
 3011405/floslm
@@ -324,7 +319,6 @@
 3007761/garykkk
 3008849/getwallaby
 3008647/gruppodigitouch
-3007760/gym4french
 3007736/harisec
 3013900/healthvana
 3011025/heapstersoft
@@ -354,7 +348,6 @@
 3009018/o42a
 3007817/odiawiki
 3013952/onenetmarketing
-3007819/onionhen83
 3012163/optopus
 3007800/pangyunong
 3009788/pcel
@@ -362,7 +355,6 @@
 3013921/pivotal-education
 3011633/poindxtr
 3007790/poviedo
-3007785/priya2417
 3007764/recess2cloth
 3012087/repos-ci
 3007752/rezaowji
@@ -404,3 +396,4 @@
 3014457/checkers-labs
 3014520/Lopply
 3014458/epoxy1plier
+3014521/edisonan
