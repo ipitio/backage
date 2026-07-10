@@ -354,3 +354,5 @@
 3014699/live106
 3014741/girdlepeak0
 3014877/Hacker0x01
+3014921/SolarHalo
+3014878/curve17sock
