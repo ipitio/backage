@@ -1,4 +1,3 @@
-2991339/devolchok
 2991309/drweavil
 2991347/eadsd
 2991341/ewatch
@@ -7,7 +6,6 @@
 3001153/CodeClubMiniBand
 3004746/DauinPoint
 2998030/DmytroKovalov
-2998041/Dubbs777
 3001119/FTInfo
 2998047/GreenPeaComputing
 2998374/HobeeOne
@@ -15,7 +13,6 @@
 2998031/Jeanseb23
 3000686/LocaNet
 2997966/Mouffok
-2997982/Mrbagino
 3005976/MultiTenant
 2998534/NM-Tech-Directory
 2998056/NMTC
@@ -29,13 +26,11 @@
 3000076/SpotIM
 3000644/StBedesCollege
 3001396/StudioIrregular
-3002639/TurketSmash
 2997992/Woobie
 2999481/Xtremecode-asia
 3003454/Yiwii
 3003952/Zumata
 2997973/akselin
-3003522/alaetech
 2998065/alexander-jiang
 2999391/alienoverlord
 2998058/andrei-perasaliak
@@ -61,7 +56,6 @@
 2998045/cmh-nmtc
 2997962/copper6rest
 3000487/ctfproject
-2998061/dd
 2997984/deckard69
 3000464/despicables
 3003034/devsim
@@ -87,7 +81,6 @@
 3002081/iosptl
 2997976/janhora
 2998016/jhendryck
-3001824/joeyespo-archive
 2998017/johncrosby
 3000375/kanchoku
 3005857/kkresearch
@@ -96,7 +89,6 @@
 2998028/larissaland
 2997972/lsaraiva
 2997970/manxmimosa3
-2998020/mhid
 2998029/milose
 3003146/mozilla-gumi
 3000697/mydevcommunity
@@ -267,7 +259,6 @@
 3007732/ekhanna
 3007742/emildalsbaek
 3007724/emnoether
-3009803/enquos
 3007746/enricator
 3010589/eskalacja
 3012566/exameron
@@ -298,7 +289,6 @@
 3007798/lion3boat
 3007727/lorram
 3010275/melotelinc
-3009146/mitocw
 3007822/moataz242
 3007786/narsib
 3009712/nbinfotech
@@ -307,7 +297,6 @@
 3007802/nicefranky
 3010781/niftools
 3009018/o42a
-3007817/odiawiki
 3013952/onenetmarketing
 3007800/pangyunong
 3009788/pcel
@@ -364,3 +353,4 @@
 3014698/qindio
 3014699/live106
 3014741/girdlepeak0
+3014877/Hacker0x01
