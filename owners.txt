@@ -341,3 +341,5 @@
 3015101/unifacile
 3015203/ThemeStation
 3015204/ManishKataria
+3015314/EntropySoftware
+3015246/koreyhockema
