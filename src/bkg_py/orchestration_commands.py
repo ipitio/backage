@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 
 from .database import DatabaseError
 from .discovery import DiscoveryError, OwnerIdentityCache, OwnerIdentityResolver
+from .discovery_fallback import PublicHtmlDiscoveryTraversal
 from .discovery_operations import (
     DiscoveryPhaseExecution,
     DiscoveryPhaseIdentity,
@@ -17,6 +18,7 @@ from .discovery_operations import (
     DiscoveryPhaseRequest,
     DiscoveryPhaseService,
     DiscoveryPhaseServices,
+    DiscoveryTraversal,
 )
 from .github import GitHubError
 from .orchestration import BatchRuntimeService, RunOutcomePolicy
@@ -295,8 +297,6 @@ def _discover_owners(
     application: ApplicationContext,
 ) -> ExitStatus:
     config = application.config
-    if not application.github_settings.token:
-        raise DiscoveryError("authenticated discovery requires GITHUB_TOKEN")
 
     def progress(message: str) -> None:
         sys.stdout.write(f"{message}\n")
@@ -310,38 +310,69 @@ def _discover_owners(
             Path(config.owners_file),
             Path(args.packages_all_file),
         )
-        service = DiscoveryPhaseService(
-            DiscoveryPhaseServices(
-                resolver,
-                lambda page, per_page: admit_owner_page(
-                    resolver,
-                    admission,
-                    page,
-                    per_page,
-                ),
-                lambda today: runtime.complete_daily_gate(
-                    "BKG_LAST_EXPLORE_DATE", today
-                ),
+        request = DiscoveryPhaseRequest(
+            paths=DiscoveryPhasePaths(
+                Path(args.connections_file),
+                Path(config.owners_file),
+                Path(config.optout_file),
             ),
-            DiscoveryPhaseExecution(application.stop.check, progress),
+            identity=DiscoveryPhaseIdentity(
+                config.github_owner,
+                config.github_repo,
+                config.github_owner == "ipitio" and config.mode in {0, 3},
+            ),
+            today=args.today,
+            skip_explore=args.skip_explore == "true",
+            first_run=config.is_first != "false" and config.mode in {0, 3},
+            owner_page_limit=config.owner_discovery_max_pages,
         )
-        service.run(
-            DiscoveryPhaseRequest(
-                paths=DiscoveryPhasePaths(
-                    Path(args.connections_file),
-                    Path(config.owners_file),
-                    Path(config.optout_file),
+
+        def run_discovery(
+            traversal: DiscoveryTraversal,
+            owner_page_limit: int,
+        ) -> None:
+            service = DiscoveryPhaseService(
+                DiscoveryPhaseServices(
+                    traversal,
+                    lambda page, per_page: admit_owner_page(
+                        resolver,
+                        admission,
+                        page,
+                        per_page,
+                    ),
+                    lambda today: runtime.complete_daily_gate(
+                        "BKG_LAST_EXPLORE_DATE", today
+                    ),
                 ),
-                identity=DiscoveryPhaseIdentity(
-                    config.github_owner,
-                    config.github_repo,
-                    config.github_owner == "ipitio" and config.mode in {0, 3},
-                ),
-                today=args.today,
-                skip_explore=args.skip_explore == "true",
-                first_run=config.is_first != "false" and config.mode in {0, 3},
-                owner_page_limit=config.owner_discovery_max_pages,
+                DiscoveryPhaseExecution(application.stop.check, progress),
             )
+            service.run(
+                DiscoveryPhaseRequest(
+                    paths=request.paths,
+                    identity=request.identity,
+                    today=request.today,
+                    skip_explore=request.skip_explore,
+                    first_run=request.first_run,
+                    owner_page_limit=owner_page_limit,
+                )
+            )
+
+        if application.github_settings.token:
+            try:
+                run_discovery(resolver, request.owner_page_limit)
+                return ExitStatus.SUCCESS
+            except (DiscoveryError, GitHubError) as error:
+                progress(
+                    f"Authenticated discovery failed: {error}; "
+                    "using public HTML fallback"
+                )
+        else:
+            progress("GITHUB_TOKEN unavailable; using public HTML discovery")
+
+        fallback = PublicHtmlDiscoveryTraversal(client, diagnostic=progress)
+        run_discovery(
+            fallback,
+            request.owner_page_limit if application.github_settings.token else 0,
         )
     return ExitStatus.SUCCESS
 

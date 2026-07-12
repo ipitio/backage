@@ -7,6 +7,7 @@ import re
 import threading
 import time
 from collections.abc import Callable
+from concurrent.futures import Future
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from typing import Protocol, cast
@@ -23,6 +24,7 @@ _REGISTRY_PREFIX = "ghcr.io/"
 _REGISTRY_URL = "https://ghcr.io"
 _AUTH_URL = "https://ghcr.io/token"
 _UNAUTHORIZED_STATUS = 401
+_NOT_FOUND_STATUS = 404
 _DEFAULT_TOKEN_LIFETIME = 300.0
 _TOKEN_EXPIRY_MARGIN = 10.0
 _MAX_INDEX_DEPTH = 4
@@ -41,6 +43,7 @@ _INVALID_BADGE_PATTERN = re.compile(
     r"<text\b[^>]*>\s*invalid\s*</text>",
     re.IGNORECASE,
 )
+_BADGE_CAPABILITY_REJECTIONS = frozenset({"InvalidImageError", "InvalidTagError"})
 _SIZE_PATTERN = re.compile(r"^([0-9]+(?:\.[0-9]+)?)\s*([A-Za-z]*)$")
 _SIZE_UNIT_PATTERN = re.compile(r"^([kKmMgGtTpPeEzZyY])(i?)([Bb])$")
 _SIZE_PREFIXES = "KMGTPEZY"
@@ -83,6 +86,42 @@ class _PullToken:
     expires_at: float
 
 
+class _ManifestCache:
+    def __init__(self) -> None:
+        self._requests: dict[tuple[str, str], Future[str]] = {}
+        self._lock = threading.Lock()
+
+    def request(self, key: tuple[str, str]) -> tuple[Future[str], bool]:
+        """Return a shared request and whether the caller must execute it."""
+
+        with self._lock:
+            request = self._requests.get(key)
+            if request is not None:
+                return request, False
+            request = Future[str]()
+            self._requests[key] = request
+            return request, True
+
+    @staticmethod
+    def complete(request: Future[str], manifest: str) -> None:
+        """Publish one successful or permanently missing manifest result."""
+
+        request.set_result(manifest)
+
+    def fail(
+        self,
+        key: tuple[str, str],
+        request: Future[str],
+        error: Exception,
+    ) -> None:
+        """Release waiters and allow a later request to retry the lookup."""
+
+        with self._lock:
+            if self._requests.get(key) is request:
+                del self._requests[key]
+        request.set_exception(error)
+
+
 class GHCRManifestInspector:  # pylint: disable=too-few-public-methods
     """Resolve a GHCR reference to one runnable platform image manifest."""
 
@@ -98,6 +137,7 @@ class GHCRManifestInspector:  # pylint: disable=too-few-public-methods
         self.clock = clock
         self._tokens: dict[str, _PullToken] = {}
         self._token_lock = threading.Lock()
+        self._manifest_cache = _ManifestCache()
 
     def __call__(self, reference: str) -> str:
         """Fetch a single image manifest, resolving indexes by platform."""
@@ -106,11 +146,15 @@ class GHCRManifestInspector:  # pylint: disable=too-few-public-methods
             repository, manifest_ref = _split_reference(reference)
             token = self._pull_token(repository)
             manifest, token = self._manifest(repository, manifest_ref, token)
+            if not manifest:
+                return ""
             for _depth in range(_MAX_INDEX_DEPTH):
                 child = _preferred_child_digest(manifest)
                 if child is None:
                     return manifest
                 manifest, token = self._manifest(repository, child, token)
+                if not manifest:
+                    return ""
             self.diagnostic(
                 f"GHCR manifest index exceeded {_MAX_INDEX_DEPTH} levels for "
                 f"{reference}"
@@ -158,28 +202,41 @@ class GHCRManifestInspector:  # pylint: disable=too-few-public-methods
         reference: str,
         token: str,
     ) -> tuple[str, str]:
+        key = (repository, reference)
+        request, execute = self._manifest_cache.request(key)
+        if not execute:
+            return request.result(), token
+
         url = _manifest_url(repository, reference)
+        current_token = token
         try:
-            return (
-                self.client.get_text(
-                    url,
-                    accept=_MANIFEST_ACCEPT,
-                    bearer_token=token,
-                ),
-                token,
-            )
-        except GitHubResponseError as error:
-            if error.status_code != _UNAUTHORIZED_STATUS:
-                raise
-            refreshed = self._pull_token(repository, force=True)
-            return (
-                self.client.get_text(
-                    url,
-                    accept=_MANIFEST_ACCEPT,
-                    bearer_token=refreshed,
-                ),
-                refreshed,
-            )
+            for attempt in range(2):
+                try:
+                    manifest = self.client.get_text(
+                        url,
+                        accept=_MANIFEST_ACCEPT,
+                        bearer_token=current_token,
+                    )
+                except GitHubResponseError as error:
+                    if error.status_code == _NOT_FOUND_STATUS:
+                        self._manifest_cache.complete(request, "")
+                        self._record_missing_manifest(key)
+                        return "", current_token
+                    if error.status_code != _UNAUTHORIZED_STATUS or attempt > 0:
+                        raise
+                    current_token = self._pull_token(repository, force=True)
+                    continue
+
+                self._manifest_cache.complete(request, manifest)
+                return manifest, current_token
+            raise AssertionError("manifest authentication loop exhausted")
+        except Exception as error:
+            self._manifest_cache.fail(key, request, error)
+            raise
+
+    def _record_missing_manifest(self, key: tuple[str, str]) -> None:
+        repository, reference = key
+        self.diagnostic(f"GHCR manifest not found for ghcr.io/{repository}@{reference}")
 
 
 class GHCRBadgeSizeInspector:  # pylint: disable=too-few-public-methods
@@ -196,13 +253,17 @@ class GHCRBadgeSizeInspector:  # pylint: disable=too-few-public-methods
         self.metric_enrichment = metric_enrichment
         self.diagnostic = diagnostic
         self._sizes: dict[tuple[str, str, str], int] = {}
+        self._unsupported_packages: set[tuple[str, str]] = set()
         self._size_lock = threading.Lock()
 
     def __call__(self, owner: str, package: str, reference: str) -> int:
         """Return one badge-reported size without stalling on service outages."""
 
         key = (owner.casefold(), unquote(package).casefold(), reference)
+        package_key = key[:2]
         with self._size_lock:
+            if package_key in self._unsupported_packages:
+                return -1
             cached = self._sizes.get(key)
         if cached is not None:
             return cached
@@ -224,14 +285,7 @@ class GHCRBadgeSizeInspector:  # pylint: disable=too-few-public-methods
                 return -1
 
             if _SVG_PATTERN.search(response) is None:
-                cooldown = self.metric_enrichment.record_transient_failure(
-                    _BADGE_SIZE_SCOPE
-                )
-                self.diagnostic(
-                    f"GHCR badge size fallback returned a non-SVG response for {url}"
-                )
-                self._report_cooldown(cooldown)
-                return -1
+                return self._handle_non_svg(response, url, key, package_key)
 
             self.metric_enrichment.record_success(_BADGE_SIZE_SCOPE)
             size = parse_badge_size(response)
@@ -241,6 +295,29 @@ class GHCRBadgeSizeInspector:  # pylint: disable=too-few-public-methods
                 )
             self._cache(key, size)
             return size
+
+    def _handle_non_svg(
+        self,
+        response: str,
+        url: str,
+        key: tuple[str, str, str],
+        package_key: tuple[str, str],
+    ) -> int:
+        rejection = _badge_capability_rejection(response)
+        if rejection is not None:
+            self.metric_enrichment.record_success(_BADGE_SIZE_SCOPE)
+            if rejection == "InvalidImageError":
+                self._mark_package_unsupported(package_key)
+            else:
+                self._cache(key, -1)
+            return -1
+
+        cooldown = self.metric_enrichment.record_transient_failure(_BADGE_SIZE_SCOPE)
+        self.diagnostic(
+            f"GHCR badge size fallback returned a non-SVG response for {url}"
+        )
+        self._report_cooldown(cooldown)
+        return -1
 
     def _record_request_failure(self, url: str, error: GitHubError) -> None:
         cooldown = None
@@ -263,6 +340,10 @@ class GHCRBadgeSizeInspector:  # pylint: disable=too-few-public-methods
     def _cache(self, key: tuple[str, str, str], size: int) -> None:
         with self._size_lock:
             self._sizes[key] = size
+
+    def _mark_package_unsupported(self, key: tuple[str, str]) -> None:
+        with self._size_lock:
+            self._unsupported_packages.add(key)
 
 
 def parse_size_value(value: str) -> int:
@@ -304,6 +385,19 @@ def parse_badge_size(svg: str) -> int:
         if size >= 0:
             return size
     return -1
+
+
+def _badge_capability_rejection(response: str) -> str | None:
+    try:
+        value: object = json.loads(response)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(value, dict):
+        return None
+    exception = cast(dict[str, object], value).get("exception")
+    if isinstance(exception, str) and exception in _BADGE_CAPABILITY_REJECTIONS:
+        return exception
+    return None
 
 
 def _badge_size_url(owner: str, package: str, reference: str) -> str:

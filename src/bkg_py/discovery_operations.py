@@ -1,4 +1,4 @@
-"""Coordinate the authenticated owner-discovery phase in one process."""
+"""Coordinate one pooled owner-discovery phase."""
 
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ CompleteExploreGate = Callable[[str], None]
 
 
 class DiscoveryTraversal(Protocol):
-    """Authenticated traversals needed by the outer discovery phase."""
+    """Traversals needed by the outer discovery phase."""
 
     def explore(self, node: str, edge: str = "") -> tuple[str, ...]:
         """Return connected owners for one user, organization, or repository."""
@@ -40,7 +40,7 @@ class DiscoveryTraversal(Protocol):
 
 @dataclass(frozen=True)
 class DiscoveryPhasePaths:
-    """Files read or replaced by the authenticated discovery phase."""
+    """Files read or replaced by the discovery phase."""
 
     connections: Path
     owners: Path
@@ -96,7 +96,7 @@ class DiscoveryPhaseExecution:
 
 
 class DiscoveryPhaseService:  # pylint: disable=too-few-public-methods
-    """Run authenticated discovery without crossing the shell boundary per page."""
+    """Run discovery without crossing the shell boundary per page."""
 
     def __init__(
         self,

@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
+from threading import Event
 
 from bkg_py.enrichment import MetricEnrichmentCircuit, MetricEnrichmentSettings
 from bkg_py.github import (
@@ -51,6 +53,49 @@ class _FakeClient:  # pylint: disable=too-few-public-methods
         return response
 
 
+class _BlockingMissingClient(  # pylint: disable=too-few-public-methods
+    _FakeClient
+):
+    def __init__(
+        self,
+        responses: dict[str, list[str | Exception]],
+        missing_url: str,
+        second_root_url: str,
+    ) -> None:
+        super().__init__(responses)
+        self.missing_url = missing_url
+        self.second_root_url = second_root_url
+        self.missing_started = Event()
+        self.second_root_started = Event()
+        self.release_missing = Event()
+
+    def get_text(  # pylint: disable=too-many-arguments
+        self,
+        url: str,
+        *,
+        authenticated: bool = False,
+        accept: str = "text/html",
+        bearer_token: str | None = None,
+        policy: GitHubTextRequestPolicy | None = None,
+    ) -> str:
+        """Hold one missing child lookup while another caller reaches it."""
+
+        if url == self.missing_url:
+            self.requests.append(_Request(url, accept, bearer_token, policy))
+            self.missing_started.set()
+            assert self.release_missing.wait(timeout=5)
+            raise GitHubResponseError("missing", status_code=404)
+        if url == self.second_root_url:
+            self.second_root_started.set()
+        return super().get_text(
+            url,
+            authenticated=authenticated,
+            accept=accept,
+            bearer_token=bearer_token,
+            policy=policy,
+        )
+
+
 def _token_url(repository: str = "example/nested/image") -> str:
     scope = repository.replace("/", "%2F")
     return f"https://ghcr.io/token?service=ghcr.io&scope=repository%3A{scope}%3Apull"
@@ -60,9 +105,14 @@ def _manifest_url(reference: str) -> str:
     return f"https://ghcr.io/v2/example/nested/image/manifests/{reference}"
 
 
-def _badge_url(reference: str) -> str:
+def _badge_url(
+    reference: str,
+    *,
+    owner: str = "example",
+    package: str = "nested/image",
+) -> str:
     return (
-        "https://ghcr-badge.egpl.dev/example/nested/image/size?tag="
+        f"https://ghcr-badge.egpl.dev/{owner}/{package}/size?tag="
         f"{reference.replace(':', '%3A')}"
     )
 
@@ -165,6 +215,53 @@ def test_manifest_inspector_reports_invalid_token_response() -> None:
     ]
 
 
+def test_manifest_inspector_shares_concurrent_missing_child_manifest() -> None:
+    """Concurrent historical child-manifest misses share one request."""
+
+    missing_digest = "sha256:missing"
+    index = json.dumps(
+        {
+            "manifests": [
+                {
+                    "digest": missing_digest,
+                    "platform": {"os": "linux", "architecture": "amd64"},
+                }
+            ]
+        }
+    )
+    diagnostics: list[str] = []
+    client = _BlockingMissingClient(
+        {
+            _token_url(): ['{"token":"pull-token","expires_in":600}'],
+            _manifest_url("one"): [index],
+            _manifest_url("two"): [index],
+        },
+        _manifest_url(missing_digest),
+        _manifest_url("two"),
+    )
+    inspector = GHCRManifestInspector(client, diagnostic=diagnostics.append)
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        first = executor.submit(inspector, "ghcr.io/example/nested/image:one")
+        assert client.missing_started.wait(timeout=5)
+        second = executor.submit(inspector, "ghcr.io/example/nested/image:two")
+        assert client.second_root_started.wait(timeout=5)
+        client.release_missing.set()
+
+        assert first.result(timeout=5) == ""
+        assert second.result(timeout=5) == ""
+
+    assert [request.url for request in client.requests] == [
+        _token_url(),
+        _manifest_url("one"),
+        _manifest_url(missing_digest),
+        _manifest_url("two"),
+    ]
+    assert diagnostics == [
+        "GHCR manifest not found for ghcr.io/example/nested/image@sha256:missing"
+    ]
+
+
 def test_badge_size_inspector_uses_exact_reference_and_caches_result() -> None:
     """The final hosted fallback requests and caches one version-specific size."""
 
@@ -215,6 +312,32 @@ def test_badge_size_inspector_pauses_after_repeated_non_svg_responses() -> None:
         _badge_url("two"),
     ]
     assert sum("Pausing GHCR badge size fallback" in line for line in diagnostics) == 1
+
+
+def test_badge_size_inspector_caches_unsupported_nested_package() -> None:
+    """A service capability rejection does not poison outage backpressure."""
+
+    nested_url = _badge_url("one")
+    simple_url = _badge_url("latest", package="image")
+    client = _FakeClient(
+        {
+            nested_url: ['{"exception":"InvalidImageError"}'],
+            simple_url: ["<svg><text>2 MiB</text></svg>"],
+        }
+    )
+    diagnostics: list[str] = []
+    inspector = GHCRBadgeSizeInspector(
+        client,
+        MetricEnrichmentCircuit(),
+        diagnostic=diagnostics.append,
+    )
+
+    assert inspector("example", "nested/image", "one") == -1
+    assert inspector("example", "nested/image", "two") == -1
+    assert inspector("example", "image", "latest") == 2_097_152
+
+    assert [request.url for request in client.requests] == [nested_url, simple_url]
+    assert not diagnostics
 
 
 def test_badge_size_parsing_accepts_service_units_and_rejects_error_badges() -> None:

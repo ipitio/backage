@@ -293,7 +293,6 @@ main() {
 	local connections
 	local return_code=0
 	local phase_status=0
-	local discovery_in_python=false
 	local include_manual=true
 	local rest_first
 	local skip_explore=false
@@ -301,7 +300,6 @@ main() {
 	local phase_started_at=0
 	local startup_summary
 	connections=$(mktemp) || exit 1
-	temp_connections=$(mktemp) || exit 1
 
 	while getopts "d:m:" flag; do
 		case ${flag} in
@@ -346,78 +344,13 @@ main() {
 				if [ "$GITHUB_OWNER" = "ipitio" ] && daily_gate_should_skip_today BKG_LAST_EXPLORE_DATE "$today"; then
 					skip_explore=true
 				fi
-				discovery_in_python=false
-				if [ -n "${GITHUB_TOKEN:-}" ]; then
-					bkg_python orchestration discover-owners \
-						"$today" "$skip_explore" "$connections" packages_all
-					phase_status=$?
-					if ((phase_status == 0)); then
-						discovery_in_python=true
-					elif ((phase_status == 3)); then
-						return_code=3
-					else
-						echo "Authenticated discovery failed; using the shell fallback"
-					fi
-				fi
-
-				if ! $discovery_in_python && ((return_code != 3)); then
-					if [ "$GITHUB_OWNER" = "ipitio" ]; then
-						if $skip_explore; then
-							: >"$connections"
-							echo "Skipping explore; already ran today"
-						else
-							phase_started_at=$(startup_phase_started_at)
-							BKG_DISCOVERY_SHELL_FALLBACK=true explore "$GITHUB_OWNER" >"$connections"
-							phase_status=$?
-							((phase_status != 3)) || return_code=3
-							BKG_DISCOVERY_SHELL_FALLBACK=true explore "$GITHUB_OWNER/$GITHUB_REPO" >>"$connections"
-							phase_status=$?
-							((phase_status != 3)) || return_code=3
-							log_startup_phase "discover-connections" "$phase_started_at"
-							clean_owners "$connections"
-
-							if ((return_code != 3)); then
-								phase_started_at=$(startup_phase_started_at)
-								while read -r connection; do
-									[ -n "$connection" ] || continue
-									BKG_DISCOVERY_SHELL_FALLBACK=true curl_orgs "$connection" >>"$temp_connections"
-									phase_status=$?
-									if ((phase_status == 3)); then
-										return_code=3
-										break
-									fi
-								done <"$connections"
-								cat "$temp_connections" >>"$connections"
-								clean_owners "$connections"
-								log_startup_phase "expand-connection-orgs" "$phase_started_at"
-							fi
-						fi
-
-						clean_owners "$connections"
-						if ((return_code != 3)); then
-							mark_daily_gate_completed BKG_LAST_EXPLORE_DATE "$today"
-						fi
-						# shellcheck disable=SC2319
-						BKG_PAGE_ALL=$(
-							(($(wc -l <"$BKG_OWNERS") < $(($(sort -u "$connections" | wc -l) + 100))))
-							echo "$?"
-						)
-						if ((return_code != 3)); then
-							phase_started_at=$(startup_phase_started_at)
-							run_owner_page_discovery
-							phase_status=$?
-							((phase_status != 3)) || return_code=3
-							log_startup_phase "page-owner-discovery" "$phase_started_at"
-						fi
-					else
-						phase_started_at=$(startup_phase_started_at)
-						BKG_DISCOVERY_SHELL_FALLBACK=true get_membership "$GITHUB_OWNER" >"$connections"
-						phase_status=$?
-						((phase_status != 3)) || return_code=3
-						[ "$BKG_IS_FIRST" = "false" ] || : >"$BKG_OWNERS"
-						[ "$BKG_IS_FIRST" = "false" ] || : >"$BKG_OPTOUT"
-						log_startup_phase "discover-membership" "$phase_started_at"
-					fi
+				bkg_python orchestration discover-owners \
+					"$today" "$skip_explore" "$connections" packages_all
+				phase_status=$?
+				if ((phase_status == 3)); then
+					return_code=3
+				elif ((phase_status != 0)); then
+					return "$phase_status"
 				fi
 
 				if ((return_code == 3)); then
@@ -457,23 +390,13 @@ main() {
 		else
 			log_prequeue_elapsed_once
 			phase_started_at=$(startup_phase_started_at)
-			discovery_in_python=false
-			if [ -n "${GITHUB_TOKEN:-}" ]; then
-				bkg_python orchestration discover-owners \
-					"$today" false "$connections" packages_all
-				phase_status=$?
-				if ((phase_status == 0)); then
-					discovery_in_python=true
-				elif ((phase_status == 3)); then
-					return_code=3
-				else
-					echo "Authenticated discovery failed; using the shell fallback"
-				fi
-			fi
-			if ! $discovery_in_python && ((return_code != 3)); then
-				BKG_DISCOVERY_SHELL_FALLBACK=true get_membership "$GITHUB_OWNER" >"$connections"
-				phase_status=$?
-				((phase_status != 3)) || return_code=3
+			bkg_python orchestration discover-owners \
+				"$today" false "$connections" packages_all
+			phase_status=$?
+			if ((phase_status == 3)); then
+				return_code=3
+			elif ((phase_status != 0)); then
+				return "$phase_status"
 			fi
 			if ((return_code != 3)); then
 				bkg_python orchestration prepare-targeted-owner-queue "$connections"
@@ -488,7 +411,6 @@ main() {
 		fi
 
 		rm -f "$connections"
-		rm -f "$temp_connections"
 		BKG_BATCH_FIRST_STARTED=$(get_BKG BKG_BATCH_FIRST_STARTED)
 		# BKG_INDEX_DIR is initialized by the update.sh entrypoint.
 		# shellcheck disable=SC2153

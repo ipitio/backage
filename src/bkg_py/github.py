@@ -272,16 +272,32 @@ class GitHubClient:
         if self._owns_client:
             self._client.close()
 
-    def rest_json(self, path: str) -> GitHubJsonResponse:
+    def rest_json(
+        self,
+        path: str,
+        *,
+        authenticated: bool = True,
+    ) -> GitHubJsonResponse:
         """Request and decode one REST API path."""
 
-        return self._request_json(_JsonRequest("GET", self._api_url(path)))
+        return self._request_json(
+            _JsonRequest(
+                "GET",
+                self._api_url(path),
+                authenticated=authenticated,
+            )
+        )
 
-    def rest_json_optional(self, path: str) -> GitHubJsonResponse | None:
+    def rest_json_optional(
+        self,
+        path: str,
+        *,
+        authenticated: bool = True,
+    ) -> GitHubJsonResponse | None:
         """Request one REST path, returning None only for HTTP 404."""
 
         try:
-            return self.rest_json(path)
+            return self.rest_json(path, authenticated=authenticated)
         except GitHubNotFoundError:
             return None
 
@@ -330,12 +346,19 @@ class GitHubClient:
 
         raise GitHubTransportError("GitHub text request exhausted its retry budget")
 
-    def rest_pages(self, path: str) -> Iterator[GitHubJsonResponse]:
+    def rest_pages(
+        self,
+        path: str,
+        *,
+        authenticated: bool = True,
+    ) -> Iterator[GitHubJsonResponse]:
         """Yield REST pages until GitHub no longer provides a next link."""
 
         next_url: str | None = self._api_url(path)
         while next_url is not None:
-            response = self._request_json(_JsonRequest("GET", next_url))
+            response = self._request_json(
+                _JsonRequest("GET", next_url, authenticated=authenticated)
+            )
             yield response
             next_url = response.next_url
 
