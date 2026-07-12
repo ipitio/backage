@@ -270,3 +270,5 @@
 3015610/neerbee
 3015740/perspicuus
 3015752/ClearcodeHQ
+3015768/RapaZapp
+3015753/masatatu
