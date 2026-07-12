@@ -12,12 +12,17 @@ _TODAY = "2026-07-01"
 _YESTERDAY = "2026-06-30"
 
 
-def _package(owner_id: str, repo: str, package: str) -> PackageRef:
+def _package(
+    owner_id: str,
+    repo: str,
+    package: str,
+    owner: str = "Alpha",
+) -> PackageRef:
     return PackageRef(
         owner_id,
         "users",
         "container",
-        "Alpha",
+        owner,
         repo,
         package,
     )
@@ -49,6 +54,27 @@ def _owner_ids(connection: sqlite3.Connection, table: str) -> list[tuple[str]]:
     return connection.execute(statements[table]).fetchall()
 
 
+def _owners(connection: sqlite3.Connection, table: str) -> list[tuple[str]]:
+    statements = {
+        "packages": "select distinct owner from packages order by owner",
+        "owners": "select distinct owner from owners order by owner",
+        "bkg_owner_scans": "select distinct owner from bkg_owner_scans order by owner",
+        "bkg_package_publications": (
+            "select distinct owner from bkg_package_publications order by owner"
+        ),
+    }
+    return connection.execute(statements[table]).fetchall()
+
+
+def _table_names(connection: sqlite3.Connection) -> set[str]:
+    return {
+        str(row[0])
+        for row in connection.execute(
+            "select name from sqlite_master where type = 'table'"
+        )
+    }
+
+
 def test_retire_owner_aliases_preserves_current_package_paths(
     tmp_path: Path,
 ) -> None:
@@ -75,7 +101,7 @@ def test_retire_owner_aliases_preserves_current_package_paths(
 
     assert repository.owner_alias_ids("200", "alpha") == ("100",)
 
-    cleanup = repository.retire_owner_aliases("200", "alpha")
+    cleanup = repository.retire_owner_aliases("200", "Alpha")
 
     assert cleanup.alias_ids == ("100",)
     assert cleanup.orphaned_packages == (old_orphan,)
@@ -85,12 +111,7 @@ def test_retire_owner_aliases_preserves_current_package_paths(
         owner_ids = _owner_ids(connection, "owners")
         scan_ids = _owner_ids(connection, "bkg_owner_scans")
         marker_ids = _owner_ids(connection, "bkg_package_publications")
-        tables = {
-            str(row[0])
-            for row in connection.execute(
-                "select name from sqlite_master where type = 'table'"
-            )
-        }
+        tables = _table_names(connection)
     assert package_ids == [("200",)]
     assert owner_ids == [("200",)]
     assert not scan_ids
@@ -124,8 +145,62 @@ def test_retire_owner_aliases_removes_legacy_null_owner_ids(
     assert len(repository.package_work_plan(_TODAY).pending) == 1
     assert repository.owner_alias_ids("200", "alpha") == ("",)
 
-    cleanup = repository.retire_owner_aliases("200", "alpha")
+    cleanup = repository.retire_owner_aliases("200", "Alpha")
 
     assert cleanup.alias_ids == ("",)
     assert not cleanup.orphaned_packages
     assert not repository.package_work_plan(_TODAY).pending
+
+
+def test_retire_owner_aliases_removes_same_id_owner_name_aliases(
+    tmp_path: Path,
+) -> None:
+    """Verified logins replace stale casing and rename rows for one owner ID."""
+
+    database_path = tmp_path / "index.db"
+    repository = DatabaseRepository(DatabaseSettings(database_path))
+    current = _package("200", "shared", "same")
+    stale_case = _package("200", "old-case", "removed-case", "alpha")
+    stale_name = _package("200", "old-name", "removed-name", "OldAlpha")
+    repository.write_package(PackageRecord(current, 2, 2, 2, 2, 2, _TODAY))
+    repository.write_package_pending_publication(
+        PackageRecord(stale_case, 1, 1, 1, 1, 1, _YESTERDAY)
+    )
+    repository.write_package(PackageRecord(stale_name, 1, 1, 1, 1, 1, _YESTERDAY))
+    repository.mark_package_batch_completed(stale_name, "batch-old", _YESTERDAY)
+    repository.write_owner(OwnerRecord("200", "alpha", _YESTERDAY))
+    repository.write_owner(OwnerRecord("200", "Alpha", _TODAY))
+    repository.begin_owner_scan("200", "alpha", "old-scan", 1)
+    legacy_tables = (_legacy_table(stale_case), _legacy_table(stale_name))
+    with sqlite3.connect(database_path) as connection:
+        for table in legacy_tables:
+            _create_legacy_table(connection, table)
+
+    assert not repository.owner_alias_ids("200", "Alpha")
+    assert repository.owner_has_aliases("200", "Alpha")
+
+    cleanup = repository.retire_owner_aliases("200", "Alpha")
+
+    assert cleanup.alias_ids == ()
+    assert cleanup.orphaned_packages == (stale_case, stale_name)
+    assert not repository.owner_has_aliases("200", "Alpha")
+    with sqlite3.connect(database_path) as connection:
+        owners_by_table = {
+            table: _owners(connection, table)
+            for table in (
+                "packages",
+                "owners",
+                "bkg_owner_scans",
+                "bkg_package_publications",
+            )
+        }
+        progress_count = connection.execute(
+            "select count(*) from bkg_package_batch_progress"
+        ).fetchone()[0]
+        tables = _table_names(connection)
+    assert owners_by_table["packages"] == [("Alpha",)]
+    assert owners_by_table["owners"] == [("Alpha",)]
+    assert not owners_by_table["bkg_owner_scans"]
+    assert not owners_by_table["bkg_package_publications"]
+    assert progress_count == 0
+    assert not set(legacy_tables) & tables

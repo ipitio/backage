@@ -31,7 +31,7 @@ from .package_discovery import (
 )
 from .package_updates import PackageRefreshError
 from .publication import PublicationError
-from .registry import GHCRManifestInspector
+from .registry import GHCRBadgeSizeInspector, GHCRManifestInspector
 from .result import ExitStatus
 from .runtime import GracefulStop
 from .state import StateValueError
@@ -347,6 +347,12 @@ def _execute_package_refresh(
                     application.worker_runner,
                     GHCRManifestInspector(client, diagnostic=diagnostic),
                     diagnostic=diagnostic,
+                    metric_enrichment=application.metric_enrichment,
+                    hosted_size_inspector=GHCRBadgeSizeInspector(
+                        client,
+                        application.metric_enrichment,
+                        diagnostic=diagnostic,
+                    ),
                 ),
                 selection=application.version_selection_settings,
                 publication_limits=application.publication_limits,

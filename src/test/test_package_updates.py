@@ -128,12 +128,15 @@ def test_optouts_support_literal_and_component_regex_entries() -> None:
     assert not PackageOptOuts(("Example/Other",)).matches(package)
 
 
-def test_html_authentication_is_reserved_for_private_capable_modes() -> None:
-    """A token alone does not change public HTML enrichment requests."""
+def test_external_enrichment_policy_respects_private_capable_modes() -> None:
+    """Private-capable modes authenticate GitHub and avoid hosted sizing."""
 
     assert not PackageRefreshPolicy(False, True, False, 0).authenticate_html
     assert PackageRefreshPolicy(False, True, False, 3).authenticate_html
     assert not PackageRefreshPolicy(False, False, False, 3).authenticate_html
+    assert PackageRefreshPolicy(False, True, False, 0).allow_hosted_size_fallback
+    assert not PackageRefreshPolicy(False, True, False, 3).allow_hosted_size_fallback
+    assert not PackageRefreshPolicy(False, False, False, 3).allow_hosted_size_fallback
 
 
 def test_package_refresh_cli_dispatches_shell_arguments(

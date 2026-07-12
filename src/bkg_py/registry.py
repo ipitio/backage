@@ -1,16 +1,23 @@
-"""GHCR manifest resolution through the OCI Distribution API."""
+"""GHCR container sizing through direct manifests and a hosted fallback."""
 
 from __future__ import annotations
 
 import json
+import re
 import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
+from decimal import Decimal, InvalidOperation
 from typing import Protocol, cast
-from urllib.parse import quote, urlencode
+from urllib.parse import quote, unquote, urlencode
 
-from .github import GitHubError, GitHubResponseError
+from .enrichment import MetricEnrichmentCircuit, transient_enrichment_error
+from .github import (
+    GitHubError,
+    GitHubResponseError,
+    GitHubTextRequestPolicy,
+)
 
 _REGISTRY_PREFIX = "ghcr.io/"
 _REGISTRY_URL = "https://ghcr.io"
@@ -19,6 +26,24 @@ _UNAUTHORIZED_STATUS = 401
 _DEFAULT_TOKEN_LIFETIME = 300.0
 _TOKEN_EXPIRY_MARGIN = 10.0
 _MAX_INDEX_DEPTH = 4
+_BADGE_SIZE_URL = "https://ghcr-badge.egpl.dev"
+_BADGE_SIZE_SCOPE = "container-size-badge"
+_BADGE_SIZE_REQUEST_POLICY = GitHubTextRequestPolicy(
+    total_timeout=15.0,
+    max_attempts=1,
+)
+_BADGE_VALUE_PATTERN = re.compile(
+    r"<text\b[^>]*>\s*([0-9]+(?:\.[0-9]+)?)\s*([A-Za-z]*)\s*</text>",
+    re.IGNORECASE,
+)
+_SVG_PATTERN = re.compile(r"<svg(?:\s|>)", re.IGNORECASE)
+_INVALID_BADGE_PATTERN = re.compile(
+    r"<text\b[^>]*>\s*invalid\s*</text>",
+    re.IGNORECASE,
+)
+_SIZE_PATTERN = re.compile(r"^([0-9]+(?:\.[0-9]+)?)\s*([A-Za-z]*)$")
+_SIZE_UNIT_PATTERN = re.compile(r"^([kKmMgGtTpPeEzZyY])(i?)([Bb])$")
+_SIZE_PREFIXES = "KMGTPEZY"
 _MANIFEST_ACCEPT = ", ".join(
     (
         "application/vnd.oci.image.index.v1+json",
@@ -36,15 +61,16 @@ def _ignore_diagnostic(_message: str) -> None:
 
 
 class RegistryTextClient(Protocol):  # pylint: disable=too-few-public-methods
-    """HTTP behavior needed to retrieve GHCR tokens and manifests."""
+    """HTTP behavior needed for GHCR manifests and hosted badge SVGs."""
 
-    def get_text(
+    def get_text(  # pylint: disable=too-many-arguments
         self,
         url: str,
         *,
         authenticated: bool = False,
         accept: str = "text/html",
         bearer_token: str | None = None,
+        policy: GitHubTextRequestPolicy | None = None,
     ) -> str:
         """Return one text response through a bounded retry policy."""
 
@@ -154,6 +180,137 @@ class GHCRManifestInspector:  # pylint: disable=too-few-public-methods
                 ),
                 refreshed,
             )
+
+
+class GHCRBadgeSizeInspector:  # pylint: disable=too-few-public-methods
+    """Retrieve a version-specific public size from the hosted badge service."""
+
+    def __init__(
+        self,
+        client: RegistryTextClient,
+        metric_enrichment: MetricEnrichmentCircuit,
+        *,
+        diagnostic: DiagnosticSink = _ignore_diagnostic,
+    ) -> None:
+        self.client = client
+        self.metric_enrichment = metric_enrichment
+        self.diagnostic = diagnostic
+        self._sizes: dict[tuple[str, str, str], int] = {}
+        self._size_lock = threading.Lock()
+
+    def __call__(self, owner: str, package: str, reference: str) -> int:
+        """Return one badge-reported size without stalling on service outages."""
+
+        key = (owner.casefold(), unquote(package).casefold(), reference)
+        with self._size_lock:
+            cached = self._sizes.get(key)
+        if cached is not None:
+            return cached
+
+        with self.metric_enrichment.request(_BADGE_SIZE_SCOPE) as enabled:
+            if not enabled:
+                return -1
+            url = _badge_size_url(*key)
+            try:
+                response = self.client.get_text(
+                    url,
+                    accept="image/svg+xml",
+                    policy=_BADGE_SIZE_REQUEST_POLICY,
+                )
+            except GitHubError as error:
+                self._record_request_failure(url, error)
+                if not transient_enrichment_error(error):
+                    self._cache(key, -1)
+                return -1
+
+            if _SVG_PATTERN.search(response) is None:
+                cooldown = self.metric_enrichment.record_transient_failure(
+                    _BADGE_SIZE_SCOPE
+                )
+                self.diagnostic(
+                    f"GHCR badge size fallback returned a non-SVG response for {url}"
+                )
+                self._report_cooldown(cooldown)
+                return -1
+
+            self.metric_enrichment.record_success(_BADGE_SIZE_SCOPE)
+            size = parse_badge_size(response)
+            if size < 0 and _INVALID_BADGE_PATTERN.search(response) is None:
+                self.diagnostic(
+                    f"GHCR badge size fallback returned an unrecognized SVG for {url}"
+                )
+            self._cache(key, size)
+            return size
+
+    def _record_request_failure(self, url: str, error: GitHubError) -> None:
+        cooldown = None
+        if transient_enrichment_error(error):
+            cooldown = self.metric_enrichment.record_transient_failure(
+                _BADGE_SIZE_SCOPE
+            )
+        else:
+            self.metric_enrichment.record_success(_BADGE_SIZE_SCOPE)
+        self.diagnostic(f"GHCR badge size fallback failed for {url}: {error}")
+        self._report_cooldown(cooldown)
+
+    def _report_cooldown(self, cooldown: float | None) -> None:
+        if cooldown is not None:
+            self.diagnostic(
+                "Pausing GHCR badge size fallback for "
+                f"{cooldown:g}s after repeated transient failures"
+            )
+
+    def _cache(self, key: tuple[str, str, str], size: int) -> None:
+        with self._size_lock:
+            self._sizes[key] = size
+
+
+def parse_size_value(value: str) -> int:
+    """Convert a human-readable badge size to bytes."""
+
+    match = _SIZE_PATTERN.fullmatch(value.strip())
+    if match is None:
+        return -1
+    try:
+        size = Decimal(match.group(1))
+    except InvalidOperation:
+        return -1
+
+    unit = match.group(2)
+    if unit.casefold() in {"", "b", "byte", "bytes"}:
+        return int(size)
+
+    unit_match = _SIZE_UNIT_PATTERN.fullmatch(unit)
+    if unit_match is None:
+        return -1
+    exponent = _SIZE_PREFIXES.find(unit_match.group(1).upper()) + 1
+    if exponent <= 0:
+        return -1
+    if unit_match.group(2):
+        multiplier = 1024
+    elif unit_match.group(3) == "B":
+        multiplier = 1000
+    else:
+        multiplier = 125
+    return int(size * (Decimal(multiplier) ** exponent))
+
+
+def parse_badge_size(svg: str) -> int:
+    """Return the final numeric size advertised by a badge SVG."""
+
+    matches = _BADGE_VALUE_PATTERN.findall(svg)
+    for number, unit in reversed(matches):
+        size = parse_size_value(f"{number} {unit}")
+        if size >= 0:
+            return size
+    return -1
+
+
+def _badge_size_url(owner: str, package: str, reference: str) -> str:
+    owner_path = quote(unquote(owner), safe="")
+    package_path = quote(unquote(package), safe="/")
+    query = urlencode({"tag": reference})
+    return f"{_BADGE_SIZE_URL}/{owner_path}/{package_path}/size?{query}"
 
 
 def _split_reference(reference: str) -> tuple[str, str]:

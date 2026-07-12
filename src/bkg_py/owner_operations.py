@@ -42,7 +42,7 @@ from .owner_updates import OwnerScanService, OwnerUpdateError
 from .package_discovery import PackageDiscoveryError
 from .package_updates import PackageRefreshExecution, PackageRefreshPolicy
 from .publication import PublicationError
-from .registry import GHCRManifestInspector
+from .registry import GHCRBadgeSizeInspector, GHCRManifestInspector
 from .rendering import RenderingError
 from .version_updates import VersionRefreshExecution
 
@@ -164,11 +164,11 @@ class OwnerUpdateOperation:  # pylint: disable=too-few-public-methods
         self,
         request: OwnerUpdateRequest,
     ) -> OwnerUpdateRequest:
-        aliases = self.application.database.owner_alias_ids(
+        has_aliases = self.application.database.owner_has_aliases(
             request.owner_id,
             request.owner,
         )
-        if not aliases:
+        if not has_aliases:
             return request
 
         resolved = self.identity.resolve_owner_fresh(request.owner)
@@ -183,8 +183,7 @@ class OwnerUpdateOperation:  # pylint: disable=too-few-public-methods
             )
 
         cleanup = self.application.database.retire_owner_aliases(
-            verified_id,
-            request.owner,
+            verified_id, verified_owner
         )
         self.application.state.delete_matching(
             keys=(
@@ -201,11 +200,12 @@ class OwnerUpdateOperation:  # pylint: disable=too-few-public-methods
             cleanup.orphaned_packages,
         )
         self.execution.progress(
-            f"Reconciled {request.owner} to owner ID {verified_id}; retired "
+            f"Reconciled {request.owner} to {verified_owner} owner ID {verified_id}; "
+            "retired "
             f"{len(cleanup.alias_ids)} superseded ID(s) and "
             f"{len(cleanup.orphaned_packages)} orphaned package path(s)"
         )
-        return replace(request, owner_id=verified_id)
+        return replace(request, owner_id=verified_id, owner=verified_owner)
 
 
 def build_package_refresh_service(
@@ -230,6 +230,11 @@ def build_package_refresh_service(
                     GHCRManifestInspector(client, diagnostic=diagnostic),
                     diagnostic=diagnostic,
                     metric_enrichment=application.metric_enrichment,
+                    hosted_size_inspector=GHCRBadgeSizeInspector(
+                        client,
+                        application.metric_enrichment,
+                        diagnostic=diagnostic,
+                    ),
                 ),
                 application.version_selection_settings,
                 application.publication_limits,

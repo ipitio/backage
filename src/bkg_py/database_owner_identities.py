@@ -77,6 +77,19 @@ class OwnerIdentityRepositoryMixin(ABC):
         )
         return tuple(str(row[0]) for row in rows)
 
+    def owner_has_aliases(self, owner_id: str, owner: str) -> bool:
+        """Return whether stored owner rows differ from the verified identity."""
+
+        self.ensure_schema()
+        return self._run_read(
+            lambda connection: _has_alias_rows(
+                connection,
+                owner_id,
+                owner,
+                self.settings,
+            )
+        )
+
     def retire_owner_aliases(
         self,
         owner_id: str,
@@ -109,7 +122,13 @@ def _retire_owner_aliases(
     connection.execute("begin immediate")
     try:
         alias_ids = _alias_ids(connection, owner_id, owner, owners, packages)
-        if not alias_ids:
+        has_alias_rows = _has_alias_rows_for_tables(
+            connection,
+            owner_id,
+            owner,
+            (owners, packages, _SCANS),
+        )
+        if not alias_ids and not has_alias_rows:
             connection.commit()
             return OwnerIdentityCleanup((), ())
 
@@ -162,6 +181,52 @@ def _alias_ids(
     return tuple(str(row[0]) for row in rows)
 
 
+def _has_alias_rows(
+    connection: sqlite3.Connection,
+    owner_id: str,
+    owner: str,
+    settings: DatabaseSettings,
+) -> bool:
+    owners = _SqlIdentifier(settings.owners_table)
+    packages = _SqlIdentifier(settings.packages_table)
+    return _has_alias_rows_for_tables(
+        connection,
+        owner_id,
+        owner,
+        (owners, packages, _SCANS),
+    )
+
+
+def _has_alias_rows_for_tables(
+    connection: sqlite3.Connection,
+    owner_id: str,
+    owner: str,
+    tables: tuple[_SqlIdentifier, _SqlIdentifier, _SqlIdentifier],
+) -> bool:
+    owners, packages, scans = tables
+    row = connection.execute(
+        _sql(
+            """
+        select 1 from {packages}
+        where {alias_condition}
+        union all
+        select 1 from {owners}
+        where {alias_condition}
+        union all
+        select 1 from {scans}
+        where {alias_condition}
+        limit 1
+        """,
+            packages=packages,
+            owners=owners,
+            scans=scans,
+            alias_condition=_alias_condition(),
+        ),
+        (owner_id, owner, owner, owner_id) * 3,
+    ).fetchone()
+    return row is not None
+
+
 def _orphaned_packages(
     connection: sqlite3.Connection,
     owner_id: str,
@@ -174,22 +239,26 @@ def _orphaned_packages(
         select distinct coalesce(alias.owner_id, ''), alias.owner_type,
                alias.package_type, alias.owner, alias.repo, alias.package
         from {packages} alias
-        where alias.owner = ? collate nocase
-          and (alias.owner_id is null or alias.owner_id != ?)
-          and not exists (
-              select 1 from {packages} current
-              where current.owner_id = ?
-                and current.owner_type = alias.owner_type
-                and current.package_type = alias.package_type
-                and current.repo = alias.repo
-                and current.package = alias.package
+        where {alias_condition}
+          and (
+              alias.owner != ? collate binary
+              or not exists (
+                  select 1 from {packages} current
+                  where current.owner_id = ?
+                    and current.owner = ? collate binary
+                    and current.owner_type = alias.owner_type
+                    and current.package_type = alias.package_type
+                    and current.repo = alias.repo
+                    and current.package = alias.package
+              )
           )
         order by alias.owner_type, alias.package_type,
                  alias.repo, alias.package, alias.owner_id
         """,
             packages=packages,
+            alias_condition=_alias_condition("alias"),
         ),
-        (owner, owner_id, owner_id),
+        (owner_id, owner, owner, owner_id, owner, owner_id, owner),
     ).fetchall()
     return tuple(PackageRef(*(str(value) for value in row)) for row in rows)
 
@@ -216,34 +285,62 @@ def _delete_alias_rows(
             _sql(
                 """
             delete from {table}
-            where owner = ? collate nocase
-              and (owner_id is null or owner_id != ?)
+            where {alias_condition}
             """,
                 table=table,
+                alias_condition=_alias_condition(),
             ),
-            (context.owner, context.owner_id),
+            (context.owner_id, context.owner, context.owner, context.owner_id),
         )
     connection.execute(
         _sql(
             """
         delete from {publications}
-        where owner = ? collate nocase
-          and (owner_id is null or owner_id != ?)
+        where {alias_condition}
         """,
             publications=_PACKAGE_PUBLICATIONS,
+            alias_condition=_alias_condition(),
         ),
-        (context.owner, context.owner_id),
+        (context.owner_id, context.owner, context.owner, context.owner_id),
     )
     connection.execute(
         _sql(
             """
         delete from {progress}
-        where owner = ? collate nocase
-          and (owner_id is null or owner_id != ?)
+        where {alias_condition}
         """,
             progress=_BATCH_PROGRESS,
+            alias_condition=_alias_condition(),
         ),
-        (context.owner, context.owner_id),
+        (context.owner_id, context.owner, context.owner, context.owner_id),
+    )
+    connection.execute(
+        _sql(
+            """
+        delete from {scan_packages}
+        where exists (
+            select 1 from {scans}
+            where {scans}.owner_id = {scan_packages}.owner_id
+              and {scans}.marker = {scan_packages}.marker
+              and {alias_condition}
+        )
+        """,
+            scan_packages=_SCAN_PACKAGES,
+            scans=_SCANS,
+            alias_condition=_alias_condition(_SCANS),
+        ),
+        (context.owner_id, context.owner, context.owner, context.owner_id),
+    )
+    connection.execute(
+        _sql(
+            """
+        delete from {scans}
+        where {alias_condition}
+        """,
+            scans=_SCANS,
+            alias_condition=_alias_condition(),
+        ),
+        (context.owner_id, context.owner, context.owner, context.owner_id),
     )
     parameters = tuple((alias_id,) for alias_id in context.alias_ids)
     connection.executemany(
@@ -259,5 +356,14 @@ def _delete_alias_rows(
     )
 
 
-def _sql(statement: str, /, **identifiers: _SqlIdentifier) -> str:
+def _alias_condition(alias: str = "") -> str:
+    qualifier = f"{alias}." if alias else ""
+    return (
+        f"(({qualifier}owner_id = ? and {qualifier}owner != ? collate binary) "
+        f"or ({qualifier}owner = ? collate nocase "
+        f"and ({qualifier}owner_id is null or {qualifier}owner_id != ?)))"
+    )
+
+
+def _sql(statement: str, /, **identifiers: str) -> str:
     return statement.format_map(identifiers)

@@ -754,40 +754,44 @@ def _run_version_refresh(
     args: argparse.Namespace,
     application: ApplicationContext,
 ) -> ExitStatus:
+    from . import registry, version_updates
     from .database import DatabaseError
     from .github import GitHubError
-    from .registry import GHCRManifestInspector
     from .runtime import GracefulStop
     from .version_ingestion import VersionIngestionError
-    from .version_updates import (
-        VersionRefreshError,
-        VersionRefreshExecution,
-        VersionRefreshRequest,
-        VersionRefreshService,
-    )
 
     def diagnostic(message: str) -> None:
         print(message, file=sys.stderr)
 
     try:
         with application.stop.signal_handlers(), application.github_client() as client:
-            result = VersionRefreshService(
+            result = version_updates.VersionRefreshService(
                 application.database,
                 client,
-                VersionRefreshExecution(
+                version_updates.VersionRefreshExecution(
                     application.worker_runner,
-                    GHCRManifestInspector(client, diagnostic=diagnostic),
+                    registry.GHCRManifestInspector(client, diagnostic=diagnostic),
                     diagnostic=diagnostic,
                     metric_enrichment=application.metric_enrichment,
+                    hosted_size_inspector=registry.GHCRBadgeSizeInspector(
+                        client,
+                        application.metric_enrichment,
+                        diagnostic=diagnostic,
+                    ),
                 ),
             ).refresh(
-                VersionRefreshRequest(
+                version_updates.VersionRefreshRequest(
                     _package_ref(args),
                     args.legacy_table,
                     _boolean_argument(args.write_legacy),
-                    _boolean_argument(args.use_rest_api),
+                    version_updates.VersionRefreshPolicy(
+                        use_rest_api=_boolean_argument(args.use_rest_api),
+                        authenticate_html=_version_html_authentication(application),
+                        allow_hosted_size_fallback=(
+                            _hosted_size_fallback_allowed(application)
+                        ),
+                    ),
                     args.since,
-                    authenticate_html=_version_html_authentication(application),
                 ),
                 application.version_selection_settings,
             )
@@ -798,7 +802,7 @@ def _run_version_refresh(
         GitHubError,
         OSError,
         VersionIngestionError,
-        VersionRefreshError,
+        version_updates.VersionRefreshError,
     ) as error:
         print(error, file=sys.stderr)
         return ExitStatus.NON_FATAL
@@ -813,6 +817,12 @@ def _version_html_authentication(application: ApplicationContext) -> bool:
         bool(application.github_settings.token),
         application.config.mode,
     )
+
+
+def _hosted_size_fallback_allowed(application: ApplicationContext) -> bool:
+    from .package_updates import hosted_size_fallback_allowed
+
+    return hosted_size_fallback_allowed(application.config.mode)
 
 
 def _print_version_refresh_result(result: VersionRefreshResult) -> None:

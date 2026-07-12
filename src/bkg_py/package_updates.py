@@ -30,6 +30,7 @@ from .version_selection import VersionSelectionSettings
 from .version_updates import (
     VersionRefreshError,
     VersionRefreshExecution,
+    VersionRefreshPolicy,
     VersionRefreshRequest,
     VersionRefreshResult,
     VersionRefreshService,
@@ -53,6 +54,12 @@ def html_authentication_required(use_rest_api: bool, mode: int) -> bool:
     return use_rest_api and mode >= _PRIVATE_CAPABLE_MODE
 
 
+def hosted_size_fallback_allowed(mode: int) -> bool:
+    """Return whether package identities may be sent to a hosted size service."""
+
+    return mode < _PRIVATE_CAPABLE_MODE
+
+
 class PackageRefreshError(RuntimeError):
     """One package could not be committed and published reliably."""
 
@@ -71,6 +78,22 @@ class PackageRefreshPolicy:
         """Return whether HTML enrichment may need private package access."""
 
         return html_authentication_required(self.use_rest_api, self.mode)
+
+    @property
+    def allow_hosted_size_fallback(self) -> bool:
+        """Return whether this public-only mode may use hosted container sizing."""
+
+        return hosted_size_fallback_allowed(self.mode)
+
+    @property
+    def version_policy(self) -> VersionRefreshPolicy:
+        """Return the version service's network-access policy."""
+
+        return VersionRefreshPolicy(
+            use_rest_api=self.use_rest_api,
+            authenticate_html=self.authenticate_html,
+            allow_hosted_size_fallback=self.allow_hosted_size_fallback,
+        )
 
 
 @dataclass(frozen=True)
@@ -300,15 +323,15 @@ class PackageRefreshService:  # pylint: disable=too-few-public-methods
                     diagnostic=execution.diagnostic,
                     today=lambda: today,
                     metric_enrichment=execution.metric_enrichment,
+                    hosted_size_inspector=execution.hosted_size_inspector,
                 ),
             ).refresh(
                 VersionRefreshRequest(
                     package_ref=request.package_ref,
                     legacy_table=request.legacy_table,
                     write_legacy=request.policy.write_legacy,
-                    use_rest_api=request.policy.use_rest_api,
+                    policy=request.policy.version_policy,
                     since=request.since,
-                    authenticate_html=request.policy.authenticate_html,
                     mark_publication_pending=True,
                 ),
                 self.execution.selection,

@@ -37,6 +37,7 @@ from .versions import (
 
 DiagnosticSink = Callable[[str], None]
 ManifestInspector = Callable[[str], str]
+HostedSizeInspector = Callable[[str, str, str], int]
 VersionRecordFallback = Callable[[str], VersionRecord | None]
 
 
@@ -52,20 +53,32 @@ def _no_fallback_record(_version_id: str) -> VersionRecord | None:
     return None
 
 
+def _no_hosted_size(_owner: str, _package: str, _reference: str) -> int:
+    return -1
+
+
 class VersionRefreshError(RuntimeError):
     """A package-version refresh could not complete reliably."""
 
 
 @dataclass(frozen=True)
+class VersionRefreshPolicy:
+    """Network-access policy for one package-version refresh."""
+
+    use_rest_api: bool
+    authenticate_html: bool = False
+    allow_hosted_size_fallback: bool = True
+
+
+@dataclass(frozen=True)
 class VersionRefreshRequest:
-    """Package identity and compatibility settings for one version refresh."""
+    """Package identity and persistence settings for one version refresh."""
 
     package_ref: PackageRef
     legacy_table: str
     write_legacy: bool
-    use_rest_api: bool
+    policy: VersionRefreshPolicy
     since: str = "0000-00-00"
-    authenticate_html: bool = False
     mark_publication_pending: bool = False
 
     @property
@@ -128,6 +141,7 @@ class VersionRefreshExecution:
     metric_enrichment: MetricEnrichmentCircuit = field(
         default_factory=MetricEnrichmentCircuit
     )
+    hosted_size_inspector: HostedSizeInspector = _no_hosted_size
 
 
 @dataclass(frozen=True)
@@ -141,6 +155,7 @@ class VersionDetailExecution:
         default_factory=MetricEnrichmentCircuit
     )
     fallback_record: VersionRecordFallback = _no_fallback_record
+    hosted_size_inspector: HostedSizeInspector = _no_hosted_size
 
 
 class VersionDetailInspector:  # pylint: disable=too-few-public-methods
@@ -154,21 +169,21 @@ class VersionDetailInspector:  # pylint: disable=too-few-public-methods
     ) -> None:
         self.client = client
         self.context = context
-        self.inspect_manifest = execution.manifest_inspector
-        self.authenticated = execution.authenticated
-        self.diagnostic = execution.diagnostic
-        self.metric_enrichment = execution.metric_enrichment
-        self.fallback_record = execution.fallback_record
+        self.execution = execution
 
     def inspect(self, candidate: VersionCandidate, *, today: str) -> VersionRecord:
         """Fetch and normalize one candidate's current metrics and size."""
 
         html = self._get_optional_text(
             self._detail_url(candidate.version_id),
-            authenticated=self.authenticated,
+            authenticated=self.execution.authenticated,
         )
         page_data = extract_version_page_data(html or "")
-        fallback = self.fallback_record(candidate.version_id) if html is None else None
+        fallback = (
+            self.execution.fallback_record(candidate.version_id)
+            if html is None
+            else None
+        )
         tags = candidate.tags
         size = -1
 
@@ -185,13 +200,20 @@ class VersionDetailInspector:  # pylint: disable=too-few-public-methods
 
             if size < 0:
                 reference = self._manifest_reference(candidate.name)
-                inspected_manifest = self.inspect_manifest(reference)
+                inspected_manifest = self.execution.manifest_inspector(reference)
                 inspected = manifest_size(inspected_manifest)
                 self._report_manifest_fallback(
                     inspected,
                     f"{reference} inspected manifest",
                 )
                 size = inspected.size
+
+            if size < 0 and not self.execution.authenticated:
+                size = self.execution.hosted_size_inspector(
+                    self.context.owner,
+                    self.context.package,
+                    candidate.name,
+                )
 
         if fallback is not None:
             if size < 0:
@@ -231,7 +253,8 @@ class VersionDetailInspector:  # pylint: disable=too-few-public-methods
         *,
         authenticated: bool = False,
     ) -> str | None:
-        with self.metric_enrichment.request(VERSION_METRIC_SCOPE) as enabled:
+        enrichment = self.execution.metric_enrichment
+        with enrichment.request(VERSION_METRIC_SCOPE) as enabled:
             if not enabled:
                 return None
             try:
@@ -243,20 +266,20 @@ class VersionDetailInspector:  # pylint: disable=too-few-public-methods
             except GitHubError as error:
                 cooldown = None
                 if transient_enrichment_error(error):
-                    cooldown = self.metric_enrichment.record_transient_failure(
-                        VERSION_METRIC_SCOPE
-                    )
+                    cooldown = enrichment.record_transient_failure(VERSION_METRIC_SCOPE)
                 else:
-                    self.metric_enrichment.record_success(VERSION_METRIC_SCOPE)
-                self.diagnostic(f"Version detail request failed for {url}: {error}")
+                    enrichment.record_success(VERSION_METRIC_SCOPE)
+                self.execution.diagnostic(
+                    f"Version detail request failed for {url}: {error}"
+                )
                 if cooldown is not None:
-                    self.diagnostic(
+                    self.execution.diagnostic(
                         "Pausing GitHub metric enrichment for "
                         f"{cooldown:g}s after repeated transient failures; "
                         "using available data"
                     )
                 return None
-            self.metric_enrichment.record_success(VERSION_METRIC_SCOPE)
+            enrichment.record_success(VERSION_METRIC_SCOPE)
             return html
 
     def _detail_url(self, version_id: str) -> str:
@@ -280,7 +303,7 @@ class VersionDetailInspector:  # pylint: disable=too-few-public-methods
             return
         summary = result.diagnostic_summary
         suffix = f"; {summary}" if summary else ""
-        self.diagnostic(
+        self.execution.diagnostic(
             f"Unable to derive container size from {context}: {fallback_reason}{suffix}"
         )
 
@@ -316,7 +339,7 @@ class VersionRefreshService:  # pylint: disable=too-few-public-methods
         selection = VersionCandidateLoader(
             self.client,
             request.listing_context,
-            use_rest_api=request.use_rest_api,
+            use_rest_api=request.policy.use_rest_api,
             diagnostic=self.execution.diagnostic,
         ).select(
             settings,
@@ -329,13 +352,18 @@ class VersionRefreshService:  # pylint: disable=too-few-public-methods
             request.listing_context,
             VersionDetailExecution(
                 self.execution.manifest_inspector,
-                authenticated=request.authenticate_html,
+                authenticated=request.policy.authenticate_html,
                 diagnostic=self.execution.diagnostic,
                 metric_enrichment=self.execution.metric_enrichment,
                 fallback_record=_LazyVersionRecordFallback(
                     self.repository,
                     request,
                     existing.rows,
+                ),
+                hosted_size_inspector=(
+                    self.execution.hosted_size_inspector
+                    if request.policy.allow_hosted_size_fallback
+                    else _no_hosted_size
                 ),
             ),
         )

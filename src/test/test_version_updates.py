@@ -33,6 +33,7 @@ from bkg_py.version_updates import (
     VersionDetailExecution,
     VersionDetailInspector,
     VersionRefreshExecution,
+    VersionRefreshPolicy,
     VersionRefreshRequest,
     VersionRefreshService,
 )
@@ -135,7 +136,7 @@ def test_detail_inspector_uses_embedded_manifest_and_oci_label() -> None:
 
 
 def test_detail_inspector_leaves_unknown_size_after_manifest_fallbacks() -> None:
-    """Unknown container sizes do not depend on an external badge service."""
+    """Private-capable refreshes do not disclose references to a hosted fallback."""
 
     client = _FakeClient(
         text_values={
@@ -150,6 +151,9 @@ def test_detail_inspector_leaves_unknown_size_after_manifest_fallbacks() -> None
         VersionDetailExecution(
             lambda reference: references.append(reference) or "",
             authenticated=True,
+            hosted_size_inspector=lambda _owner, _package, _reference: pytest.fail(
+                "private-capable refresh used hosted size fallback"
+            ),
         ),
     )
 
@@ -167,6 +171,72 @@ def test_detail_inspector_leaves_unknown_size_after_manifest_fallbacks() -> None
     ]
     assert client.text_requests == [_detail_url("8"), _detail_url("9")]
     assert client.text_authentication == [True, True]
+
+
+def test_detail_inspector_uses_hosted_size_after_manifest_fallbacks() -> None:
+    """A public version uses its exact reference for the final hosted fallback."""
+
+    client = _FakeClient(text_values={_detail_url("11"): ""})
+    hosted_requests: list[tuple[str, str, str]] = []
+    inspector = VersionDetailInspector(
+        client,
+        _CONTEXT,
+        VersionDetailExecution(
+            lambda _reference: "",
+            hosted_size_inspector=lambda owner, package, reference: (
+                hosted_requests.append((owner, package, reference)) or 4_000_000
+            ),
+        ),
+    )
+
+    record = inspector.inspect(VersionCandidate("11", "v1.2.3"), today=_TODAY)
+
+    assert record.metrics.size == 4_000_000
+    assert hosted_requests == [("Example", "Nested%2FImage", "v1.2.3")]
+
+
+def test_refresh_can_disable_hosted_size_without_authenticating_html(
+    tmp_path: Path,
+) -> None:
+    """Private-capable policy suppresses hosted sizing even without a token."""
+
+    package = _package_ref(package_type="container")
+    repository = DatabaseRepository(DatabaseSettings(tmp_path / "index.db"))
+    api_path = (
+        "orgs/Example/packages/container/Nested%2FImage/versions?per_page=30&page=1"
+    )
+    client = _FakeClient(
+        rest_values={api_path: [_api_version(12)]},
+        text_values={_detail_url("12"): ""},
+    )
+    hosted_requests: list[tuple[str, str, str]] = []
+    service = VersionRefreshService(
+        repository,
+        client,
+        VersionRefreshExecution(
+            BoundedWorkerRunner(ConcurrencySettings(max_workers=1)),
+            lambda _reference: "",
+            hosted_size_inspector=lambda owner, package_name, reference: (
+                hosted_requests.append((owner, package_name, reference)) or 1
+            ),
+        ),
+    )
+
+    service.refresh(
+        VersionRefreshRequest(
+            package,
+            "legacy_versions",
+            False,
+            VersionRefreshPolicy(
+                use_rest_api=True,
+                allow_hosted_size_fallback=False,
+            ),
+        ),
+        VersionSelectionSettings(max_tag_pages=0, append_tagged_limit=0),
+    )
+
+    assert not hosted_requests
+    assert repository.version_rows(package).rows[0].metrics.size == -1
 
 
 def test_detail_inspector_uses_registry_manifest_after_page_fallback() -> None:
@@ -244,7 +314,13 @@ def test_refresh_skips_existing_versions_and_flushes_one_batch(tmp_path: Path) -
     )
 
     result = service.refresh(
-        VersionRefreshRequest(package, "legacy_versions", False, True, _TODAY),
+        VersionRefreshRequest(
+            package,
+            "legacy_versions",
+            False,
+            VersionRefreshPolicy(use_rest_api=True),
+            _TODAY,
+        ),
         VersionSelectionSettings(max_tag_pages=0, append_tagged_limit=0),
     )
 
@@ -283,7 +359,7 @@ def test_force_refresh_reinspects_existing_same_day_versions(tmp_path: Path) -> 
             package,
             "legacy_versions",
             False,
-            True,
+            VersionRefreshPolicy(use_rest_api=True),
             _TODAY,
         ),
         VersionSelectionSettings(max_tag_pages=0, append_tagged_limit=0),
@@ -337,7 +413,13 @@ def test_refresh_pauses_failing_detail_requests_and_preserves_stored_metrics(
     )
 
     result = service.refresh(
-        VersionRefreshRequest(package, "legacy_versions", False, True, _TODAY),
+        VersionRefreshRequest(
+            package,
+            "legacy_versions",
+            False,
+            VersionRefreshPolicy(use_rest_api=True),
+            _TODAY,
+        ),
         VersionSelectionSettings(max_tag_pages=0, append_tagged_limit=0),
     )
 
@@ -410,7 +492,13 @@ def test_refresh_flushes_completed_rows_before_graceful_stop(tmp_path: Path) -> 
 
     with pytest.raises(GracefulStop, match="test stop"):
         service.refresh(
-            VersionRefreshRequest(package, "legacy_versions", False, True, _TODAY),
+            VersionRefreshRequest(
+                package,
+                "legacy_versions",
+                False,
+                VersionRefreshPolicy(use_rest_api=True),
+                _TODAY,
+            ),
             VersionSelectionSettings(max_tag_pages=0, append_tagged_limit=0),
         )
 
