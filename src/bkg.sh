@@ -190,6 +190,9 @@ post_stop_bkg_python() {
 	local previous_max_len=$BKG_MAX_LEN
 	local status=0
 
+	if declare -F stop_workflow_handoff_monitor >/dev/null; then
+		stop_workflow_handoff_monitor
+	fi
 	previous_timeout=$(get_BKG BKG_TIMEOUT)
 	set_BKG BKG_TIMEOUT "0"
 	BKG_MAX_LEN=0 bkg_python "$@" || status=$?

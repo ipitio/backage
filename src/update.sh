@@ -70,6 +70,7 @@ import_workflow_payload .bkg "$root" || {
 pushd "$root" >/dev/null || exit 1
 pushd src >/dev/null || exit 1
 source bkg.sh
+source lib/handoff.sh
 popd >/dev/null || exit 1
 
 # permissions
@@ -84,6 +85,7 @@ git config core.sharedRepository all
 git config remote.origin.promisor true
 git config remote.origin.partialclonefilter blob:none
 git config extensions.partialClone origin
+capture_workflow_handoff_baseline "$BKG_ROOT"
 
 # performance
 if git fsmonitor--daemon status >/dev/null 2>&1 || git fsmonitor--daemon start >/dev/null 2>&1; then
@@ -182,8 +184,10 @@ if [ "$GITHUB_OWNER" = "ipitio" ] && ((num_owner_db < num_owner_index/2)) && ((d
     exit 1
 fi
 
+start_workflow_handoff_monitor "$BKG_ROOT"
 main "$@"
 return_code=$?
+stop_workflow_handoff_monitor
 # db should not be empty, error if it is
 snapshot_file=$(post_stop_current_index_snapshot_archive_file 2>/dev/null || :)
 [ "$(stat -c %s "$snapshot_file" 2>/dev/null || echo 0)" -ge 100 ] || exit 1

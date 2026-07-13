@@ -11,10 +11,6 @@ on:
     types:
       - closed
 
-concurrency:
-  group: ${{ github.repository }}-database-publication
-  cancel-in-progress: false
-
 defaults:
   run:
     # GitHub Actions run without a TTY device. This is a workaround to get one,
@@ -26,11 +22,32 @@ env:
   GITHUB_OWNER: ${{ github.repository_owner }}
   GITHUB_REPO: ${{ github.event.repository.name }}
   GITHUB_BRANCH: ${{ github.head_ref || github.ref_name }}
+  BKG_HANDOFF_CONTROL_REF: refs/heads/bkg-control
+  BKG_HANDOFF_POLL_SECONDS: 60
 
 jobs:
-  update:
+  handoff:
     runs-on: ubuntu-latest
     if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request' }}
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@main
+
+      - name: Request graceful handoff
+        run: bash src/lib/handoff.sh request
+
+  update:
+    needs: handoff
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request' }}
+
+    concurrency:
+      group: ${{ github.repository }}-database-publication
+      cancel-in-progress: false
 
     permissions:
       contents: write
@@ -71,7 +88,7 @@ jobs:
         id: update
         run: |
           set +e
-          docker run -v $PWD:/app --env-file <(env | grep GITHUB) \
+          docker run -v $PWD:/app --env-file <(env | grep -E '^(GITHUB|BKG_HANDOFF_)') \
             ghcr.io/$GITHUB_OWNER/$GITHUB_REPO:master \
             src/update.sh bkg
           code=$?

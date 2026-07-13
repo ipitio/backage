@@ -13,6 +13,7 @@ from . import (
     database_owner_scans,
     database_package_plans,
     database_packages,
+    database_schema,
     database_version_stages,
 )
 from .database_models import (
@@ -53,7 +54,6 @@ from .render_sql import (
     PACKAGE_SNAPSHOT_SQL,
     RANKED_PACKAGES_SQL,
 )
-from .schema_sql import OWNER_SCAN_SCHEMA_MIGRATIONS, SCHEMA_SQL
 
 _RETRYABLE_MESSAGES = (
     "database is locked",
@@ -95,32 +95,14 @@ class DatabaseRepository(  # pylint: disable=too-many-public-methods
     def ensure_schema(self) -> None:
         """Lazily create normalized tables and their query indexes."""
 
-        owners = _SqlIdentifier(self.settings.owners_table)
-        packages = _SqlIdentifier(self.settings.packages_table)
-        versions = _SqlIdentifier(self.settings.versions_table)
-        statements = tuple(
-            _sql(
-                statement,
-                owners=owners,
-                packages=packages,
-                versions=versions,
-            )
-            for statement in SCHEMA_SQL
-        )
-
         def create(connection: sqlite3.Connection) -> None:
             with _transaction(connection):
-                for statement in statements:
-                    connection.execute(statement)
-                owner_scan_columns = {
-                    str(row[1])
-                    for row in connection.execute(
-                        'pragma table_info("bkg_owner_scans")'
-                    )
-                }
-                for column, statement in OWNER_SCAN_SCHEMA_MIGRATIONS:
-                    if column not in owner_scan_columns:
-                        connection.execute(statement)
+                database_schema.ensure(
+                    connection,
+                    self.settings.owners_table,
+                    self.settings.packages_table,
+                    self.settings.versions_table,
+                )
 
         self._run_write(create)
 

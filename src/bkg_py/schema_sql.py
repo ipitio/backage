@@ -1,15 +1,14 @@
 """SQLite schema statements for normalized package metadata."""
 
-SCHEMA_SQL = (
-    """
-    create table if not exists {owners} (
-        owner_id text not null,
-        owner text not null,
-        date text not null,
-        primary key (owner_id, date)
-    )
-    """,
-    """
+PACKAGE_PRIMARY_KEY = (
+    "owner_id",
+    "package_type",
+    "repo",
+    "package",
+    "date",
+)
+
+PACKAGES_TABLE_SQL = """
     create table if not exists {packages} (
         owner_id text,
         owner_type text not null,
@@ -23,9 +22,20 @@ SCHEMA_SQL = (
         downloads_day integer not null,
         size integer not null,
         date text not null,
-        primary key (owner_id, package, date)
+        primary key (owner_id, package_type, repo, package, date)
+    )
+"""
+
+SCHEMA_SQL = (
+    """
+    create table if not exists {owners} (
+        owner_id text not null,
+        owner text not null,
+        date text not null,
+        primary key (owner_id, date)
     )
     """,
+    PACKAGES_TABLE_SQL,
     """
     create table if not exists {versions} (
         owner_id text not null,

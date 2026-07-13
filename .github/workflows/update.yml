@@ -19,6 +19,8 @@ env:
   GITHUB_OWNER: ${{ github.repository_owner }}
   GITHUB_REPO: ${{ github.event.repository.name }}
   GITHUB_BRANCH: ${{ github.head_ref || github.ref_name }}
+  BKG_HANDOFF_CONTROL_REF: refs/heads/bkg-control
+  BKG_HANDOFF_POLL_SECONDS: 60
 
 jobs:
   update:
@@ -63,7 +65,7 @@ jobs:
         id: update
         run: |
           set +e
-          docker run -v $PWD:/app --env-file <(env | grep GITHUB) \
+          docker run -v $PWD:/app --env-file <(env | grep -E '^(GITHUB|BKG_HANDOFF_)') \
             ghcr.io/ipitio/backage:master \
             src/update.sh bkg
           code=$?
