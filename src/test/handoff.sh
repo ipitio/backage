@@ -85,4 +85,25 @@ if BKG_HANDOFF_CONTROL_REF=refs/tags/not-allowed handoff_control_ref >/dev/null 
 	exit 1
 fi
 
+scheduled_update_should_run current current 100 100 "" >/dev/null || {
+	echo "Current scheduled update was rejected" >&2
+	exit 1
+}
+scheduled_update_should_run current current 100 99 "" >/dev/null || {
+	echo "A stale API response rejected the current scheduled update" >&2
+	exit 1
+}
+if scheduled_update_should_run queued current 100 100 "" >/dev/null; then
+	echo "Scheduled update ignored a newer Manual handoff" >&2
+	exit 1
+fi
+if scheduled_update_should_run current current 100 101 "" >/dev/null; then
+	echo "Superseded scheduled update was accepted" >&2
+	exit 1
+fi
+if scheduled_update_should_run current current 100 100 200 >/dev/null; then
+	echo "Scheduled update was accepted while a Manual run was waiting" >&2
+	exit 1
+fi
+
 echo "Workflow handoff regression tests passed"

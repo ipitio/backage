@@ -4,10 +4,6 @@ on:
   schedule:
     - cron: "0 * * * *"
 
-concurrency:
-  group: ${{ github.repository }}-database-publication
-  cancel-in-progress: false
-
 defaults:
   run:
     # GitHub Actions run without a TTY device. This is a workaround to get one,
@@ -23,10 +19,36 @@ env:
   BKG_HANDOFF_POLL_SECONDS: 60
 
 jobs:
-  update:
+  prepare:
     runs-on: ubuntu-latest
 
     permissions:
+      contents: read
+
+    outputs:
+      handoff_baseline: ${{ steps.handoff.outputs.sha }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@main
+
+      - name: Capture queue handoff baseline
+        id: handoff
+        run: |
+          baseline=$(bash src/lib/handoff.sh baseline)
+          echo "sha=$baseline" >> "$GITHUB_OUTPUT"
+
+  update:
+    needs: prepare
+    runs-on: ubuntu-latest
+
+    concurrency:
+      group: ${{ github.repository }}-database-publication
+      cancel-in-progress: false
+      queue: max
+
+    permissions:
+      actions: read
       contents: write
       packages: read
 
@@ -34,16 +56,62 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@main
 
+      - name: Check queued update freshness
+        id: gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          QUEUED_HANDOFF_BASELINE: ${{ needs.prepare.outputs.handoff_baseline }}
+        run: |
+          source src/lib/handoff.sh
+
+          if ! current_baseline=$(current_workflow_handoff_baseline); then
+            echo "Could not refresh the handoff baseline; allowing this serialized update" >&2
+            current_baseline=$QUEUED_HANDOFF_BASELINE
+          fi
+
+          latest_scheduled_run_id=
+          active_manual_run_id=
+          if runs=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs?per_page=100"); then
+            if latest_scheduled_run_id=$(jq -r \
+              '[.workflow_runs[] | select(.event == "schedule" and ((.path // "") | endswith("/update.yml")))] | max_by(.id) | .id // empty' \
+              <<<"$runs") && active_manual_run_id=$(jq -r \
+              '[.workflow_runs[] | select(((.path // "") | endswith("/manual.yml")) and .status != "completed")] | max_by(.id) | .id // empty' \
+              <<<"$runs"); then
+              :
+            else
+              echo "Could not parse workflow freshness; allowing this serialized update" >&2
+              latest_scheduled_run_id=
+              active_manual_run_id=
+            fi
+          else
+            echo "Could not read workflow freshness; allowing this serialized update" >&2
+          fi
+
+          run_update=false
+          if scheduled_update_should_run \
+            "$QUEUED_HANDOFF_BASELINE" \
+            "$current_baseline" \
+            "$GITHUB_RUN_ID" \
+            "$latest_scheduled_run_id" \
+            "$active_manual_run_id"; then
+            run_update=true
+          fi
+          echo "run=$run_update" >> "$GITHUB_OUTPUT"
+
       - name: Tune dpkg
+        if: ${{ steps.gate.outputs.run == 'true' }}
         uses: abbbi/github-actions-tune@v1
 
       - name: Set dpkg
+        if: ${{ steps.gate.outputs.run == 'true' }}
         run: sudo rm -f /usr/local/bin/dpkg
 
       - name: Tune apt
+        if: ${{ steps.gate.outputs.run == 'true' }}
         uses: firebuild/apt-eatmydata-action@v1
 
       - name: Check for release
+        if: ${{ steps.gate.outputs.run == 'true' }}
         id: release
         continue-on-error: true
         uses: cardinalby/git-get-release-action@v1
@@ -51,7 +119,7 @@ jobs:
           latest: true
 
       - name: Fetch all data
-        if: ${{ steps.release.outcome == 'success' }}
+        if: ${{ steps.gate.outputs.run == 'true' && steps.release.outcome == 'success' }}
         continue-on-error: true
         uses: robinraju/release-downloader@v1
         with:
@@ -62,6 +130,7 @@ jobs:
           out-file-path: ".bkg/.snapshot"
 
       - name: Dry run
+        if: ${{ steps.gate.outputs.run == 'true' }}
         id: update
         run: |
           set +e
@@ -73,11 +142,12 @@ jobs:
           exit "$code"
 
       - name: Get date
+        if: ${{ steps.gate.outputs.run == 'true' }}
         id: date
         run: echo "tag=$(date -u +%-Y.%-m).$((($(date -u +%-d)-1)/14))" >> "$GITHUB_OUTPUT"
 
       - name: Save database
-        if: ${{ steps.update.outputs.updated == '0' }}
+        if: ${{ steps.gate.outputs.run == 'true' && steps.update.outputs.updated == '0' }}
         uses: ncipollo/release-action@v1
         with:
           artifacts: "bkg/.snapshot/*"

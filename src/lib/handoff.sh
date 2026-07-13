@@ -23,6 +23,37 @@ read_remote_handoff_sha() {
 	awk 'NR == 1 { print $1 }' <<<"$output"
 }
 
+current_workflow_handoff_baseline() {
+	local repo=${1:-.}
+	local baseline
+
+	baseline=$(read_remote_handoff_sha "$repo") || return 1
+	printf '%s\n' "${baseline:-missing}"
+}
+
+scheduled_update_should_run() {
+	local queued_baseline=$1
+	local current_baseline=$2
+	local run_id=$3
+	local latest_scheduled_run_id=${4:-}
+	local active_manual_run_id=${5:-}
+
+	if [ "$current_baseline" != "$queued_baseline" ]; then
+		echo "Skipping scheduled update: a Manual handoff was requested after this run queued"
+		return 1
+	fi
+	if [ -n "$active_manual_run_id" ]; then
+		echo "Skipping scheduled update: Manual run $active_manual_run_id is waiting"
+		return 1
+	fi
+	if [[ "$run_id" =~ ^[0-9]+$ && "$latest_scheduled_run_id" =~ ^[0-9]+$ ]] &&
+		((latest_scheduled_run_id > run_id)); then
+		echo "Skipping scheduled update: scheduled run $latest_scheduled_run_id supersedes $run_id"
+		return 1
+	fi
+	return 0
+}
+
 request_workflow_handoff() {
 	local repo=${1:-.}
 	local control_ref
@@ -64,12 +95,12 @@ capture_workflow_handoff_baseline() {
 	local baseline
 
 	[ -n "${BKG_HANDOFF_CONTROL_REF:-}" ] || return 0
-	baseline=$(read_remote_handoff_sha "$repo") || {
+	baseline=$(current_workflow_handoff_baseline "$repo") || {
 		echo "Failed to capture workflow handoff baseline; handoff disabled for this run" >&2
 		unset BKG_HANDOFF_BASELINE_SHA
 		return 0
 	}
-	BKG_HANDOFF_BASELINE_SHA=${baseline:-missing}
+	BKG_HANDOFF_BASELINE_SHA=$baseline
 	export BKG_HANDOFF_BASELINE_SHA
 }
 
@@ -129,11 +160,14 @@ if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
 	command=${1:-}
 	shift || true
 	case "$command" in
+	baseline)
+		current_workflow_handoff_baseline "${1:-.}"
+		;;
 	request)
 		request_workflow_handoff "${1:-.}"
 		;;
 	*)
-		echo "Usage: $0 request [REPOSITORY]" >&2
+		echo "Usage: $0 {baseline|request} [REPOSITORY]" >&2
 		exit 2
 		;;
 	esac

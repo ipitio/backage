@@ -48,6 +48,7 @@ jobs:
     concurrency:
       group: ${{ github.repository }}-database-publication
       cancel-in-progress: false
+      queue: max
 
     permissions:
       contents: write
