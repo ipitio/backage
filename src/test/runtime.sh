@@ -67,67 +67,6 @@ test_sqlite_ensure_index_schema_adds_query_indexes() {
 	BKG_INDEX_DB="$original_db"
 }
 
-test_sync_batch_progress_reads_python_transition() {
-	local calls_file="$workdir/batch-progress-calls.txt"
-
-	bkg_python() {
-		printf '%s\n' "$*" >"$calls_file"
-		printf 'false\t2026-06-28\n'
-	}
-
-	sync_batch_progress 2026-06-29 12 7
-
-	[ "$BKG_BATCH_RESET" = "false" ] || fail "Expected unfinished work to preserve the active batch"
-	[ "$BKG_BATCH_FIRST_STARTED" = "2026-06-28" ] || fail "Expected the Python batch start date"
-	assert_contains "$calls_file" "orchestration complete-batch-if-exhausted 2026-06-29 12 7"
-	unset -f bkg_python
-}
-
-test_prepare_package_plan_validates_python_summary() {
-	local calls_file="$workdir/package-plan-calls.txt"
-	local summary
-
-	bkg_python() {
-		printf '%s\n' "$*" >"$calls_file"
-		printf '12\t7\t5\n'
-	}
-
-	summary=$(prepare_package_plan 2026-06-29 "$workdir/plan")
-	[ "$summary" = $'12\t7\t5' ] || fail "Expected validated package plan counts"
-	assert_contains "$calls_file" "orchestration prepare-package-plan 2026-06-29 $workdir/plan false"
-
-	bkg_python() {
-		printf 'invalid\n'
-	}
-	if prepare_package_plan 2026-06-29 "$workdir/plan" >/dev/null 2>&1; then
-		fail "Expected an invalid package plan summary to fail"
-	fi
-	unset -f bkg_python
-}
-
-test_prepare_run_validates_python_summary() {
-	local calls_file="$workdir/prepare-run-calls.txt"
-	local summary
-
-	bkg_python() {
-		printf '%s\n' "$*" >"$calls_file"
-		printf '2026-06-28\t12\t7\t5\t4096\t2\ttrue\n'
-	}
-
-	summary=$(prepare_run 2026-06-29 1000 "$workdir/plan")
-	[ "$summary" = $'2026-06-28\t12\t7\t5\t4096\t2\ttrue' ] ||
-		fail "Expected validated startup summary"
-	assert_contains "$calls_file" "orchestration prepare-run 2026-06-29 1000 $workdir/plan"
-
-	bkg_python() {
-		printf '2026-06-28\t12\t7\t5\tbad\t2\ttrue\n'
-	}
-	if prepare_run 2026-06-29 1000 "$workdir/plan" >/dev/null 2>&1; then
-		fail "Expected an invalid startup summary to fail"
-	fi
-	unset -f bkg_python
-}
-
 test_sqlite_numeric_version_ids_use_builtin_glob() {
 	local rows
 
@@ -207,45 +146,6 @@ test_cleanup_generated_json_sidecars_ignores_racy_missing_files() {
 	[ "$status" -eq 0 ] || fail "Expected racy sidecar cleanup to remain non-fatal"
 	[ ! -s "$output_file" ] || fail "Expected racy sidecar cleanup to stay quiet on stdout"
 	[ ! -s "$stderr_file" ] || fail "Expected racy sidecar cleanup to suppress missing-file diagnostics"
-}
-
-test_drop_replaced_legacy_version_tables_keeps_unreplaced_fallbacks() {
-	local original_db="${BKG_INDEX_DB:-}"
-	local today="2026-03-30"
-	local yesterday="2026-03-29"
-	local replaced_table="versions_orgs_container_Lazztech_Repo_With_Underscore_libre_pkg"
-	local unreplaced_table="versions_orgs_container_Lazztech_OtherRepo_other_pkg"
-	local orphan_table="versions_orgs_container_Lazztech_OrphanRepo_orphan_pkg"
-	local table_count
-	local stale_count
-
-	BKG_INDEX_DB="$workdir/legacy-version-cleanup.db"
-	sqlite_ensure_index_schema >/dev/null
-	sqlite3 "$BKG_INDEX_DB" "create table '$replaced_table' (id text not null, name text not null, size integer not null, downloads integer not null, downloads_month integer not null, downloads_week integer not null, downloads_day integer not null, date text not null, tags text, primary key (id, date));"
-	sqlite3 "$BKG_INDEX_DB" "create table '$unreplaced_table' (id text not null, name text not null, size integer not null, downloads integer not null, downloads_month integer not null, downloads_week integer not null, downloads_day integer not null, date text not null, tags text, primary key (id, date));"
-	sqlite3 "$BKG_INDEX_DB" "create table '$orphan_table' (id text not null, name text not null, size integer not null, downloads integer not null, downloads_month integer not null, downloads_week integer not null, downloads_day integer not null, date text not null, tags text, primary key (id, date));"
-
-	sqlite3 "$BKG_INDEX_DB" "insert into '$BKG_INDEX_TBL_PKG' (owner_id, owner_type, package_type, owner, repo, package, downloads, downloads_month, downloads_week, downloads_day, size, date) values ('69664378','orgs','container','Lazztech','Repo_With_Underscore','libre_pkg','2000','300','200','20','400','$today');"
-	sqlite3 "$BKG_INDEX_DB" "insert into '$BKG_INDEX_TBL_PKG' (owner_id, owner_type, package_type, owner, repo, package, downloads, downloads_month, downloads_week, downloads_day, size, date) values ('69664378','orgs','container','Lazztech','OtherRepo','other_pkg','1000','100','50','5','300','$today');"
-
-	sqlite3 "$BKG_INDEX_DB" "insert into '$replaced_table' (id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags) values ('10','sha256:b','456','985','985','455','3','$today','latest');"
-	sqlite3 "$BKG_INDEX_DB" "insert into '$unreplaced_table' (id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags) values ('20','sha256:c','222','111','22','11','1','$today','latest');"
-	sqlite3 "$BKG_INDEX_DB" "insert into '$unreplaced_table' (id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags) values ('19','sha256:old','111','10','10','10','1','$yesterday','old');"
-	sqlite3 "$BKG_INDEX_DB" "insert into '$orphan_table' (id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags) values ('30','sha256:d','222','111','22','11','1','$today','latest');"
-	sqlite3 "$BKG_INDEX_DB" "insert into '$BKG_INDEX_TBL_VER' (owner_id, owner_type, package_type, owner, repo, package, id, name, size, downloads, downloads_month, downloads_week, downloads_day, date, tags) values ('69664378','orgs','container','Lazztech','Repo_With_Underscore','libre_pkg','10','sha256:b','456','985','985','455','3','$today','latest');"
-
-	drop_replaced_legacy_version_tables "$today"
-
-	table_count=$(sqlite3 "$BKG_INDEX_DB" "select count(*) from sqlite_master where type='table' and name=$(sqlite_quote_literal "$replaced_table");")
-	[ "$table_count" = "0" ] || fail "Expected replaced legacy version table to be dropped during cleanup"
-	table_count=$(sqlite3 "$BKG_INDEX_DB" "select count(*) from sqlite_master where type='table' and name=$(sqlite_quote_literal "$unreplaced_table");")
-	[ "$table_count" = "1" ] || fail "Expected unreplaced legacy version table to remain as fallback"
-	table_count=$(sqlite3 "$BKG_INDEX_DB" "select count(*) from sqlite_master where type='table' and name=$(sqlite_quote_literal "$orphan_table");")
-	[ "$table_count" = "0" ] || fail "Expected orphaned legacy version table to be dropped during cleanup"
-	stale_count=$(sqlite3 "$BKG_INDEX_DB" "select count(*) from '$unreplaced_table' where date < $(sqlite_quote_literal "$today");")
-	[ "$stale_count" = "0" ] || fail "Expected stale rows in kept legacy version tables to be pruned"
-
-	BKG_INDEX_DB="$original_db"
 }
 
 test_parallel_async_wait_continues_after_non_timeout_failure() {
@@ -417,35 +317,26 @@ test_ensure_pages_dotfiles_visible_writes_nojekyll() {
 	assert_file_exists "$site_root/.nojekyll"
 }
 
-test_run_owner_page_discovery_stops_on_code_2() {
-	local calls_file="$workdir/owner-pages.txt"
+test_main_delegates_to_python_run() {
+	local calls_file="$workdir/main-run-calls.txt"
+	local status=0
 
-	page_owner() {
-		printf '%s\n' "$1" >>"$calls_file"
-		[ "$1" -lt 1 ] && return 0
-		return 2
-	}
+	(
+		master_branch_has_commit_today() {
+			[[ "$1" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] ||
+				fail "Expected main to probe the current UTC date"
+			return 0
+		}
+		bkg_python() {
+			printf '%s\n' "$*" >"$calls_file"
+			return 3
+		}
 
-	run_owner_page_discovery || fail "Expected run_owner_page_discovery to treat exit code 2 as normal completion"
+		main -d 60 -m 4
+	) || status=$?
 
-	assert_contains "$calls_file" "1"
-	[ "$(wc -l <"$calls_file")" -eq 1 ] || fail "Expected run_owner_page_discovery to stop immediately after the first page_owner exit code 2"
-	unset -f page_owner
-}
-
-test_run_owner_page_discovery_caps_at_one_page() {
-	local calls_file="$workdir/owner-pages-max.txt"
-
-	page_owner() {
-		printf '%s\n' "$1" >>"$calls_file"
-		return 0
-	}
-
-	run_owner_page_discovery || fail "Expected run_owner_page_discovery to stop cleanly after the maximum number of pages"
-
-	assert_contains "$calls_file" "1"
-	[ "$(wc -l <"$calls_file")" -eq 1 ] || fail "Expected run_owner_page_discovery to cap owner discovery at one page"
-	unset -f page_owner
+	[ "$status" -eq 3 ] || fail "Expected main to preserve Python status 3, got $status"
+	assert_contains "$calls_file" "run --source-published-today true -d 60 -m 4"
 }
 
 test_daily_gate_helpers_delegate_context_to_python() {
@@ -1085,14 +976,10 @@ source_project_script "bkg.sh"
 
 run_test test_sqlite_retries_transient_write_failure
 run_test test_sqlite_ensure_index_schema_adds_query_indexes
-run_test test_sync_batch_progress_reads_python_transition
-run_test test_prepare_package_plan_validates_python_summary
-run_test test_prepare_run_validates_python_summary
 run_test test_sqlite_numeric_version_ids_use_builtin_glob
 run_test test_background_job_running_ignores_completed_unreaped_child
 run_test test_cleanup_generated_json_sidecars_removes_adaptive_retry_artifacts
 run_test test_cleanup_generated_json_sidecars_ignores_racy_missing_files
-run_test test_drop_replaced_legacy_version_tables_keeps_unreplaced_fallbacks
 run_test test_parallel_async_wait_continues_after_non_timeout_failure
 run_test test_parallel_async_default_max_jobs_is_tuned
 run_test test_parallel_shell_func_preserves_inherited_runtime_config
@@ -1100,8 +987,7 @@ run_test test_direct_bash_child_preserves_inherited_runtime_config
 run_test test_util_default_env_path_is_absolute
 run_test test_bkg_python_forwards_unexported_http_settings
 run_test test_ensure_pages_dotfiles_visible_writes_nojekyll
-run_test test_run_owner_page_discovery_stops_on_code_2
-run_test test_run_owner_page_discovery_caps_at_one_page
+run_test test_main_delegates_to_python_run
 run_test test_daily_gate_helpers_delegate_context_to_python
 run_test test_check_limit_retries_missing_script_start_once
 run_test test_query_graphql_api_delegates_query_to_python

@@ -269,79 +269,6 @@ test_parallel_async_wait_kills_blocked_workers_after_timeout() {
 	unset -f blocking_async_worker
 }
 
-test_run_owner_updates_halts_on_timeout() {
-	local args_file="$workdir/owner-update.args"
-	local started_at
-	local elapsed
-	local status=0
-
-	get_BKG_set() {
-		printf '1/alpha\n2/beta\n'
-	}
-
-	current_batch_first_started() {
-		printf '%s\n' 2026-07-01
-	}
-	get_BKG() {
-		[ "$1" = BKG_BATCH_MARKER ] && printf '%s\n' batch-1
-	}
-	bkg_python() {
-		printf '%s\n' "$*" >"$args_file"
-		return 3
-	}
-
-	fast_out=false
-	started_at=$(date +%s)
-
-	if run_owner_updates; then
-		fail "Expected run_owner_updates to return 3 when owner workers time out"
-	else
-		status=$?
-	fi
-	elapsed=$(( $(date +%s) - started_at ))
-
-	[ "$status" -eq 3 ] || fail "Expected run_owner_updates to return 3, got $status"
-	[ "$elapsed" -lt 10 ] || fail "Expected run_owner_updates to notice completed workers promptly"
-	assert_contains "$args_file" "orchestration update-owners 2026-07-01 batch-1 false"
-	unset -f current_batch_first_started
-	unset -f get_BKG
-	unset -f bkg_python
-}
-
-test_owner_update_status_keeps_graceful_timeout_publishable() {
-	local output_file="$workdir/owner-timeout-status.out"
-	local status=0
-
-	bkg_python() {
-		[ "$*" = "orchestration owner-phase-decision 3 0" ] || fail "Unexpected owner phase decision arguments: $*"
-		printf 'publish\t3\tReached BKG_MAX_LEN, stopping after persisting state...\n'
-	}
-	return_code=0
-	handle_owner_update_status 3 >"$output_file" 2>&1 || status=$?
-
-	[ "$status" -eq 0 ] || fail "Expected graceful owner timeout to keep publishing path available"
-	[ "$return_code" -eq 3 ] || fail "Expected graceful owner timeout to persist return_code 3"
-	assert_contains "$output_file" "Reached BKG_MAX_LEN"
-	unset -f bkg_python
-}
-
-test_owner_update_status_aborts_unexpected_failure() {
-	local output_file="$workdir/owner-failure-status.out"
-	local status=0
-
-	bkg_python() {
-		[ "$*" = "orchestration owner-phase-decision 1 0" ] || fail "Unexpected owner phase decision arguments: $*"
-		printf 'abort\t1\tOwner updates failed with status 1; stopping before snapshot publication.\n'
-	}
-	return_code=0
-	handle_owner_update_status 1 >"$output_file" 2>&1 || status=$?
-
-	[ "$status" -eq 1 ] || fail "Expected unexpected owner failure to abort with status 1"
-	[ "$return_code" -eq 0 ] || fail "Expected unexpected owner failure not to mark graceful timeout"
-	assert_contains "$output_file" "stopping before snapshot publication"
-	unset -f bkg_python
-}
-
 test_query_api_checks_elapsed_limit_before_request() {
 	local status=0
 	local now
@@ -445,9 +372,6 @@ run_test test_ytoxt_stops_after_timeout
 run_test test_run_parallel_kills_blocked_workers_after_timeout
 run_test test_run_parallel_enforces_elapsed_limit_for_blocked_workers
 run_test test_parallel_async_wait_kills_blocked_workers_after_timeout
-run_test test_run_owner_updates_halts_on_timeout
-run_test test_owner_update_status_keeps_graceful_timeout_publishable
-run_test test_owner_update_status_aborts_unexpected_failure
 run_test test_query_api_checks_elapsed_limit_before_request
 run_test test_query_graphql_api_checks_elapsed_limit_before_request
 run_test test_page_owner_checks_elapsed_limit_before_request
