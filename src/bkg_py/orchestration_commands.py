@@ -4,59 +4,27 @@ from __future__ import annotations
 
 import argparse
 import sys
+from collections.abc import Callable
 from pathlib import Path
-from threading import Lock
 from typing import TYPE_CHECKING
 
 from .database import DatabaseError
-from .discovery import DiscoveryError, OwnerIdentityCache, OwnerIdentityResolver
-from .discovery_fallback import PublicHtmlDiscoveryTraversal
-from .discovery_operations import (
-    DiscoveryPhaseExecution,
-    DiscoveryPhaseIdentity,
-    DiscoveryPhasePaths,
-    DiscoveryPhaseRequest,
-    DiscoveryPhaseService,
-    DiscoveryPhaseServices,
-    DiscoveryTraversal,
-)
+from .discovery import DiscoveryError
 from .github import GitHubError
 from .orchestration import BatchRuntimeService, RunOutcomePolicy
-from .owner_batch import (
-    OwnerBatchEffects,
-    OwnerBatchExecution,
-    OwnerBatchRequest,
-    OwnerBatchService,
-)
-from .owner_operations import OwnerOperationExecution, OwnerUpdateOperation
-from .owner_pages import OwnerPageAdmissionConfig, admit_owner_page
-from .owner_queue_operations import (
-    OwnerQueuePreparationExecution,
-    OwnerQueuePreparationPaths,
-    OwnerQueuePreparationRequest,
-    OwnerQueuePreparationService,
-    OwnerQueuePreparationServices,
-    TargetedOwnerQueueService,
-)
+from .owner_batch import OwnerBatchRequest
 from .result import ExitStatus
-from .run_finalization import (
-    RunFinalizationExecution,
-    RunFinalizationRequest,
-    RunFinalizationService,
-    RunFinalizationServices,
+from .run import OwnerQueuePhaseRequest, RunCoordinatorRequest
+from .run.application import (
+    LockedRunOutput,
+    RunApplicationExecution,
+    RunApplicationOperations,
 )
-from .run_planning import PackageWorkPlanService
 from .run_publication import (
     RunPublicationIdentity,
     RunPublicationPaths,
     RunPublicationRequest,
     RunPublicationService,
-)
-from .run_startup import (
-    RunStartupExecution,
-    RunStartupRequest,
-    RunStartupService,
-    RunStartupServices,
 )
 from .runtime import GracefulStop
 from .snapshots import SnapshotError
@@ -145,10 +113,9 @@ def _prepare_package_plan(
     application: ApplicationContext,
 ) -> ExitStatus:
     with application.stop.signal_handlers():
-        summary = PackageWorkPlanService(application.database).prepare(
+        summary = _operations(application).prepare_package_plan(
             args.since,
             Path(args.directory),
-            batch_marker=application.state.get("BKG_BATCH_MARKER") or "",
             reset=args.reset == "true",
         )
     sys.stdout.write(f"{summary.total}\t{summary.completed}\t{summary.pending}\n")
@@ -160,30 +127,15 @@ def _prepare_run(
     application: ApplicationContext,
 ) -> ExitStatus:
     config = application.config
-    if config.index_db is None:
-        raise ValueError("BKG_INDEX_DB is required")
-
-    def progress(message: str) -> None:
-        sys.stderr.write(f"{message}\n")
-        sys.stderr.flush()
-
     with application.stop.signal_handlers():
-        result = RunStartupService(
-            RunStartupServices(
-                application.database,
-                application.snapshots,
-                application.state,
-                OwnerIdentityCache.from_config(config),
-            ),
-            RunStartupExecution(application.stop.check, progress),
-        ).prepare(
-            RunStartupRequest(
-                args.today,
-                args.started_at,
-                Path(args.working_directory),
-                Path(config.index_db),
-                Path(config.optout_file),
-                config.github_owner,
+        result = _operations(application, progress=_stderr).prepare_run(
+            RunCoordinatorRequest(
+                today=args.today,
+                started_at=args.started_at,
+                mode=config.mode,
+                github_owner=config.github_owner,
+                source_published_today=False,
+                working_directory=Path(args.working_directory),
             )
         )
     summary = result.package_plan
@@ -255,39 +207,11 @@ def _finalize_run(
     args: argparse.Namespace,
     application: ApplicationContext,
 ) -> ExitStatus:
-    config = application.config
-
-    def progress(message: str) -> None:
-        sys.stdout.write(f"{message}\n")
-        sys.stdout.flush()
-
     with application.stop.signal_handlers():
-        RunFinalizationService(
-            RunFinalizationServices(
-                application.database,
-                application.snapshots,
-                RunPublicationService(
-                    application.database,
-                    application.state,
-                    application.stop.check,
-                ),
-                application.state,
-            ),
-            RunFinalizationExecution(application.stop.check, progress),
-        ).finalize(
-            RunFinalizationRequest(
-                publication=_publication_request(
-                    args,
-                    application,
-                    rotated=False,
-                ),
-                optout_file=Path(config.optout_file),
-                batch_first_started=(
-                    application.state.get("BKG_BATCH_FIRST_STARTED") or args.today
-                ),
-                prepare_snapshot=args.prepare_snapshot == "true",
-                rotation_threshold_bytes=(config.snapshot_rotation_threshold_bytes),
-            )
+        _operations(application).finalize_run(
+            args.today,
+            args.prepare_snapshot == "true",
+            Path(args.working_directory),
         )
     return ExitStatus.SUCCESS
 
@@ -296,84 +220,12 @@ def _discover_owners(
     args: argparse.Namespace,
     application: ApplicationContext,
 ) -> ExitStatus:
-    config = application.config
-
-    def progress(message: str) -> None:
-        sys.stdout.write(f"{message}\n")
-        sys.stdout.flush()
-
-    runtime = BatchRuntimeService(application.state)
-    with application.github_client() as client:
-        resolver = OwnerIdentityResolver(OwnerIdentityCache.from_config(config), client)
-        admission = OwnerPageAdmissionConfig(
-            application.state,
-            Path(config.owners_file),
-            Path(args.packages_all_file),
-        )
-        request = DiscoveryPhaseRequest(
-            paths=DiscoveryPhasePaths(
-                Path(args.connections_file),
-                Path(config.owners_file),
-                Path(config.optout_file),
-            ),
-            identity=DiscoveryPhaseIdentity(
-                config.github_owner,
-                config.github_repo,
-                config.github_owner == "ipitio" and config.mode in {0, 3},
-            ),
-            today=args.today,
-            skip_explore=args.skip_explore == "true",
-            first_run=config.is_first != "false" and config.mode in {0, 3},
-            owner_page_limit=config.owner_discovery_max_pages,
-        )
-
-        def run_discovery(
-            traversal: DiscoveryTraversal,
-            owner_page_limit: int,
-        ) -> None:
-            service = DiscoveryPhaseService(
-                DiscoveryPhaseServices(
-                    traversal,
-                    lambda page, per_page: admit_owner_page(
-                        resolver,
-                        admission,
-                        page,
-                        per_page,
-                    ),
-                    lambda today: runtime.complete_daily_gate(
-                        "BKG_LAST_EXPLORE_DATE", today
-                    ),
-                ),
-                DiscoveryPhaseExecution(application.stop.check, progress),
-            )
-            service.run(
-                DiscoveryPhaseRequest(
-                    paths=request.paths,
-                    identity=request.identity,
-                    today=request.today,
-                    skip_explore=request.skip_explore,
-                    first_run=request.first_run,
-                    owner_page_limit=owner_page_limit,
-                )
-            )
-
-        if application.github_settings.token:
-            try:
-                run_discovery(resolver, request.owner_page_limit)
-                return ExitStatus.SUCCESS
-            except (DiscoveryError, GitHubError) as error:
-                progress(
-                    f"Authenticated discovery failed: {error}; "
-                    "using public HTML fallback"
-                )
-        else:
-            progress("GITHUB_TOKEN unavailable; using public HTML discovery")
-
-        fallback = PublicHtmlDiscoveryTraversal(client, diagnostic=progress)
-        run_discovery(
-            fallback,
-            request.owner_page_limit if application.github_settings.token else 0,
-        )
+    _operations(application).discover_owners(
+        args.today,
+        args.skip_explore == "true",
+        Path(args.connections_file),
+        Path(args.packages_all_file),
+    )
     return ExitStatus.SUCCESS
 
 
@@ -383,23 +235,11 @@ def _prepare_targeted_owner_queue(
     *,
     optouts: bool,
 ) -> ExitStatus:
-    config = application.config
-
-    def progress(message: str) -> None:
-        sys.stdout.write(f"{message}\n")
-        sys.stdout.flush()
-
-    with application.github_client() as client:
-        service = TargetedOwnerQueueService(
-            OwnerIdentityResolver(OwnerIdentityCache.from_config(config), client),
-            application.state,
-            application.stop.check,
-            progress,
-        )
-        if optouts:
-            service.prepare_optouts(Path(config.optout_file))
-        else:
-            service.prepare(config.github_owner, Path(args.connections_file))
+    operations = _operations(application)
+    if optouts:
+        operations.prepare_optout_owner_queue()
+    else:
+        operations.prepare_targeted_owner_queue(Path(args.connections_file))
     return ExitStatus.SUCCESS
 
 
@@ -407,49 +247,16 @@ def _prepare_owner_queue(
     args: argparse.Namespace,
     application: ApplicationContext,
 ) -> ExitStatus:
-    config = application.config
-    if config.index_dir is None:
-        raise ValueError("BKG_INDEX_DIR is required")
-
-    def progress(message: str) -> None:
-        sys.stdout.write(f"{message}\n")
-        sys.stdout.flush()
-
-    effects = OwnerBatchEffects(
-        application.database,
-        application.state,
-        Path(config.owners_file),
-        Path(config.index_dir),
-        progress,
+    _operations(application).prepare_owner_queue(
+        OwnerQueuePhaseRequest(
+            rest_first=args.rest_first,
+            connections_file=Path(args.connections_file),
+            request_limit=args.request_limit,
+            include_manual=args.include_manual == "true",
+            working_directory=Path(args.working_directory),
+            now=args.now,
+        )
     )
-    with application.github_client() as client:
-        service = OwnerQueuePreparationService(
-            OwnerQueuePreparationServices(
-                application.database,
-                OwnerIdentityResolver(OwnerIdentityCache.from_config(config), client),
-                application.state,
-                effects.retire_unavailable,
-            ),
-            OwnerQueuePreparationExecution(
-                application.stop.check,
-                progress,
-            ),
-        )
-        service.prepare(
-            OwnerQueuePreparationRequest(
-                paths=OwnerQueuePreparationPaths(
-                    connections=Path(args.connections_file),
-                    manual_owners=Path(config.owners_file),
-                    index_directory=Path(config.index_dir),
-                    working_directory=Path(args.working_directory),
-                ),
-                rest_first=args.rest_first,
-                request_limit=args.request_limit,
-                current_owner=config.github_owner,
-                include_manual=args.include_manual == "true",
-                now=args.now,
-            )
-        )
     return ExitStatus.SUCCESS
 
 
@@ -488,54 +295,37 @@ def _update_owners(
     args: argparse.Namespace,
     application: ApplicationContext,
 ) -> ExitStatus:
-    index_dir = application.config.index_dir
-    if index_dir is None:
-        raise ValueError("BKG_INDEX_DIR is required")
-    output_lock = Lock()
-
-    def progress(message: str) -> None:
-        with output_lock:
-            sys.stdout.write(f"{message}\n")
-            sys.stdout.flush()
-
-    def diagnostic(message: str) -> None:
-        with output_lock:
-            sys.stderr.write(f"{message}\n")
-            sys.stderr.flush()
-
-    with application.github_client() as client:
-        service = OwnerBatchService(
-            lambda concurrency: (
-                OwnerUpdateOperation(
-                    application,
-                    client,
-                    OwnerOperationExecution(
-                        concurrency,
-                        progress,
-                        diagnostic,
-                    ),
-                ).update
-            ),
-            OwnerBatchEffects(
-                application.database,
-                application.state,
-                Path(application.config.owners_file),
-                Path(index_dir),
-                progress,
-            ),
-            OwnerBatchExecution(
-                application.state,
-                Path(application.config.optout_file),
-                application.concurrency_settings,
-                application.stop.check,
-                progress,
-                diagnostic,
-            ),
+    return _operations(application).update_owners(
+        OwnerBatchRequest(
+            args.since,
+            args.batch_marker,
+            args.fast_out == "true",
         )
-        return service.run(
-            OwnerBatchRequest(
-                args.since,
-                args.batch_marker,
-                args.fast_out == "true",
-            )
-        )
+    )
+
+
+def _operations(
+    application: ApplicationContext,
+    *,
+    progress: Callable[[str], None] | None = None,
+    diagnostic: Callable[[str], None] | None = None,
+) -> RunApplicationOperations:
+    output = LockedRunOutput(progress or _stdout, diagnostic or _stderr)
+    return RunApplicationOperations(
+        application,
+        RunApplicationExecution(
+            output.progress,
+            output.diagnostic,
+            lambda _owners: None,
+        ),
+    )
+
+
+def _stdout(message: str) -> None:
+    sys.stdout.write(f"{message}\n")
+    sys.stdout.flush()
+
+
+def _stderr(message: str) -> None:
+    sys.stderr.write(f"{message}\n")
+    sys.stderr.flush()

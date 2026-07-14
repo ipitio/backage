@@ -7,7 +7,7 @@ import argparse
 import base64
 import json
 import sys
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -856,34 +856,44 @@ def _run_application_command(
     from .application import ApplicationContext
 
     application = ApplicationContext.from_env()
-    if args.command in {"publish", "json-to-xml"}:
-        runner = _run_publication
-    elif args.command == "database":
-        runner = _run_database
-    elif args.command == "render":
-        runner = _run_render
-    elif args.command == "snapshot":
-        runner = _run_snapshot
-    elif args.command == "github":
-        runner = _run_github
-    elif args.command == "discovery":
-        runner = _run_discovery
-    elif args.command == "package":
+    runner = _application_runner(args.command, parser)
+    return runner(args, application)
+
+
+def _application_runner(
+    command: str,
+    parser: argparse.ArgumentParser,
+) -> Callable[[argparse.Namespace, ApplicationContext], ExitStatus]:
+    simple_runners = {
+        "publish": _run_publication,
+        "json-to-xml": _run_publication,
+        "database": _run_database,
+        "render": _run_render,
+        "snapshot": _run_snapshot,
+        "github": _run_github,
+        "discovery": _run_discovery,
+    }
+    runner = simple_runners.get(command)
+    if runner is not None:
+        return runner
+    if command == "run":
+        from .run.commands import run_application
+
+        return run_application
+    if command == "package":
         from .package_commands import run_package
 
-        runner = run_package
-    elif args.command == "owner":
+        return run_package
+    if command == "owner":
         from .owner_commands import run_owner
 
-        runner = run_owner
-    elif args.command == "orchestration":
+        return run_owner
+    if command == "orchestration":
         from .orchestration_commands import run_orchestration
 
-        runner = run_orchestration
-    else:
-        parser.error(f"unknown command: {args.command}")
-        return ExitStatus.FAILURE
-    return runner(args, application)
+        return run_orchestration
+    parser.error(f"unknown command: {command}")
+    raise AssertionError("argparse.error must exit")
 
 
 def run_command(

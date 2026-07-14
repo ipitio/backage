@@ -192,6 +192,46 @@ class StopController:
             self._event.wait(min(self.timing.poll_interval, remaining))
 
     @contextmanager
+    def finalization_scope(self) -> Generator[None, None, None]:
+        """Defer an existing stop while allowing a new stop to interrupt cleanup."""
+
+        previous_timeout = self.state.get(_TIMEOUT_KEY)
+        previous_requested = self._event.is_set() or previous_timeout == "1"
+        previous_reason = self._reason
+        previous_max_duration = self.max_duration
+        completed_normally = False
+
+        self._event.clear()
+        self._reason = None
+        self.max_duration = -1
+        self.state.set(_TIMEOUT_KEY, 0)
+        try:
+            yield
+            completed_normally = True
+        finally:
+            newly_requested = (
+                self._event.is_set() or self.state.get(_TIMEOUT_KEY) == "1"
+            )
+            new_reason = self._reason
+            self.max_duration = previous_max_duration
+            self._event.clear()
+
+            if newly_requested:
+                self._event.set()
+                self._reason = new_reason or "requested"
+                self.state.set(_TIMEOUT_KEY, 1)
+                if completed_normally:
+                    raise GracefulStop(self._reason)
+            else:
+                self._reason = previous_reason
+                if previous_requested:
+                    self._event.set()
+                if previous_timeout is None:
+                    self.state.delete(_TIMEOUT_KEY)
+                else:
+                    self.state.set(_TIMEOUT_KEY, previous_timeout)
+
+    @contextmanager
     def signal_handlers(
         self,
         handled_signals: Sequence[signal.Signals] = (

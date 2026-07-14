@@ -83,6 +83,43 @@ class TestRuntimeControl:
                 controller.check()
             assert controller.reason == "persisted"
 
+    def test_finalization_scope_defers_and_restores_an_existing_stop(self) -> None:
+        """Snapshot cleanup can finish before the original stop is restored."""
+
+        with tempfile.TemporaryDirectory() as directory:
+            state_path = Path(directory) / "env.env"
+            state_path.touch()
+            state = StateStore(state_path)
+            controller = StopController(state, max_duration=5)
+            controller.request_stop("elapsed")
+
+            with controller.finalization_scope():
+                controller.check()
+                assert state.get("BKG_TIMEOUT") == "0"
+
+            assert controller.reason == "elapsed"
+            assert controller.is_requested()
+            assert state.get("BKG_TIMEOUT") == "1"
+
+    def test_finalization_scope_retains_a_new_stop_request(self) -> None:
+        """A late finalization interruption cannot be cleared as success."""
+
+        with tempfile.TemporaryDirectory() as directory:
+            state_path = Path(directory) / "env.env"
+            state_path.touch()
+            state = StateStore(state_path)
+            controller = StopController(state, max_duration=0)
+
+            with (
+                pytest.raises(GracefulStop, match="signal-15"),
+                controller.finalization_scope(),
+            ):
+                controller.request_stop("signal-15")
+
+            assert controller.reason == "signal-15"
+            assert controller.is_requested()
+            assert state.get("BKG_TIMEOUT") == "1"
+
     def test_signal_requests_and_persists_stop(self) -> None:
         """SIGTERM becomes a graceful stop instead of terminating the process."""
 

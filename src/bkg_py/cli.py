@@ -19,6 +19,19 @@ def build_parser() -> argparse.ArgumentParser:
         "config",
         help="print the Python view of the bkg runtime configuration as JSON",
     )
+    run_parser = subparsers.add_parser(
+        "run",
+        help="run the complete migrated application lifecycle",
+    )
+    run_parser.add_argument("-d", "--duration", type=int)
+    run_parser.add_argument("-m", "--mode", type=int, choices=range(6))
+    run_parser.add_argument(
+        "--source-published-today",
+        choices=("true", "false"),
+        default="false",
+    )
+    run_parser.add_argument("--working-directory", default=".")
+    run_parser.add_argument("--owner-request-limit", type=int, default=100)
     validate_parser = subparsers.add_parser(
         "validate",
         help="validate a generated JSON or XML file",

@@ -59,11 +59,29 @@ test_materialize_index_queue_owners_adds_owner_subtrees() {
 	assert_file_exists "$repo_path/beta/repo-b/package.json"
 }
 
+test_python_run_materializer_keeps_shell_workspace_boundary() {
+	local repo_path="$workdir/index-run-materialize"
+
+	setup_index_repo "$repo_path"
+	BKG_INDEX_DIR="$repo_path"
+	index_sparse_set_root || fail "Expected sparse root initialization to succeed before run materialization"
+
+	BKG_INDEX_DIR="$repo_path" \
+		BKG_SKIP_DEP_VERIFY=1 \
+		BKG_UTIL_BOOTSTRAPPED=1 \
+		bash "$src_dir/lib/materialize-owner-trees.sh" alpha beta ||
+		fail "Expected the Python run workspace boundary to materialize owners"
+
+	assert_file_exists "$repo_path/alpha/repo-a/package.json"
+	assert_file_exists "$repo_path/beta/repo-b/package.json"
+}
+
 trap cleanup EXIT
 
 source_project_script "lib/util.sh"
 
 run_test test_index_top_level_owner_count_uses_git_tree_with_root_sparse_checkout
 run_test test_materialize_index_queue_owners_adds_owner_subtrees
+run_test test_python_run_materializer_keeps_shell_workspace_boundary
 
 echo "Sparse workflow regression tests passed"
