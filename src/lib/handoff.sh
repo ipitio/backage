@@ -54,32 +54,103 @@ scheduled_update_should_run() {
 	return 0
 }
 
+workflow_handoff_format_marker() {
+	printf '%s\n' "Bkg-Control-Format: isolated-v1"
+}
+
+workflow_handoff_tip_is_isolated() {
+	local repo=$1
+	local commit=$2
+	local empty_tree
+	local tree
+	local message
+
+	empty_tree=$(git -C "$repo" mktree </dev/null) || return 1
+	tree=$(git -C "$repo" show -s --format=%T "$commit") || return 1
+	message=$(git -C "$repo" show -s --format=%B "$commit") || return 1
+	[ "$tree" = "$empty_tree" ] &&
+		[[ "$message" == *"$(workflow_handoff_format_marker)"* ]]
+}
+
+create_workflow_handoff_commit() {
+	local repo=$1
+	local parent=${2:-}
+	local isolated=${3:-true}
+	local empty_tree
+	local actor=${GITHUB_ACTOR:-github-actions[bot]}
+	local actor_email=${GITHUB_ACTOR:-41898282+github-actions[bot]}@users.noreply.github.com
+	local -a commit_args
+
+	empty_tree=$(git -C "$repo" mktree </dev/null) || return 1
+	commit_args=("$empty_tree")
+	[ -z "$parent" ] || commit_args+=(-p "$parent")
+	commit_args+=(-m "Request workflow handoff (${GITHUB_RUN_ID:-manual})")
+	if [ "$isolated" = true ]; then
+		commit_args+=(-m "$(workflow_handoff_format_marker)")
+	fi
+	GIT_AUTHOR_NAME="$actor" \
+		GIT_AUTHOR_EMAIL="$actor_email" \
+		GIT_COMMITTER_NAME="$actor" \
+		GIT_COMMITTER_EMAIL="$actor_email" \
+		git -C "$repo" commit-tree "${commit_args[@]}"
+}
+
 request_workflow_handoff() {
 	local repo=${1:-.}
 	local control_ref
 	local remote_sha
 	local base
+	local candidate
+	local current_sha
 	local attempt
 
 	control_ref=$(handoff_control_ref) || return 1
-	git -C "$repo" config user.name "${GITHUB_ACTOR:-github-actions[bot]}"
-	git -C "$repo" config user.email "${GITHUB_ACTOR:-41898282+github-actions[bot]}@users.noreply.github.com"
 
 	for attempt in 1 2 3; do
 		remote_sha=$(read_remote_handoff_sha "$repo") || {
 			echo "Failed to read workflow handoff ref" >&2
 			return 1
 		}
-		base=$(git -C "$repo" rev-parse HEAD) || return 1
 		if [ -n "$remote_sha" ]; then
 			git -C "$repo" fetch --quiet --no-tags --depth=1 origin "$control_ref" || continue
 			base=$(git -C "$repo" rev-parse FETCH_HEAD) || continue
+			if workflow_handoff_tip_is_isolated "$repo" "$base"; then
+				candidate=$(create_workflow_handoff_commit "$repo" "$base") || return 1
+				if git -C "$repo" push --quiet origin "$candidate:$control_ref"; then
+					echo "Requested graceful handoff from the active update"
+					return 0
+				fi
+				echo "Workflow handoff ref changed concurrently; retrying ($attempt/3)" >&2
+				continue
+			fi
+
+			candidate=$(create_workflow_handoff_commit "$repo") || return 1
+			if git -C "$repo" push --quiet \
+				--force-with-lease="$control_ref:$remote_sha" \
+				origin "$candidate:$control_ref" 2>/dev/null; then
+				echo "Migrated workflow handoff ref to isolated history"
+				echo "Requested graceful handoff from the active update"
+				return 0
+			fi
+
+			current_sha=$(read_remote_handoff_sha "$repo") || return 1
+			if [ "$current_sha" != "$remote_sha" ]; then
+				echo "Workflow handoff ref changed concurrently; retrying ($attempt/3)" >&2
+				continue
+			fi
+
+			candidate=$(create_workflow_handoff_commit "$repo" "$base" false) || return 1
+			if git -C "$repo" push --quiet origin "$candidate:$control_ref"; then
+				echo "Workflow handoff ref could not be isolated; preserving its existing history" >&2
+				echo "Requested graceful handoff from the active update"
+				return 0
+			fi
+			echo "Workflow handoff ref changed concurrently; retrying ($attempt/3)" >&2
+			continue
 		fi
 
-		git -C "$repo" switch --quiet --detach "$base" || return 1
-		git -C "$repo" commit --allow-empty \
-			-m "Request workflow handoff (${GITHUB_RUN_ID:-manual})" >/dev/null || return 1
-		if git -C "$repo" push --quiet origin "HEAD:$control_ref"; then
+		candidate=$(create_workflow_handoff_commit "$repo") || return 1
+		if git -C "$repo" push --quiet origin "$candidate:$control_ref"; then
 			echo "Requested graceful handoff from the active update"
 			return 0
 		fi

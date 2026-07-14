@@ -7,7 +7,7 @@ from html.parser import HTMLParser
 from typing import Protocol
 from urllib.parse import parse_qs, urlencode, urlsplit
 
-from .database_models import OwnerScanPackage
+from .database import OwnerScanPackage
 
 _PAGE_SIZE = 100
 _OWNER_TYPES = frozenset({"orgs", "users"})

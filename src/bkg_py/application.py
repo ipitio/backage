@@ -10,8 +10,7 @@ from pathlib import Path
 
 from .concurrency import BoundedWorkerRunner, ConcurrencySettings
 from .config import RuntimeConfig
-from .database import DatabaseRepository
-from .database_settings import DatabaseSettings
+from .database import DatabaseRepository, DatabaseSettings
 from .enrichment import MetricEnrichmentCircuit
 from .github import (
     GitHubClient,

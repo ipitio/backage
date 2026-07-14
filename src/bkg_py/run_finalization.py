@@ -7,7 +7,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Protocol
 
-from .database_models import PackageInventory
+from .database import PackageInventory
 from .run_publication import RunPublicationRequest
 from .snapshots import SnapshotRotationResult
 from .state import StateStore

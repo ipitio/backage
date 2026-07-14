@@ -15,7 +15,7 @@ from ..orchestration import (
     OwnerPhaseDecision,
     RunOutcomePolicy,
 )
-from ..owner_batch import OwnerBatchRequest, parse_owner_queue
+from ..owners import OwnerBatchRequest, parse_owner_queue
 from ..result import ExitStatus
 from ..run_planning import PackageWorkPlanSummary
 from ..run_startup import RunStartupResult

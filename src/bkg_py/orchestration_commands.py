@@ -12,7 +12,7 @@ from .database import DatabaseError
 from .discovery import DiscoveryError
 from .github import GitHubError
 from .orchestration import BatchRuntimeService, RunOutcomePolicy
-from .owner_batch import OwnerBatchRequest
+from .owners import OwnerBatchRequest
 from .result import ExitStatus
 from .run import OwnerQueuePhaseRequest, RunCoordinatorRequest
 from .run.application import (

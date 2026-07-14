@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from bkg_py.database_models import PackageWorkItem, PackageWorkPlan
+from bkg_py.database import PackageWorkItem, PackageWorkPlan
 from bkg_py.run_planning import PackageWorkPlanService
 
 

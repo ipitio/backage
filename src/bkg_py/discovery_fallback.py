@@ -9,7 +9,7 @@ from urllib.parse import quote, urlsplit
 
 from .discovery import DiscoveryError, owner_ref_login
 from .github import GitHubClient, GitHubError, GitHubNotFoundError
-from .owner_queue import normalize_owner_lines
+from .owners import normalize_owner_lines
 
 _GITHUB_WEB_ROOT = "https://github.com"
 _HTML_PAGE_SIZE = 15

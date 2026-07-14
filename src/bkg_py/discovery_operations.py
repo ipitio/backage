@@ -9,8 +9,7 @@ from pathlib import Path
 from typing import Protocol
 
 from .files import atomic_text_output
-from .owner_pages import OwnerPageAdmissionResult
-from .owner_queue import normalize_owner_lines
+from .owners import OwnerPageAdmissionResult, normalize_owner_lines
 
 MessageSink = Callable[[str], None]
 StopCheck = Callable[[], None]

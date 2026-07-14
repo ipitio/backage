@@ -11,27 +11,28 @@ import pytest
 from bkg_py import ExitStatus
 from bkg_py.cli import main
 from bkg_py.concurrency import BoundedWorkerRunner, ConcurrencySettings
-from bkg_py.database import DatabaseRepository, DatabaseSettings
-from bkg_py.database_models import (
+from bkg_py.database import (
+    DatabaseRepository,
+    DatabaseSettings,
     OwnerScanPackage,
     PackageBatch,
     PackageRecord,
     PackageRef,
 )
-from bkg_py.owner_package_updates import (
+from bkg_py.owners.package_updates import (
     OwnerPackageRefreshExecution,
     OwnerPackageRefreshRequest,
     OwnerPackageRefreshResult,
     OwnerPackageRefreshService,
     allocate_worker_counts,
 )
-from bkg_py.owner_scan_pages import (
+from bkg_py.owners.scan_pages import (
     OwnerScanPageExecution,
     OwnerScanPageService,
     OwnerScanPagesRequest,
     OwnerScanPagesResult,
 )
-from bkg_py.owner_updates import OwnerScanService
+from bkg_py.owners.updates import OwnerScanService
 from bkg_py.package_updates import (
     PackageRefreshError,
     PackageRefreshExecution,

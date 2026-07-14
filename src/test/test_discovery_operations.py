@@ -13,7 +13,7 @@ from bkg_py.discovery_operations import (
     DiscoveryPhaseService,
     DiscoveryPhaseServices,
 )
-from bkg_py.owner_pages import OwnerPageAdmissionResult
+from bkg_py.owners.pages import OwnerPageAdmissionResult
 
 
 @dataclass

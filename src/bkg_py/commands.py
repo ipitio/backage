@@ -23,8 +23,8 @@ from .versions import (
 
 if TYPE_CHECKING:
     from .application import ApplicationContext
-    from .database import DatabaseRepository
-    from .database_models import (
+    from .database import (
+        DatabaseRepository,
         OwnerScanResult,
         PackageRef,
     )
@@ -33,14 +33,14 @@ if TYPE_CHECKING:
         OwnerIdentityResolver,
         RestOwnerDiscoveryPage,
     )
-    from .owner_pages import OwnerPageAdmissionResult
+    from .owners import OwnerPageAdmissionResult
     from .runtime import GracefulStop
     from .snapshots import SnapshotStore
     from .version_updates import VersionRefreshResult
 
 
 def _package_ref(args: argparse.Namespace) -> PackageRef:
-    from .database_models import PackageRef
+    from .database import PackageRef
 
     return PackageRef(
         owner_id=args.owner_id,
@@ -174,8 +174,7 @@ def _run_owner_scan_lifecycle(
     args: argparse.Namespace,
     database: DatabaseRepository,
 ) -> bool:
-    from .database import DatabaseError
-    from .database_models import load_owner_scan_packages
+    from .database import DatabaseError, load_owner_scan_packages
 
     command = args.database_command
     if command == "begin-owner-scan":
@@ -227,7 +226,7 @@ def _run_owner_scan_retry(
     args: argparse.Namespace,
     database: DatabaseRepository,
 ) -> bool:
-    from .database_models import OwnerScanFailure
+    from .database import OwnerScanFailure
 
     command = args.database_command
     if command == "fail-owner-scan":
@@ -462,7 +461,7 @@ def _run_discovery_page_command(
     application: ApplicationContext,
 ) -> None:
     from .discovery import DiscoveryError
-    from .owner_pages import (
+    from .owners import (
         OwnerPageAdmissionConfig,
         admit_owner_page,
     )
@@ -885,7 +884,7 @@ def _application_runner(
 
         return run_package
     if command == "owner":
-        from .owner_commands import run_owner
+        from .owners.commands import run_owner
 
         return run_owner
     if command == "orchestration":
@@ -913,7 +912,7 @@ def run_command(
 
         status = validate_generated_file(args.file)
     elif args.command == "select-owners":
-        from .owner_queue import OwnerQueuePaths, OwnerQueueSelector
+        from .owners import OwnerQueuePaths, OwnerQueueSelector
 
         selector = OwnerQueueSelector(
             rest_first=args.rest_first,

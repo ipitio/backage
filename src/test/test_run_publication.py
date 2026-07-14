@@ -6,8 +6,13 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
-from bkg_py.database import DatabaseRepository, DatabaseSettings
-from bkg_py.database_models import PackageInventory, PackageRecord, PackageRef
+from bkg_py.database import (
+    DatabaseRepository,
+    DatabaseSettings,
+    PackageInventory,
+    PackageRecord,
+    PackageRef,
+)
 from bkg_py.run_publication import (
     RunPublicationIdentity,
     RunPublicationPaths,

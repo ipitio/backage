@@ -6,8 +6,10 @@ from pathlib import Path
 
 import pytest
 
-from bkg_py.database import DatabaseError, DatabaseRepository, DatabaseSettings
-from bkg_py.database_models import (
+from bkg_py.database import (
+    DatabaseError,
+    DatabaseRepository,
+    DatabaseSettings,
     OwnerScanPackage,
     OwnerScanPage,
     OwnerScanStart,

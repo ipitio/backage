@@ -14,8 +14,9 @@ import bkg_py.package_updates
 from bkg_py.application import ApplicationContext
 from bkg_py.cli import main
 from bkg_py.concurrency import BoundedWorkerRunner, ConcurrencySettings
-from bkg_py.database import DatabaseRepository, DatabaseSettings
-from bkg_py.database_models import (
+from bkg_py.database import (
+    DatabaseRepository,
+    DatabaseSettings,
     PackageRecord,
     PackageRef,
     VersionMetrics,

@@ -8,16 +8,16 @@ from pathlib import Path
 
 import pytest
 
-from bkg_py.database import DatabaseRepository
-from bkg_py.database_models import (
+from bkg_py.database import (
+    DatabaseRepository,
+    DatabaseSettings,
     PackageRecord,
     PackageRef,
     VersionMetrics,
     VersionRecord,
     VersionStage,
 )
-from bkg_py.database_settings import DatabaseSettings
-from bkg_py.owner_publication import (
+from bkg_py.owners.publication import (
     OwnerPublicationRequest,
     OwnerPublicationService,
 )

@@ -11,8 +11,8 @@ from typing import TYPE_CHECKING, Protocol
 from urllib.parse import quote
 
 from . import package_updates, version_updates
-from .database import DatabaseError
-from .database_models import (
+from .database import (
+    DatabaseError,
     OwnerScanCursor,
     OwnerScanPackage,
     OwnerScanPage,

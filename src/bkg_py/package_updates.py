@@ -10,8 +10,13 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
-from .database import DatabaseError, DatabaseRepository
-from .database_models import PackageRecord, PackageRef, VersionRecord
+from .database import (
+    DatabaseError,
+    DatabaseRepository,
+    PackageRecord,
+    PackageRef,
+    VersionRecord,
+)
 from .enrichment import (
     METRIC_TEXT_REQUEST_POLICY,
     PACKAGE_METRIC_SCOPE,

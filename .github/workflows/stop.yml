@@ -1,0 +1,22 @@
+name: stop
+
+on:
+  workflow_dispatch:
+
+env:
+  BKG_HANDOFF_CONTROL_REF: refs/heads/bkg-control
+
+jobs:
+  stop:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@main
+
+      - name: Request graceful stop
+        run: bash src/lib/handoff.sh request

@@ -8,8 +8,12 @@ import pytest
 
 from bkg_py import ExitStatus
 from bkg_py.cli import main
-from bkg_py.database import DatabaseRepository, DatabaseSettings
-from bkg_py.database_models import PackageRecord, PackageRef
+from bkg_py.database import (
+    DatabaseRepository,
+    DatabaseSettings,
+    PackageRecord,
+    PackageRef,
+)
 from bkg_py.orchestration import BatchRuntimeService, RunOutcomePolicy
 from bkg_py.state import StateStore
 

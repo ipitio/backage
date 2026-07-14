@@ -9,14 +9,16 @@ from contextlib import contextmanager
 from typing import Any
 
 from . import (
-    database_batch_progress,
-    database_owner_scans,
-    database_package_plans,
-    database_packages,
-    database_schema,
-    database_version_stages,
+    batch_progress,
+    owner_scans,
+    package_plans,
+    schema,
+    version_stages,
 )
-from .database_models import (
+from . import (
+    packages as package_records,
+)
+from .models import (
     OwnerRecord,
     PackageInventory,
     PackageRecord,
@@ -29,30 +31,30 @@ from .database_models import (
     VersionSource,
     VersionStage,
 )
-from .database_owner_identities import OwnerIdentityRepositoryMixin
-from .database_owner_repository import OwnerScanRepositoryMixin
-from .database_settings import DatabaseSettings
-from .database_support import DatabaseError
-from .database_values import (
-    package_sort_key as _package_sort_key,
-)
-from .database_values import (
-    package_values as _package_values,
-)
-from .database_values import (
-    ranked_package as _ranked_package,
-)
-from .database_values import (
-    version_record as _version_record,
-)
-from .database_values import (
-    version_records as _version_records,
-)
+from .owner_identities import OwnerIdentityRepositoryMixin
+from .owner_repository import OwnerScanRepositoryMixin
 from .render_sql import (
     OWNER_VERSION_LIMIT_SQL,
     OWNER_VERSION_ROWS_SQL,
     PACKAGE_SNAPSHOT_SQL,
     RANKED_PACKAGES_SQL,
+)
+from .settings import DatabaseSettings
+from .support import DatabaseError
+from .values import (
+    package_sort_key as _package_sort_key,
+)
+from .values import (
+    package_values as _package_values,
+)
+from .values import (
+    ranked_package as _ranked_package,
+)
+from .values import (
+    version_record as _version_record,
+)
+from .values import (
+    version_records as _version_records,
 )
 
 _RETRYABLE_MESSAGES = (
@@ -97,7 +99,7 @@ class DatabaseRepository(  # pylint: disable=too-many-public-methods
 
         def create(connection: sqlite3.Connection) -> None:
             with _transaction(connection):
-                database_schema.ensure(
+                schema.ensure(
                     connection,
                     self.settings.owners_table,
                     self.settings.packages_table,
@@ -111,7 +113,7 @@ class DatabaseRepository(  # pylint: disable=too-many-public-methods
 
         self.ensure_schema()
         self._run_write(
-            lambda connection: database_owner_scans.write_owner(
+            lambda connection: owner_scans.write_owner(
                 connection,
                 self.settings.owners_table,
                 record,
@@ -138,7 +140,7 @@ class DatabaseRepository(  # pylint: disable=too-many-public-methods
 
         self.ensure_schema()
         self._run_write(
-            lambda connection: database_packages.write(
+            lambda connection: package_records.write(
                 connection,
                 self.settings.packages_table,
                 record,
@@ -186,7 +188,7 @@ class DatabaseRepository(  # pylint: disable=too-many-public-methods
             return 0
 
         def flush(connection: sqlite3.Connection) -> None:
-            database_version_stages.flush(
+            version_stages.flush(
                 connection,
                 self.settings.versions_table,
                 stage,
@@ -204,7 +206,7 @@ class DatabaseRepository(  # pylint: disable=too-many-public-methods
 
         self.ensure_schema()
         return self._run_read(
-            lambda connection: database_packages.updated_since(
+            lambda connection: package_records.updated_since(
                 connection,
                 self.settings.packages_table,
                 package,
@@ -217,7 +219,7 @@ class DatabaseRepository(  # pylint: disable=too-many-public-methods
 
         self.ensure_schema()
         self._run_write(
-            lambda connection: database_batch_progress.bootstrap(
+            lambda connection: batch_progress.bootstrap(
                 connection,
                 self.settings.packages_table,
                 batch_marker,
@@ -234,7 +236,7 @@ class DatabaseRepository(  # pylint: disable=too-many-public-methods
 
         self.ensure_schema()
         return self._run_read(
-            lambda connection: database_batch_progress.completed(
+            lambda connection: batch_progress.completed(
                 connection,
                 package,
                 batch_marker,
@@ -251,7 +253,7 @@ class DatabaseRepository(  # pylint: disable=too-many-public-methods
 
         self.ensure_schema()
         self._run_write(
-            lambda connection: database_batch_progress.mark_completed(
+            lambda connection: batch_progress.mark_completed(
                 connection,
                 package,
                 batch_marker,
@@ -267,14 +269,14 @@ class DatabaseRepository(  # pylint: disable=too-many-public-methods
         """Read the current package batch plan from one database snapshot."""
 
         self.ensure_schema()
-        selection = database_package_plans.PackagePlanSelection(
+        selection = package_plans.PackagePlanSelection(
             self.settings.packages_table,
             self.settings.owners_table,
             since,
             batch_marker,
         )
         return self._run_read(
-            lambda connection: database_package_plans.load(connection, selection)
+            lambda connection: package_plans.load(connection, selection)
         )
 
     def package_inventory(self) -> PackageInventory:
@@ -282,7 +284,7 @@ class DatabaseRepository(  # pylint: disable=too-many-public-methods
 
         self.ensure_schema()
         return self._run_read(
-            lambda connection: database_packages.inventory(
+            lambda connection: package_records.inventory(
                 connection,
                 self.settings.packages_table,
                 self._check_stop,
@@ -294,7 +296,7 @@ class DatabaseRepository(  # pylint: disable=too-many-public-methods
 
         self.ensure_schema()
         return self._run_read(
-            lambda connection: database_packages.maximum_downloads(
+            lambda connection: package_records.maximum_downloads(
                 connection,
                 self.settings.packages_table,
                 package,
@@ -310,7 +312,7 @@ class DatabaseRepository(  # pylint: disable=too-many-public-methods
 
         self.ensure_schema()
         self._run_write(
-            lambda connection: database_packages.mark_publication_pending_transaction(
+            lambda connection: package_records.mark_publication_pending_transaction(
                 connection,
                 package,
                 updated_at,
@@ -322,7 +324,7 @@ class DatabaseRepository(  # pylint: disable=too-many-public-methods
 
         self.ensure_schema()
         return self._run_read(
-            lambda connection: database_packages.publication_pending(
+            lambda connection: package_records.publication_pending(
                 connection,
                 package,
             )
@@ -333,7 +335,7 @@ class DatabaseRepository(  # pylint: disable=too-many-public-methods
 
         self.ensure_schema()
         self._run_write(
-            lambda connection: database_packages.clear_publication_transaction(
+            lambda connection: package_records.clear_publication_transaction(
                 connection,
                 package,
             )
@@ -345,7 +347,7 @@ class DatabaseRepository(  # pylint: disable=too-many-public-methods
         self.ensure_schema()
 
         self._run_write(
-            lambda connection: database_packages.retire(
+            lambda connection: package_records.retire(
                 connection,
                 self.settings.packages_table,
                 self.settings.versions_table,
@@ -641,13 +643,13 @@ class DatabaseRepository(  # pylint: disable=too-many-public-methods
         if not owner:
             raise DatabaseError("owner is required")
         self.ensure_schema()
-        tables = database_owner_scans.OwnerScanTables(
+        tables = owner_scans.OwnerScanTables(
             self.settings.owners_table,
             self.settings.packages_table,
             self.settings.versions_table,
         )
         return self._run_write(
-            lambda connection: database_owner_scans.retire_owner(
+            lambda connection: owner_scans.retire_owner(
                 connection,
                 owner,
                 tables,

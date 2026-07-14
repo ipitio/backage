@@ -14,7 +14,7 @@ from bkg_py.discovery import (
     OwnerIdentityResolver,
 )
 from bkg_py.github import GitHubClient, GitHubSettings
-from bkg_py.owner_pages import OwnerPageAdmissionConfig, admit_owner_page
+from bkg_py.owners.pages import OwnerPageAdmissionConfig, admit_owner_page
 from bkg_py.result import ExitStatus
 from bkg_py.state import StateStore
 

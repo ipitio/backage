@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from bkg_py.database_models import PackageInventory
+from bkg_py.database import PackageInventory
 from bkg_py.run_finalization import (
     RunFinalizationExecution,
     RunFinalizationRequest,

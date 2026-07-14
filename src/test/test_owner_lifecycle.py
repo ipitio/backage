@@ -10,8 +10,9 @@ import pytest
 
 from bkg_py import ExitStatus
 from bkg_py.cli import main
-from bkg_py.database import DatabaseRepository, DatabaseSettings
-from bkg_py.database_models import (
+from bkg_py.database import (
+    DatabaseRepository,
+    DatabaseSettings,
     OwnerScanPackage,
     OwnerScanPage,
     OwnerScanResult,
@@ -21,23 +22,23 @@ from bkg_py.database_models import (
     PackageRef,
 )
 from bkg_py.discovery import OwnerIdentityResolver
-from bkg_py.owner_lifecycle import (
+from bkg_py.owners.lifecycle import (
     OwnerLifecycleExecution,
     OwnerLifecycleRequest,
     OwnerLifecycleResult,
     OwnerLifecycleService,
     OwnerLifecycleServices,
 )
-from bkg_py.owner_package_updates import (
+from bkg_py.owners.package_updates import (
     OwnerPackageRefreshRequest,
     OwnerPackageRefreshResult,
 )
-from bkg_py.owner_publication import (
+from bkg_py.owners.publication import (
     OwnerPublicationRequest,
     OwnerPublicationResult,
 )
-from bkg_py.owner_scan_pages import OwnerScanPagesRequest, OwnerScanPagesResult
-from bkg_py.owner_updates import (
+from bkg_py.owners.scan_pages import OwnerScanPagesRequest, OwnerScanPagesResult
+from bkg_py.owners.updates import (
     OwnerScanOutcome,
     OwnerScanReconciliation,
     OwnerScanVerificationResult,

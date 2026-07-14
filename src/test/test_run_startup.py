@@ -4,8 +4,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from bkg_py.database import DatabaseRepository, DatabaseSettings
-from bkg_py.database_models import PackageRecord, PackageRef
+from bkg_py.database import (
+    DatabaseRepository,
+    DatabaseSettings,
+    PackageRecord,
+    PackageRef,
+)
 from bkg_py.discovery import OwnerIdentityCache
 from bkg_py.run_startup import (
     RunStartupExecution,

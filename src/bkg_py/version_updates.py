@@ -9,8 +9,13 @@ from threading import Lock
 from urllib.parse import unquote
 
 from .concurrency import BoundedWorkerRunner
-from .database import DatabaseRepository
-from .database_models import PackageRef, VersionMetrics, VersionRecord, VersionStage
+from .database import (
+    DatabaseRepository,
+    PackageRef,
+    VersionMetrics,
+    VersionRecord,
+    VersionStage,
+)
 from .enrichment import (
     METRIC_TEXT_REQUEST_POLICY,
     VERSION_METRIC_SCOPE,

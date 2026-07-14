@@ -13,7 +13,7 @@ from decimal import ROUND_DOWN, Decimal
 from pathlib import Path
 from typing import Protocol
 
-from .database_models import PackageInventory
+from .database import PackageInventory
 from .files import atomic_binary_output, atomic_text_output
 from .publication import publish_json_file
 from .state import StateStore

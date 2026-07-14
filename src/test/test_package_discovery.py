@@ -11,8 +11,7 @@ import pytest
 import bkg_py.package_commands
 from bkg_py.application import ApplicationContext
 from bkg_py.cli import main
-from bkg_py.database import DatabaseRepository, DatabaseSettings
-from bkg_py.database_models import OwnerScanPackage
+from bkg_py.database import DatabaseRepository, DatabaseSettings, OwnerScanPackage
 from bkg_py.github import GitHubNotFoundError
 from bkg_py.package_discovery import (
     PackageListingPage,

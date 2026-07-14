@@ -9,9 +9,9 @@ from pathlib import Path
 
 import pytest
 
-from bkg_py.owner_batch import OwnerBatchEffects
-from bkg_py.owner_queue import OwnerQueuePaths, OwnerQueueSelector
-from bkg_py.owner_queue_operations import (
+from bkg_py.owners.batch import OwnerBatchEffects
+from bkg_py.owners.queue import OwnerQueuePaths, OwnerQueueSelector
+from bkg_py.owners.queue_operations import (
     OwnerQueuePreparationExecution,
     OwnerQueuePreparationPaths,
     OwnerQueuePreparationRequest,

@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 from bkg_py.concurrency import ConcurrencySettings
-from bkg_py.owner_batch import (
+from bkg_py.owners.batch import (
     OwnerBatchEffects,
     OwnerBatchExecution,
     OwnerBatchRequest,
@@ -17,10 +17,10 @@ from bkg_py.owner_batch import (
     allocate_owner_worker_counts,
     parse_owner_queue,
 )
-from bkg_py.owner_lifecycle import OwnerLifecycleResult
-from bkg_py.owner_operations import OwnerUpdateRequest
-from bkg_py.owner_scan_pages import OwnerScanPagesResult
-from bkg_py.owner_updates import OwnerScanOutcome
+from bkg_py.owners.lifecycle import OwnerLifecycleResult
+from bkg_py.owners.operations import OwnerUpdateRequest
+from bkg_py.owners.scan_pages import OwnerScanPagesResult
+from bkg_py.owners.updates import OwnerScanOutcome
 from bkg_py.result import ExitStatus
 from bkg_py.runtime import GracefulStop
 from bkg_py.state import StateStore

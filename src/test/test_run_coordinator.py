@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from bkg_py.orchestration import BatchRuntimeService
-from bkg_py.owner_batch import OwnerBatchRequest
+from bkg_py.owners.batch import OwnerBatchRequest
 from bkg_py.result import ExitStatus
 from bkg_py.run import (
     OwnerQueuePhaseRequest,

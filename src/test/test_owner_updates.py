@@ -9,13 +9,14 @@ import pytest
 
 from bkg_py import ExitStatus
 from bkg_py.cli import main
-from bkg_py.database import DatabaseRepository, DatabaseSettings
-from bkg_py.database_models import (
+from bkg_py.database import (
+    DatabaseRepository,
+    DatabaseSettings,
     OwnerScanPackage,
     PackageRecord,
     PackageRef,
 )
-from bkg_py.owner_updates import (
+from bkg_py.owners.updates import (
     OwnerScanVerificationRequest,
     OwnerScanVerificationService,
 )

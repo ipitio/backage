@@ -16,12 +16,14 @@ from bkg_py.database import (
     DatabaseRepository,
     DatabaseSettings,
     OwnerRecord,
+    OwnerScanFailure,
+    OwnerScanPackage,
     PackageRecord,
     PackageRef,
+    VersionMetrics,
     VersionRecord,
     VersionStage,
 )
-from bkg_py.database_models import OwnerScanFailure, OwnerScanPackage, VersionMetrics
 from bkg_py.runtime import GracefulStop
 
 _TODAY = "2026-06-10"

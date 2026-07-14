@@ -11,7 +11,7 @@ from .database import DatabaseRepository
 from .discovery import OwnerIdentityCache
 from .files import atomic_text_output
 from .orchestration import BatchRuntimeService
-from .owner_queue import normalize_owner_lines
+from .owners import normalize_owner_lines
 from .run_planning import PackageWorkPlanService, PackageWorkPlanSummary
 from .snapshots import SnapshotError, SnapshotStore
 from .state import StateStore
