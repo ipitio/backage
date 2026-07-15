@@ -1,4 +1,3 @@
-2998062/suttek
 2998012/swiss7
 2998032/t-h-k
 2998002/tailor31susan
@@ -10,7 +9,6 @@
 2998705/web100
 3000238/webmenu
 2997999/womenticket09
-2998050/xavierc3
 3005714/xinunw
 3005879/yaqumo
 3002956/yelo-npm
@@ -52,11 +50,9 @@
 3007952/DAINTINESS-Group
 3011116/DateNightWorks
 3007788/DotJames
-3009284/ENTRUSTSolutionsDevelopment
 3011823/Einmaleins
 3012892/FOULAB
 3010959/Gig-o-Matic
-3007816/GraceCash
 3011570/Initvisual
 3013571/IntegriousMedia
 3011305/InteractiveMechanics
@@ -83,7 +79,6 @@
 3009776/PrimeSenseLabs
 3008304/Project-Hud
 3011268/PubSquared
-3011913/PulseMiningSystems
 3007726/R0G3RRR
 3007784/RFIDTeam
 3010453/RapidLabs
@@ -163,7 +158,6 @@
 3007798/lion3boat
 3007727/lorram
 3010275/melotelinc
-3007822/moataz242
 3007786/narsib
 3009712/nbinfotech
 3011579/netkillercom
@@ -184,13 +178,11 @@
 3009289/sharelatex
 3010788/simutrans
 3007725/sock59action
-3007824/space5rake
 3007813/sparra-movix
 3007775/spruce03dibble
 3007782/srjzcar
 3011136/statesman
 3010939/switchcam
-3007767/t2git
 3007754/tammyyhcgp1iu7
 3013147/teamLUCiD
 3011454/thepixelheart
@@ -201,7 +193,6 @@
 3007765/valley42edger
 3007756/virtuellerealitaet
 3010115/vup
-3011601/wakashige
 3007733/xiniyo
 3007750/yhoxyquwy
 3014253/SOLA-LESOTHO
@@ -215,7 +206,6 @@
 3014699/live106
 3014741/girdlepeak0
 3014877/Hacker0x01
-3014921/SolarHalo
 3015081/Infuze
 3014922/kidney8gauge
 3015082/josemer
@@ -242,12 +232,9 @@
 3016081/isldevops
 3016223/Funktia
 3016082/renatohd
-3016225/isaachibou
 3016309/modelica
-3016341/LakewoodCatOOP
 3016437/flwang
 3016488/CLTCLJ
-3016543/algowiz
 3016489/bottleflat65
 3016598/Z-mood
 3016544/stoveyard05
@@ -256,7 +243,6 @@
 3016636/cork99bow
 3016659/mer-packages
 3016758/Filibaba
-3016759/ojekgent
 3016786/MARSO-Kft
 3016762/aelkikhia
 3016787/KDemeul
