@@ -1,4 +1,3 @@
-2998002/tailor31susan
 2998705/web100
 3000238/webmenu
 2997999/womenticket09
@@ -13,7 +12,6 @@
 3007061/cycledish1
 3007065/muppetnuts
 3007252/Durooh
-3007287/Rookery
 3007288/Dyukon
 3007456/lojaintegrada
 3007358/mark3kitty
@@ -27,10 +25,8 @@
 3011322/Aloompa
 3012698/ArrowheadRobotics
 3007783/Avtje
-3007806/BBSDeadEye
 3008760/Bisafans
 3012215/CMUSiliconValley2012
-3013024/CS290Capstone
 3008376/CampaigningBureau
 3009784/Cetis
 3007738/CharlieThomas
@@ -52,7 +48,6 @@
 3007949/KeytroL
 3009739/KittenSoftware
 3010059/LabyrinthProject
-3014170/Learningwebdriver
 3007755/Livecom
 3007789/MamunurRahman
 3007809/MohitRaval
@@ -60,15 +55,12 @@
 3007731/Moroka
 3007723/NDeaf
 3008140/Neoprospecta
-3007773/NorthmansBitch
 3008998/Oculus360
 3008793/ParkITSolutions
 3007769/Petasutr
 3009776/PrimeSenseLabs
 3008304/Project-Hud
 3011268/PubSquared
-3007726/R0G3RRR
-3007784/RFIDTeam
 3010453/RapidLabs
 3007779/SARLEM
 3007815/ScratchFish
@@ -82,17 +74,14 @@
 3010167/Tunespotter
 3008991/UCD-Mel
 3010427/ZephyrHQ
-3007823/ZeusRdpsa
 3010214/aixigo
 3007770/ajrthegreat
 3007743/almedafavazza
 3007804/alxevo
-3007820/amichelotti
 3007818/archiyb
 3007791/art-killer
 3007797/awolder
 3007793/bajishaik4u
-3007810/bakervein3
 3007730/bananacanada69
 3012156/bandcampdotcom
 3007772/bez000
@@ -354,7 +343,6 @@
 3017049/laptopservis
 3017077/lenkakosnarova
 3017067/liobaka
-3017565/looloo
 3017610/lovechatt
 3022048/magmaconf
 3019550/major-lab
@@ -405,7 +393,6 @@
 3020871/simbioses
 3017678/sixteenbit
 3017085/sjjsy
-3017078/sockdebtor07
 3017096/spadegiant78
 3021058/sparklehub-re
 3017056/star1creek
@@ -428,10 +415,10 @@
 3019032/voilamylife
 3021761/webqem
 3020499/webtocracy
-3018721/whiskeycode
 3017063/winton168
 3017059/wpc062
 3020269/xgaziorg
 3017090/yogurtbadger51
 3022447/FIRSTAustralia
 3022431/agevinyl73
+3022448/cougarwire0
