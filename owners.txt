@@ -1,4 +1,3 @@
-3017526/mumax
 3017027/newlisp
 3017108/novel80blouse
 3020631/openapp
@@ -22,18 +21,15 @@
 3024522/GB3
 3028384/IndexaInternet
 3028017/JohnsonWalesUniversity
-3023467/MadooN
 3023791/MechanicalMen
 3023377/MissPi314
 3026079/ModemPub
 3026635/RDBlog
 3029050/Roave
 3027291/Snekabel
-3023380/TigerDaddy
 3026490/UBC-TestingCourse
 3023676/UGentPortaal
 3026932/VL2StorybookApps
-3023390/amluck
 3023472/azamazim
 3023410/ciapawhoca1972
 3027579/civinomics
@@ -47,14 +43,11 @@
 3025295/dasdrama
 3029714/debolk
 3023452/decade0meal
-3023461/deepikaravipati21
 3023398/degreehate1
-3023444/devsdd
 3029125/discovery
 3023453/diving1panda
 3024444/domitienda
 3026492/eol-fellows
-3026066/esdscom
 3028302/everplans
 3028808/finnav
 3024158/fourthwave
@@ -64,7 +57,6 @@
 3027532/generate
 3023442/ggonzales
 3023406/grain6comma
-3023399/hate29monday
 3023440/hectorilles
 3029729/ingenioti
 3023421/jar0lock
@@ -260,3 +252,4 @@
 3037200/JV2
 3037201/jimscarver
 3037276/getmyboat
+3037277/daniel-marquez
