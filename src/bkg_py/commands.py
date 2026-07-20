@@ -938,6 +938,10 @@ def run_command(
         status = ExitStatus.SUCCESS
     elif args.command == "version":
         status = _run_version(args)
+    elif args.command == "workspace":
+        from .workspace.commands import run_workspace
+
+        status = run_workspace(args)
     else:
         status = _run_application_command(args, parser)
     return status

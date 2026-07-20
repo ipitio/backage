@@ -70,7 +70,40 @@ def build_parser() -> argparse.ArgumentParser:
     _add_package_parsers(subparsers)
     _add_owner_parsers(subparsers)
     _add_orchestration_parsers(subparsers)
+    _add_workspace_parsers(subparsers)
     return parser
+
+
+def _add_workspace_parsers(subparsers: Any) -> None:
+    workspace_parser = subparsers.add_parser(
+        "workspace",
+        help="prepare repository and index workspaces",
+    )
+    workspace_commands = workspace_parser.add_subparsers(
+        dest="workspace_command",
+        required=True,
+    )
+    layout_parser = workspace_commands.add_parser(
+        "layout",
+        help="derive source and index branch paths",
+    )
+    layout_parser.add_argument("root")
+    layout_parser.add_argument("requested_branch", nargs="?")
+    import_parser = workspace_commands.add_parser(
+        "import-payload",
+        help="move a downloaded workflow payload into the repository",
+    )
+    import_parser.add_argument("payload_dir")
+    import_parser.add_argument("destination")
+    for command in (
+        "is-repo",
+        "sparse-root",
+        "sparse-add",
+        "top-level-count",
+        "ensure-pages",
+    ):
+        command_parser = workspace_commands.add_parser(command)
+        command_parser.add_argument("index_dir")
 
 
 def _add_orchestration_parsers(subparsers: Any) -> None:

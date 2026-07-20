@@ -136,33 +136,17 @@ resolve_release_snapshot_asset() {
 
 index_worktree_is_git_repo() {
     [ -n "${BKG_INDEX_DIR:-}" ] || return 1
-    git -C "$BKG_INDEX_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1
+    bkg_python workspace is-repo "$BKG_INDEX_DIR" >/dev/null 2>&1
 }
 
 index_sparse_set_root() {
-    index_worktree_is_git_repo || return 0
-    git -C "$BKG_INDEX_DIR" sparse-checkout init --cone >/dev/null 2>&1 || return 1
-    git -C "$BKG_INDEX_DIR" sparse-checkout set >/dev/null 2>&1 || return 1
+    [ -n "${BKG_INDEX_DIR:-}" ] || return 1
+    bkg_python workspace sparse-root "$BKG_INDEX_DIR"
 }
 
 index_sparse_add_paths() {
-    index_worktree_is_git_repo || return 0
-    local path
-    local -a batch=()
-
-    while IFS= read -r path; do
-        [ -n "$path" ] || continue
-        batch+=("$path")
-
-        if ((${#batch[@]} >= 100)); then
-            git -C "$BKG_INDEX_DIR" sparse-checkout add --skip-checks -- "${batch[@]}" || return 1
-            batch=()
-        fi
-    done
-
-    if ((${#batch[@]} > 0)); then
-        git -C "$BKG_INDEX_DIR" sparse-checkout add --skip-checks -- "${batch[@]}" || return 1
-    fi
+    [ -n "${BKG_INDEX_DIR:-}" ] || return 1
+    bkg_python workspace sparse-add "$BKG_INDEX_DIR"
 }
 
 index_queue_owner_names() {
@@ -170,17 +154,12 @@ index_queue_owner_names() {
 }
 
 materialize_index_queue_owners() {
-    index_worktree_is_git_repo || return 0
     index_queue_owner_names | index_sparse_add_paths
 }
 
 index_top_level_owner_count() {
-    index_worktree_is_git_repo || {
-        echo 0
-        return 0
-    }
-
-    git -C "$BKG_INDEX_DIR" ls-tree -d --name-only HEAD 2>/dev/null | awk 'NF' | wc -l
+    [ -n "${BKG_INDEX_DIR:-}" ] || return 1
+    bkg_python workspace top-level-count "$BKG_INDEX_DIR"
 }
 
 sqlite3() {
@@ -296,6 +275,7 @@ bkg_python() {
         BKG_INDEX_SQL \
         BKG_INDEX_DIR \
         BKG_GITHUB_API_URL \
+        BKG_GITHUB_REST_RESERVE \
         BKG_HTTP_CONNECT_TIMEOUT \
         BKG_HTTP_READ_TIMEOUT \
         BKG_HTTP_WRITE_TIMEOUT \
@@ -391,8 +371,7 @@ current_batch_first_started() {
 
 ensure_pages_dotfiles_visible() {
     [ -n "${1:-}" ] || return 1
-    mkdir -p "$1" || return 1
-    : >"$1/.nojekyll" || return 1
+    bkg_python workspace ensure-pages "$1"
 }
 
 master_branch_has_commit_today() {

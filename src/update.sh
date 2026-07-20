@@ -19,42 +19,7 @@ log_update_startup_phase() {
     echo "Update setup phase '$phase' completed in ${elapsed}s"
 }
 
-move_workflow_payload_entry() {
-    local entry=$1
-    local destination=$2
-    local name=${entry##*/}
-    local target="$destination/$name"
-
-    if [ -d "$entry" ] && [ -d "$target" ]; then
-        local -a nested=()
-
-        shopt -s dotglob nullglob
-        nested=("$entry"/*)
-        shopt -u dotglob nullglob
-        ((${#nested[@]} == 0)) || mv "${nested[@]}" "$target"/
-        rmdir "$entry" 2>/dev/null || :
-        return 0
-    fi
-
-    mv "$entry" "$destination"/
-}
-
-import_workflow_payload() {
-    local payload_dir=${1:-.bkg}
-    local destination=${2:-.}
-    local entry
-    local -a entries=()
-
-    [ -d "$payload_dir" ] || return 0
-    mkdir -p "$destination" || return 1
-    shopt -s dotglob nullglob
-    entries=("$payload_dir"/*)
-    shopt -u dotglob nullglob
-    for entry in "${entries[@]}"; do
-        move_workflow_payload_entry "$entry" "$destination" || return 1
-    done
-}
-
+workflow_payload_dir="$(pwd -P)/.bkg"
 root="$1"
 [[ -n "$root" && ! "${root:0:2}" =~ -(m|d) ]] && shift || root="."
 [ -d "$root" ] || mkdir -p "$root"
@@ -62,16 +27,16 @@ root="$1"
 [ -d "$root/.git" ] || { gh auth status &>/dev/null && gh repo clone "${GITHUB_OWNER:-ipitio}/${GITHUB_REPO:-backage}" "$root"  -- --depth=1 -b "$GITHUB_BRANCH" --single-branch || git clone --depth=1 -b "$GITHUB_BRANCH" --single-branch "https://github.com/${GITHUB_OWNER:-ipitio}/${GITHUB_REPO:-backage}.git" "$root"; }
 log_update_startup_phase "ensure-root-repo" "$UPDATE_STARTUP_PHASE_STARTED_AT"
 
-import_workflow_payload .bkg "$root" || {
-    echo "Failed to import workflow payload from .bkg" >&2
-    exit 1
-}
-
 pushd "$root" >/dev/null || exit 1
 pushd src >/dev/null || exit 1
 source bkg.sh
 source lib/handoff.sh
 popd >/dev/null || exit 1
+
+bkg_python workspace import-payload "$workflow_payload_dir" "$BKG_ROOT" || {
+    echo "Failed to import workflow payload from $workflow_payload_dir" >&2
+    exit 1
+}
 
 # permissions
 [ -n "$GITHUB_TOKEN" ] || GITHUB_TOKEN=$(remote_url=$(git config --get remote.origin.url); if grep -q '@' <<<"$remote_url"; then grep -oP '(?<=://)[^@]+' <<<"$remote_url"; else echo ""; fi)
@@ -100,13 +65,25 @@ git update-index --index-version 4
 sudonot chmod -R a+rwX .
 sudonot find . -type d -exec chmod g+s '{}' +
 
+workspace_layout_file=$(mktemp)
+if ! bkg_python workspace layout "$BKG_ROOT" "${GITHUB_BRANCH:-}" >"$workspace_layout_file"; then
+    rm -f "$workspace_layout_file"
+    echo "Failed to derive repository workspace layout" >&2
+    exit 1
+fi
+mapfile -d '' -t workspace_layout <"$workspace_layout_file"
+rm -f "$workspace_layout_file"
+if ((${#workspace_layout[@]} != 6)); then
+    echo "Workspace layout returned ${#workspace_layout[@]} fields instead of 6" >&2
+    exit 1
+fi
 set -o allexport
-BKG_BRANCH=$(git branch --show-current 2>/dev/null)
-[ -n "$GITHUB_BRANCH" ] || GITHUB_BRANCH="$BKG_BRANCH"
-BKG_INDEX=$([ "$GITHUB_BRANCH" = "master" ] && echo -n "index" || echo -n "index-${BKG_BRANCH:-}")
-BKG_INDEX_DB=$BKG_ROOT/"$BKG_INDEX".db
-BKG_INDEX_SQL=$BKG_ROOT/"$BKG_INDEX".sql
-BKG_INDEX_DIR=$BKG_ROOT/"$BKG_INDEX"
+BKG_BRANCH=${workspace_layout[0]}
+GITHUB_BRANCH=${workspace_layout[1]}
+BKG_INDEX=${workspace_layout[2]}
+BKG_INDEX_DB=${workspace_layout[3]}
+BKG_INDEX_SQL=${workspace_layout[4]}
+BKG_INDEX_DIR=${workspace_layout[5]}
 set +o allexport
 
 UPDATE_STARTUP_PHASE_STARTED_AT=$(update_startup_phase_started_at)
