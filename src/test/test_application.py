@@ -145,13 +145,22 @@ def test_github_client_uses_shared_runtime_services(
     monkeypatch.setenv("BKG_ROOT", str(tmp_path))
     monkeypatch.setenv("BKG_ENV", str(state_path))
     monkeypatch.setenv("GITHUB_TOKEN", "test-token")
+    monkeypatch.setenv("BKG_GITHUB_REST_RESERVE", "17")
     application = ApplicationContext.from_env()
 
     with application.github_client() as client:
         assert client.accounting is not None
         assert client.accounting.state is application.state
+        assert client.accounting is application.github_rate_accounting
+        assert client.accounting.rest_reserve == 17
         assert getattr(client.runtime.check_stop, "__self__", None) is application.stop
+        assert (
+            getattr(client.runtime.request_stop, "__self__", None) is application.stop
+        )
         assert getattr(client.runtime.sleep, "__self__", None) is application.stop
+
+    with application.github_client() as second_client:
+        assert second_client.accounting is application.github_rate_accounting
 
     assert state_path.is_file()
 

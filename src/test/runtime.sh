@@ -399,6 +399,34 @@ test_check_limit_retries_missing_script_start_once() {
 	[ "$(cat "$reads_file")" -eq 2 ] || fail "Expected check_limit to retry BKG_SCRIPT_START exactly once"
 }
 
+test_check_limit_preserves_workflow_rest_reserve() {
+	local now
+	local output_file="$workdir/check-limit-reserve.txt"
+
+	now=$(date -u +%s)
+	if ! (
+		init_bkg_runtime_state "$workdir/env-check-limit-reserve.env" "$now"
+		BKG_MAX_LEN=10
+		unset BKG_GITHUB_REST_RESERVE
+
+		save_and_exit() {
+			return 3
+		}
+
+		set_BKG BKG_CALLS_TO_API 949
+		check_limit >"$output_file"
+		set_BKG BKG_CALLS_TO_API 950
+		if check_limit >>"$output_file"; then
+			exit 1
+		else
+			[ "$?" -eq 3 ]
+		fi
+	); then
+		fail "Expected the shell rate guard to stop at the 50-request reserve"
+	fi
+	assert_contains "$output_file" "reserving 50 for workflow finalization"
+}
+
 test_query_graphql_api_delegates_query_to_python() {
 	local response
 
@@ -990,6 +1018,7 @@ run_test test_ensure_pages_dotfiles_visible_writes_nojekyll
 run_test test_main_delegates_to_python_run
 run_test test_daily_gate_helpers_delegate_context_to_python
 run_test test_check_limit_retries_missing_script_start_once
+run_test test_check_limit_preserves_workflow_rest_reserve
 run_test test_query_graphql_api_delegates_query_to_python
 run_test test_graphql_owner_type_delegates_to_python_discovery
 run_test test_query_api_delegates_path_to_python

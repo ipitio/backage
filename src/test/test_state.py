@@ -86,6 +86,27 @@ class TestStateStore:
 
             assert store.get_int("BKG_COUNT") == 40
 
+    def test_values_and_counters_update_in_one_replacement(self) -> None:
+        """Accounting can persist headers and counters as one state change."""
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "env.env"
+            path.write_text("BKG_COUNT=4\nUNKNOWN=keep\n\n", encoding="utf-8")
+            store = StateStore(path)
+
+            counters = store.update_many(
+                {"BKG_REMAINING": 50},
+                increments={"BKG_COUNT": 3, "BKG_OTHER_COUNT": 2},
+            )
+
+            assert counters == {"BKG_COUNT": 7, "BKG_OTHER_COUNT": 2}
+            assert store.snapshot() == {
+                "UNKNOWN": "keep",
+                "BKG_REMAINING": "50",
+                "BKG_COUNT": "7",
+                "BKG_OTHER_COUNT": "2",
+            }
+
     def test_delete_matching_supports_final_state_pruning(self) -> None:
         """Transient families can be removed without dropping durable keys."""
 

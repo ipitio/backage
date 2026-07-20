@@ -12,11 +12,13 @@ from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
 from html.parser import HTMLParser
 from pathlib import Path
+from threading import Lock
 from typing import Any, cast
 
 import httpx
 
 from .files import atomic_binary_output
+from .runtime import GracefulStop
 from .state import StateStore
 
 _RETRYABLE_STATUS_CODES = frozenset({408, 429, 500, 502, 503, 504})
@@ -30,6 +32,8 @@ _SECONDARY_LIMIT_MARKERS = (
     "temporarily blocked",
 )
 _RATE_LIMIT_SELECTION = "rateLimit { cost remaining resetAt }"
+_DEFAULT_REST_RESERVE = 50
+_RATE_RESET_BUFFER_SECONDS = 1.0
 
 
 class _HtmlTitleParser(HTMLParser):
@@ -112,6 +116,19 @@ def _env_int(name: str, default: int) -> int:
     return parsed
 
 
+def _env_nonnegative_int(name: str, default: int) -> int:
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    try:
+        parsed = int(value)
+    except ValueError as error:
+        raise GitHubError(f"{name} must be an integer") from error
+    if parsed < 0:
+        raise GitHubError(f"{name} must be zero or greater")
+    return parsed
+
+
 @dataclass(frozen=True)
 class GitHubSettings:  # pylint: disable=too-many-instance-attributes
     """Configuration for GitHub HTTP requests."""
@@ -126,6 +143,7 @@ class GitHubSettings:  # pylint: disable=too-many-instance-attributes
     max_attempts: int = 5
     initial_backoff: float = 1.0
     max_backoff: float = 30.0
+    rest_reserve: int = _DEFAULT_REST_RESERVE
     user_agent: str = "backage"
 
     @classmethod
@@ -143,6 +161,10 @@ class GitHubSettings:  # pylint: disable=too-many-instance-attributes
             max_attempts=_env_int("BKG_HTTP_MAX_ATTEMPTS", 5),
             initial_backoff=_env_float("BKG_HTTP_INITIAL_BACKOFF", 1.0),
             max_backoff=_env_float("BKG_HTTP_MAX_BACKOFF", 30.0),
+            rest_reserve=_env_nonnegative_int(
+                "BKG_GITHUB_REST_RESERVE",
+                _DEFAULT_REST_RESERVE,
+            ),
             user_agent=os.environ.get("BKG_HTTP_USER_AGENT", "backage"),
         )
 
@@ -166,8 +188,11 @@ class GitHubRuntime:
     """Injectable runtime hooks for graceful stopping and deterministic tests."""
 
     check_stop: Callable[[], None] = lambda: None
+    request_stop: Callable[[str], None] = lambda _reason: None
     sleep: Callable[[float], None] = time.sleep
     clock: Callable[[], float] = time.monotonic
+    wall_clock: Callable[[], float] = time.time
+    report: Callable[[str], None] = lambda _message: None
 
 
 @dataclass(frozen=True)
@@ -188,29 +213,98 @@ class _JsonRequest:
     graphql: bool = False
 
 
+@dataclass(frozen=True)
+class GitHubRateWait:
+    """A required pause before another authenticated REST request."""
+
+    seconds: float | None
+    message: str
+    report: bool
+
+
 class GitHubRateAccounting:
-    """Persist REST and GraphQL usage in the existing bkg state file."""
+    """Share and persist REST capacity plus REST and GraphQL usage."""
 
-    def __init__(self, state: StateStore) -> None:
+    def __init__(
+        self,
+        state: StateStore,
+        *,
+        rest_reserve: int = _DEFAULT_REST_RESERVE,
+    ) -> None:
+        if rest_reserve < 0:
+            raise ValueError("REST reserve must be zero or greater")
         self.state = state
+        self.rest_reserve = rest_reserve
+        self._lock = Lock()
+        self._rest_in_flight = 0
+        self._reported_reset_at: int | None = None
+        self._rest_remaining = _nonnegative_int(state.get("BKG_REST_REMAINING"))
+        self._rest_reset_at = _nonnegative_int(state.get("BKG_REST_RESET_AT"))
 
-    def record_rest(self, headers: Mapping[str, str]) -> None:
+    def reserve_rest(self, now: float) -> GitHubRateWait | None:
+        """Reserve one request or describe how long capacity must wait."""
+
+        with self._lock:
+            if self._rest_reset_at is not None and self._rest_reset_at <= now:
+                self._rest_remaining = None
+                self._rest_reset_at = None
+                self._reported_reset_at = None
+
+            available = (
+                None
+                if self._rest_remaining is None
+                else self._rest_remaining - self._rest_in_flight
+            )
+            if available is None or available > self.rest_reserve:
+                self._rest_in_flight += 1
+                return None
+
+            reset_at = self._rest_reset_at
+            report = reset_at != self._reported_reset_at
+            self._reported_reset_at = reset_at
+
+        reserve = self.rest_reserve
+        if reset_at is None:
+            return GitHubRateWait(
+                None,
+                f"GitHub REST budget reached its {reserve}-request workflow "
+                "reserve, but GitHub did not report a reset time",
+                report,
+            )
+        reset_time = datetime.fromtimestamp(reset_at, UTC).isoformat()
+        seconds = max(0.0, reset_at - now + _RATE_RESET_BUFFER_SECONDS)
+        return GitHubRateWait(
+            seconds,
+            f"GitHub REST budget reached its {reserve}-request workflow reserve; "
+            f"waiting {seconds:.0f}s for reset at {reset_time}",
+            report,
+        )
+
+    def record_rest(
+        self,
+        headers: Mapping[str, str],
+        *,
+        budgeted: bool = True,
+    ) -> None:
         """Count one REST response and retain its latest rate-limit headers."""
 
-        self._increment(1)
-        self._record_rest_headers(headers)
+        values = self._complete_rest_request(headers) if budgeted else {}
+        self.state.update_many(
+            values,
+            increments={"BKG_CALLS_TO_API": 1, "BKG_MIN_CALLS_TO_API": 1},
+        )
 
-    def record_graphql(
-        self,
-        value: object,
-        headers: Mapping[str, str],
-    ) -> None:
+    def cancel_rest(self) -> None:
+        """Release a reservation when no REST response was received."""
+
+        with self._lock:
+            self._rest_in_flight = max(0, self._rest_in_flight - 1)
+
+    def record_graphql(self, value: object) -> None:
         """Count one GraphQL response using GitHub's reported query cost."""
 
         rate_limit = _graphql_rate_limit(value)
         cost = _positive_int(rate_limit.get("cost"), default=1)
-        self._increment(cost)
-
         values: dict[str, str | int] = {"BKG_GRAPHQL_LAST_COST": cost}
         remaining = _nonnegative_int(rate_limit.get("remaining"))
         if remaining is not None:
@@ -218,22 +312,50 @@ class GitHubRateAccounting:
         reset_at = rate_limit.get("resetAt")
         if isinstance(reset_at, str) and reset_at:
             values["BKG_GRAPHQL_RESET_AT"] = reset_at
-        self.state.set_many(values)
-        self._record_rest_headers(headers)
+        self.state.update_many(
+            values,
+            increments={
+                "BKG_CALLS_TO_API": cost,
+                "BKG_MIN_CALLS_TO_API": cost,
+            },
+        )
 
-    def _increment(self, amount: int) -> None:
-        self.state.increment("BKG_CALLS_TO_API", amount)
-        self.state.increment("BKG_MIN_CALLS_TO_API", amount)
-
-    def _record_rest_headers(self, headers: Mapping[str, str]) -> None:
-        values: dict[str, str | int] = {}
+    def _complete_rest_request(
+        self,
+        headers: Mapping[str, str],
+    ) -> dict[str, int]:
         remaining = _nonnegative_int(headers.get("x-ratelimit-remaining"))
-        if remaining is not None:
-            values["BKG_REST_REMAINING"] = remaining
         reset_at = _nonnegative_int(headers.get("x-ratelimit-reset"))
-        if reset_at is not None:
-            values["BKG_REST_RESET_AT"] = reset_at
-        self.state.set_many(values)
+        limit = _nonnegative_int(headers.get("x-ratelimit-limit"))
+
+        with self._lock:
+            self._rest_in_flight = max(0, self._rest_in_flight - 1)
+            if (
+                reset_at is not None
+                and self._rest_reset_at is not None
+                and reset_at < self._rest_reset_at
+            ):
+                remaining = None
+                reset_at = None
+            elif reset_at is not None and reset_at != self._rest_reset_at:
+                self._rest_reset_at = reset_at
+                self._rest_remaining = remaining
+                self._reported_reset_at = None
+            elif remaining is not None:
+                self._rest_remaining = (
+                    remaining
+                    if self._rest_remaining is None
+                    else min(self._rest_remaining, remaining)
+                )
+
+            values: dict[str, int] = {}
+            if self._rest_remaining is not None:
+                values["BKG_REST_REMAINING"] = self._rest_remaining
+            if self._rest_reset_at is not None:
+                values["BKG_REST_RESET_AT"] = self._rest_reset_at
+            if limit is not None:
+                values["BKG_REST_LIMIT"] = limit
+            return values
 
 
 class GitHubClient:
@@ -426,6 +548,9 @@ class GitHubClient:
         deadline = self.runtime.clock() + self.settings.total_timeout
         for attempt in range(1, self.settings.max_attempts + 1):
             self.runtime.check_stop()
+            budgeted = self._uses_rest_budget(request)
+            if budgeted and self._wait_for_rest_capacity():
+                deadline = self.runtime.clock() + self.settings.total_timeout
             try:
                 response = self._client.request(
                     request.method,
@@ -435,30 +560,53 @@ class GitHubClient:
                     timeout=self._timeout(self._remaining(deadline)),
                 )
             except httpx.TransportError as error:
+                if budgeted and self.accounting is not None:
+                    self.accounting.cancel_rest()
                 if attempt >= self.settings.max_attempts:
                     raise self._transport_error(request.url, error) from error
                 self._sleep_before_retry(None, attempt, deadline)
                 continue
 
             if self._should_retry(response) and attempt < self.settings.max_attempts:
-                self._record_json_response(request, response, None)
-                self._sleep_before_retry(response, attempt, deadline)
+                self._record_json_response(
+                    request,
+                    response,
+                    None,
+                    budgeted=budgeted,
+                )
+                if not self._primary_rate_limit_exhausted(response):
+                    self._sleep_before_retry(response, attempt, deadline)
                 continue
 
             if not response.is_success:
-                self._record_json_response(request, response, None)
+                self._record_json_response(
+                    request,
+                    response,
+                    None,
+                    budgeted=budgeted,
+                )
                 self._raise_for_status(response)
             try:
                 value = response.json()
             except (json.JSONDecodeError, UnicodeDecodeError, ValueError) as error:
-                self._record_json_response(request, response, None)
+                self._record_json_response(
+                    request,
+                    response,
+                    None,
+                    budgeted=budgeted,
+                )
                 raise GitHubDecodeError(
                     self._redact(
                         f"GitHub returned invalid JSON for {request.method} "
                         f"{request.url}"
                     )
                 ) from error
-            self._record_json_response(request, response, value)
+            self._record_json_response(
+                request,
+                response,
+                value,
+                budgeted=budgeted,
+            )
             return GitHubJsonResponse(
                 value=value,
                 headers=response.headers,
@@ -477,13 +625,43 @@ class GitHubClient:
         request: _JsonRequest,
         response: httpx.Response,
         value: object | None,
+        *,
+        budgeted: bool,
     ) -> None:
         if self.accounting is None:
             return
         if request.graphql:
-            self.accounting.record_graphql(value, response.headers)
+            self.accounting.record_graphql(value)
         else:
-            self.accounting.record_rest(response.headers)
+            self.accounting.record_rest(response.headers, budgeted=budgeted)
+
+    def _uses_rest_budget(self, request: _JsonRequest) -> bool:
+        return bool(
+            self.accounting is not None
+            and request.authenticated
+            and not request.graphql
+            and self.settings.token
+        )
+
+    def _wait_for_rest_capacity(self) -> bool:
+        if self.accounting is None:
+            return False
+
+        waited = False
+        while True:
+            wait = self.accounting.reserve_rest(self.runtime.wall_clock())
+            if wait is None:
+                return waited
+            if wait.report:
+                self.runtime.report(wait.message)
+            if wait.seconds is None:
+                self.runtime.request_stop(wait.message)
+                self.runtime.check_stop()
+                raise GracefulStop(wait.message)
+            self.runtime.sleep(wait.seconds)
+            waited = True
+            if wait.report:
+                self.runtime.report("GitHub REST budget reset; resuming API work")
 
     def _headers(
         self,
@@ -528,6 +706,13 @@ class GitHubClient:
             return True
         body = response.text.lower()
         return any(marker in body for marker in _SECONDARY_LIMIT_MARKERS)
+
+    @staticmethod
+    def _primary_rate_limit_exhausted(response: httpx.Response) -> bool:
+        return (
+            response.status_code == _FORBIDDEN_STATUS
+            and response.headers.get("x-ratelimit-remaining") == "0"
+        )
 
     def _sleep_before_retry(
         self,

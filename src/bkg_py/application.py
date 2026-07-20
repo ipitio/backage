@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from functools import cached_property
@@ -90,6 +90,15 @@ class ApplicationContext:
         return GitHubSettings.from_env()
 
     @cached_property
+    def github_rate_accounting(self) -> GitHubRateAccounting:
+        """Return application-scoped GitHub REST capacity and usage state."""
+
+        return GitHubRateAccounting(
+            self.state,
+            rest_reserve=self.github_settings.rest_reserve,
+        )
+
+    @cached_property
     def version_selection_settings(self) -> VersionSelectionSettings:
         """Return captured package-version selection limits."""
 
@@ -127,16 +136,23 @@ class ApplicationContext:
         return ProcessRunner(self.stop)
 
     @contextmanager
-    def github_client(self) -> Generator[GitHubClient, None, None]:
+    def github_client(
+        self,
+        *,
+        report: Callable[[str], None] | None = None,
+    ) -> Generator[GitHubClient, None, None]:
         """Yield a pooled client connected to this process's state and stop control."""
 
         self.ensure_state_file()
         with GitHubClient(
             self.github_settings,
-            accounting=GitHubRateAccounting(self.state),
+            accounting=self.github_rate_accounting,
             runtime=GitHubRuntime(
                 check_stop=self.stop.check,
+                request_stop=self.stop.request_stop,
                 sleep=self.stop.sleep,
+                wall_clock=self.stop.timing.wall_clock,
+                report=report or (lambda _message: None),
             ),
         ) as client:
             yield client

@@ -67,6 +67,7 @@ def test_rest_success_authentication_and_accounting(tmp_path: Path) -> None:
             200,
             json={"login": "ipitio"},
             headers={
+                "x-ratelimit-limit": "5000",
                 "x-ratelimit-remaining": "4999",
                 "x-ratelimit-reset": "1781139600",
             },
@@ -81,6 +82,7 @@ def test_rest_success_authentication_and_accounting(tmp_path: Path) -> None:
     assert response.value == {"login": "ipitio"}
     assert state.get_int("BKG_CALLS_TO_API") == 1
     assert state.get_int("BKG_MIN_CALLS_TO_API") == 1
+    assert state.get("BKG_REST_LIMIT") == "5000"
     assert state.get("BKG_REST_REMAINING") == "4999"
     assert state.get("BKG_REST_RESET_AT") == "1781139600"
 
@@ -171,7 +173,10 @@ def test_graphql_injects_and_accounts_for_reported_rate_cost(
 
     state_path = tmp_path / "env.env"
     state_path.write_text(
-        "BKG_CALLS_TO_API=5\nBKG_MIN_CALLS_TO_API=7\n\n",
+        "BKG_CALLS_TO_API=5\n"
+        "BKG_MIN_CALLS_TO_API=7\n"
+        "BKG_REST_REMAINING=321\n"
+        "BKG_REST_RESET_AT=1781139500\n\n",
         encoding="utf-8",
     )
     state = StateStore(state_path)
@@ -209,7 +214,193 @@ def test_graphql_injects_and_accounts_for_reported_rate_cost(
     assert state.get("BKG_GRAPHQL_LAST_COST") == "17"
     assert state.get("BKG_GRAPHQL_REMAINING") == "4321"
     assert state.get("BKG_GRAPHQL_RESET_AT") == "2026-06-11T23:59:59Z"
-    assert state.get("BKG_REST_REMAINING") == "4998"
+    assert state.get("BKG_REST_REMAINING") == "321"
+    assert state.get("BKG_REST_RESET_AT") == "1781139500"
+
+
+def test_authenticated_rest_waits_at_workflow_reserve(tmp_path: Path) -> None:
+    """REST work waits for reset instead of consuming publication capacity."""
+
+    state_path = tmp_path / "env.env"
+    state_path.write_text(
+        "BKG_REST_REMAINING=50\nBKG_REST_RESET_AT=1100\n\n",
+        encoding="utf-8",
+    )
+    state = StateStore(state_path)
+    accounting = GitHubRateAccounting(state, rest_reserve=50)
+    monotonic = 0.0
+    wall_clock = 1000.0
+    sleeps: list[float] = []
+    reports: list[str] = []
+
+    def sleep(seconds: float) -> None:
+        nonlocal monotonic, wall_clock
+        sleeps.append(seconds)
+        monotonic += seconds
+        wall_clock += seconds
+
+    client = _client(
+        httpx.MockTransport(
+            lambda _request: httpx.Response(
+                200,
+                json={"ok": True},
+                headers={
+                    "x-ratelimit-limit": "1000",
+                    "x-ratelimit-remaining": "999",
+                    "x-ratelimit-reset": "4700",
+                },
+            )
+        ),
+        accounting=accounting,
+        runtime=GitHubRuntime(
+            sleep=sleep,
+            clock=lambda: monotonic,
+            wall_clock=lambda: wall_clock,
+            report=reports.append,
+        ),
+    )
+
+    assert client.rest_json("example").value == {"ok": True}
+    assert sleeps == [101]
+    assert "50-request workflow reserve" in reports[0]
+    assert reports[1] == "GitHub REST budget reset; resuming API work"
+    assert state.get("BKG_REST_REMAINING") == "999"
+
+
+def test_rest_reserve_stop_interrupts_wait_without_request(tmp_path: Path) -> None:
+    """An elapsed stop during a rate wait leaves the reserved calls unused."""
+
+    state_path = tmp_path / "env.env"
+    state_path.write_text(
+        "BKG_REST_REMAINING=50\nBKG_REST_RESET_AT=2000\n\n",
+        encoding="utf-8",
+    )
+    requests = 0
+
+    def respond(_request: httpx.Request) -> httpx.Response:
+        nonlocal requests
+        requests += 1
+        return httpx.Response(200, json={"ok": True})
+
+    def stop_sleep(_seconds: float) -> None:
+        raise GracefulStop("elapsed")
+
+    client = _client(
+        httpx.MockTransport(respond),
+        accounting=GitHubRateAccounting(StateStore(state_path), rest_reserve=50),
+        runtime=GitHubRuntime(
+            sleep=stop_sleep,
+            wall_clock=lambda: 1000,
+        ),
+    )
+
+    with pytest.raises(GracefulStop, match="elapsed"):
+        client.rest_json("example")
+    assert requests == 0
+
+
+def test_primary_limit_wait_renews_operation_deadline(tmp_path: Path) -> None:
+    """A primary-limit reset wait does not consume the request retry deadline."""
+
+    state_path = tmp_path / "env.env"
+    state_path.touch()
+    attempts = 0
+    monotonic = 0.0
+    wall_clock = 1000.0
+
+    def respond(_request: httpx.Request) -> httpx.Response:
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            return httpx.Response(
+                403,
+                json={"message": "API rate limit exceeded"},
+                headers={
+                    "x-ratelimit-limit": "1000",
+                    "x-ratelimit-remaining": "0",
+                    "x-ratelimit-reset": "1100",
+                },
+            )
+        return httpx.Response(
+            200,
+            json={"ok": True},
+            headers={
+                "x-ratelimit-limit": "1000",
+                "x-ratelimit-remaining": "999",
+                "x-ratelimit-reset": "4700",
+            },
+        )
+
+    def sleep(seconds: float) -> None:
+        nonlocal monotonic, wall_clock
+        monotonic += seconds
+        wall_clock += seconds
+
+    client = _client(
+        httpx.MockTransport(respond),
+        settings=_settings(total_timeout=30),
+        accounting=GitHubRateAccounting(StateStore(state_path), rest_reserve=50),
+        runtime=GitHubRuntime(
+            sleep=sleep,
+            clock=lambda: monotonic,
+            wall_clock=lambda: wall_clock,
+        ),
+    )
+
+    assert client.rest_json("example").value == {"ok": True}
+    assert attempts == 2
+    assert monotonic == 101
+
+
+def test_rest_reservations_include_concurrent_in_flight_requests(
+    tmp_path: Path,
+) -> None:
+    """Workers cannot all spend the same last reported REST capacity."""
+
+    state_path = tmp_path / "env.env"
+    state_path.write_text(
+        "BKG_REST_REMAINING=52\nBKG_REST_RESET_AT=2000\n\n",
+        encoding="utf-8",
+    )
+    accounting = GitHubRateAccounting(StateStore(state_path), rest_reserve=50)
+
+    assert accounting.reserve_rest(1000) is None
+    assert accounting.reserve_rest(1000) is None
+    wait = accounting.reserve_rest(1000)
+    assert wait is not None
+    assert wait.seconds == 1001
+
+    accounting.cancel_rest()
+    assert accounting.reserve_rest(1000) is None
+
+
+def test_unauthenticated_rest_does_not_consume_token_reserve(tmp_path: Path) -> None:
+    """Public fallback REST calls stay separate from the workflow token budget."""
+
+    state_path = tmp_path / "env.env"
+    state_path.write_text(
+        "BKG_REST_REMAINING=50\nBKG_REST_RESET_AT=2000\n\n",
+        encoding="utf-8",
+    )
+    state = StateStore(state_path)
+    client = _client(
+        httpx.MockTransport(
+            lambda _request: httpx.Response(
+                200,
+                json={"ok": True},
+                headers={
+                    "x-ratelimit-remaining": "2",
+                    "x-ratelimit-reset": "1900",
+                },
+            )
+        ),
+        accounting=GitHubRateAccounting(state, rest_reserve=50),
+        runtime=GitHubRuntime(wall_clock=lambda: 1000),
+    )
+
+    assert client.rest_json("example", authenticated=False).value == {"ok": True}
+    assert state.get("BKG_REST_REMAINING") == "50"
+    assert state.get_int("BKG_CALLS_TO_API") == 1
 
 
 def test_rest_pagination_reuses_client() -> None:

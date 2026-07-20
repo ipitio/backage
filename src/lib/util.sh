@@ -695,8 +695,13 @@ check_limit() {
     local min_passed
     local rate_limit_start
     local script_limit_diff
+    local rest_reserve=${BKG_GITHUB_REST_RESERVE:-50}
+    local usable_hourly_calls
 
     check_script_timeout || return $?
+    [[ "$rest_reserve" =~ ^[0-9]+$ ]] || rest_reserve=50
+    ((rest_reserve < 1000)) || rest_reserve=999
+    usable_hourly_calls=$((1000 - rest_reserve))
     rate_limit_end=$(date -u +%s)
     rate_limit_start="${CHECK_LIMIT_SCRIPT_START:-${BKG_SCRIPT_START:-$rate_limit_end}}"
     script_limit_diff=${CHECK_LIMIT_SCRIPT_DIFF:-$((rate_limit_end - rate_limit_start))}
@@ -706,8 +711,8 @@ check_limit() {
     rate_limit_diff=$((rate_limit_end - rate_limit_start))
     hours_passed=$((rate_limit_diff / 3600))
 
-    if ((total_calls >= 1000 * (hours_passed + 1))); then
-        echo "$total_calls calls to the GitHub API in $((rate_limit_diff / 60)) minutes"
+    if ((total_calls >= usable_hourly_calls * (hours_passed + 1))); then
+        echo "$total_calls calls to the GitHub API in $((rate_limit_diff / 60)) minutes; reserving $rest_reserve for workflow finalization"
         remaining_time=$((3600 * (hours_passed + 1) - rate_limit_diff))
         ((remaining_time < BKG_MAX_LEN - script_limit_diff)) || save_and_exit
         (($? != 3)) || return 3

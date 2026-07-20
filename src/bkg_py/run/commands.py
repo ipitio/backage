@@ -78,7 +78,7 @@ def run_application(
                     _coordinator_execution(output),
                 ).run(request)
             else:
-                with application.github_client() as client:
+                with application.github_client(report=output.progress) as client:
                     phases = RunApplicationOperations(
                         application,
                         execution,

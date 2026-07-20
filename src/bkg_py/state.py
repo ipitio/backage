@@ -129,21 +129,52 @@ class StateStore:
     def set_many(self, values: Mapping[str, str | int]) -> None:
         """Set several scalar values with one locked atomic replacement."""
 
+        self.update_many(values)
+
+    def update_many(
+        self,
+        values: Mapping[str, str | int],
+        *,
+        increments: Mapping[str, int] | None = None,
+    ) -> dict[str, int]:
+        """Set values and increment counters in one atomic replacement."""
+
         normalized: dict[str, str] = {}
         for key, value in values.items():
             _validate_key(key)
             normalized[key] = _string_value(value)
-        if not normalized:
-            return
+
+        counter_changes = dict(increments or {})
+        for key in counter_changes:
+            _validate_key(key)
+            if key in normalized:
+                raise StateValueError(f"cannot set and increment the same key: {key}")
+        if not normalized and not counter_changes:
+            return {}
 
         with self._lock(self._global_lock_path):
-            lines = [
-                line
-                for line in self._read_lines(wait_for_unlock=False)
-                if _line_key(line) not in normalized
-            ]
-            lines.extend(f"{key}={value}" for key, value in normalized.items())
-            self._atomic_write(lines)
+            lines = self._read_lines(wait_for_unlock=False)
+            updated_counters: dict[str, int] = {}
+            for key, amount in counter_changes.items():
+                prefix = f"{key}="
+                raw_values = [
+                    line.split("=", maxsplit=2)[1]
+                    for line in lines
+                    if line.startswith(prefix)
+                ]
+                try:
+                    current = int("\n".join(raw_values)) if raw_values else 0
+                except ValueError:
+                    current = 0
+                updated_counters[key] = current + amount
+
+            replacements = normalized | {
+                key: str(value) for key, value in updated_counters.items()
+            }
+            retained = [line for line in lines if _line_key(line) not in replacements]
+            retained.extend(f"{key}={value}" for key, value in replacements.items())
+            self._atomic_write(retained)
+        return updated_counters
 
     def delete(self, key: str) -> bool:
         """Delete one state key and report whether it existed."""
