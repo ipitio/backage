@@ -143,10 +143,21 @@ class GitRepository:
             ("branch", "--force", branch, f"refs/remotes/{remote}/{branch}"),
             required=True,
         )
+        upstream_arguments = (
+            "branch",
+            f"--set-upstream-to={remote}/{branch}",
+            branch,
+        )
+        upstream = self._run(upstream_arguments)
+        if upstream.returncode == 0:
+            return
+
+        refspec = f"+refs/heads/{branch}:refs/remotes/{remote}/{branch}"
         self._run(
-            ("branch", f"--set-upstream-to={remote}/{branch}", branch),
+            ("config", "--local", "--add", f"remote.{remote}.fetch", refspec),
             required=True,
         )
+        self._run(upstream_arguments, required=True)
 
     def create_empty_branch(self, branch: str) -> None:
         """Create a parentless empty-tree branch without changing the checkout."""

@@ -298,6 +298,55 @@ def test_prepare_existing_index_preserves_old_worktree_and_resumes(
     assert any("prepare-index-branch-ref" in message for message in messages)
 
 
+def test_prepare_existing_index_from_single_branch_clone_configures_tracking(
+    tmp_path: Path,
+) -> None:
+    """A workflow-style clone can track an explicitly fetched index branch."""
+
+    source, remote = _create_repository_with_remote(tmp_path)
+    _git(source, "branch", "index")
+    _git(source, "push", "-q", "origin", "index")
+    repository = tmp_path / "clone"
+    git = shutil.which("git")
+    assert git is not None
+    subprocess.run(  # noqa: S603
+        (
+            git,
+            "clone",
+            "-q",
+            "--depth=1",
+            "--single-branch",
+            "--branch",
+            "master",
+            remote.as_uri(),
+            str(repository),
+        ),
+        check=True,
+    )
+    index_dir = repository / "index"
+
+    result = IndexWorkspacePreparer(GitRepository(repository)).prepare(
+        "index",
+        index_dir,
+    )
+
+    assert not result.first_run
+    upstream = _git(
+        index_dir, "rev-parse", "--abbrev-ref", "@{upstream}"
+    ).stdout.strip()
+    assert upstream == "origin/index"
+    fetch_refspecs = _git(
+        repository,
+        "config",
+        "--get-all",
+        "remote.origin.fetch",
+    ).stdout.splitlines()
+    assert fetch_refspecs == [
+        "+refs/heads/master:refs/remotes/origin/master",
+        "+refs/heads/index:refs/remotes/origin/index",
+    ]
+
+
 def test_prepare_missing_index_creates_parentless_branch_without_source_switch(
     tmp_path: Path,
 ) -> None:
