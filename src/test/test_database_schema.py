@@ -3,8 +3,12 @@
 from __future__ import annotations
 
 import sqlite3
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
+import pytest
+
+import bkg_py.database.repository as database_repository
 from bkg_py.database import (
     DatabaseRepository,
     DatabaseSettings,
@@ -24,6 +28,43 @@ def _package(repo: str) -> PackageRef:
         repo=repo,
         package="shared",
     )
+
+
+def test_schema_initialization_runs_once_per_database_identity(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Repeated and concurrent operations reuse initialized schema state."""
+
+    path = tmp_path / "index.db"
+    repository = DatabaseRepository(DatabaseSettings(path))
+    original = database_repository.schema.ensure
+    calls = 0
+
+    def count_schema_ensure(
+        connection: sqlite3.Connection,
+        owners: str,
+        packages: str,
+        versions: str,
+    ) -> None:
+        nonlocal calls
+        calls += 1
+        original(connection, owners, packages, versions)
+
+    def ensure_schema(_index: int) -> None:
+        repository.ensure_schema()
+
+    monkeypatch.setattr(database_repository.schema, "ensure", count_schema_ensure)
+
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        list(executor.map(ensure_schema, range(8)))
+
+    assert calls == 1
+
+    path.unlink()
+    repository.ensure_schema()
+
+    assert calls == 2
 
 
 def test_schema_lazily_rekeys_packages_without_losing_existing_rows(

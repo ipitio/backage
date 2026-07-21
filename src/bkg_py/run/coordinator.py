@@ -338,14 +338,6 @@ class RunCoordinator:  # pylint: disable=too-few-public-methods
         run_status: int,
     ) -> OwnerPhaseDecision:
         queued = parse_owner_queue(self.state.get_set("BKG_OWNERS_QUEUE"))
-        owner_names = tuple(dict.fromkeys(owner.owner for owner in queued))
-        phase_started_at = self.execution.now()
-        self.execution.progress(
-            f"Materializing {len(owner_names)} queued owner tree(s)..."
-        )
-        self.phases.materialize_owner_trees(owner_names)
-        self._log_phase("materialize-queued-owner-trees", phase_started_at)
-
         if not queued:
             phase_status = ExitStatus.SUCCESS
         else:

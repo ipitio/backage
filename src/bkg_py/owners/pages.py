@@ -47,31 +47,34 @@ def admit_owner_page(
     last_id = config.state.get_int("BKG_LAST_SCANNED_ID", 0)
     page = resolver.owner_page(page_number, last_id=last_id, per_page=per_page)
     package_owners = _package_owners(config.packages_all_path)
-    admitted_count = 0
-    requested_logins: list[str] = []
+    identities = tuple(
+        identity
+        for owner in page.owners
+        if (identity := _rest_page_owner_identity(owner)) is not None
+    )
+    resolver.cache.cache_many(identity.ref for identity in identities)
 
     with _owners_lock(config):
         owner_lines = config.owners_path.read_text(encoding="utf-8").splitlines()
         known_owner_logins = {
             line.rsplit("/", maxsplit=1)[-1] for line in owner_lines if line.strip()
         }
-        for owner in page.owners:
-            admitted, requested_login = _admit_owner(
-                owner,
-                resolver,
-                config,
-                package_owners,
-                known_owner_logins,
-            )
-            admitted_count += admitted
-            if requested_login is not None:
-                requested_logins.append(requested_login)
+        admitted_count, requested_logins, advanced_id = _admit_identities(
+            identities,
+            config,
+            package_owners,
+            known_owner_logins,
+            last_id,
+        )
+
+    if advanced_id > last_id:
+        config.state.set("BKG_LAST_SCANNED_ID", advanced_id)
 
     return OwnerPageAdmissionResult(
         admitted_count=admitted_count,
         owners_count=len(page.owners),
         has_more=page.has_more(per_page),
-        requested_logins=tuple(requested_logins),
+        requested_logins=requested_logins,
     )
 
 
@@ -111,19 +114,14 @@ def _package_owners(path: Path) -> set[str]:
 
 
 def _admit_owner(
-    owner: dict[str, object],
-    resolver: OwnerIdentityResolver,
+    identity: OwnerIdentity,
     config: OwnerPageAdmissionConfig,
     package_owners: set[str],
     known_owner_logins: set[str],
-) -> tuple[int, str | None]:
-    identity = _rest_page_owner_identity(owner)
-    if identity is None:
-        return 0, None
-    resolver.cache.cache(identity.ref)
+) -> tuple[int, str | None, int | None]:
+    owner_id = int(identity.owner_id)
     if identity.login in package_owners:
-        _advance_last_scanned_id(config.state, identity.owner_id)
-        return 0, None
+        return 0, None, owner_id
 
     appended = False
     if identity.login not in known_owner_logins:
@@ -136,20 +134,34 @@ def _admit_owner(
         if appended:
             _remove_last_owner_line(config.owners_path)
             known_owner_logins.discard(identity.login)
-        return 0, None
+        return 0, None, None
 
-    _advance_last_scanned_id(config.state, identity.owner_id)
-    return (1 if appended else 0), identity.login
+    return (1 if appended else 0), identity.login, owner_id
 
 
-def _advance_last_scanned_id(state: StateStore, owner_id: str) -> None:
-    try:
-        parsed_owner_id = int(owner_id)
-    except ValueError:
-        return
-    last_id = state.get_int("BKG_LAST_SCANNED_ID", 0)
-    if parsed_owner_id > last_id:
-        state.set("BKG_LAST_SCANNED_ID", parsed_owner_id)
+def _admit_identities(
+    identities: tuple[OwnerIdentity, ...],
+    config: OwnerPageAdmissionConfig,
+    package_owners: set[str],
+    known_owner_logins: set[str],
+    last_id: int,
+) -> tuple[int, tuple[str, ...], int]:
+    admitted_count = 0
+    requested_logins: list[str] = []
+    advanced_id = last_id
+    for identity in identities:
+        admitted, requested_login, admitted_id = _admit_owner(
+            identity,
+            config,
+            package_owners,
+            known_owner_logins,
+        )
+        admitted_count += admitted
+        if requested_login is not None:
+            requested_logins.append(requested_login)
+        if admitted_id is not None:
+            advanced_id = max(advanced_id, admitted_id)
+    return admitted_count, tuple(requested_logins), advanced_id
 
 
 def _remove_last_owner_line(path: Path) -> None:

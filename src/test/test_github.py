@@ -80,11 +80,30 @@ def test_rest_success_authentication_and_accounting(tmp_path: Path) -> None:
     response = client.rest_json("users/ipitio")
 
     assert response.value == {"login": "ipitio"}
+    client.close()
     assert state.get_int("BKG_CALLS_TO_API") == 1
     assert state.get_int("BKG_MIN_CALLS_TO_API") == 1
     assert state.get("BKG_REST_LIMIT") == "5000"
     assert state.get("BKG_REST_REMAINING") == "4999"
     assert state.get("BKG_REST_RESET_AT") == "1781139600"
+
+
+def test_rate_accounting_flushes_in_bounded_response_batches(
+    tmp_path: Path,
+) -> None:
+    """Frequent responses do not force one durable state rewrite each."""
+
+    state = StateStore(tmp_path / "env.env")
+    accounting = GitHubRateAccounting(state, flush_responses=3)
+
+    accounting.record_rest({}, budgeted=False)
+    accounting.record_rest({}, budgeted=False)
+    assert state.get_int("BKG_CALLS_TO_API") == 0
+
+    accounting.record_rest({}, budgeted=False)
+
+    assert state.get_int("BKG_CALLS_TO_API") == 3
+    assert state.get_int("BKG_MIN_CALLS_TO_API") == 3
 
 
 def test_text_request_retries_without_api_headers_or_accounting(
@@ -209,6 +228,7 @@ def test_graphql_injects_and_accounts_for_reported_rate_cost(
     response = client.graphql("query { viewer { login } }")
 
     assert response.value["data"]["viewer"]["login"] == "ipitio"
+    client.close()
     assert state.get_int("BKG_CALLS_TO_API") == 22
     assert state.get_int("BKG_MIN_CALLS_TO_API") == 24
     assert state.get("BKG_GRAPHQL_LAST_COST") == "17"
@@ -264,6 +284,7 @@ def test_authenticated_rest_waits_at_workflow_reserve(tmp_path: Path) -> None:
     assert sleeps == [101]
     assert "50-request workflow reserve" in reports[0]
     assert reports[1] == "GitHub REST budget reset; resuming API work"
+    client.close()
     assert state.get("BKG_REST_REMAINING") == "999"
 
 
@@ -399,6 +420,7 @@ def test_unauthenticated_rest_does_not_consume_token_reserve(tmp_path: Path) -> 
     )
 
     assert client.rest_json("example", authenticated=False).value == {"ok": True}
+    client.close()
     assert state.get("BKG_REST_REMAINING") == "50"
     assert state.get_int("BKG_CALLS_TO_API") == 1
 
@@ -485,6 +507,7 @@ def test_transient_response_retries_with_exponential_backoff(
     assert client.rest_json("example").value == {"ok": True}
     assert attempts == 3
     assert sleeps == [1, 2]
+    client.close()
     assert state.get_int("BKG_CALLS_TO_API") == 3
     assert state.get_int("BKG_MIN_CALLS_TO_API") == 3
 

@@ -201,11 +201,9 @@ def test_global_modes_run_global_queue_owner_work_and_snapshot(
         "prepare",
         "discover:false",
         "owner-queue:true",
-        "materialize",
         "update",
         "finalize:true",
     ]
-    assert phases.materialized == ("one", "two")
     assert phases.owner_request == OwnerBatchRequest(
         "2026-07-12",
         "batch-1",
@@ -239,7 +237,6 @@ def test_targeted_modes_run_membership_queue_owner_work_and_snapshot(
         "prepare",
         "discover:false",
         "targeted-queue",
-        "materialize",
         "update",
         "finalize:true",
     ]
@@ -319,7 +316,6 @@ def test_fast_optout_run_preserves_nonfatal_status_through_publication(
     assert phases.events == [
         "prepare",
         "optout-queue",
-        "materialize",
         "update",
         "finalize:true",
     ]

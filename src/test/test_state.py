@@ -52,6 +52,30 @@ class TestStateStore:
             assert store.get_set("BKG_QUEUE") == ["alpha", "beta"]
             assert r"BKG_QUEUE=alpha\nbeta" in path.read_text(encoding="utf-8")
 
+    def test_bulk_set_operations_use_one_ordered_transition(self) -> None:
+        """Bulk replacement and addition retain order without duplicate entries."""
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "env.env"
+            path.touch()
+            store = StateStore(path)
+
+            assert store.replace_set("BKG_QUEUE", ("alpha", "beta", "alpha")) == (
+                "alpha",
+                "beta",
+            )
+            assert store.add_many_to_set(
+                "BKG_QUEUE",
+                ("beta", "gamma", "delta", "gamma"),
+            ) == ("gamma", "delta")
+
+            assert store.get_set("BKG_QUEUE") == [
+                "alpha",
+                "beta",
+                "gamma",
+                "delta",
+            ]
+
     def test_concurrent_updates_do_not_lose_unrelated_values(self) -> None:
         """The shared hard-link lock serializes complete file replacements."""
 

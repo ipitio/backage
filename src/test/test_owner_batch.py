@@ -42,6 +42,7 @@ class _Messages:
     progress: list[str] = field(default_factory=list[str])
     diagnostic: list[str] = field(default_factory=list[str])
     allocated: list[int] = field(default_factory=list[int])
+    materialized: list[tuple[str, ...]] = field(default_factory=list[tuple[str, ...]])
 
 
 @dataclass
@@ -57,7 +58,7 @@ def _service(
     *,
     queued: tuple[str, ...] = ("1/alpha",),
     optout: tuple[str, ...] = (),
-    workers: int = 4,
+    materialization_wave_size: int = 100,
 ) -> _Harness:
     state = StateStore(tmp_path / "state.env")
     for owner in queued:
@@ -93,11 +94,13 @@ def _service(
         OwnerBatchExecution(
             state,
             optout_file,
-            ConcurrencySettings(workers),
+            ConcurrencySettings(4),
             lambda: None,
             messages.progress.append,
             messages.diagnostic.append,
+            messages.materialized.append,
         ),
+        materialization_wave_size=materialization_wave_size,
     )
     return _Harness(service, repository, messages)
 
@@ -161,6 +164,53 @@ def test_owner_batch_applies_each_completed_outcome(tmp_path: Path) -> None:
     assert "Updated alpha" in harness.messages.progress
     assert "Retired unavailable owner missing" in harness.messages.progress
     assert not harness.messages.diagnostic
+
+
+def test_owner_batch_materializes_bounded_waves(tmp_path: Path) -> None:
+    """Only a small runway of owner trees is hydrated before each worker wave."""
+
+    queued = tuple(f"{index}/{name}" for index, name in enumerate("abcdefghij", 1))
+
+    harness = _service(
+        tmp_path,
+        lambda _request: OwnerLifecycleResult("updated"),
+        queued=queued,
+        materialization_wave_size=4,
+    )
+
+    status = harness.service.run(OwnerBatchRequest("2026-07-01", "batch-1"))
+
+    assert status == ExitStatus.SUCCESS
+    assert harness.messages.materialized == [
+        ("a", "b", "c", "d"),
+        ("e", "f", "g", "h"),
+        ("i", "j"),
+    ]
+
+
+def test_owner_batch_does_not_materialize_a_later_wave_after_stop(
+    tmp_path: Path,
+) -> None:
+    """A graceful stop leaves every not-yet-started wave unhydrated."""
+
+    queued = tuple(f"{index}/{name}" for index, name in enumerate("abcdefgh", 1))
+
+    def stop_on_first(request: OwnerUpdateRequest) -> OwnerLifecycleResult:
+        if request.owner == "a":
+            raise GracefulStop("elapsed")
+        return OwnerLifecycleResult("updated")
+
+    harness = _service(
+        tmp_path,
+        stop_on_first,
+        queued=queued,
+        materialization_wave_size=4,
+    )
+
+    status = harness.service.run(OwnerBatchRequest("2026-07-01", "batch-1"))
+
+    assert status == ExitStatus.GRACEFUL_STOP
+    assert harness.messages.materialized == [("a", "b", "c", "d")]
 
 
 def test_first_empty_page_removes_manual_owner_before_pause(tmp_path: Path) -> None:

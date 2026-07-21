@@ -241,13 +241,15 @@ def test_run_bounded_reports_graceful_stop_before_new_work() -> None:
 
 
 def test_runner_reports_drain_timeout_for_blocked_worker() -> None:
-    """A blocked worker is reported after the configured drain grace expires."""
+    """An overdue worker is reported but cannot outlive the runner."""
 
     stop_requested = threading.Event()
     worker_started = threading.Event()
     release_worker = threading.Event()
     worker_exited = threading.Event()
+    runner_exited = threading.Event()
     events: list[WorkerEvent] = []
+    results: list[BoundedRunResult[int]] = []
 
     def check_stop() -> None:
         if stop_requested.is_set():
@@ -269,11 +271,20 @@ def test_runner_reports_drain_timeout_for_blocked_worker() -> None:
         poll_interval=0.005,
     )
 
-    result = runner.run([1, 2], worker, task_name=str)
-    release_worker.set()
+    def run() -> None:
+        results.append(runner.run([1, 2], worker, task_name=str))
+        runner_exited.set()
 
-    assert worker_started.is_set()
-    assert worker_exited.wait(timeout=2)
+    thread = threading.Thread(target=run)
+    thread.start()
+    assert worker_started.wait(timeout=2)
+    assert not runner_exited.wait(timeout=0.1)
+    release_worker.set()
+    thread.join(timeout=2)
+
+    assert runner_exited.is_set()
+    assert worker_exited.is_set()
+    result = results[0]
     assert result.stopped
     assert result.drain_timed_out
     assert result.interrupted
@@ -282,6 +293,7 @@ def test_runner_reports_drain_timeout_for_blocked_worker() -> None:
         "submitted",
         "stop-requested",
         "drain-timeout",
+        "completed",
     ]
 
 

@@ -219,10 +219,23 @@ class StateStore:
     def add_to_set(self, key: str, item: str) -> bool:
         """Add a unique set item and report whether the state changed."""
 
+        return bool(self.add_many_to_set(key, (item,)))
+
+    def replace_set(self, key: str, items: Iterable[str]) -> tuple[str, ...]:
+        """Replace an ordered set with one atomic state-file update."""
+
         _validate_key(key)
-        item = _string_value(item)
-        if not item or r"\n" in item:
-            raise StateValueError("state set items cannot be empty or contain '\\n'")
+        unique = _normalize_set_items(items)
+        self.set(key, r"\n".join(unique))
+        return unique
+
+    def add_many_to_set(self, key: str, items: Iterable[str]) -> tuple[str, ...]:
+        """Add ordered unique set items with one locked atomic replacement."""
+
+        _validate_key(key)
+        requested = _normalize_set_items(items)
+        if not requested:
+            return ()
 
         with (
             self._lock(self._key_lock_path(key)),
@@ -238,14 +251,16 @@ class StateStore:
             current_raw = "\n".join(raw_values)
             current = self._decode_set_value(current_raw)
             unique = list(dict.fromkeys(current))
-            if item in unique:
-                return False
-            unique.append(item)
+            known = set(unique)
+            added = tuple(item for item in requested if item not in known)
+            if not added:
+                return ()
+            unique.extend(added)
             encoded = r"\n".join(unique)
             retained = [line for line in lines if not line.startswith(prefix)]
             retained.append(f"{key}={encoded}")
             self._atomic_write(retained)
-        return True
+        return added
 
     def increment(self, key: str, amount: int = 1, *, default: int = 0) -> int:
         """Atomically add to an integer state value and return the new value."""
@@ -276,3 +291,17 @@ class StateStore:
         value = value.removeprefix(r"\n").removesuffix(r"\n")
         value = value.replace(r"\n\n", r"\n", 1)
         return value.replace(r"\n", "\n").split("\n")
+
+
+def _normalize_set_items(items: Iterable[str]) -> tuple[str, ...]:
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for item in items:
+        value = _string_value(item)
+        if not value or r"\n" in value:
+            raise StateValueError("state set items cannot be empty or contain '\\n'")
+        if value in seen:
+            continue
+        seen.add(value)
+        normalized.append(value)
+    return tuple(normalized)

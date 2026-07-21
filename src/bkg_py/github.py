@@ -34,6 +34,7 @@ _SECONDARY_LIMIT_MARKERS = (
 _RATE_LIMIT_SELECTION = "rateLimit { cost remaining resetAt }"
 _DEFAULT_REST_RESERVE = 50
 _RATE_RESET_BUFFER_SECONDS = 1.0
+_ACCOUNTING_FLUSH_RESPONSES = 32
 
 
 class _HtmlTitleParser(HTMLParser):
@@ -222,6 +223,26 @@ class GitHubRateWait:
     report: bool
 
 
+@dataclass
+class _GitHubRateWindow:
+    in_flight: int = 0
+    reported_reset_at: int | None = None
+    remaining: int | None = None
+    reset_at: int | None = None
+
+
+def _empty_rate_values() -> dict[str, str | int]:
+    return {}
+
+
+@dataclass
+class _GitHubPendingUsage:
+    values: dict[str, str | int] = field(default_factory=_empty_rate_values)
+    calls: int = 0
+    minute_calls: int = 0
+    responses: int = 0
+
+
 class GitHubRateAccounting:
     """Share and persist REST capacity plus REST and GraphQL usage."""
 
@@ -230,38 +251,43 @@ class GitHubRateAccounting:
         state: StateStore,
         *,
         rest_reserve: int = _DEFAULT_REST_RESERVE,
+        flush_responses: int = _ACCOUNTING_FLUSH_RESPONSES,
     ) -> None:
         if rest_reserve < 0:
             raise ValueError("REST reserve must be zero or greater")
+        if flush_responses < 1:
+            raise ValueError("accounting flush responses must be positive")
         self.state = state
         self.rest_reserve = rest_reserve
+        self.flush_responses = flush_responses
         self._lock = Lock()
-        self._rest_in_flight = 0
-        self._reported_reset_at: int | None = None
-        self._rest_remaining = _nonnegative_int(state.get("BKG_REST_REMAINING"))
-        self._rest_reset_at = _nonnegative_int(state.get("BKG_REST_RESET_AT"))
+        self._rate = _GitHubRateWindow(
+            remaining=_nonnegative_int(state.get("BKG_REST_REMAINING")),
+            reset_at=_nonnegative_int(state.get("BKG_REST_RESET_AT")),
+        )
+        self._pending = _GitHubPendingUsage()
 
     def reserve_rest(self, now: float) -> GitHubRateWait | None:
         """Reserve one request or describe how long capacity must wait."""
 
         with self._lock:
-            if self._rest_reset_at is not None and self._rest_reset_at <= now:
-                self._rest_remaining = None
-                self._rest_reset_at = None
-                self._reported_reset_at = None
+            if self._rate.reset_at is not None and self._rate.reset_at <= now:
+                self._rate.remaining = None
+                self._rate.reset_at = None
+                self._rate.reported_reset_at = None
 
             available = (
                 None
-                if self._rest_remaining is None
-                else self._rest_remaining - self._rest_in_flight
+                if self._rate.remaining is None
+                else self._rate.remaining - self._rate.in_flight
             )
             if available is None or available > self.rest_reserve:
-                self._rest_in_flight += 1
+                self._rate.in_flight += 1
                 return None
 
-            reset_at = self._rest_reset_at
-            report = reset_at != self._reported_reset_at
-            self._reported_reset_at = reset_at
+            reset_at = self._rate.reset_at
+            report = reset_at != self._rate.reported_reset_at
+            self._rate.reported_reset_at = reset_at
 
         reserve = self.rest_reserve
         if reset_at is None:
@@ -289,16 +315,13 @@ class GitHubRateAccounting:
         """Count one REST response and retain its latest rate-limit headers."""
 
         values = self._complete_rest_request(headers) if budgeted else {}
-        self.state.update_many(
-            values,
-            increments={"BKG_CALLS_TO_API": 1, "BKG_MIN_CALLS_TO_API": 1},
-        )
+        self._record_usage(values, calls=1, minute_calls=1)
 
     def cancel_rest(self) -> None:
         """Release a reservation when no REST response was received."""
 
         with self._lock:
-            self._rest_in_flight = max(0, self._rest_in_flight - 1)
+            self._rate.in_flight = max(0, self._rate.in_flight - 1)
 
     def record_graphql(self, value: object) -> None:
         """Count one GraphQL response using GitHub's reported query cost."""
@@ -312,13 +335,50 @@ class GitHubRateAccounting:
         reset_at = rate_limit.get("resetAt")
         if isinstance(reset_at, str) and reset_at:
             values["BKG_GRAPHQL_RESET_AT"] = reset_at
-        self.state.update_many(
-            values,
-            increments={
-                "BKG_CALLS_TO_API": cost,
-                "BKG_MIN_CALLS_TO_API": cost,
-            },
-        )
+        self._record_usage(values, calls=cost, minute_calls=cost)
+
+    def flush(self) -> None:
+        """Persist accumulated response accounting in one state replacement."""
+
+        with self._lock:
+            pending = self._pending
+            self._pending = _GitHubPendingUsage()
+        if not pending.values and pending.calls == 0 and pending.minute_calls == 0:
+            return
+        try:
+            self.state.update_many(
+                pending.values,
+                increments={
+                    "BKG_CALLS_TO_API": pending.calls,
+                    "BKG_MIN_CALLS_TO_API": pending.minute_calls,
+                },
+            )
+        except BaseException:
+            with self._lock:
+                current = self._pending
+                pending.values.update(current.values)
+                pending.calls += current.calls
+                pending.minute_calls += current.minute_calls
+                pending.responses += current.responses
+                self._pending = pending
+            raise
+
+    def _record_usage(
+        self,
+        values: Mapping[str, str | int],
+        *,
+        calls: int,
+        minute_calls: int,
+    ) -> None:
+        should_flush = False
+        with self._lock:
+            self._pending.values.update(values)
+            self._pending.calls += calls
+            self._pending.minute_calls += minute_calls
+            self._pending.responses += 1
+            should_flush = self._pending.responses >= self.flush_responses
+        if should_flush:
+            self.flush()
 
     def _complete_rest_request(
         self,
@@ -329,30 +389,30 @@ class GitHubRateAccounting:
         limit = _nonnegative_int(headers.get("x-ratelimit-limit"))
 
         with self._lock:
-            self._rest_in_flight = max(0, self._rest_in_flight - 1)
+            self._rate.in_flight = max(0, self._rate.in_flight - 1)
             if (
                 reset_at is not None
-                and self._rest_reset_at is not None
-                and reset_at < self._rest_reset_at
+                and self._rate.reset_at is not None
+                and reset_at < self._rate.reset_at
             ):
                 remaining = None
                 reset_at = None
-            elif reset_at is not None and reset_at != self._rest_reset_at:
-                self._rest_reset_at = reset_at
-                self._rest_remaining = remaining
-                self._reported_reset_at = None
+            elif reset_at is not None and reset_at != self._rate.reset_at:
+                self._rate.reset_at = reset_at
+                self._rate.remaining = remaining
+                self._rate.reported_reset_at = None
             elif remaining is not None:
-                self._rest_remaining = (
+                self._rate.remaining = (
                     remaining
-                    if self._rest_remaining is None
-                    else min(self._rest_remaining, remaining)
+                    if self._rate.remaining is None
+                    else min(self._rate.remaining, remaining)
                 )
 
             values: dict[str, int] = {}
-            if self._rest_remaining is not None:
-                values["BKG_REST_REMAINING"] = self._rest_remaining
-            if self._rest_reset_at is not None:
-                values["BKG_REST_RESET_AT"] = self._rest_reset_at
+            if self._rate.remaining is not None:
+                values["BKG_REST_REMAINING"] = self._rate.remaining
+            if self._rate.reset_at is not None:
+                values["BKG_REST_RESET_AT"] = self._rate.reset_at
             if limit is not None:
                 values["BKG_REST_LIMIT"] = limit
             return values
@@ -391,8 +451,12 @@ class GitHubClient:
     def close(self) -> None:
         """Close the internally owned connection pool."""
 
-        if self._owns_client:
-            self._client.close()
+        try:
+            if self.accounting is not None:
+                self.accounting.flush()
+        finally:
+            if self._owns_client:
+                self._client.close()
 
     def rest_json(
         self,

@@ -168,12 +168,9 @@ class OwnerQueuePreparationService:  # pylint: disable=too-few-public-methods
             for owner_ref in resolved
             if _owner_key(owner_ref) in connection_owners
         )
-        self.services.state.set("BKG_DISCOVERED_CONNECTION_OWNERS", "")
-        for owner_ref in discovered:
+        for _owner_ref in discovered:
             self.execution.check_stop()
-            self.services.state.add_to_set(
-                "BKG_DISCOVERED_CONNECTION_OWNERS", owner_ref
-            )
+        self.services.state.replace_set("BKG_DISCOVERED_CONNECTION_OWNERS", discovered)
 
     def _queue_resolved(
         self,
@@ -183,16 +180,14 @@ class OwnerQueuePreparationService:  # pylint: disable=too-few-public-methods
         reason_by_owner: dict[str, str] = {}
         for owner, reason in selected:
             reason_by_owner.setdefault(_owner_key(owner), reason)
-        queued = 0
-        for owner_ref in resolved:
+        for _owner_ref in resolved:
             self.execution.check_stop()
-            if not self.services.state.add_to_set("BKG_OWNERS_QUEUE", owner_ref):
-                continue
-            queued += 1
+        added = self.services.state.add_many_to_set("BKG_OWNERS_QUEUE", resolved)
+        for owner_ref in added:
             owner = _owner_login(owner_ref)
             reason = reason_by_owner.get(owner.casefold(), "discovered")
             self.execution.progress(f"Queued {owner} (reason: {reason})")
-        return queued
+        return len(added)
 
     def _retire_missing(self, missing: tuple[str, ...]) -> int:
         missing_owners = sorted(set(missing))
@@ -252,14 +247,12 @@ class TargetedOwnerQueueService:  # pylint: disable=too-few-public-methods
     ) -> TargetedOwnerQueueResult:
         self.check_stop()
         resolved, missing = self.resolver.resolve_candidates(candidates)
-        queued = 0
-        for owner_ref in resolved:
+        for _owner_ref in resolved:
             self.check_stop()
-            if not self.state.add_to_set("BKG_OWNERS_QUEUE", owner_ref):
-                continue
-            queued += 1
+        added = self.state.add_many_to_set("BKG_OWNERS_QUEUE", resolved)
+        for owner_ref in added:
             self.progress(f"Queued {_owner_login(owner_ref)}")
-        return TargetedOwnerQueueResult(len(candidates), queued, len(missing))
+        return TargetedOwnerQueueResult(len(candidates), len(added), len(missing))
 
 
 def _prepare_connections(paths: OwnerQueuePreparationPaths) -> tuple[str, ...]:

@@ -157,17 +157,14 @@ class BoundedWorkerRunner:
         plan = _RunPlan(items, worker, task_name)
         state: _RunState[T, R] = _RunState([], [], [], {})
         executor = ThreadPoolExecutor(max_workers=self.settings.max_workers)
-        wait_for_workers = True
 
         try:
             self._fill_workers(executor, state, plan)
 
             while state.futures:
                 self._record_external_stop(state, plan)
-                if self._drain_expired(state):
-                    self._interrupt_remaining(state)
-                    wait_for_workers = False
-                    break
+                if not state.drain_timed_out and self._drain_expired(state):
+                    self._report_drain_timeout(state)
 
                 done, _pending = wait(
                     state.futures,
@@ -180,7 +177,7 @@ class BoundedWorkerRunner:
 
                 self._fill_workers(executor, state, plan)
         finally:
-            executor.shutdown(wait=wait_for_workers, cancel_futures=True)
+            executor.shutdown(wait=True, cancel_futures=True)
 
         return _finish_result(state)
 
@@ -290,14 +287,16 @@ class BoundedWorkerRunner:
         ) >= self.settings.stop_grace_seconds
 
     def _wait_timeout[T, R](self, state: _RunState[T, R]) -> float:
-        if state.drain_started_at is None:
+        if state.drain_started_at is None or state.drain_timed_out:
             return self.poll_interval
         remaining = self.settings.stop_grace_seconds - (
             self.clock() - state.drain_started_at
         )
         return max(0.0, min(self.poll_interval, remaining))
 
-    def _interrupt_remaining[T, R](self, state: _RunState[T, R]) -> None:
+    def _report_drain_timeout[T, R](self, state: _RunState[T, R]) -> None:
+        """Report overdue workers without allowing them to outlive the runner."""
+
         state.drain_timed_out = True
         for future, task in list(state.futures.items()):
             if future.done():
@@ -309,12 +308,12 @@ class BoundedWorkerRunner:
             if future.cancel():
                 reason = "cancelled"
                 event_kind = "cancelled"
+                state.futures.pop(future)
             else:
                 reason = "drain-timeout"
                 event_kind = "drain-timeout"
             state.interrupted.append(TaskInterruption(task.index, task.name, reason))
             self._emit(event_kind, task.index, task.name)
-            state.futures.pop(future)
 
     def _emit(
         self,

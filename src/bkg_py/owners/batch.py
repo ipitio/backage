@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 import shutil
+import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field, replace
 from pathlib import Path
@@ -25,6 +26,7 @@ from .lifecycle import OwnerLifecycleResult
 from .operations import OwnerUpdateRequest
 
 MessageSink = Callable[[str], None]
+OwnerMaterializer = Callable[[tuple[str, ...]], None]
 OwnerBatchItemOutcome = Literal[
     "updated",
     "paused",
@@ -35,6 +37,7 @@ OwnerBatchItemOutcome = Literal[
 OwnerUpdater = Callable[[OwnerUpdateRequest], OwnerLifecycleResult]
 OwnerUpdaterFactory = Callable[[ConcurrencySettings], OwnerUpdater]
 _OWNER_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9-]{0,38}")
+_OWNER_MATERIALIZATION_WAVE_SIZE = 100
 
 
 class OwnerRetirementRepository(Protocol):  # pylint: disable=too-few-public-methods
@@ -178,6 +181,15 @@ class OwnerBatchExecution:
     check_stop: Callable[[], None]
     progress: MessageSink
     diagnostic: MessageSink
+    materialize: OwnerMaterializer = lambda _owners: None
+
+
+@dataclass(frozen=True)
+class _OwnerWaveUpdate:
+    request: OwnerBatchRequest
+    updater: OwnerUpdater
+    opted_out: set[str]
+    workers: int
 
 
 class OwnerBatchService:  # pylint: disable=too-few-public-methods
@@ -188,10 +200,15 @@ class OwnerBatchService:  # pylint: disable=too-few-public-methods
         updater_factory: OwnerUpdaterFactory,
         effects: OwnerBatchEffects,
         execution: OwnerBatchExecution,
+        *,
+        materialization_wave_size: int = _OWNER_MATERIALIZATION_WAVE_SIZE,
     ) -> None:
+        if materialization_wave_size < 1:
+            raise ValueError("materialization wave size must be positive")
         self.updater_factory = updater_factory
         self.effects = effects
         self.execution = execution
+        self.materialization_wave_size = materialization_wave_size
 
     def run(self, request: OwnerBatchRequest) -> ExitStatus:
         """Run queued owners and preserve completed effects across graceful stops."""
@@ -206,15 +223,65 @@ class OwnerBatchService:  # pylint: disable=too-few-public-methods
         updater = self.updater_factory(
             replace(self.execution.concurrency, max_workers=per_owner_workers)
         )
-        opted_out = _owner_opt_outs(self.execution.optout_file)
+        update = _OwnerWaveUpdate(
+            request,
+            updater,
+            _owner_opt_outs(self.execution.optout_file),
+            owner_workers,
+        )
+        wave_size = self.materialization_wave_size
+        wave_count = (len(owners) + wave_size - 1) // wave_size
+        for wave_number, start in enumerate(range(0, len(owners), wave_size), start=1):
+            wave = owners[start : start + wave_size]
+            if not self._materialize_wave(wave, wave_number, wave_count):
+                return ExitStatus.GRACEFUL_STOP
+            status = self._run_wave(wave, update)
+            if status is not ExitStatus.SUCCESS:
+                return status
+        return ExitStatus.SUCCESS
+
+    def _materialize_wave(
+        self,
+        wave: tuple[QueuedOwner, ...],
+        wave_number: int,
+        wave_count: int,
+    ) -> bool:
+        owner_names = tuple(owner.owner for owner in wave)
+        self.execution.progress(
+            f"Materializing owner wave {wave_number}/{wave_count} "
+            f"({len(wave)} tree(s))..."
+        )
+        started_at = time.monotonic()
+        try:
+            self.execution.check_stop()
+            self.execution.materialize(owner_names)
+        except GracefulStop as error:
+            self.execution.diagnostic(f"Graceful stop requested: {error}")
+            return False
+        elapsed = max(0.0, time.monotonic() - started_at)
+        self.execution.progress(
+            f"Materialized owner wave {wave_number}/{wave_count} in {elapsed:.1f}s"
+        )
+        return True
+
+    def _run_wave(
+        self,
+        wave: tuple[QueuedOwner, ...],
+        update: _OwnerWaveUpdate,
+    ) -> ExitStatus:
         runner = BoundedWorkerRunner(
-            replace(self.execution.concurrency, max_workers=owner_workers),
+            replace(self.execution.concurrency, max_workers=update.workers),
             check_stop=self.execution.check_stop,
             event_sink=self._worker_event,
         )
         result = runner.run(
-            owners,
-            lambda owner: self._update_one(owner, request, updater, opted_out),
+            wave,
+            lambda owner: self._update_one(
+                owner,
+                update.request,
+                update.updater,
+                update.opted_out,
+            ),
             task_name=lambda owner: owner.owner,
         )
         self._report_failures(result.failures, result.interrupted)

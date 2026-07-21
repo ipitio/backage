@@ -80,6 +80,20 @@ def test_cache_replaces_stale_ref_and_reports_conflicts(tmp_path: Path) -> None:
     assert cache.lookup("beta") is None
 
 
+def test_cache_many_replaces_each_login_in_one_ordered_update(tmp_path: Path) -> None:
+    """Bulk identity caching retains unrelated refs and each newest identity."""
+
+    cache = OwnerIdentityCache(tmp_path / "owner-id-cache.txt")
+    cache.cache_many(("100/alpha", "200/beta"))
+    cache.cache_many(("101/alpha", "300/gamma", "not-a-ref"))
+
+    assert cache.path.read_text(encoding="utf-8").splitlines() == [
+        "200/beta",
+        "101/alpha",
+        "300/gamma",
+    ]
+
+
 def test_fresh_owner_resolution_bypasses_a_stale_identity_cache(
     tmp_path: Path,
 ) -> None:

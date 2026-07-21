@@ -170,17 +170,26 @@ class OwnerIdentityCache:
     def cache(self, owner_ref: str) -> None:
         """Store a resolved owner reference, replacing stale refs for the login."""
 
-        if not is_owner_ref(owner_ref):
+        self.cache_many((owner_ref,))
+
+    def cache_many(self, owner_refs: Iterable[str]) -> None:
+        """Store resolved owner references with one locked atomic replacement."""
+
+        replacements: dict[str, str] = {}
+        for owner_ref in owner_refs:
+            if not is_owner_ref(owner_ref):
+                continue
+            replacements[_owner_ref_key(owner_ref)] = owner_ref.strip()
+        if not replacements:
             return
-        login_key = _owner_ref_key(owner_ref)
 
         with self._lock():
             retained = [
                 line
                 for line in self._read_refs()
-                if not is_owner_ref(line) or _owner_ref_key(line) != login_key
+                if not is_owner_ref(line) or _owner_ref_key(line) not in replacements
             ]
-            retained.append(owner_ref.strip())
+            retained.extend(replacements.values())
             seen: set[str] = set()
             unique: list[str] = []
             for line in retained:
@@ -280,13 +289,14 @@ class OwnerIdentityResolver:
         candidates: Iterable[str],
     ) -> _CandidateResolutionState:
         state = _CandidateResolutionState({}, set(), [])
+        cached_refs: list[str] = []
         for candidate in candidates:
             login = owner_ref_login(candidate)
             if not login:
                 continue
             if is_owner_ref(candidate):
                 state.resolved_by_owner[login] = candidate
-                self.cache.cache(candidate)
+                cached_refs.append(candidate)
                 continue
 
             cached = self.cache.lookup(login)
@@ -294,6 +304,7 @@ class OwnerIdentityResolver:
                 state.resolved_by_owner[login] = cached
             elif login not in state.resolved_by_owner:
                 state.unresolved.append(login)
+        self.cache.cache_many(cached_refs)
         return state
 
     def _resolved_candidate_output(
@@ -519,12 +530,14 @@ class OwnerIdentityResolver:
             identities = _owner_lookup_identities(response.value, batch)
             if identities is None:
                 continue
+            resolved_refs: list[str] = []
             for login, identity in zip(batch, identities, strict=True):
                 if identity is None:
                     missing_by_owner.add(login)
                 else:
                     resolved_by_owner[login] = identity.ref
-                    self.cache.cache(identity.ref)
+                    resolved_refs.append(identity.ref)
+            self.cache.cache_many(resolved_refs)
 
     def _rest_owner_lookup(self, login: str) -> OwnerLookupResult:
         if not login:
@@ -662,6 +675,7 @@ class OwnerIdentityResolver:
                 raise DiscoveryError(
                     f"invalid collaborators response for {owner}/{repo}"
                 )
+            page_refs: list[str] = []
             for node in cast(list[object], response_value):
                 if not isinstance(node, dict):
                     continue
@@ -671,8 +685,9 @@ class OwnerIdentityResolver:
                 if not isinstance(login, str) or not login or owner_id is None:
                     continue
                 identity = OwnerIdentity(str(owner_id), login)
-                self.cache.cache(identity.ref)
+                page_refs.append(identity.ref)
                 collaborators.append(identity.ref)
+            self.cache.cache_many(page_refs)
         return tuple(collaborators)
 
     def _resolve_logins(self, logins: Iterable[str]) -> tuple[str, ...]:
@@ -695,15 +710,17 @@ class OwnerIdentityResolver:
             return DiscoveryPage((), *page_info)
 
         logins: list[str] = []
+        resolved_refs: list[str] = []
         for node in cast(list[object], nodes):
             identity = _discovery_node_identity(node, edge=edge)
             if identity is not None:
-                self.cache.cache(identity.ref)
+                resolved_refs.append(identity.ref)
                 logins.append(identity.login)
                 continue
             login = _discovery_node_login(node, edge=edge)
             if login:
                 logins.append(login)
+        self.cache.cache_many(resolved_refs)
         return DiscoveryPage(tuple(logins), *page_info)
 
 
