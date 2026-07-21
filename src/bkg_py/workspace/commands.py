@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 
 from ..result import ExitStatus
+from .handoff import HandoffSettings, WorkflowHandoffControl
 from .layout import WorkspaceLayout
 from .payload import import_workflow_payload
 from .publication import UpdateWorkspacePublisher, published_run_status
@@ -20,6 +21,32 @@ from .repository import (
 
 def _write_progress(message: str) -> None:
     sys.stderr.write(f"{message}\n")
+
+
+def _write_stdout(message: str) -> None:
+    sys.stdout.write(f"{message}\n")
+
+
+def run_handoff(args: argparse.Namespace) -> ExitStatus:
+    """Run one control-ref command without constructing application services."""
+
+    control = WorkflowHandoffControl(
+        Path(args.repository),
+        HandoffSettings.from_env(),
+        progress=_write_stdout,
+        diagnostic=_write_progress,
+    )
+    try:
+        if args.handoff_command == "baseline":
+            sys.stdout.write(f"{control.current_baseline()}\n")
+        elif args.handoff_command == "request":
+            control.request()
+        else:
+            raise WorkspaceError(f"unknown handoff command: {args.handoff_command}")
+    except (OSError, WorkspaceError) as error:
+        _write_progress(str(error))
+        return ExitStatus.NON_FATAL
+    return ExitStatus.SUCCESS
 
 
 def run_workspace(args: argparse.Namespace) -> ExitStatus:

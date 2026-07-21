@@ -7,7 +7,7 @@ import re
 import shutil
 import subprocess
 import time
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -43,6 +43,46 @@ class IndexWorkspacePreparation:
     first_run: bool
 
 
+def clone_repository(
+    source: str,
+    destination: Path,
+    branch: str,
+) -> GitRepository:
+    """Create a shallow single-branch source checkout."""
+
+    git = resolve_executable("git")
+    try:
+        result = subprocess.run(  # noqa: S603
+            (
+                git,
+                "-c",
+                "credential.username=x-access-token",
+                "-c",
+                f"credential.helper={_CREDENTIAL_HELPER}",
+                "clone",
+                "--depth=1",
+                "--branch",
+                branch,
+                "--single-branch",
+                source,
+                str(destination),
+            ),
+            check=False,
+            capture_output=True,
+            shell=False,
+            text=True,
+        )
+    except OSError as error:
+        raise WorkspaceError(f"could not start git clone: {error}") from error
+    if result.returncode != 0:
+        detail = _redact_git_detail(result.stderr.strip() or result.stdout.strip())
+        message = f"git clone failed with status {result.returncode}"
+        if detail:
+            message = f"{message}: {detail}"
+        raise WorkspaceError(message)
+    return GitRepository(destination)
+
+
 class _GitCommandRunner:  # pylint: disable=too-few-public-methods
     """Execute credential-safe Git commands for one worktree."""
 
@@ -50,28 +90,38 @@ class _GitCommandRunner:  # pylint: disable=too-few-public-methods
         self.path = path
         self._git = resolve_executable("git")
 
-    def _run(
+    def _run(  # pylint: disable=too-many-arguments
         self,
         arguments: Sequence[str],
         *,
+        environment: Mapping[str, str] | None = None,
         input_text: str | None = None,
         required: bool = False,
+        timeout: float | None = None,
     ) -> subprocess.CompletedProcess[str]:
-        result = subprocess.run(  # noqa: S603
-            (
-                self._git,
-                "-c",
-                f"safe.directory={self.path.resolve()}",
-                "-C",
-                str(self.path),
-                *arguments,
-            ),
-            check=False,
-            capture_output=True,
-            input=input_text,
-            shell=False,
-            text=True,
-        )
+        try:
+            result = subprocess.run(  # noqa: S603
+                (
+                    self._git,
+                    "-c",
+                    f"safe.directory={self.path.resolve()}",
+                    "-C",
+                    str(self.path),
+                    *arguments,
+                ),
+                check=False,
+                capture_output=True,
+                env=(None if environment is None else {**os.environ, **environment}),
+                input=input_text,
+                shell=False,
+                text=True,
+                timeout=timeout,
+            )
+        except subprocess.TimeoutExpired as error:
+            command = arguments[0] if arguments else "command"
+            raise WorkspaceError(
+                f"git {command} timed out after {timeout:g}s in {self.path}"
+            ) from error
         if required and result.returncode != 0:
             self._raise_command_error(arguments, result)
         return result
@@ -104,6 +154,23 @@ class GitRepository(_GitCommandRunner):
 
         result = self._run(("branch", "--show-current"), required=True)
         return result.stdout.strip()
+
+    def remote_url(self, remote: str = "origin") -> str:
+        """Return the configured URL for one remote."""
+
+        return self._run(
+            ("remote", "get-url", remote),
+            required=True,
+        ).stdout.strip()
+
+    def latest_commit_epoch(self, revision: str) -> int | None:
+        """Return a revision's latest commit time, or None when it is absent."""
+
+        result = self._run(("log", "-1", "--format=%ct", revision))
+        value = result.stdout.strip()
+        if result.returncode != 0 or not value.isdecimal():
+            return None
+        return int(value)
 
     def configure_for_updates(self, actor: str) -> None:
         """Configure commit identity, credentials, and large-worktree settings."""
@@ -308,6 +375,106 @@ class GitRepository(_GitCommandRunner):
             ("sparse-checkout", "add", "--skip-checks", "--", *paths),
             required=True,
         )
+
+
+class GitControlRefRepository(_GitCommandRunner):
+    """Read and mutate one exact remote control ref without checkout changes."""
+
+    def remote_ref_sha(
+        self,
+        ref: str,
+        *,
+        remote: str = "origin",
+        timeout: float | None = None,
+    ) -> str | None:
+        """Return one exact remote ref SHA, or None when the ref is absent."""
+
+        result = self._run(
+            ("ls-remote", "--refs", remote, ref),
+            required=True,
+            timeout=timeout,
+        )
+        first_line = next(iter(result.stdout.splitlines()), "")
+        sha, _separator, _name = first_line.partition("\t")
+        return sha or None
+
+    def fetch_ref(
+        self,
+        ref: str,
+        *,
+        remote: str = "origin",
+        timeout: float | None = None,
+    ) -> str:
+        """Fetch one exact ref and return the fetched commit SHA."""
+
+        self._run(
+            ("fetch", "--quiet", "--no-tags", "--depth=1", remote, ref),
+            required=True,
+            timeout=timeout,
+        )
+        return self._run(
+            ("rev-parse", "FETCH_HEAD"),
+            required=True,
+        ).stdout.strip()
+
+    def empty_tree(self) -> str:
+        """Return Git's canonical empty-tree object ID."""
+
+        return self._run(("mktree",), input_text="", required=True).stdout.strip()
+
+    def commit_tree(
+        self,
+        message: str,
+        *,
+        parent: str | None = None,
+        additional_message: str | None = None,
+        environment: Mapping[str, str] | None = None,
+    ) -> str:
+        """Create an empty-tree commit without changing the worktree."""
+
+        arguments = ["commit-tree", self.empty_tree()]
+        if parent is not None:
+            arguments.extend(("-p", parent))
+        arguments.extend(("-m", message))
+        if additional_message is not None:
+            arguments.extend(("-m", additional_message))
+        return self._run(
+            arguments,
+            environment=environment,
+            required=True,
+        ).stdout.strip()
+
+    def commit_tree_id(self, commit: str) -> str:
+        """Return the tree object ID referenced by a commit."""
+
+        return self._run(
+            ("show", "-s", "--format=%T", commit),
+            required=True,
+        ).stdout.strip()
+
+    def commit_message(self, commit: str) -> str:
+        """Return a commit's complete message."""
+
+        return self._run(
+            ("show", "-s", "--format=%B", commit),
+            required=True,
+        ).stdout
+
+    def push_ref(
+        self,
+        commit: str,
+        ref: str,
+        *,
+        remote: str = "origin",
+        force_with_lease: str | None = None,
+    ) -> bool:
+        """Try to push one commit to a ref, returning False for a rejected race."""
+
+        arguments = ["push", "--quiet"]
+        if force_with_lease is not None:
+            arguments.append(f"--force-with-lease={ref}:{force_with_lease}")
+        arguments.extend((remote, f"{commit}:{ref}"))
+        return self._run(arguments).returncode == 0
 
 
 class GitBranchPublisher(_GitCommandRunner):  # pylint: disable=too-few-public-methods

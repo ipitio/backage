@@ -71,7 +71,32 @@ def build_parser() -> argparse.ArgumentParser:
     _add_owner_parsers(subparsers)
     _add_orchestration_parsers(subparsers)
     _add_workspace_parsers(subparsers)
+    _add_handoff_parsers(subparsers)
+    update_parser = subparsers.add_parser(
+        "workflow-update",
+        help="run the complete repository update and publication lifecycle",
+    )
+    update_parser.add_argument("root", nargs="?", default=".")
+    update_parser.add_argument("-d", "--duration", type=int)
+    update_parser.add_argument("-m", "--mode", type=int, choices=range(6))
+    update_parser.add_argument("--owner-request-limit", type=int, default=100)
+    update_parser.add_argument("--invocation-directory", default=".")
+    update_parser.add_argument("--payload-directory")
     return parser
+
+
+def _add_handoff_parsers(subparsers: Any) -> None:
+    handoff_parser = subparsers.add_parser(
+        "handoff",
+        help="read or advance the graceful workflow handoff ref",
+    )
+    handoff_commands = handoff_parser.add_subparsers(
+        dest="handoff_command",
+        required=True,
+    )
+    for command in ("baseline", "request"):
+        command_parser = handoff_commands.add_parser(command)
+        command_parser.add_argument("repository", nargs="?", default=".")
 
 
 def _add_workspace_parsers(subparsers: Any) -> None:

@@ -17,7 +17,7 @@ from urllib.parse import quote
 
 from .config import RuntimeConfig
 from .files import atomic_binary_output, atomic_path, atomic_text_output
-from .github import GitHubClient
+from .github import GitHubClient, GitHubError
 
 ArchiveKind = Literal["db", "db-zst", "sql-zst"]
 StopCheck = Callable[[], None]
@@ -337,6 +337,42 @@ class SnapshotStore:
             if archive.path != asset.archive.path:
                 archive.path.unlink(missing_ok=True)
         return result
+
+    def delete_unhealthy_releases(
+        self,
+        client: GitHubClient,
+        *,
+        owner: str,
+        repo: str,
+        progress: Callable[[str], None] = lambda _message: None,
+    ) -> int:
+        """Delete latest releases until one contains a supported snapshot."""
+
+        deleted = 0
+        while True:
+            response = client.rest_json(_release_metadata_path(owner, repo, None))
+            release = response.value
+            if self.release_snapshot_asset_from_metadata(release) is not None:
+                return deleted
+            if not isinstance(release, Mapping):
+                raise SnapshotError("latest release metadata is not an object")
+            release_metadata = cast(Mapping[str, object], release)
+            release_id = release_metadata.get("id")
+            tag = release_metadata.get("tag_name")
+            if (
+                not isinstance(release_id, int)
+                or isinstance(release_id, bool)
+                or release_id <= 0
+            ):
+                raise SnapshotError("latest release metadata has no valid release ID")
+            if not isinstance(tag, str) or not tag:
+                raise SnapshotError("latest release metadata has no valid tag")
+            progress("Deleting the latest release...")
+            try:
+                client.rest_delete(f"repos/{owner}/{repo}/releases/{release_id}")
+            except GitHubError as error:
+                raise SnapshotError(f"Failed to delete latest release {tag}") from error
+            deleted += 1
 
     def _write_restore_signature_value(self, signature: str) -> None:
         self.paths.restore_signature.parent.mkdir(parents=True, exist_ok=True)

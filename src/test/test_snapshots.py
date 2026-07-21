@@ -226,6 +226,57 @@ def test_release_snapshot_asset_prefers_current_archive(tmp_path: Path) -> None:
     assert asset.authenticated
 
 
+def test_unhealthy_release_cleanup_stops_at_supported_snapshot(tmp_path: Path) -> None:
+    """Recovery deletes only the leading releases that cannot restore the DB."""
+
+    paths = SnapshotPaths(tmp_path / "index.db")
+    store = SnapshotStore(paths)
+    requests: list[tuple[str, str]] = []
+    latest_reads = 0
+
+    def respond(request: httpx.Request) -> httpx.Response:
+        nonlocal latest_reads
+        requests.append((request.method, request.url.path))
+        if request.method == "DELETE":
+            return httpx.Response(204)
+        latest_reads += 1
+        if latest_reads == 1:
+            return httpx.Response(
+                200,
+                json={"id": 42, "tag_name": "v1", "assets": []},
+            )
+        return httpx.Response(
+            200,
+            json={
+                "id": 41,
+                "tag_name": "v0",
+                "assets": [
+                    {
+                        "name": "index.db",
+                        "browser_download_url": "https://objects.example/index.db",
+                    }
+                ],
+            },
+        )
+
+    messages: list[str] = []
+    with _github_client(httpx.MockTransport(respond), "token") as client:
+        deleted = store.delete_unhealthy_releases(
+            client,
+            owner="example",
+            repo="bkg",
+            progress=messages.append,
+        )
+
+    assert deleted == 1
+    assert requests == [
+        ("GET", "/repos/example/bkg/releases/latest"),
+        ("DELETE", "/repos/example/bkg/releases/42"),
+        ("GET", "/repos/example/bkg/releases/latest"),
+    ]
+    assert messages == ["Deleting the latest release..."]
+
+
 def test_missing_release_snapshot_asset_is_nonfatal(tmp_path: Path) -> None:
     """Releases without supported snapshot assets report absence."""
 

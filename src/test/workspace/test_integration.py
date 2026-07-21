@@ -21,53 +21,15 @@ from bkg_py.workspace import (
 )
 from bkg_py.workspace.repository import ensure_pages_root
 
-
-def _git(repository: Path, *arguments: str) -> subprocess.CompletedProcess[str]:
-    git = shutil.which("git")
-    assert git is not None
-    return subprocess.run(  # noqa: S603
-        (git, "-C", str(repository), *arguments),
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-
-
-def _create_repository(path: Path) -> None:
-    path.mkdir()
-    git = shutil.which("git")
-    assert git is not None
-    subprocess.run(  # noqa: S603
-        (git, "init", "-q", "-b", "master", str(path)),
-        check=True,
-    )
-    _git(path, "config", "user.name", "test")
-    _git(path, "config", "user.email", "test@example.com")
-    (path / "alpha" / "repo-a").mkdir(parents=True)
-    (path / "beta" / "repo-b").mkdir(parents=True)
-    (path / ".env").write_text("state\n", encoding="utf-8")
-    (path / "README.md").write_text("index\n", encoding="utf-8")
-    (path / "alpha" / "repo-a" / "package.json").write_text(
-        "{}\n",
-        encoding="utf-8",
-    )
-    (path / "beta" / "repo-b" / "package.json").write_text(
-        "{}\n",
-        encoding="utf-8",
-    )
-    _git(path, "add", "-A")
-    _git(path, "commit", "-qm", "init")
-
-
-def _create_repository_with_remote(tmp_path: Path) -> tuple[Path, Path]:
-    remote = tmp_path / "remote.git"
-    remote.mkdir()
-    _git(remote, "init", "--bare", "-q", "--initial-branch=master")
-    repository = tmp_path / "repository"
-    _create_repository(repository)
-    _git(repository, "remote", "add", "origin", str(remote))
-    _git(repository, "push", "-qu", "origin", "master")
-    return repository, remote
+from .repository_support import (
+    create_repository as _create_repository,
+)
+from .repository_support import (
+    create_repository_with_remote as _create_repository_with_remote,
+)
+from .repository_support import (
+    git as _git,
+)
 
 
 def _create_publication_workspace(tmp_path: Path) -> tuple[Path, Path, Path, Path]:

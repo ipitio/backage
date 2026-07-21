@@ -487,6 +487,16 @@ class GitHubClient:
         except GitHubNotFoundError:
             return None
 
+    def rest_delete(self, path: str) -> None:
+        """Delete one REST resource through the shared retry and rate policy."""
+
+        self._request_without_body(
+            _JsonRequest(
+                "DELETE",
+                self._api_url(path),
+            )
+        )
+
     def get_text(  # pylint: disable=too-many-arguments
         self,
         url: str,
@@ -676,6 +686,38 @@ class GitHubClient:
                 headers=response.headers,
                 next_url=response.links.get("next", {}).get("url"),
             )
+
+        raise GitHubTransportError("GitHub request exhausted its retry budget")
+
+    def _request_without_body(self, request: _JsonRequest) -> None:
+        deadline = self.runtime.clock() + self.settings.total_timeout
+        for attempt in range(1, self.settings.max_attempts + 1):
+            self.runtime.check_stop()
+            budgeted = self._uses_rest_budget(request)
+            if budgeted and self._wait_for_rest_capacity():
+                deadline = self.runtime.clock() + self.settings.total_timeout
+            try:
+                response = self._client.request(
+                    request.method,
+                    request.url,
+                    headers=self._headers(authenticated=request.authenticated),
+                    timeout=self._timeout(self._remaining(deadline)),
+                )
+            except httpx.TransportError as error:
+                if budgeted and self.accounting is not None:
+                    self.accounting.cancel_rest()
+                if attempt >= self.settings.max_attempts:
+                    raise self._transport_error(request.url, error) from error
+                self._sleep_before_retry(None, attempt, deadline)
+                continue
+
+            self._record_json_response(request, response, None, budgeted=budgeted)
+            if self._should_retry(response) and attempt < self.settings.max_attempts:
+                if not self._primary_rate_limit_exhausted(response):
+                    self._sleep_before_retry(response, attempt, deadline)
+                continue
+            self._raise_for_status(response)
+            return
 
         raise GitHubTransportError("GitHub request exhausted its retry budget")
 

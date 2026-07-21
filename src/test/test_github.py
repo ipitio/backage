@@ -88,6 +88,20 @@ def test_rest_success_authentication_and_accounting(tmp_path: Path) -> None:
     assert state.get("BKG_REST_RESET_AT") == "1781139600"
 
 
+def test_rest_delete_uses_shared_authentication() -> None:
+    """No-content REST mutations use the same authenticated transport."""
+
+    def respond(request: httpx.Request) -> httpx.Response:
+        assert request.method == "DELETE"
+        assert request.url == "https://api.github.com/repos/example/bkg/releases/42"
+        assert request.headers["authorization"] == f"Bearer {TEST_TOKEN}"
+        return httpx.Response(204)
+
+    client = _client(httpx.MockTransport(respond))
+
+    client.rest_delete("repos/example/bkg/releases/42")
+
+
 def test_rate_accounting_flushes_in_bounded_response_batches(
     tmp_path: Path,
 ) -> None:

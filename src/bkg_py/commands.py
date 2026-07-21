@@ -942,6 +942,35 @@ def run_command(
         from .workspace.commands import run_workspace
 
         status = run_workspace(args)
+    elif args.command == "handoff":
+        from .workspace.commands import run_handoff
+
+        status = run_handoff(args)
+    elif args.command == "workflow-update":
+        from .workspace.update import (
+            UpdateWorkflowExecution,
+            UpdateWorkflowRequest,
+            run_update_workflow,
+        )
+
+        status = run_update_workflow(
+            UpdateWorkflowRequest(
+                root=Path(args.root),
+                invocation_directory=Path(args.invocation_directory),
+                payload_directory=(
+                    None
+                    if args.payload_directory is None
+                    else Path(args.payload_directory)
+                ),
+                duration=args.duration,
+                mode=args.mode,
+                owner_request_limit=args.owner_request_limit,
+            ),
+            UpdateWorkflowExecution(
+                progress=print,
+                diagnostic=lambda message: print(message, file=sys.stderr),
+            ),
+        )
     else:
         status = _run_application_command(args, parser)
     return status

@@ -7,6 +7,7 @@ test_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 bash "$test_dir/quality.sh"
 bash "$test_dir/shellcheck.sh"
 bash "$test_dir/handoff.sh"
+bash "$test_dir/update.sh"
 bash "$test_dir/timeout.sh"
 bash "$test_dir/python.sh"
 bash "$test_dir/runtime.sh"
