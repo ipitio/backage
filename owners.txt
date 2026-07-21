@@ -259,3 +259,5 @@
 3037449/ceztko
 3037468/allenash
 3037475/cqsdev
+3037530/SportingPulseInternational
+3037476/annumaaria
