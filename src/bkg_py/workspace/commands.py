@@ -9,7 +9,16 @@ from pathlib import Path
 from ..result import ExitStatus
 from .layout import WorkspaceLayout
 from .payload import import_workflow_payload
-from .repository import GitRepository, WorkspaceError, ensure_pages_root
+from .repository import (
+    GitRepository,
+    IndexWorkspacePreparer,
+    WorkspaceError,
+    ensure_pages_root,
+)
+
+
+def _write_progress(message: str) -> None:
+    sys.stderr.write(f"{message}\n")
 
 
 def run_workspace(args: argparse.Namespace) -> ExitStatus:
@@ -25,6 +34,8 @@ def run_workspace(args: argparse.Namespace) -> ExitStatus:
 
 def _run_workspace_command(args: argparse.Namespace) -> ExitStatus:
     command = args.workspace_command
+    if command in {"configure-repository", "prepare-index"}:
+        return _run_repository_command(args)
     if command == "layout":
         layout = WorkspaceLayout.discover(
             Path(args.root),
@@ -52,4 +63,16 @@ def _run_workspace_command(args: argparse.Namespace) -> ExitStatus:
         ensure_pages_root(Path(args.index_dir))
     else:
         raise WorkspaceError(f"unknown workspace command: {command}")
+    return ExitStatus.SUCCESS
+
+
+def _run_repository_command(args: argparse.Namespace) -> ExitStatus:
+    if args.workspace_command == "configure-repository":
+        GitRepository(Path(args.root)).configure_for_updates(args.actor)
+    else:
+        result = IndexWorkspacePreparer(
+            GitRepository(Path(args.root)),
+            progress=_write_progress,
+        ).prepare(args.index_branch, Path(args.index_dir))
+        sys.stdout.write(f"{str(result.first_run).lower()}\n")
     return ExitStatus.SUCCESS

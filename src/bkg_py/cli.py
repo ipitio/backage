@@ -95,6 +95,19 @@ def _add_workspace_parsers(subparsers: Any) -> None:
     )
     import_parser.add_argument("payload_dir")
     import_parser.add_argument("destination")
+    configure_parser = workspace_commands.add_parser(
+        "configure-repository",
+        help="configure update identity, credentials, and Git performance",
+    )
+    configure_parser.add_argument("root")
+    configure_parser.add_argument("actor")
+    prepare_index_parser = workspace_commands.add_parser(
+        "prepare-index",
+        help="prepare the index branch and sparse linked worktree",
+    )
+    prepare_index_parser.add_argument("root")
+    prepare_index_parser.add_argument("index_branch")
+    prepare_index_parser.add_argument("index_dir")
     for command in (
         "is-repo",
         "sparse-root",

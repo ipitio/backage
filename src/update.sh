@@ -42,25 +42,15 @@ bkg_python workspace import-payload "$workflow_payload_dir" "$BKG_ROOT" || {
 [ -n "$GITHUB_TOKEN" ] || GITHUB_TOKEN=$(remote_url=$(git config --get remote.origin.url); if grep -q '@' <<<"$remote_url"; then grep -oP '(?<=://)[^@]+' <<<"$remote_url"; else echo ""; fi)
 [ -n "$GITHUB_TOKEN" ] || ! gh auth status &>/dev/null || GITHUB_TOKEN=$(gh auth token)
 [ -n "$GITHUB_ACTOR" ] || GITHUB_ACTOR="${GITHUB_OWNER:-ipitio}"
-git config user.name "${GITHUB_ACTOR}"
-git config user.email "${GITHUB_ACTOR}@users.noreply.github.com"
-git config credential.helper "!f() { echo username=${GITHUB_ACTOR}; echo password=${GITHUB_TOKEN}; }; f"
-git config --add safe.directory "$(pwd)"
-git config core.sharedRepository all
-git config remote.origin.promisor true
-git config remote.origin.partialclonefilter blob:none
-git config extensions.partialClone origin
-capture_workflow_handoff_baseline "$BKG_ROOT"
+export GITHUB_TOKEN GITHUB_ACTOR
 
-# performance
-if git fsmonitor--daemon status >/dev/null 2>&1 || git fsmonitor--daemon start >/dev/null 2>&1; then
-    git config core.fsmonitor true
-else
-    git config --unset-all core.fsmonitor >/dev/null 2>&1 || :
-fi
-git config core.untrackedcache true
-git config feature.manyFiles true
-git update-index --index-version 4
+WORKTREE_PHASE_STARTED_AT=$(update_startup_phase_started_at)
+bkg_python workspace configure-repository "$BKG_ROOT" "$GITHUB_ACTOR" || {
+    echo "Failed to configure the source repository" >&2
+    exit 1
+}
+log_update_startup_phase "configure-source-repository" "$WORKTREE_PHASE_STARTED_AT"
+capture_workflow_handoff_baseline "$BKG_ROOT"
 
 sudonot chmod -R a+rwX .
 sudonot find . -type d -exec chmod g+s '{}' +
@@ -86,50 +76,19 @@ BKG_INDEX_SQL=${workspace_layout[4]}
 BKG_INDEX_DIR=${workspace_layout[5]}
 set +o allexport
 
-UPDATE_STARTUP_PHASE_STARTED_AT=$(update_startup_phase_started_at)
 WORKTREE_PHASE_STARTED_AT=$(update_startup_phase_started_at)
-
-if git ls-remote --exit-code origin "$BKG_INDEX" &>/dev/null; then
-	log_update_startup_phase "check-index-branch" "$WORKTREE_PHASE_STARTED_AT"
-	WORKTREE_PHASE_STARTED_AT=$(update_startup_phase_started_at)
-    git worktree remove -f "$BKG_INDEX".bak &>/dev/null
-    [ -d "$BKG_INDEX".bak ] || rm -rf "$BKG_INDEX".bak
-    git worktree move "$BKG_INDEX" "$BKG_INDEX".bak &>/dev/null
-    git fetch --depth=1 --filter=blob:none origin "$BKG_INDEX"
-    git show-ref --verify --quiet "refs/remotes/origin/$BKG_INDEX" || git fetch --filter=blob:none origin "$BKG_INDEX:refs/remotes/origin/$BKG_INDEX"
-    git branch --track -f "$BKG_INDEX" "origin/$BKG_INDEX" 2>/dev/null || git branch -f "$BKG_INDEX" "origin/$BKG_INDEX"
-    BKG_IS_FIRST=true
-	log_update_startup_phase "prepare-index-branch-ref" "$WORKTREE_PHASE_STARTED_AT"
-else
-	log_update_startup_phase "check-index-branch" "$WORKTREE_PHASE_STARTED_AT"
-	WORKTREE_PHASE_STARTED_AT=$(update_startup_phase_started_at)
-    fd_list=$(find . -type f -o -type d | grep -vE "^\.($|\/(\.git\/*|.*\.md$))")
-	git stash
-    git switch --orphan "$BKG_INDEX"
-    xargs rm -rf <<<"$fd_list"
-    git add .
-    git commit --allow-empty -m "init $BKG_INDEX"
-    git push -u origin "$BKG_INDEX"
-    git checkout "$([ -n "$GITHUB_BRANCH" ] && echo "$GITHUB_BRANCH" || echo "$BKG_BRANCH")"
-	git stash pop || true
-	log_update_startup_phase "create-index-branch" "$WORKTREE_PHASE_STARTED_AT"
-fi
-
-WORKTREE_PHASE_STARTED_AT=$(update_startup_phase_started_at)
-git worktree remove -f "$BKG_INDEX" 2>/dev/null
-git worktree add --no-checkout -f "$BKG_INDEX" "$BKG_INDEX"
-[[ -d "$BKG_INDEX" || ! -d "$BKG_INDEX".bak ]] || git worktree move "$BKG_INDEX".bak "$BKG_INDEX"
-log_update_startup_phase "attach-index-worktree" "$WORKTREE_PHASE_STARTED_AT"
-
-WORKTREE_PHASE_STARTED_AT=$(update_startup_phase_started_at)
-pushd "$BKG_INDEX" >/dev/null || exit 1
-index_sparse_set_root
-git reset --hard origin/"$BKG_INDEX"
-popd >/dev/null || exit 1
+BKG_IS_FIRST=$(bkg_python workspace prepare-index "$BKG_ROOT" "$BKG_INDEX" "$BKG_INDEX_DIR") || {
+    echo "Failed to prepare the index workspace" >&2
+    exit 1
+}
+[[ "$BKG_IS_FIRST" =~ ^(true|false)$ ]] || {
+    echo "Index workspace returned invalid first-run state: $BKG_IS_FIRST" >&2
+    exit 1
+}
 ensure_pages_dotfiles_visible "$BKG_INDEX"
 [ -f "$BKG_INDEX"/.env ] && \cp "$BKG_INDEX"/.env src/env.env || touch src/env.env
 pushd src >/dev/null || exit 1
-log_update_startup_phase "prepare-index-worktree" "$UPDATE_STARTUP_PHASE_STARTED_AT"
+log_update_startup_phase "prepare-index-workspace" "$WORKTREE_PHASE_STARTED_AT"
 
 snapshot_file=$(startup_index_snapshot_archive_file 2>/dev/null || :)
 

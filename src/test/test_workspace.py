@@ -12,6 +12,7 @@ from bkg_py.cli import main
 from bkg_py.result import ExitStatus
 from bkg_py.workspace import (
     GitRepository,
+    IndexWorkspacePreparer,
     WorkspaceError,
     WorkspaceLayout,
     import_workflow_payload,
@@ -54,6 +55,17 @@ def _create_repository(path: Path) -> None:
     )
     _git(path, "add", "-A")
     _git(path, "commit", "-qm", "init")
+
+
+def _create_repository_with_remote(tmp_path: Path) -> tuple[Path, Path]:
+    remote = tmp_path / "remote.git"
+    remote.mkdir()
+    _git(remote, "init", "--bare", "-q", "--initial-branch=master")
+    repository = tmp_path / "repository"
+    _create_repository(repository)
+    _git(repository, "remote", "add", "origin", str(remote))
+    _git(repository, "push", "-qu", "origin", "master")
+    return repository, remote
 
 
 def test_workspace_layout_uses_master_index_paths(tmp_path: Path) -> None:
@@ -218,3 +230,124 @@ def test_ensure_pages_root_atomically_writes_empty_marker(tmp_path: Path) -> Non
     ensure_pages_root(root)
 
     assert marker.read_bytes() == b""
+
+
+def test_repository_configuration_keeps_token_out_of_git_config(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Future Git commands read credentials from the environment at invocation."""
+
+    repository = tmp_path / "repository"
+    _create_repository(repository)
+    monkeypatch.setenv("GITHUB_TOKEN", "workflow-secret")
+
+    GitRepository(repository).configure_for_updates("workflow-actor")
+
+    config = (repository / ".git" / "config").read_text(encoding="utf-8")
+    assert "workflow-secret" not in config
+    assert "$GITHUB_TOKEN" in config
+    assert _git(repository, "config", "user.name").stdout.strip() == "workflow-actor"
+    assert _git(repository, "config", "core.untrackedcache").stdout.strip() == "true"
+
+    git = shutil.which("git")
+    assert git is not None
+    credentials = subprocess.run(  # noqa: S603
+        (git, "-C", str(repository), "credential", "fill"),
+        input="protocol=https\nhost=github.com\n\n",
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout
+    assert "username=workflow-actor" in credentials
+    assert "password=workflow-secret" in credentials
+
+
+def test_prepare_existing_index_preserves_old_worktree_and_resumes(
+    tmp_path: Path,
+) -> None:
+    """An existing remote index is resumed while local state remains recoverable."""
+
+    repository, _remote = _create_repository_with_remote(tmp_path)
+    index_dir = repository / "index"
+    _git(repository, "branch", "index")
+    _git(repository, "push", "-qu", "origin", "index")
+    _git(repository, "worktree", "add", "-q", str(index_dir), "index")
+    (index_dir / "recoverable.txt").write_text("retained\n", encoding="utf-8")
+    messages: list[str] = []
+
+    result = IndexWorkspacePreparer(
+        GitRepository(repository),
+        progress=messages.append,
+    ).prepare("index", index_dir)
+
+    assert not result.first_run
+    assert _git(repository, "branch", "--show-current").stdout.strip() == "master"
+    assert _git(index_dir, "branch", "--show-current").stdout.strip() == "index"
+    assert (
+        _git(
+            index_dir.with_name("index.bak"),
+            "branch",
+            "--show-current",
+        ).stdout.strip()
+        == ""
+    )
+    assert (repository / "index.bak" / "recoverable.txt").read_text() == "retained\n"
+    assert not (index_dir / "alpha").exists()
+    assert GitRepository(index_dir).top_level_directory_count() == 2
+    assert any("prepare-index-branch-ref" in message for message in messages)
+
+
+def test_prepare_missing_index_creates_parentless_branch_without_source_switch(
+    tmp_path: Path,
+) -> None:
+    """A new installation creates an empty index without mutating source state."""
+
+    repository, _remote = _create_repository_with_remote(tmp_path)
+    index_dir = repository / "index"
+    source_head = _git(repository, "rev-parse", "HEAD").stdout.strip()
+
+    result = IndexWorkspacePreparer(GitRepository(repository)).prepare(
+        "index",
+        index_dir,
+    )
+
+    assert result.first_run
+    assert _git(repository, "branch", "--show-current").stdout.strip() == "master"
+    assert _git(repository, "rev-parse", "HEAD").stdout.strip() == source_head
+    index_commit = _git(
+        repository,
+        "rev-list",
+        "--parents",
+        "-n",
+        "1",
+        "refs/heads/index",
+    )
+    assert len(index_commit.stdout.split()) == 1
+    assert (
+        _git(
+            repository,
+            "ls-tree",
+            "-r",
+            "--name-only",
+            "refs/remotes/origin/index",
+        ).stdout
+        == ""
+    )
+    assert _git(index_dir, "branch", "--show-current").stdout.strip() == "index"
+
+
+def test_prepare_index_does_not_treat_remote_failure_as_missing_branch(
+    tmp_path: Path,
+) -> None:
+    """A transport failure cannot trigger accidental index branch creation."""
+
+    repository, _remote = _create_repository_with_remote(tmp_path)
+    missing_remote = tmp_path / "missing.git"
+    _git(repository, "remote", "set-url", "origin", str(missing_remote))
+    index_dir = repository / "index"
+
+    with pytest.raises(WorkspaceError, match="git ls-remote failed"):
+        IndexWorkspacePreparer(GitRepository(repository)).prepare("index", index_dir)
+
+    assert not index_dir.exists()
