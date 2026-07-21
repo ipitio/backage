@@ -21,12 +21,12 @@ def test_circuit_recovers_through_one_half_open_probe() -> None:
         clock=lambda: now,
     )
 
-    with circuit.request(_VERSION_SCOPE) as enabled:
-        assert enabled
-        assert circuit.record_transient_failure(_VERSION_SCOPE) is None
-    with circuit.request(_VERSION_SCOPE) as enabled:
-        assert enabled
-        assert circuit.record_transient_failure(_VERSION_SCOPE) == 5
+    with circuit.request(_VERSION_SCOPE) as lease:
+        assert lease
+        assert lease.record_transient_failure() is None
+    with circuit.request(_VERSION_SCOPE) as lease:
+        assert lease
+        assert lease.record_transient_failure() == 5
     with circuit.request(_VERSION_SCOPE) as enabled:
         assert not enabled
 
@@ -35,7 +35,7 @@ def test_circuit_recovers_through_one_half_open_probe() -> None:
         assert probe
         with circuit.request(_VERSION_SCOPE) as competing_probe:
             assert not competing_probe
-        circuit.record_success(_VERSION_SCOPE)
+        probe.record_success()
 
     with circuit.request(_VERSION_SCOPE) as enabled:
         assert enabled
@@ -55,20 +55,20 @@ def test_failed_probe_increases_cooldown_to_the_configured_limit() -> None:
         clock=lambda: now,
     )
 
-    with circuit.request(_VERSION_SCOPE) as enabled:
-        assert enabled
-        assert circuit.record_transient_failure(_VERSION_SCOPE) == 5
+    with circuit.request(_VERSION_SCOPE) as lease:
+        assert lease
+        assert lease.record_transient_failure() == 5
     now = 5
     with circuit.request(_VERSION_SCOPE) as probe:
         assert probe
-        assert circuit.record_transient_failure(_VERSION_SCOPE) == 10
+        assert probe.record_transient_failure() == 10
     now = 14
     with circuit.request(_VERSION_SCOPE) as enabled:
         assert not enabled
     now = 15
     with circuit.request(_VERSION_SCOPE) as probe:
         assert probe
-        assert circuit.record_transient_failure(_VERSION_SCOPE) == 10
+        assert probe.record_transient_failure() == 10
 
 
 def test_success_only_resets_its_own_metric_scope() -> None:
@@ -78,13 +78,37 @@ def test_success_only_resets_its_own_metric_scope() -> None:
         MetricEnrichmentSettings(failure_threshold=2, cooldown_seconds=5)
     )
 
-    with circuit.request("version"):
-        assert circuit.record_transient_failure("version") is None
-    with circuit.request("package"):
-        circuit.record_success("package")
-    with circuit.request("version"):
-        assert circuit.record_transient_failure("version") == 5
+    with circuit.request("version") as version:
+        assert version.record_transient_failure() is None
+    with circuit.request("package") as package:
+        package.record_success()
+    with circuit.request("version") as version:
+        assert version.record_transient_failure() == 5
     with circuit.request("package") as enabled:
         assert enabled
     with circuit.request("version") as enabled:
+        assert not enabled
+
+
+def test_stale_success_cannot_close_a_newer_cooldown() -> None:
+    """An older in-flight success cannot undo failures from its generation."""
+
+    circuit = MetricEnrichmentCircuit(
+        MetricEnrichmentSettings(
+            max_concurrent=3,
+            failure_threshold=2,
+            cooldown_seconds=5,
+        )
+    )
+
+    with (
+        circuit.request(_VERSION_SCOPE) as first,
+        circuit.request(_VERSION_SCOPE) as second,
+        circuit.request(_VERSION_SCOPE) as stale,
+    ):
+        assert first.record_transient_failure() is None
+        assert second.record_transient_failure() == 5
+        stale.record_success()
+
+    with circuit.request(_VERSION_SCOPE) as enabled:
         assert not enabled

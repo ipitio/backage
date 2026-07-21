@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -130,6 +131,42 @@ def test_worker_settings_use_captured_runtime_config(
     assert settings.stop_grace_seconds == 14.5
     assert application.concurrency_settings is settings
     assert application.worker_runner.settings is settings
+    assert (
+        getattr(application.worker_runner.check_stop, "__self__", None)
+        is application.stop
+    )
+    assert application.process_runner.stop is application.stop
+
+
+def test_run_configuration_rebinds_stop_aware_services(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Run overrides cannot leave cached services on the startup controller."""
+
+    monkeypatch.setenv("BKG_ROOT", str(tmp_path))
+    monkeypatch.setenv("BKG_ENV", str(tmp_path / "env.env"))
+    monkeypatch.setenv("BKG_INDEX_DB", str(tmp_path / "index.db"))
+    application = ApplicationContext.from_env()
+    old_stop = application.stop
+    old_database = application.database
+    old_snapshots = application.snapshots
+    old_worker = application.worker_runner
+    old_metrics = application.metric_enrichment
+    old_process_runner = application.process_runner
+
+    application.configure_run(
+        replace(application.config, max_len=17),
+        started_at_epoch=application.stop.timing.wall_clock(),
+    )
+
+    assert application.stop is not old_stop
+    assert application.stop.max_duration == 17
+    assert application.database is not old_database
+    assert application.snapshots is not old_snapshots
+    assert application.worker_runner is not old_worker
+    assert application.metric_enrichment is not old_metrics
+    assert application.process_runner is not old_process_runner
     assert (
         getattr(application.worker_runner.check_stop, "__self__", None)
         is application.stop

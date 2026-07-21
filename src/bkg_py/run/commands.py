@@ -14,7 +14,7 @@ from ..database import DatabaseError
 from ..discovery import DiscoveryError
 from ..github import GitHubError
 from ..result import ExitStatus
-from ..runtime import CommandOptions, GracefulStop, StopController
+from ..runtime import CommandOptions, GracefulStop
 from ..snapshots import SnapshotError
 from ..state import StateValueError
 from .application import (
@@ -45,10 +45,8 @@ def run_application(
             application.config.max_len if args.duration is None else args.duration
         ),
     )
-    application.config = config
-    application.stop = StopController(
-        application.state,
-        max_duration=config.max_len,
+    application.configure_run(
+        config,
         started_at_epoch=started_at,
     )
 

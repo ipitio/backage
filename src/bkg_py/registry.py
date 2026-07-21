@@ -13,7 +13,11 @@ from decimal import Decimal, InvalidOperation
 from typing import Protocol, cast
 from urllib.parse import quote, unquote, urlencode
 
-from .enrichment import MetricEnrichmentCircuit, transient_enrichment_error
+from .enrichment import (
+    MetricEnrichmentCircuit,
+    MetricEnrichmentLease,
+    transient_enrichment_error,
+)
 from .github import (
     GitHubError,
     GitHubResponseError,
@@ -268,8 +272,8 @@ class GHCRBadgeSizeInspector:  # pylint: disable=too-few-public-methods
         if cached is not None:
             return cached
 
-        with self.metric_enrichment.request(_BADGE_SIZE_SCOPE) as enabled:
-            if not enabled:
+        with self.metric_enrichment.request(_BADGE_SIZE_SCOPE) as lease:
+            if not lease:
                 return -1
             url = _badge_size_url(*key)
             try:
@@ -279,15 +283,20 @@ class GHCRBadgeSizeInspector:  # pylint: disable=too-few-public-methods
                     policy=_BADGE_SIZE_REQUEST_POLICY,
                 )
             except GitHubError as error:
-                self._record_request_failure(url, error)
+                self._record_request_failure(url, error, lease)
                 if not transient_enrichment_error(error):
                     self._cache(key, -1)
                 return -1
 
             if _SVG_PATTERN.search(response) is None:
-                return self._handle_non_svg(response, url, key, package_key)
+                return self._handle_non_svg(
+                    response,
+                    url,
+                    key,
+                    lease,
+                )
 
-            self.metric_enrichment.record_success(_BADGE_SIZE_SCOPE)
+            lease.record_success()
             size = parse_badge_size(response)
             if size < 0 and _INVALID_BADGE_PATTERN.search(response) is None:
                 self.diagnostic(
@@ -301,32 +310,36 @@ class GHCRBadgeSizeInspector:  # pylint: disable=too-few-public-methods
         response: str,
         url: str,
         key: tuple[str, str, str],
-        package_key: tuple[str, str],
+        lease: MetricEnrichmentLease,
     ) -> int:
+        package_key = key[:2]
         rejection = _badge_capability_rejection(response)
         if rejection is not None:
-            self.metric_enrichment.record_success(_BADGE_SIZE_SCOPE)
+            lease.record_success()
             if rejection == "InvalidImageError":
                 self._mark_package_unsupported(package_key)
             else:
                 self._cache(key, -1)
             return -1
 
-        cooldown = self.metric_enrichment.record_transient_failure(_BADGE_SIZE_SCOPE)
+        cooldown = lease.record_transient_failure()
         self.diagnostic(
             f"GHCR badge size fallback returned a non-SVG response for {url}"
         )
         self._report_cooldown(cooldown)
         return -1
 
-    def _record_request_failure(self, url: str, error: GitHubError) -> None:
+    def _record_request_failure(
+        self,
+        url: str,
+        error: GitHubError,
+        lease: MetricEnrichmentLease,
+    ) -> None:
         cooldown = None
         if transient_enrichment_error(error):
-            cooldown = self.metric_enrichment.record_transient_failure(
-                _BADGE_SIZE_SCOPE
-            )
+            cooldown = lease.record_transient_failure()
         else:
-            self.metric_enrichment.record_success(_BADGE_SIZE_SCOPE)
+            lease.record_success()
         self.diagnostic(f"GHCR badge size fallback failed for {url}: {error}")
         self._report_cooldown(cooldown)
 

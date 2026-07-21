@@ -25,6 +25,8 @@ from .snapshots import SnapshotStore
 from .state import StateStore
 from .version_selection import VersionSelectionSettings
 
+_STOP_BOUND_SERVICES = ("database", "snapshots", "worker_runner", "process_runner")
+
 
 @dataclass
 class ApplicationContext:
@@ -55,6 +57,24 @@ class ApplicationContext:
 
         self.state.path.parent.mkdir(parents=True, exist_ok=True)
         self.state.path.touch(exist_ok=True)
+
+    def configure_run(
+        self,
+        config: RuntimeConfig,
+        *,
+        started_at_epoch: float,
+    ) -> None:
+        """Rebind stop-aware services to one run's final timing configuration."""
+
+        self.config = config
+        self.stop = StopController(
+            self.state,
+            max_duration=config.max_len,
+            started_at_epoch=started_at_epoch,
+        )
+        for service in _STOP_BOUND_SERVICES:
+            self.__dict__.pop(service, None)
+        self.metric_enrichment = MetricEnrichmentCircuit(check_stop=self.stop.check)
 
     @cached_property
     def database(self) -> DatabaseRepository:

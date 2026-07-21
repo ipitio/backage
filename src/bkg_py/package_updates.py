@@ -273,8 +273,8 @@ class PackageRefreshService:  # pylint: disable=too-few-public-methods
         context = _listing_context(package)
         url = package_detail_html_url(context)
         enrichment = self.execution.version.metric_enrichment
-        with enrichment.request(PACKAGE_METRIC_SCOPE) as enabled:
-            if not enabled:
+        with enrichment.request(PACKAGE_METRIC_SCOPE) as lease:
+            if not lease:
                 return _UNKNOWN_METRICS
             try:
                 html = self.client.get_text(
@@ -283,14 +283,14 @@ class PackageRefreshService:  # pylint: disable=too-few-public-methods
                     policy=METRIC_TEXT_REQUEST_POLICY,
                 )
             except GitHubNotFoundError:
-                enrichment.record_success(PACKAGE_METRIC_SCOPE)
+                lease.record_success()
                 return None
             except GitHubError as error:
                 cooldown = None
                 if transient_enrichment_error(error):
-                    cooldown = enrichment.record_transient_failure(PACKAGE_METRIC_SCOPE)
+                    cooldown = lease.record_transient_failure()
                 else:
-                    enrichment.record_success(PACKAGE_METRIC_SCOPE)
+                    lease.record_success()
                 self.execution.version.diagnostic(
                     f"Package detail request failed for {url}: {error}"
                 )
@@ -301,7 +301,7 @@ class PackageRefreshService:  # pylint: disable=too-few-public-methods
                         "using available data"
                     )
                 return _UNKNOWN_METRICS
-            enrichment.record_success(PACKAGE_METRIC_SCOPE)
+            lease.record_success()
         if "Total downloads" not in html:
             self.execution.version.diagnostic(
                 f"Package detail page has no download metrics for "

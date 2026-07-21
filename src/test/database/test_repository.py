@@ -16,104 +16,34 @@ from bkg_py.database import (
     DatabaseRepository,
     DatabaseSettings,
     OwnerRecord,
-    OwnerScanFailure,
     OwnerScanPackage,
     PackageRecord,
     PackageRef,
-    VersionMetrics,
-    VersionRecord,
     VersionStage,
 )
 from bkg_py.runtime import GracefulStop
 
-_TODAY = "2026-06-10"
-_YESTERDAY = "2026-06-09"
-
-
-def _package(repo: str = "Libre-Closet", package: str = "libre-closet") -> PackageRef:
-    return PackageRef(
-        owner_id="69664378",
-        owner_type="orgs",
-        package_type="container",
-        owner="Lazztech",
-        repo=repo,
-        package=package,
-    )
-
-
-def _version(
-    version_id: str,
-    *,
-    date: str = _TODAY,
-    downloads: int = 100,
-) -> VersionRecord:
-    return VersionRecord(
-        version_id=version_id,
-        name=f"sha256:{version_id}",
-        metrics=VersionMetrics(
-            size=123,
-            downloads=downloads,
-            downloads_month=10,
-            downloads_week=5,
-            downloads_day=1,
-        ),
-        date=date,
-        tags="latest" if version_id == "2" else "",
-    )
-
-
-def _legacy_table(package: PackageRef) -> str:
-    return (
-        f"versions_{package.owner_type}_{package.package_type}_{package.owner}_"
-        f"{package.repo}_{package.package}"
-    )
-
-
-def _create_legacy_table(connection: sqlite3.Connection, table: str) -> None:
-    quoted = table.replace('"', '""')
-    columns = ", ".join(
-        (
-            "id text not null",
-            "name text not null",
-            "size integer not null",
-            "downloads integer not null",
-            "downloads_month integer not null",
-            "downloads_week integer not null",
-            "downloads_day integer not null",
-            "date text not null",
-            "tags text",
-            "primary key (id, date)",
-        )
-    )
-    connection.execute(f'create table "{quoted}" ({columns})')
-
-
-def _insert_legacy(
-    connection: sqlite3.Connection,
-    table: str,
-    version: VersionRecord,
-) -> None:
-    quoted = table.replace('"', '""')
-    metrics = version.metrics
-    connection.execute(
-        f"""
-        insert into "{quoted}" (
-            id, name, size, downloads, downloads_month, downloads_week,
-            downloads_day, date, tags
-        ) values (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-        (
-            version.version_id,
-            version.name,
-            metrics.size,
-            metrics.downloads,
-            metrics.downloads_month,
-            metrics.downloads_week,
-            metrics.downloads_day,
-            version.date,
-            version.tags,
-        ),
-    )
+from .repository_support import (
+    TODAY as _TODAY,
+)
+from .repository_support import (
+    YESTERDAY as _YESTERDAY,
+)
+from .repository_support import (
+    create_legacy_table as _create_legacy_table,
+)
+from .repository_support import (
+    insert_legacy as _insert_legacy,
+)
+from .repository_support import (
+    legacy_table as _legacy_table,
+)
+from .repository_support import (
+    package as _package,
+)
+from .repository_support import (
+    version as _version,
+)
 
 
 class TestDatabaseRepository:
@@ -753,231 +683,3 @@ class TestDatabaseRepository:
                     )
                 }
             assert legacy_table not in tables
-
-    def test_completed_owner_scan_reconciles_only_unobserved_packages(
-        self,
-    ) -> None:
-        """A verified complete scan removes absent package data atomically."""
-
-        with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory) / "index.db"
-            repository = DatabaseRepository(DatabaseSettings(path))
-            retained = _package(repo="retained", package="retained")
-            removed = _package(repo="removed", package="removed")
-            for package in (retained, removed):
-                repository.write_package(
-                    PackageRecord(
-                        package_ref=package,
-                        downloads=1,
-                        downloads_month=1,
-                        downloads_week=1,
-                        downloads_day=1,
-                        size=1,
-                        date=_TODAY,
-                    )
-                )
-                repository.flush_version_stage(
-                    VersionStage(
-                        package_ref=package,
-                        legacy_table=_legacy_table(package),
-                        write_legacy=False,
-                        rows=(_version("1"),),
-                    )
-                )
-            with sqlite3.connect(path) as connection:
-                _create_legacy_table(connection, _legacy_table(removed))
-
-            repository.begin_owner_scan(
-                retained.owner_id,
-                retained.owner,
-                "scan-1",
-                100,
-            )
-            assert repository.owner_scan_active(retained.owner_id, "scan-1")
-            assert not repository.owner_scan_active(retained.owner_id, "scan-old")
-            repository.observe_owner_scan(
-                retained.owner_id,
-                "scan-1",
-                (
-                    OwnerScanPackage(
-                        retained.owner_type,
-                        retained.package_type,
-                        retained.repo,
-                        retained.package,
-                    ),
-                ),
-                101,
-            )
-
-            assert repository.missing_owner_scan_packages(
-                retained.owner_id,
-                "scan-1",
-            ) == (removed,)
-            result = repository.complete_owner_scan(
-                retained.owner_id,
-                "scan-1",
-                _TODAY,
-                102,
-            )
-
-            assert result.removed == (removed,)
-            assert result.pending_count == 0
-            assert result.retry_after == 0
-            assert not repository.owner_scan_active(retained.owner_id, "scan-1")
-            with sqlite3.connect(path) as connection:
-                packages = connection.execute(
-                    "select repo, package from packages order by repo"
-                ).fetchall()
-                versions = connection.execute(
-                    "select repo, package from versions order by repo"
-                ).fetchall()
-                scan = connection.execute(
-                    """
-                    select status, failure_count, retry_after
-                    from bkg_owner_scans
-                    where owner_id = ?
-                    """,
-                    (retained.owner_id,),
-                ).fetchone()
-                staged = connection.execute(
-                    "select count(*) from bkg_owner_scan_packages"
-                ).fetchone()[0]
-                legacy_exists = connection.execute(
-                    """
-                    select count(*) from sqlite_master
-                    where type = 'table' and name = ?
-                    """,
-                    (_legacy_table(removed),),
-                ).fetchone()[0]
-
-            assert packages == [("retained", "retained")]
-            assert versions == [("retained", "retained")]
-            assert scan == ("completed", 0, 0)
-            assert staged == 0
-            assert legacy_exists == 0
-
-    def test_incomplete_owner_refresh_uses_persisted_exponential_backoff(
-        self,
-    ) -> None:
-        """Incomplete refreshes defer automatic selection until retry time."""
-
-        with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory) / "index.db"
-            repository = DatabaseRepository(
-                DatabaseSettings(
-                    path,
-                    owner_retry_initial_seconds=10,
-                    owner_retry_max_seconds=40,
-                )
-            )
-            package = _package()
-            repository.write_package(
-                PackageRecord(
-                    package_ref=package,
-                    downloads=1,
-                    downloads_month=1,
-                    downloads_week=1,
-                    downloads_day=1,
-                    size=1,
-                    date=_YESTERDAY,
-                )
-            )
-            repository.begin_owner_scan(
-                package.owner_id,
-                package.owner,
-                "scan-1",
-                100,
-            )
-            repository.observe_owner_scan(
-                package.owner_id,
-                "scan-1",
-                (
-                    OwnerScanPackage(
-                        package.owner_type,
-                        package.package_type,
-                        package.repo,
-                        package.package,
-                    ),
-                ),
-                101,
-            )
-
-            result = repository.complete_owner_scan(
-                package.owner_id,
-                "scan-1",
-                _TODAY,
-                102,
-            )
-            assert result.pending_count == 1
-            assert result.retry_after == 112
-            assert repository.deferred_owners(111) == ((package.owner, 112),)
-            assert repository.deferred_owners(112) == ()
-
-            retry_after = repository.fail_owner_scan(
-                OwnerScanFailure(
-                    package.owner_id,
-                    package.owner,
-                    None,
-                    "still unavailable",
-                    113,
-                )
-            )
-            assert retry_after == 133
-            assert repository.deferred_owners(120) == ((package.owner, 133),)
-
-            repository.clear_owner_backoff(
-                package.owner_id,
-                package.owner,
-                121,
-            )
-            assert repository.deferred_owners(120) == ()
-
-    def test_pending_publication_keeps_current_owner_package_incomplete(
-        self,
-    ) -> None:
-        """Owner reconciliation waits for generated package files to publish."""
-
-        with tempfile.TemporaryDirectory() as directory:
-            repository = DatabaseRepository(
-                DatabaseSettings(
-                    Path(directory) / "index.db",
-                    owner_retry_initial_seconds=10,
-                    owner_retry_max_seconds=40,
-                )
-            )
-            package = _package()
-            repository.write_package_pending_publication(
-                PackageRecord(
-                    package_ref=package,
-                    downloads=1,
-                    downloads_month=1,
-                    downloads_week=1,
-                    downloads_day=1,
-                    size=1,
-                    date=_TODAY,
-                )
-            )
-            repository.begin_owner_scan(package.owner_id, package.owner, "scan-1", 100)
-            repository.observe_owner_scan(
-                package.owner_id,
-                "scan-1",
-                (
-                    OwnerScanPackage(
-                        package.owner_type,
-                        package.package_type,
-                        package.repo,
-                        package.package,
-                    ),
-                ),
-                101,
-            )
-
-            result = repository.complete_owner_scan(
-                package.owner_id,
-                "scan-1",
-                _TODAY,
-                102,
-            )
-
-            assert result.pending_count == 1
-            assert result.retry_after == 112

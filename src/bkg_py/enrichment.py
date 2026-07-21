@@ -5,7 +5,7 @@ from __future__ import annotations
 import time
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from threading import BoundedSemaphore, Lock
 
 from .github import (
@@ -65,9 +65,41 @@ class _CircuitState:
     consecutive_failures: int = 0
     open_until: float | None = None
     probe_in_flight: bool = False
+    generation: int = 0
 
 
-class MetricEnrichmentCircuit:
+@dataclass(frozen=True)
+class MetricEnrichmentLease:
+    """One admitted metric request bound to its circuit-state generation."""
+
+    _success_recorder: Callable[[MetricEnrichmentLease], None] = field(
+        repr=False,
+        compare=False,
+    )
+    _failure_recorder: Callable[[MetricEnrichmentLease], float | None] = field(
+        repr=False,
+        compare=False,
+    )
+    scope: str
+    generation: int
+    enabled: bool
+    probe: bool = False
+
+    def __bool__(self) -> bool:
+        return self.enabled
+
+    def record_success(self) -> None:
+        """Close this request's circuit state when its generation is current."""
+
+        self._success_recorder(self)
+
+    def record_transient_failure(self) -> float | None:
+        """Record a recoverable failure for this request's generation."""
+
+        return self._failure_recorder(self)
+
+
+class MetricEnrichmentCircuit:  # pylint: disable=too-few-public-methods
     """Bound metric-page traffic and periodically probe after transient failures."""
 
     def __init__(
@@ -85,14 +117,14 @@ class MetricEnrichmentCircuit:
         self._states: dict[str, _CircuitState] = {}
 
     @contextmanager
-    def request(self, scope: str) -> Generator[bool, None, None]:
-        """Yield whether one normal request or half-open probe may run."""
+    def request(self, scope: str) -> Generator[MetricEnrichmentLease, None, None]:
+        """Yield one generation-bound normal request or half-open probe lease."""
 
         if not scope:
             raise ValueError("metric enrichment scope is required")
         while not self._semaphore.acquire(timeout=_GATE_POLL_SECONDS):
             self._check_stop()
-        probe = False
+        lease: MetricEnrichmentLease | None = None
         try:
             self._check_stop()
             with self._lock:
@@ -100,39 +132,60 @@ class MetricEnrichmentCircuit:
                 state = self._state(scope)
                 if state.open_until is None:
                     enabled = True
+                    probe = False
                 elif now < state.open_until or state.probe_in_flight:
                     enabled = False
+                    probe = False
                 else:
                     enabled = True
                     probe = True
                     state.probe_in_flight = True
-            yield enabled
+                lease = MetricEnrichmentLease(
+                    self._record_success,
+                    self._record_transient_failure,
+                    scope,
+                    state.generation,
+                    enabled,
+                    probe,
+                )
+            yield lease
         finally:
-            if probe:
+            if lease is not None and lease.probe:
                 with self._lock:
                     state = self._state(scope)
-                    if state.probe_in_flight:
+                    if state.generation == lease.generation and state.probe_in_flight:
                         state.probe_in_flight = False
                         state.open_until = self._clock() + state.cooldown
+                        state.generation += 1
             self._semaphore.release()
 
-    def record_success(self, scope: str) -> None:
-        """Close the circuit after a usable response."""
+    def _record_success(self, lease: MetricEnrichmentLease) -> None:
+        """Close the circuit after a current-generation usable response."""
 
         with self._lock:
-            state = self._state(scope)
+            state = self._state(lease.scope)
+            if not lease.enabled or state.generation != lease.generation:
+                return
+            was_open = state.open_until is not None
             state.consecutive_failures = 0
             state.cooldown = self._settings.cooldown_seconds
             state.open_until = None
             state.probe_in_flight = False
+            if was_open:
+                state.generation += 1
 
-    def record_transient_failure(self, scope: str) -> float | None:
-        """Record a transient failure and return a newly started cooldown."""
+    def _record_transient_failure(
+        self,
+        lease: MetricEnrichmentLease,
+    ) -> float | None:
+        """Record a current-generation failure and return a new cooldown."""
 
         with self._lock:
-            state = self._state(scope)
+            state = self._state(lease.scope)
+            if not lease.enabled or state.generation != lease.generation:
+                return None
             if state.open_until is not None:
-                if not state.probe_in_flight:
+                if not lease.probe or not state.probe_in_flight:
                     return None
                 state.probe_in_flight = False
                 state.cooldown = min(
@@ -140,6 +193,7 @@ class MetricEnrichmentCircuit:
                     self._settings.max_cooldown_seconds,
                 )
                 state.open_until = self._clock() + state.cooldown
+                state.generation += 1
                 return state.cooldown
 
             state.consecutive_failures += 1
@@ -148,6 +202,7 @@ class MetricEnrichmentCircuit:
             state.consecutive_failures = 0
             state.cooldown = self._settings.cooldown_seconds
             state.open_until = self._clock() + state.cooldown
+            state.generation += 1
             return state.cooldown
 
     def _state(self, scope: str) -> _CircuitState:

@@ -259,8 +259,8 @@ class VersionDetailInspector:  # pylint: disable=too-few-public-methods
         authenticated: bool = False,
     ) -> str | None:
         enrichment = self.execution.metric_enrichment
-        with enrichment.request(VERSION_METRIC_SCOPE) as enabled:
-            if not enabled:
+        with enrichment.request(VERSION_METRIC_SCOPE) as lease:
+            if not lease:
                 return None
             try:
                 html = self.client.get_text(
@@ -271,9 +271,9 @@ class VersionDetailInspector:  # pylint: disable=too-few-public-methods
             except GitHubError as error:
                 cooldown = None
                 if transient_enrichment_error(error):
-                    cooldown = enrichment.record_transient_failure(VERSION_METRIC_SCOPE)
+                    cooldown = lease.record_transient_failure()
                 else:
-                    enrichment.record_success(VERSION_METRIC_SCOPE)
+                    lease.record_success()
                 self.execution.diagnostic(
                     f"Version detail request failed for {url}: {error}"
                 )
@@ -284,7 +284,7 @@ class VersionDetailInspector:  # pylint: disable=too-few-public-methods
                         "using available data"
                     )
                 return None
-            enrichment.record_success(VERSION_METRIC_SCOPE)
+            lease.record_success()
             return html
 
     def _detail_url(self, version_id: str) -> str:

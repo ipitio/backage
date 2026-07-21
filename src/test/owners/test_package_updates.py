@@ -46,7 +46,7 @@ from bkg_py.runtime import GracefulStop
 from bkg_py.version_selection import VersionSelectionSettings
 from bkg_py.version_updates import VersionRefreshExecution
 
-from .github_client_fake import FakeGitHubClient
+from ..github_client_fake import FakeGitHubClient
 
 
 def _execution(
