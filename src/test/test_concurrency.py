@@ -210,6 +210,26 @@ def test_runner_drains_completed_work_after_graceful_stop() -> None:
     assert [event.kind for event in events].count("stop-requested") == 1
 
 
+def test_runner_reports_one_stop_transition_for_concurrent_workers() -> None:
+    """Concurrent stop failures enter one shared drain transition."""
+
+    barrier = threading.Barrier(2)
+    events: list[WorkerEvent] = []
+
+    def worker(value: int) -> int:
+        barrier.wait(timeout=2)
+        raise GracefulStop(f"persisted by {value}")
+
+    result = BoundedWorkerRunner(
+        ConcurrencySettings(max_workers=2),
+        event_sink=events.append,
+    ).run([1, 2], worker, task_name=str)
+
+    assert result.stopped
+    assert len(result.failures) == 2
+    assert [event.kind for event in events].count("stop-requested") == 1
+
+
 def test_run_bounded_reports_graceful_stop_before_new_work() -> None:
     """A stop check prevents later tasks from starting."""
 

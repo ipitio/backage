@@ -9,6 +9,7 @@ from pathlib import Path
 from ..result import ExitStatus
 from .layout import WorkspaceLayout
 from .payload import import_workflow_payload
+from .publication import UpdateWorkspacePublisher, published_run_status
 from .repository import (
     GitRepository,
     IndexWorkspacePreparer,
@@ -34,7 +35,7 @@ def run_workspace(args: argparse.Namespace) -> ExitStatus:
 
 def _run_workspace_command(args: argparse.Namespace) -> ExitStatus:
     command = args.workspace_command
-    if command in {"configure-repository", "prepare-index"}:
+    if command in {"configure-repository", "prepare-index", "publish-update"}:
         return _run_repository_command(args)
     if command == "layout":
         layout = WorkspaceLayout.discover(
@@ -69,10 +70,26 @@ def _run_workspace_command(args: argparse.Namespace) -> ExitStatus:
 def _run_repository_command(args: argparse.Namespace) -> ExitStatus:
     if args.workspace_command == "configure-repository":
         GitRepository(Path(args.root)).configure_for_updates(args.actor)
-    else:
+    elif args.workspace_command == "prepare-index":
         result = IndexWorkspacePreparer(
             GitRepository(Path(args.root)),
             progress=_write_progress,
         ).prepare(args.index_branch, Path(args.index_dir))
         sys.stdout.write(f"{str(result.first_run).lower()}\n")
+    else:
+        status = published_run_status(args.run_status)
+        if status is not ExitStatus.SUCCESS:
+            _write_progress(
+                f"Skipping Git publication after run status {args.run_status}"
+            )
+            return status
+        UpdateWorkspacePublisher(
+            Path(args.root),
+            progress=_write_progress,
+        ).publish(
+            args.index_branch,
+            Path(args.index_dir),
+            Path(args.state_file),
+        )
+        return status
     return ExitStatus.SUCCESS

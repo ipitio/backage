@@ -130,30 +130,9 @@ snapshot_file=$(post_stop_current_index_snapshot_archive_file 2>/dev/null || :)
 # files should be valid, warn if not, unless only opted out owners
 #(( return_code == 1 )) || find .. -type f -name '*.json' -o -name '*.xml' | parallel --lb src/index.sh {}
 popd >/dev/null || exit 1
-\cp src/env.env "$BKG_INDEX"/.env
-
-if git worktree list | grep -q "$BKG_INDEX"; then
-    pushd "$BKG_INDEX" >/dev/null || exit 1
-    git add .
-    git commit -m "$(date -u +%Y-%m-%d)"
-    git push --set-upstream origin "$BKG_INDEX"
-    popd >/dev/null || exit 1
-    ! git worktree list | grep -q "$BKG_INDEX".bak || git worktree remove -f "$BKG_INDEX".bak &>/dev/null
-fi
-
-# we don't care if these commands fail and they mustn't prevent the script from continuing
-(git pull --rebase --autostash 2>/dev/null)
-(git merge --abort 2>/dev/null)
-(git pull --rebase --autostash -s ours &>/dev/null)
-
-# there may still be conflicts in owners.txt, just keep them all to be safe
-find . -type f -name '*.txt' -exec sed -i '/^<<<<<<<\|=======\|>>>>>>>/d' {} \; 2>/dev/null
-git add -- *.txt README.md 2>/dev/null || git add README.md 2>/dev/null || true
-
-if ! git diff --cached --quiet; then
-    git commit -m "$(date -u +%Y-%m-%d)"
-    git push
-else
-    echo "No top-level txt/README changes to commit"
-fi
+publication_status=0
+bkg_python workspace publish-update \
+    "$BKG_ROOT" "$BKG_INDEX" "$BKG_INDEX_DIR" "$BKG_ROOT/src/env.env" \
+    "$return_code" || publication_status=$?
 popd >/dev/null || exit 1
+exit "$publication_status"

@@ -269,15 +269,27 @@ class BoundedWorkerRunner:
         state: _RunState[T, R],
         failure: TaskFailure,
     ) -> None:
+        stop_was_reported = any(
+            isinstance(record.error, GracefulStop) for record in state.failures
+        )
         state.failures.append(failure)
         if state.drain_started_at is None:
             state.drain_started_at = self.clock()
-        self._emit(
-            "stop-requested" if isinstance(failure.error, GracefulStop) else "failed",
-            failure.index,
-            failure.name,
-            str(failure.error),
-        )
+        if isinstance(failure.error, GracefulStop):
+            if not stop_was_reported:
+                self._emit(
+                    "stop-requested",
+                    failure.index,
+                    failure.name,
+                    str(failure.error),
+                )
+        else:
+            self._emit(
+                "failed",
+                failure.index,
+                failure.name,
+                str(failure.error),
+            )
 
     def _drain_expired[T, R](self, state: _RunState[T, R]) -> bool:
         if not state.futures or state.drain_started_at is None:

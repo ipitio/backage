@@ -108,6 +108,15 @@ def _add_workspace_parsers(subparsers: Any) -> None:
     prepare_index_parser.add_argument("root")
     prepare_index_parser.add_argument("index_branch")
     prepare_index_parser.add_argument("index_dir")
+    publish_parser = workspace_commands.add_parser(
+        "publish-update",
+        help="publish completed index and source branch state",
+    )
+    publish_parser.add_argument("root")
+    publish_parser.add_argument("index_branch")
+    publish_parser.add_argument("index_dir")
+    publish_parser.add_argument("state_file")
+    publish_parser.add_argument("run_status", type=int)
     for command in (
         "is-repo",
         "sparse-root",

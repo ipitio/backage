@@ -13,9 +13,11 @@ from bkg_py.result import ExitStatus
 from bkg_py.workspace import (
     GitRepository,
     IndexWorkspacePreparer,
+    UpdateWorkspacePublisher,
     WorkspaceError,
     WorkspaceLayout,
     import_workflow_payload,
+    published_run_status,
 )
 from bkg_py.workspace.repository import ensure_pages_root
 
@@ -66,6 +68,31 @@ def _create_repository_with_remote(tmp_path: Path) -> tuple[Path, Path]:
     _git(repository, "remote", "add", "origin", str(remote))
     _git(repository, "push", "-qu", "origin", "master")
     return repository, remote
+
+
+def _create_publication_workspace(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
+    repository, remote = _create_repository_with_remote(tmp_path)
+    (repository / "owners.txt").write_text("original-owner\n", encoding="utf-8")
+    (repository / "nested").mkdir()
+    (repository / "nested" / "notes.txt").write_text(
+        "original notes\n",
+        encoding="utf-8",
+    )
+    (repository / "application.py").write_text("original = True\n", encoding="utf-8")
+    _git(repository, "add", "-A")
+    _git(repository, "commit", "-qm", "source files")
+    _git(repository, "push", "-q", "origin", "master")
+    _git(repository, "branch", "index")
+    _git(repository, "push", "-qu", "origin", "index")
+
+    index_dir = repository / "index"
+    _git(repository, "worktree", "add", "-q", str(index_dir), "index")
+    (index_dir / "recoverable.txt").write_text("old state\n", encoding="utf-8")
+    IndexWorkspacePreparer(GitRepository(repository)).prepare("index", index_dir)
+    state_file = repository / "src" / "env.env"
+    state_file.parent.mkdir()
+    state_file.write_text("BKG_TIMEOUT=1\n", encoding="utf-8")
+    return repository, remote, index_dir, state_file
 
 
 def test_workspace_layout_uses_master_index_paths(tmp_path: Path) -> None:
@@ -400,3 +427,129 @@ def test_prepare_index_does_not_treat_remote_failure_as_missing_branch(
         IndexWorkspacePreparer(GitRepository(repository)).prepare("index", index_dir)
 
     assert not index_dir.exists()
+
+
+def test_update_publication_keeps_branch_ownership_and_skips_no_op_commits(
+    tmp_path: Path,
+) -> None:
+    """Generated index state and selected source files reach only their branches."""
+
+    repository, remote, index_dir, state_file = _create_publication_workspace(tmp_path)
+    GitRepository(index_dir).add_sparse_paths(("gamma",))
+    generated = index_dir / "gamma" / "repo" / "package.json"
+    generated.parent.mkdir(parents=True)
+    generated.write_text("{}\n", encoding="utf-8")
+    (repository / "owners.txt").write_text("next-owner\n", encoding="utf-8")
+    (repository / "README.md").write_text("updated source\n", encoding="utf-8")
+    (repository / "nested" / "notes.txt").write_text(
+        "local notes\n",
+        encoding="utf-8",
+    )
+    (repository / "application.py").write_text("local = True\n", encoding="utf-8")
+    publisher = UpdateWorkspacePublisher(
+        repository,
+        commit_message="2026-07-21",
+    )
+
+    result = publisher.publish("index", index_dir, state_file)
+
+    assert result.index_committed
+    assert result.source_committed
+    assert not (repository / "index.bak").exists()
+    assert _git(remote, "show", "index:.env").stdout == "BKG_TIMEOUT=1\n"
+    assert _git(remote, "show", "index:gamma/repo/package.json").stdout == "{}\n"
+    assert _git(remote, "show", "master:owners.txt").stdout == "next-owner\n"
+    assert _git(remote, "show", "master:README.md").stdout == "updated source\n"
+    assert _git(remote, "show", "master:nested/notes.txt").stdout == "original notes\n"
+    assert _git(remote, "show", "master:application.py").stdout == "original = True\n"
+
+    index_head = _git(index_dir, "rev-parse", "HEAD").stdout.strip()
+    source_head = _git(repository, "rev-parse", "HEAD").stdout.strip()
+    second = publisher.publish("index", index_dir, state_file)
+
+    assert not second.index_committed
+    assert not second.source_committed
+    assert _git(index_dir, "rev-parse", "HEAD").stdout.strip() == index_head
+    assert _git(repository, "rev-parse", "HEAD").stdout.strip() == source_head
+    assert (
+        main(
+            [
+                "workspace",
+                "publish-update",
+                str(repository),
+                "index",
+                str(index_dir),
+                str(state_file),
+                str(ExitStatus.GRACEFUL_STOP),
+            ]
+        )
+        == ExitStatus.SUCCESS
+    )
+
+
+def test_update_publication_retains_index_commit_when_push_fails(
+    tmp_path: Path,
+) -> None:
+    """A failed push leaves the completed index commit and worktree available."""
+
+    repository, _remote, index_dir, state_file = _create_publication_workspace(tmp_path)
+    GitRepository(index_dir).add_sparse_paths(("gamma",))
+    generated = index_dir / "gamma" / "repo" / "package.json"
+    generated.parent.mkdir(parents=True)
+    generated.write_text("{}\n", encoding="utf-8")
+    _git(repository, "remote", "set-url", "origin", str(tmp_path / "missing.git"))
+
+    with pytest.raises(WorkspaceError, match="git push failed"):
+        UpdateWorkspacePublisher(
+            repository,
+            commit_message="2026-07-21",
+        ).publish("index", index_dir, state_file)
+
+    assert generated.is_file()
+    assert (repository / "index.bak" / "recoverable.txt").is_file()
+    assert _git(index_dir, "status", "--short").stdout == ""
+    assert _git(index_dir, "rev-list", "--count", "origin/index..HEAD").stdout == "1\n"
+
+
+def test_publish_update_cli_skips_failed_run_state(tmp_path: Path) -> None:
+    """A run that did not finalize cannot publish state ahead of its database."""
+
+    repository, remote, index_dir, state_file = _create_publication_workspace(tmp_path)
+    state_file.write_text("BKG_TIMEOUT=failed\n", encoding="utf-8")
+    index_head = _git(index_dir, "rev-parse", "HEAD").stdout.strip()
+
+    status = main(
+        [
+            "workspace",
+            "publish-update",
+            str(repository),
+            "index",
+            str(index_dir),
+            str(state_file),
+            str(ExitStatus.NON_FATAL),
+        ]
+    )
+
+    assert status == ExitStatus.NON_FATAL
+    assert _git(index_dir, "rev-parse", "HEAD").stdout.strip() == index_head
+    assert _git(remote, "show", "index:.env").stdout == "state\n"
+    assert _git(remote, "show", "master:owners.txt").stdout == "original-owner\n"
+
+
+@pytest.mark.parametrize(
+    ("run_status", "expected"),
+    [
+        (ExitStatus.SUCCESS, ExitStatus.SUCCESS),
+        (ExitStatus.GRACEFUL_STOP, ExitStatus.SUCCESS),
+        (ExitStatus.NON_FATAL, ExitStatus.NON_FATAL),
+        (ExitStatus.FAILURE, ExitStatus.NON_FATAL),
+        (99, ExitStatus.NON_FATAL),
+    ],
+)
+def test_published_run_status_preserves_release_safety(
+    run_status: int,
+    expected: ExitStatus,
+) -> None:
+    """Only successful or gracefully finalized runs may publish a release."""
+
+    assert published_run_status(run_status) is expected

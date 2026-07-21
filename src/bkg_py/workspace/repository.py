@@ -43,12 +43,55 @@ class IndexWorkspacePreparation:
     first_run: bool
 
 
-class GitRepository:
-    """Run bounded Git workspace operations with structured arguments."""
+class _GitCommandRunner:  # pylint: disable=too-few-public-methods
+    """Execute credential-safe Git commands for one worktree."""
 
     def __init__(self, path: Path) -> None:
         self.path = path
         self._git = resolve_executable("git")
+
+    def _run(
+        self,
+        arguments: Sequence[str],
+        *,
+        input_text: str | None = None,
+        required: bool = False,
+    ) -> subprocess.CompletedProcess[str]:
+        result = subprocess.run(  # noqa: S603
+            (
+                self._git,
+                "-c",
+                f"safe.directory={self.path.resolve()}",
+                "-C",
+                str(self.path),
+                *arguments,
+            ),
+            check=False,
+            capture_output=True,
+            input=input_text,
+            shell=False,
+            text=True,
+        )
+        if required and result.returncode != 0:
+            self._raise_command_error(arguments, result)
+        return result
+
+    def _raise_command_error(
+        self,
+        arguments: Sequence[str],
+        result: subprocess.CompletedProcess[str],
+    ) -> None:
+        detail = _redact_git_detail(result.stderr.strip() or result.stdout.strip())
+        message = (
+            f"git {arguments[0]} failed with status {result.returncode} in {self.path}"
+        )
+        if detail:
+            message = f"{message}: {detail}"
+        raise WorkspaceError(message)
+
+
+class GitRepository(_GitCommandRunner):
+    """Run bounded Git workspace operations with structured arguments."""
 
     def is_worktree(self) -> bool:
         """Return whether the path belongs to a Git worktree."""
@@ -170,7 +213,7 @@ class GitRepository:
         self._run(("update-ref", f"refs/heads/{branch}", commit), required=True)
 
     def push_branch(self, branch: str, remote: str = "origin") -> None:
-        """Publish a newly created local branch and configure its upstream."""
+        """Publish a local branch and configure its upstream."""
 
         self._run(
             (
@@ -266,44 +309,65 @@ class GitRepository:
             required=True,
         )
 
-    def _run(
-        self,
-        arguments: Sequence[str],
-        *,
-        input_text: str | None = None,
-        required: bool = False,
-    ) -> subprocess.CompletedProcess[str]:
-        result = subprocess.run(  # noqa: S603
-            (
-                self._git,
-                "-c",
-                f"safe.directory={self.path.resolve()}",
-                "-C",
-                str(self.path),
-                *arguments,
-            ),
-            check=False,
-            capture_output=True,
-            input=input_text,
-            shell=False,
-            text=True,
-        )
-        if required and result.returncode != 0:
-            self._raise_command_error(arguments, result)
-        return result
 
-    def _raise_command_error(
+class GitBranchPublisher(_GitCommandRunner):  # pylint: disable=too-few-public-methods
+    """Synchronize, commit, and push one branch-owned set of paths."""
+
+    def publish(
         self,
-        arguments: Sequence[str],
-        result: subprocess.CompletedProcess[str],
-    ) -> None:
-        detail = _redact_git_detail(result.stderr.strip() or result.stdout.strip())
-        message = (
-            f"git {arguments[0]} failed with status {result.returncode} in {self.path}"
+        branch: str,
+        message: str,
+        *,
+        pathspecs: Sequence[str] | None = None,
+        synchronize: bool = False,
+    ) -> bool:
+        """Publish staged branch paths and return whether a commit was created."""
+
+        if not message:
+            raise WorkspaceError("Git commit message is required")
+        if synchronize:
+            self._run(
+                ("pull", "--rebase", "--autostash"),
+                required=True,
+            )
+        current = self._run(
+            ("branch", "--show-current"),
+            required=True,
+        ).stdout.strip()
+        if current != branch:
+            raise WorkspaceError(
+                f"worktree is on branch {current or '<detached>'}, expected {branch}"
+            )
+
+        add_arguments = (
+            ("add", "--all", "--", ".")
+            if pathspecs is None
+            else ("add", "--all", "--", *pathspecs)
         )
-        if detail:
-            message = f"{message}: {detail}"
-        raise WorkspaceError(message)
+        self._run(add_arguments, required=True)
+        changed = self._run(("diff", "--cached", "--quiet", "--exit-code"))
+        if changed.returncode == 0:
+            return False
+        if changed.returncode != 1:
+            self._raise_command_error(
+                ("diff", "--cached"),
+                changed,
+            )
+
+        self._run(
+            ("commit", "-m", message),
+            required=True,
+        )
+        self._run(
+            (
+                "push",
+                "--set-upstream",
+                "origin",
+                f"refs/heads/{branch}:refs/heads/{branch}",
+            ),
+            required=True,
+        )
+        return True
 
 
 class IndexWorkspacePreparer:  # pylint: disable=too-few-public-methods

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import cached_property
 from pathlib import Path
 
@@ -33,6 +33,10 @@ class ApplicationContext:
     config: RuntimeConfig
     state: StateStore
     stop: StopController
+    metric_enrichment: MetricEnrichmentCircuit = field(init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        self.metric_enrichment = MetricEnrichmentCircuit(check_stop=self.stop.check)
 
     @classmethod
     def from_env(cls) -> ApplicationContext:
@@ -122,12 +126,6 @@ class ApplicationContext:
             self.concurrency_settings,
             check_stop=self.stop.check,
         )
-
-    @cached_property
-    def metric_enrichment(self) -> MetricEnrichmentCircuit:
-        """Return application-scoped backpressure for optional metric pages."""
-
-        return MetricEnrichmentCircuit(check_stop=self.stop.check)
 
     @cached_property
     def process_runner(self) -> ProcessRunner:

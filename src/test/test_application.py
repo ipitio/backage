@@ -34,6 +34,8 @@ def test_context_constructs_services_lazily_and_reuses_them(
     assert application.database.settings.path == database_path
     assert application.aggregate_settings is application.aggregate_settings
     assert application.publication_limits is application.publication_limits
+    assert "metric_enrichment" in vars(application)
+    assert application.metric_enrichment is application.metric_enrichment
     assert not state_path.exists()
 
     application.ensure_state_file()
