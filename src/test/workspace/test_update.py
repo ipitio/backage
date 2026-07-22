@@ -104,6 +104,56 @@ def test_update_workflow_clones_restores_runs_and_publishes(
     assert (invocation / "checkout/.snapshot/index.db").stat().st_size > 100
 
 
+def test_update_workflow_resets_published_stop_state_before_restoring(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A failed prior run cannot stop setup before the new run is configured."""
+
+    source, remote = _workflow_source(tmp_path)
+    git(source, "switch", "-q", "index")
+    (source / ".env").write_text(
+        "BKG_SCRIPT_START=1\nBKG_TIMEOUT=1\n",
+        encoding="utf-8",
+    )
+    git(source, "add", ".env")
+    git(source, "commit", "-qm", "stale run state")
+    git(source, "push", "-q", "origin", "index")
+    git(source, "switch", "-q", "master")
+
+    invocation = tmp_path / "invocation"
+    invocation.mkdir()
+    _snapshot_payload(invocation)
+    _set_workflow_environment(monkeypatch)
+    ran = False
+
+    def run_application(
+        _options: RunCommandOptions,
+        application: ApplicationContext,
+        _handoff: WorkflowHandoffControl,
+        _baseline: str | None,
+    ) -> ExitStatus:
+        nonlocal ran
+        application.stop.check()
+        assert application.state.get("BKG_TIMEOUT") == "0"
+        assert int(application.state.get("BKG_SCRIPT_START") or "0") > 1
+        application.snapshots.prepare_database_snapshot()
+        ran = True
+        return ExitStatus.SUCCESS
+
+    status = run_update_workflow(
+        UpdateWorkflowRequest(
+            root=Path("checkout"),
+            invocation_directory=invocation,
+            clone_url=remote.as_uri(),
+        ),
+        UpdateWorkflowExecution(run_application=run_application),
+    )
+
+    assert status is ExitStatus.SUCCESS
+    assert ran
+
+
 def test_update_workflow_does_not_publish_nonfatal_application_run(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

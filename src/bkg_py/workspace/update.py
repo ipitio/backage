@@ -23,7 +23,7 @@ from ..run.commands import (
 )
 from ..runtime import GracefulStop, resolve_executable
 from ..snapshots import SnapshotArchive, SnapshotError
-from ..state import StateValueError
+from ..state import StateStore, StateValueError
 from .handoff import HandoffSettings, WorkflowHandoffControl
 from .layout import WorkspaceLayout
 from .payload import import_workflow_payload
@@ -206,10 +206,16 @@ class UpdateWorkflowService:  # pylint: disable=too-few-public-methods
         self._configure_runtime_environment(layout, state_file, preparation.first_run)
         self._log_phase("prepare-index-workspace", started_at)
 
+        started_at_epoch = int(time.time())
+        state = StateStore(state_file)
+        state.set_many(
+            {
+                "BKG_SCRIPT_START": started_at_epoch,
+                "BKG_TIMEOUT": 0,
+            }
+        )
         application = ApplicationContext.from_env()
         application.ensure_state_file()
-        application.state.set("BKG_SCRIPT_START", int(time.time()))
-        application.state.set("BKG_TIMEOUT", 0)
         self._restore_initial_snapshot(application, layout)
         return PreparedUpdateWorkspace(
             root,

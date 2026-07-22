@@ -376,14 +376,33 @@ class GitRepository(_GitCommandRunner):
             ).stdout.splitlines()
             if path
         )
-        if current:
-            self._run(("add", "--all", "--", *current), required=True)
+        stageable = self._stageable_sparse_paths(current)
+        if stageable:
+            self._run(("add", "--all", "--", *stageable), required=True)
         selected = tuple(dict.fromkeys(path for path in paths if path))
         self._run(
             ("sparse-checkout", "set", "--skip-checks", "--stdin"),
             input_text="".join(f"{path}\n" for path in selected),
             required=True,
         )
+
+    def _stageable_sparse_paths(self, paths: Sequence[str]) -> tuple[str, ...]:
+        """Keep materialized or tracked paths and ignore absent sparse entries."""
+
+        existing = tuple(path for path in paths if (self.path / path).exists())
+        missing = tuple(path for path in paths if path not in existing)
+        if not missing:
+            return existing
+        tracked = self._run(
+            ("ls-files", "--", *missing),
+            required=True,
+        ).stdout.splitlines()
+        tracked_missing: list[str] = []
+        for path in missing:
+            prefix = f"{path.rstrip('/')}/"
+            if any(item == path or item.startswith(prefix) for item in tracked):
+                tracked_missing.append(path)
+        return existing + tuple(tracked_missing)
 
     def top_level_directory_count(self) -> int:
         """Count tracked top-level directories without materializing them."""

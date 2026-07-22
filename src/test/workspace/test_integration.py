@@ -219,6 +219,23 @@ def test_sparse_repository_stages_completed_paths_before_replacing_them(
     ]
 
 
+def test_sparse_repository_ignores_an_absent_path_when_replacing_it(
+    tmp_path: Path,
+) -> None:
+    """A queued owner without an index tree does not block the next sparse wave."""
+
+    path = tmp_path / "index"
+    _create_repository(path)
+    repository = GitRepository(path)
+    repository.set_sparse_root()
+    repository.materialize_sparse_paths(("missing-owner",), replace=True)
+
+    repository.materialize_sparse_paths(("beta",), replace=True)
+
+    assert not (path / "missing-owner").exists()
+    assert (path / "beta" / "repo-b" / "package.json").is_file()
+
+
 def test_sparse_operations_ignore_non_repository_path(tmp_path: Path) -> None:
     """Optional local index paths retain the previous no-op behavior."""
 
