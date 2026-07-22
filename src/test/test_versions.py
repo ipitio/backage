@@ -229,6 +229,13 @@ def test_manifest_size_calculates_resolved_layers_and_rejects_indexes() -> None:
     index = manifest_size('{"manifests":[{"size":10},{"size":21},{"size":0}]}')
     assert index.size == -1
     assert index.fallback_reason == "image index requires platform resolution"
+    empty_index = manifest_size(
+        '{"mediaType":"application/vnd.oci.image.index.v1+json","manifests":[]}'
+    )
+    assert empty_index.size == -1
+    assert empty_index.fallback_reason == "image index has no manifest descriptors"
+    assert empty_index.diagnostic_summary is not None
+    assert "manifestEntries=0" in empty_index.diagnostic_summary
     assert (
         manifest_size(
             '{"outer":{"layers":[{"size":4},{"size":6}]},"manifests":[{"size":100}]}'

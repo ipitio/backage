@@ -1,4 +1,4 @@
-"""Adaptive backpressure for optional GitHub metadata enrichment."""
+"""Adaptive backpressure for best-effort remote requests."""
 
 from __future__ import annotations
 
@@ -33,8 +33,8 @@ def _ignore_stop() -> None:
 
 
 @dataclass(frozen=True)
-class MetricEnrichmentSettings:
-    """Concurrency and recovery limits for optional GitHub metric pages."""
+class RequestCircuitSettings:
+    """Concurrency and recovery limits for one group of remote requests."""
 
     max_concurrent: int = 2
     failure_threshold: int = 2
@@ -43,23 +43,23 @@ class MetricEnrichmentSettings:
 
     def __post_init__(self) -> None:
         if self.max_concurrent < 1:
-            raise ValueError("metric enrichment concurrency must be positive")
+            raise ValueError("request circuit concurrency must be positive")
         if self.failure_threshold < 1:
-            raise ValueError("metric enrichment failure threshold must be positive")
+            raise ValueError("request circuit failure threshold must be positive")
         if self.cooldown_seconds <= 0:
-            raise ValueError("metric enrichment cooldown must be positive")
+            raise ValueError("request circuit cooldown must be positive")
         if self.max_cooldown_seconds < self.cooldown_seconds:
             raise ValueError(
-                "metric enrichment maximum cooldown must not be shorter than cooldown"
+                "request circuit maximum cooldown must not be shorter than cooldown"
             )
 
 
-DEFAULT_METRIC_ENRICHMENT_SETTINGS = MetricEnrichmentSettings()
+DEFAULT_REQUEST_CIRCUIT_SETTINGS = RequestCircuitSettings()
 
 
 @dataclass
 class _CircuitState:
-    """Mutable recovery state isolated to one metric endpoint class."""
+    """Mutable recovery state isolated to one remote-request class."""
 
     cooldown: float
     consecutive_failures: int = 0
@@ -69,14 +69,14 @@ class _CircuitState:
 
 
 @dataclass(frozen=True)
-class MetricEnrichmentLease:
-    """One admitted metric request bound to its circuit-state generation."""
+class RequestCircuitLease:
+    """One admitted request bound to its circuit-state generation."""
 
-    _success_recorder: Callable[[MetricEnrichmentLease], None] = field(
+    _success_recorder: Callable[[RequestCircuitLease], None] = field(
         repr=False,
         compare=False,
     )
-    _failure_recorder: Callable[[MetricEnrichmentLease], float | None] = field(
+    _failure_recorder: Callable[[RequestCircuitLease], float | None] = field(
         repr=False,
         compare=False,
     )
@@ -99,12 +99,12 @@ class MetricEnrichmentLease:
         return self._failure_recorder(self)
 
 
-class MetricEnrichmentCircuit:  # pylint: disable=too-few-public-methods
-    """Bound metric-page traffic and periodically probe after transient failures."""
+class RequestCircuit:  # pylint: disable=too-few-public-methods
+    """Bound remote traffic and periodically probe after transient failures."""
 
     def __init__(
         self,
-        settings: MetricEnrichmentSettings = DEFAULT_METRIC_ENRICHMENT_SETTINGS,
+        settings: RequestCircuitSettings = DEFAULT_REQUEST_CIRCUIT_SETTINGS,
         *,
         check_stop: StopCheck = _ignore_stop,
         clock: Clock = time.monotonic,
@@ -117,14 +117,14 @@ class MetricEnrichmentCircuit:  # pylint: disable=too-few-public-methods
         self._states: dict[str, _CircuitState] = {}
 
     @contextmanager
-    def request(self, scope: str) -> Generator[MetricEnrichmentLease, None, None]:
+    def request(self, scope: str) -> Generator[RequestCircuitLease, None, None]:
         """Yield one generation-bound normal request or half-open probe lease."""
 
         if not scope:
-            raise ValueError("metric enrichment scope is required")
+            raise ValueError("request circuit scope is required")
         while not self._semaphore.acquire(timeout=_GATE_POLL_SECONDS):
             self._check_stop()
-        lease: MetricEnrichmentLease | None = None
+        lease: RequestCircuitLease | None = None
         try:
             self._check_stop()
             with self._lock:
@@ -140,7 +140,7 @@ class MetricEnrichmentCircuit:  # pylint: disable=too-few-public-methods
                     enabled = True
                     probe = True
                     state.probe_in_flight = True
-                lease = MetricEnrichmentLease(
+                lease = RequestCircuitLease(
                     self._record_success,
                     self._record_transient_failure,
                     scope,
@@ -159,7 +159,7 @@ class MetricEnrichmentCircuit:  # pylint: disable=too-few-public-methods
                         state.generation += 1
             self._semaphore.release()
 
-    def _record_success(self, lease: MetricEnrichmentLease) -> None:
+    def _record_success(self, lease: RequestCircuitLease) -> None:
         """Close the circuit after a current-generation usable response."""
 
         with self._lock:
@@ -176,7 +176,7 @@ class MetricEnrichmentCircuit:  # pylint: disable=too-few-public-methods
 
     def _record_transient_failure(
         self,
-        lease: MetricEnrichmentLease,
+        lease: RequestCircuitLease,
     ) -> float | None:
         """Record a current-generation failure and return a new cooldown."""
 
@@ -212,8 +212,8 @@ class MetricEnrichmentCircuit:  # pylint: disable=too-few-public-methods
         )
 
 
-def transient_enrichment_error(error: GitHubError) -> bool:
-    """Return whether optional enrichment may recover after a cooldown."""
+def transient_request_error(error: GitHubError) -> bool:
+    """Return whether a remote request may recover after a cooldown."""
 
     return isinstance(error, GitHubTransportError) or (
         isinstance(error, GitHubResponseError)

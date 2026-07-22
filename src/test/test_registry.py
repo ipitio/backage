@@ -7,7 +7,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from threading import Event
 
-from bkg_py.enrichment import MetricEnrichmentCircuit, MetricEnrichmentSettings
+from bkg_py.enrichment import RequestCircuit, RequestCircuitSettings
 from bkg_py.github import (
     GitHubResponseError,
     GitHubTextRequestPolicy,
@@ -269,7 +269,7 @@ def test_badge_size_inspector_uses_exact_reference_and_caches_result() -> None:
     client = _FakeClient(
         {url: ["<svg><text>image size</text><text>3.23 MiB</text></svg>"]}
     )
-    inspector = GHCRBadgeSizeInspector(client, MetricEnrichmentCircuit())
+    inspector = GHCRBadgeSizeInspector(client, RequestCircuit())
 
     first = inspector("Example", "Nested%2FImage", "sha256:abc")
     second = inspector("example", "nested/image", "sha256:abc")
@@ -293,8 +293,8 @@ def test_badge_size_inspector_pauses_after_repeated_non_svg_responses() -> None:
         }
     )
     diagnostics: list[str] = []
-    circuit = MetricEnrichmentCircuit(
-        MetricEnrichmentSettings(max_concurrent=1, failure_threshold=2),
+    circuit = RequestCircuit(
+        RequestCircuitSettings(max_concurrent=1, failure_threshold=2),
         clock=lambda: 100.0,
     )
     inspector = GHCRBadgeSizeInspector(
@@ -328,7 +328,7 @@ def test_badge_size_inspector_caches_unsupported_nested_package() -> None:
     diagnostics: list[str] = []
     inspector = GHCRBadgeSizeInspector(
         client,
-        MetricEnrichmentCircuit(),
+        RequestCircuit(),
         diagnostic=diagnostics.append,
     )
 

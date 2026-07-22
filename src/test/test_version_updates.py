@@ -23,8 +23,8 @@ from bkg_py.database import (
 )
 from bkg_py.enrichment import (
     METRIC_TEXT_REQUEST_POLICY,
-    MetricEnrichmentCircuit,
-    MetricEnrichmentSettings,
+    RequestCircuit,
+    RequestCircuitSettings,
 )
 from bkg_py.github import GitHubTransportError
 from bkg_py.result import ExitStatus
@@ -404,8 +404,8 @@ def test_refresh_pauses_failing_detail_requests_and_preserves_stored_metrics(
             lambda _reference: "",
             diagnostic=diagnostics.append,
             today=lambda: _TODAY,
-            metric_enrichment=MetricEnrichmentCircuit(
-                MetricEnrichmentSettings(
+            metric_enrichment=RequestCircuit(
+                RequestCircuitSettings(
                     max_concurrent=1,
                     failure_threshold=2,
                 )

@@ -153,6 +153,7 @@ def test_run_configuration_rebinds_stop_aware_services(
     old_snapshots = application.snapshots
     old_worker = application.worker_runner
     old_metrics = application.metric_enrichment
+    old_version_listings = application.version_listing_recovery
     old_process_runner = application.process_runner
 
     application.configure_run(
@@ -166,6 +167,7 @@ def test_run_configuration_rebinds_stop_aware_services(
     assert application.snapshots is not old_snapshots
     assert application.worker_runner is not old_worker
     assert application.metric_enrichment is not old_metrics
+    assert application.version_listing_recovery is not old_version_listings
     assert application.process_runner is not old_process_runner
     assert (
         getattr(application.worker_runner.check_stop, "__self__", None)

@@ -348,6 +348,7 @@ def _execute_package_refresh(
                     GHCRManifestInspector(client, diagnostic=diagnostic),
                     diagnostic=diagnostic,
                     metric_enrichment=application.metric_enrichment,
+                    listing_recovery=application.version_listing_recovery,
                     hosted_size_inspector=GHCRBadgeSizeInspector(
                         client,
                         application.metric_enrichment,

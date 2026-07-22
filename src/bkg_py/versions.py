@@ -351,9 +351,14 @@ def manifest_size(manifest: str) -> ManifestSizeResult:
         return ManifestSizeResult(size=math.floor(sum(layer_sizes)))
 
     if _has_array(data, "manifests"):
+        manifest_items = tuple(_array_items(data, "manifests"))
         return ManifestSizeResult(
             size=-1,
-            fallback_reason="image index requires platform resolution",
+            fallback_reason=(
+                "image index requires platform resolution"
+                if manifest_items
+                else "image index has no manifest descriptors"
+            ),
             diagnostic_summary=_shape_summary(data),
         )
 

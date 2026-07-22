@@ -7,10 +7,18 @@ from collections.abc import Mapping
 import httpx
 import pytest
 
-from bkg_py.github import GitHubError, GitHubJsonResponse, GitHubTextRequestPolicy
+from bkg_py.enrichment import RequestCircuit, RequestCircuitSettings
+from bkg_py.github import (
+    GitHubError,
+    GitHubJsonResponse,
+    GitHubTextRequestPolicy,
+    GitHubTransportError,
+)
 from bkg_py.version_ingestion import (
     VersionCandidateLoader,
+    VersionCandidateLoaderSettings,
     VersionIngestionError,
+    VersionListingUnavailable,
 )
 from bkg_py.version_selection import VersionSelectionSettings
 from bkg_py.versions import VersionListingContext
@@ -106,7 +114,9 @@ def test_loader_uses_rest_and_fetches_tagged_html_only_when_needed() -> None:
         rest_values={_API_PAGE_1: _api_candidates(10, 4)},
         text_values={_TAGGED_PAGE_1: _listing_html(5, tagged=True)},
     )
-    loader = VersionCandidateLoader(client, _CONTEXT, use_rest_api=True)
+    loader = VersionCandidateLoader(
+        client, _CONTEXT, VersionCandidateLoaderSettings(use_rest_api=True)
+    )
 
     result = loader.select(
         VersionSelectionSettings(max_tag_pages=1, append_tagged_limit=0)
@@ -129,8 +139,10 @@ def test_loader_falls_back_to_html_for_unusable_api_data() -> None:
     loader = VersionCandidateLoader(
         client,
         _CONTEXT,
-        use_rest_api=True,
-        diagnostic=diagnostics.append,
+        VersionCandidateLoaderSettings(
+            use_rest_api=True,
+            diagnostic=diagnostics.append,
+        ),
     )
 
     result = loader.select(
@@ -158,8 +170,10 @@ def test_loader_accepts_an_empty_later_api_page_as_the_end() -> None:
     loader = VersionCandidateLoader(
         client,
         _CONTEXT,
-        use_rest_api=True,
-        diagnostic=diagnostics.append,
+        VersionCandidateLoaderSettings(
+            use_rest_api=True,
+            diagnostic=diagnostics.append,
+        ),
     )
 
     result = loader.select(
@@ -183,8 +197,10 @@ def test_loader_falls_back_to_html_after_api_failure() -> None:
     loader = VersionCandidateLoader(
         client,
         _CONTEXT,
-        use_rest_api=True,
-        diagnostic=diagnostics.append,
+        VersionCandidateLoaderSettings(
+            use_rest_api=True,
+            diagnostic=diagnostics.append,
+        ),
     )
 
     result = loader.select(
@@ -201,7 +217,9 @@ def test_loader_honors_page_limit_without_eager_html_fetches() -> None:
 
     first_page = _listing_html(*range(30, 0, -1))
     client = _FakePageClient(text_values={_HTML_PAGE_1: first_page})
-    loader = VersionCandidateLoader(client, _CONTEXT, use_rest_api=False)
+    loader = VersionCandidateLoader(
+        client, _CONTEXT, VersionCandidateLoaderSettings(use_rest_api=False)
+    )
 
     result = loader.select(
         VersionSelectionSettings(
@@ -223,10 +241,93 @@ def test_loader_reports_html_transport_failure() -> None:
     client = _FakePageClient(
         text_values={_HTML_PAGE_1: GitHubError("HTML unavailable")}
     )
-    loader = VersionCandidateLoader(client, _CONTEXT, use_rest_api=False)
+    loader = VersionCandidateLoader(
+        client, _CONTEXT, VersionCandidateLoaderSettings(use_rest_api=False)
+    )
 
     with pytest.raises(
         VersionIngestionError,
         match="failed to fetch version listing for Lazztech/libre-closet",
     ):
         loader.select(VersionSelectionSettings())
+
+
+def test_loader_pauses_api_failures_without_disabling_html_fallback() -> None:
+    """Repeated API failures open only the API listing circuit."""
+
+    diagnostics: list[str] = []
+    client = _FakePageClient(
+        rest_values={_API_PAGE_1: GitHubTransportError("API unavailable")},
+        text_values={_HTML_PAGE_1: _listing_html(3)},
+    )
+    recovery = RequestCircuit(
+        RequestCircuitSettings(
+            max_concurrent=1,
+            failure_threshold=2,
+            cooldown_seconds=30,
+        )
+    )
+
+    for _index in range(3):
+        result = VersionCandidateLoader(
+            client,
+            _CONTEXT,
+            VersionCandidateLoaderSettings(
+                use_rest_api=True,
+                diagnostic=diagnostics.append,
+            ),
+            request_recovery=recovery,
+        ).select(VersionSelectionSettings(max_tag_pages=0, append_tagged_limit=0))
+        assert result.selected_ids == ("3",)
+
+    assert client.rest_requests == [_API_PAGE_1, _API_PAGE_1]
+    assert client.text_requests == [_HTML_PAGE_1, _HTML_PAGE_1, _HTML_PAGE_1]
+    assert (
+        sum("Pausing GitHub version-listing API" in line for line in diagnostics) == 1
+    )
+
+
+def test_loader_pauses_html_failures_without_repeating_requests() -> None:
+    """An open HTML circuit preserves data without another network attempt."""
+
+    diagnostics: list[str] = []
+    client = _FakePageClient(
+        text_values={_HTML_PAGE_1: GitHubTransportError("HTML unavailable")}
+    )
+    recovery = RequestCircuit(
+        RequestCircuitSettings(
+            max_concurrent=1,
+            failure_threshold=2,
+            cooldown_seconds=30,
+        )
+    )
+
+    for _index in range(2):
+        loader = VersionCandidateLoader(
+            client,
+            _CONTEXT,
+            VersionCandidateLoaderSettings(
+                use_rest_api=False,
+                diagnostic=diagnostics.append,
+            ),
+            request_recovery=recovery,
+        )
+        with pytest.raises(VersionIngestionError, match="HTML unavailable"):
+            loader.select(VersionSelectionSettings())
+
+    loader = VersionCandidateLoader(
+        client,
+        _CONTEXT,
+        VersionCandidateLoaderSettings(
+            use_rest_api=False,
+            diagnostic=diagnostics.append,
+        ),
+        request_recovery=recovery,
+    )
+    with pytest.raises(VersionListingUnavailable, match="temporarily paused"):
+        loader.select(VersionSelectionSettings())
+
+    assert client.text_requests == [_HTML_PAGE_1, _HTML_PAGE_1]
+    assert (
+        sum("Pausing GitHub version-listing HTML" in line for line in diagnostics) == 1
+    )

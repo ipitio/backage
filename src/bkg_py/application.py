@@ -11,7 +11,7 @@ from pathlib import Path
 from .concurrency import BoundedWorkerRunner, ConcurrencySettings
 from .config import RuntimeConfig
 from .database import DatabaseRepository, DatabaseSettings
-from .enrichment import MetricEnrichmentCircuit
+from .enrichment import RequestCircuit, RequestCircuitSettings
 from .github import (
     GitHubClient,
     GitHubRateAccounting,
@@ -35,10 +35,11 @@ class ApplicationContext:
     config: RuntimeConfig
     state: StateStore
     stop: StopController
-    metric_enrichment: MetricEnrichmentCircuit = field(init=False, repr=False)
+    metric_enrichment: RequestCircuit = field(init=False, repr=False)
+    version_listing_recovery: RequestCircuit = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
-        self.metric_enrichment = MetricEnrichmentCircuit(check_stop=self.stop.check)
+        self._configure_request_circuits()
 
     @classmethod
     def from_env(cls) -> ApplicationContext:
@@ -74,7 +75,16 @@ class ApplicationContext:
         )
         for service in _STOP_BOUND_SERVICES:
             self.__dict__.pop(service, None)
-        self.metric_enrichment = MetricEnrichmentCircuit(check_stop=self.stop.check)
+        self._configure_request_circuits()
+
+    def _configure_request_circuits(self) -> None:
+        self.metric_enrichment = RequestCircuit(check_stop=self.stop.check)
+        self.version_listing_recovery = RequestCircuit(
+            RequestCircuitSettings(
+                max_concurrent=self.config.parallel_async_max_jobs,
+            ),
+            check_stop=self.stop.check,
+        )
 
     @cached_property
     def database(self) -> DatabaseRepository:

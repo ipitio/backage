@@ -14,9 +14,9 @@ from typing import Protocol, cast
 from urllib.parse import quote, unquote, urlencode
 
 from .enrichment import (
-    MetricEnrichmentCircuit,
-    MetricEnrichmentLease,
-    transient_enrichment_error,
+    RequestCircuit,
+    RequestCircuitLease,
+    transient_request_error,
 )
 from .github import (
     GitHubError,
@@ -249,7 +249,7 @@ class GHCRBadgeSizeInspector:  # pylint: disable=too-few-public-methods
     def __init__(
         self,
         client: RegistryTextClient,
-        metric_enrichment: MetricEnrichmentCircuit,
+        metric_enrichment: RequestCircuit,
         *,
         diagnostic: DiagnosticSink = _ignore_diagnostic,
     ) -> None:
@@ -284,7 +284,7 @@ class GHCRBadgeSizeInspector:  # pylint: disable=too-few-public-methods
                 )
             except GitHubError as error:
                 self._record_request_failure(url, error, lease)
-                if not transient_enrichment_error(error):
+                if not transient_request_error(error):
                     self._cache(key, -1)
                 return -1
 
@@ -310,7 +310,7 @@ class GHCRBadgeSizeInspector:  # pylint: disable=too-few-public-methods
         response: str,
         url: str,
         key: tuple[str, str, str],
-        lease: MetricEnrichmentLease,
+        lease: RequestCircuitLease,
     ) -> int:
         package_key = key[:2]
         rejection = _badge_capability_rejection(response)
@@ -333,10 +333,10 @@ class GHCRBadgeSizeInspector:  # pylint: disable=too-few-public-methods
         self,
         url: str,
         error: GitHubError,
-        lease: MetricEnrichmentLease,
+        lease: RequestCircuitLease,
     ) -> None:
         cooldown = None
-        if transient_enrichment_error(error):
+        if transient_request_error(error):
             cooldown = lease.record_transient_failure()
         else:
             lease.record_success()

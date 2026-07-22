@@ -20,7 +20,7 @@ from .database import (
 from .enrichment import (
     METRIC_TEXT_REQUEST_POLICY,
     PACKAGE_METRIC_SCOPE,
-    transient_enrichment_error,
+    transient_request_error,
 )
 from .github import GitHubError, GitHubNotFoundError
 from .publication import (
@@ -30,7 +30,11 @@ from .publication import (
     publish_json_file,
 )
 from .rendering import PackageRenderOptions, RenderingError, render_package_file
-from .version_ingestion import VersionIngestionError, VersionPageClient
+from .version_ingestion import (
+    VersionIngestionError,
+    VersionListingUnavailable,
+    VersionPageClient,
+)
 from .version_selection import VersionSelectionSettings
 from .version_updates import (
     VersionRefreshError,
@@ -287,7 +291,7 @@ class PackageRefreshService:  # pylint: disable=too-few-public-methods
                 return None
             except GitHubError as error:
                 cooldown = None
-                if transient_enrichment_error(error):
+                if transient_request_error(error):
                     cooldown = lease.record_transient_failure()
                 else:
                     lease.record_success()
@@ -328,6 +332,7 @@ class PackageRefreshService:  # pylint: disable=too-few-public-methods
                     diagnostic=execution.diagnostic,
                     today=lambda: today,
                     metric_enrichment=execution.metric_enrichment,
+                    listing_recovery=execution.listing_recovery,
                     hosted_size_inspector=execution.hosted_size_inspector,
                 ),
             ).refresh(
@@ -342,6 +347,8 @@ class PackageRefreshService:  # pylint: disable=too-few-public-methods
                 self.execution.selection,
                 force_refresh=force_refresh,
             )
+        except VersionListingUnavailable:
+            return None
         except (
             DatabaseError,
             GitHubError,

@@ -19,12 +19,16 @@ from .database import (
 from .enrichment import (
     METRIC_TEXT_REQUEST_POLICY,
     VERSION_METRIC_SCOPE,
-    MetricEnrichmentCircuit,
-    transient_enrichment_error,
+    RequestCircuit,
+    transient_request_error,
 )
 from .github import GitHubError
 from .runtime import GracefulStop
-from .version_ingestion import VersionCandidateLoader, VersionPageClient
+from .version_ingestion import (
+    VersionCandidateLoader,
+    VersionCandidateLoaderSettings,
+    VersionPageClient,
+)
 from .version_selection import (
     VersionCandidate,
     VersionSelectionResult,
@@ -143,9 +147,8 @@ class VersionRefreshExecution:
     manifest_inspector: ManifestInspector
     diagnostic: DiagnosticSink = _ignore_diagnostic
     today: Callable[[], str] = _utc_today
-    metric_enrichment: MetricEnrichmentCircuit = field(
-        default_factory=MetricEnrichmentCircuit
-    )
+    metric_enrichment: RequestCircuit = field(default_factory=RequestCircuit)
+    listing_recovery: RequestCircuit = field(default_factory=RequestCircuit)
     hosted_size_inspector: HostedSizeInspector = _no_hosted_size
 
 
@@ -156,9 +159,7 @@ class VersionDetailExecution:
     manifest_inspector: ManifestInspector
     authenticated: bool = False
     diagnostic: DiagnosticSink = _ignore_diagnostic
-    metric_enrichment: MetricEnrichmentCircuit = field(
-        default_factory=MetricEnrichmentCircuit
-    )
+    metric_enrichment: RequestCircuit = field(default_factory=RequestCircuit)
     fallback_record: VersionRecordFallback = _no_fallback_record
     hosted_size_inspector: HostedSizeInspector = _no_hosted_size
 
@@ -270,7 +271,7 @@ class VersionDetailInspector:  # pylint: disable=too-few-public-methods
                 )
             except GitHubError as error:
                 cooldown = None
-                if transient_enrichment_error(error):
+                if transient_request_error(error):
                     cooldown = lease.record_transient_failure()
                 else:
                     lease.record_success()
@@ -344,8 +345,11 @@ class VersionRefreshService:  # pylint: disable=too-few-public-methods
         selection = VersionCandidateLoader(
             self.client,
             request.listing_context,
-            use_rest_api=request.policy.use_rest_api,
-            diagnostic=self.execution.diagnostic,
+            VersionCandidateLoaderSettings(
+                use_rest_api=request.policy.use_rest_api,
+                diagnostic=self.execution.diagnostic,
+            ),
+            request_recovery=self.execution.listing_recovery,
         ).select(
             settings,
             already_updated=(

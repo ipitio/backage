@@ -1,8 +1,8 @@
-"""Tests for optional GitHub metric enrichment backpressure."""
+"""Tests for adaptive remote-request backpressure."""
 
 from __future__ import annotations
 
-from bkg_py.enrichment import MetricEnrichmentCircuit, MetricEnrichmentSettings
+from bkg_py.enrichment import RequestCircuit, RequestCircuitSettings
 
 _VERSION_SCOPE = "version"
 
@@ -11,8 +11,8 @@ def test_circuit_recovers_through_one_half_open_probe() -> None:
     """Repeated failures pause work, then one successful probe restores traffic."""
 
     now = 0.0
-    circuit = MetricEnrichmentCircuit(
-        MetricEnrichmentSettings(
+    circuit = RequestCircuit(
+        RequestCircuitSettings(
             max_concurrent=2,
             failure_threshold=2,
             cooldown_seconds=5,
@@ -45,8 +45,8 @@ def test_failed_probe_increases_cooldown_to_the_configured_limit() -> None:
     """Half-open failures back off without permanently disabling enrichment."""
 
     now = 0.0
-    circuit = MetricEnrichmentCircuit(
-        MetricEnrichmentSettings(
+    circuit = RequestCircuit(
+        RequestCircuitSettings(
             max_concurrent=1,
             failure_threshold=1,
             cooldown_seconds=5,
@@ -74,8 +74,8 @@ def test_failed_probe_increases_cooldown_to_the_configured_limit() -> None:
 def test_success_only_resets_its_own_metric_scope() -> None:
     """Healthy package pages cannot hide repeated version-page failures."""
 
-    circuit = MetricEnrichmentCircuit(
-        MetricEnrichmentSettings(failure_threshold=2, cooldown_seconds=5)
+    circuit = RequestCircuit(
+        RequestCircuitSettings(failure_threshold=2, cooldown_seconds=5)
     )
 
     with circuit.request("version") as version:
@@ -93,8 +93,8 @@ def test_success_only_resets_its_own_metric_scope() -> None:
 def test_stale_success_cannot_close_a_newer_cooldown() -> None:
     """An older in-flight success cannot undo failures from its generation."""
 
-    circuit = MetricEnrichmentCircuit(
-        MetricEnrichmentSettings(
+    circuit = RequestCircuit(
+        RequestCircuitSettings(
             max_concurrent=3,
             failure_threshold=2,
             cooldown_seconds=5,
