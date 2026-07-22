@@ -114,6 +114,73 @@ def test_queue_selection_prioritizes_pending_work_over_discovery(
     }
     assert len(selected) == 4
 
+    continued = OwnerQueueSelector(
+        rest_first="0",
+        request_limit=1,
+        current_owner="",
+        paths=OwnerQueuePaths(connections, owners, index, working),
+        excluded_owners=tuple(owner for owner, _reason in selected),
+    ).select_with_reasons(random.Random(0))  # noqa: S311
+
+    assert len(continued) == 4
+    assert {owner for owner, _reason in selected}.isdisjoint(
+        owner for owner, _reason in continued
+    )
+
+
+def test_queue_preparation_reports_and_advances_a_full_chunk(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Continuation metadata advances beyond every attempted candidate."""
+
+    working = tmp_path / "working"
+    index = tmp_path / "index"
+    working.mkdir()
+    index.mkdir()
+    connections = tmp_path / "connections"
+    owners = tmp_path / "owners.txt"
+    discovered = tuple(f"owner-{number}" for number in range(5))
+    _write_lines(connections, *discovered)
+    _write_lines(owners)
+    monkeypatch.setattr(OwnerQueueSelector, "history_owners", _no_history)
+    state = StateStore(tmp_path / "state.env")
+    service = OwnerQueuePreparationService(
+        OwnerQueuePreparationServices(
+            _Repository(),
+            _Resolver(),
+            state,
+            lambda _owner: None,
+        ),
+        OwnerQueuePreparationExecution(
+            lambda: None,
+            lambda _message: None,
+            random.Random(0),  # noqa: S311
+        ),
+    )
+    paths = OwnerQueuePreparationPaths(connections, owners, index, working)
+
+    first = service.prepare(
+        OwnerQueuePreparationRequest(paths, "0", 1, "", True, 1_788_652_800)
+    )
+    second = service.prepare(
+        OwnerQueuePreparationRequest(
+            paths,
+            "0",
+            1,
+            "",
+            True,
+            1_788_652_801,
+            excluded_owners=first.attempted_owners,
+        )
+    )
+
+    assert first.candidates == 4
+    assert first.may_have_more
+    assert second.candidates == 1
+    assert not second.may_have_more
+    assert set(first.attempted_owners).isdisjoint(second.attempted_owners)
+
 
 def test_queue_preparation_owns_normalization_resolution_and_effects(
     tmp_path: Path,
@@ -183,6 +250,14 @@ def test_queue_preparation_owns_normalization_resolution_and_effects(
     assert result.candidates == 5
     assert result.queued == 3
     assert result.missing == 1
+    assert set(result.attempted_owners) == {
+        "manual",
+        "missing",
+        "service",
+        "alpha",
+        "Beta",
+    }
+    assert not result.may_have_more
     assert set(resolver.candidates) == {
         "manual",
         "missing",

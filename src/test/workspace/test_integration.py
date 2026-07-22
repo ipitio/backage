@@ -191,10 +191,32 @@ def test_sparse_repository_keeps_root_and_materializes_selected_owners(
     assert not (path / "beta").exists()
     assert repository.top_level_directory_count() == 2
 
-    repository.add_sparse_paths(("alpha", "beta"))
+    repository.materialize_sparse_paths(("alpha", "beta"))
 
     assert (path / "alpha" / "repo-a" / "package.json").is_file()
     assert (path / "beta" / "repo-b" / "package.json").is_file()
+
+
+def test_sparse_repository_stages_completed_paths_before_replacing_them(
+    tmp_path: Path,
+) -> None:
+    """Only the active owner wave stays hydrated without losing prior changes."""
+
+    path = tmp_path / "index"
+    _create_repository(path)
+    repository = GitRepository(path)
+    repository.set_sparse_root()
+    repository.materialize_sparse_paths(("alpha",), replace=True)
+    package = path / "alpha" / "repo-a" / "package.json"
+    package.write_text('{"updated":true}\n', encoding="utf-8")
+
+    repository.materialize_sparse_paths(("beta",), replace=True)
+
+    assert not (path / "alpha").exists()
+    assert (path / "beta" / "repo-b" / "package.json").is_file()
+    assert _git(path, "diff", "--cached", "--name-only").stdout.splitlines() == [
+        "alpha/repo-a/package.json"
+    ]
 
 
 def test_sparse_operations_ignore_non_repository_path(tmp_path: Path) -> None:
@@ -204,7 +226,8 @@ def test_sparse_operations_ignore_non_repository_path(tmp_path: Path) -> None:
 
     assert not repository.is_worktree()
     repository.set_sparse_root()
-    repository.add_sparse_paths(("alpha",))
+    repository.materialize_sparse_paths(("alpha",))
+    repository.materialize_sparse_paths(("alpha",), replace=True)
     assert repository.top_level_directory_count() == 0
 
 
@@ -397,7 +420,7 @@ def test_update_publication_keeps_branch_ownership_and_skips_no_op_commits(
     """Generated index state and selected source files reach only their branches."""
 
     repository, remote, index_dir, state_file = _create_publication_workspace(tmp_path)
-    GitRepository(index_dir).add_sparse_paths(("gamma",))
+    GitRepository(index_dir).materialize_sparse_paths(("gamma",))
     generated = index_dir / "gamma" / "repo" / "package.json"
     generated.parent.mkdir(parents=True)
     generated.write_text("{}\n", encoding="utf-8")
@@ -455,7 +478,7 @@ def test_update_publication_retains_index_commit_when_push_fails(
     """A failed push leaves the completed index commit and worktree available."""
 
     repository, _remote, index_dir, state_file = _create_publication_workspace(tmp_path)
-    GitRepository(index_dir).add_sparse_paths(("gamma",))
+    GitRepository(index_dir).materialize_sparse_paths(("gamma",))
     generated = index_dir / "gamma" / "repo" / "package.json"
     generated.parent.mkdir(parents=True)
     generated.write_text("{}\n", encoding="utf-8")

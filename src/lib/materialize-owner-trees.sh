@@ -9,4 +9,4 @@ cd "$script_dir/.."
 source lib/util.sh
 
 (($# > 0)) || exit 0
-printf '%s\n' "$@" | index_sparse_add_paths
+printf '%s\n' "$@" | index_sparse_replace_paths

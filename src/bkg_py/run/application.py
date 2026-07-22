@@ -32,6 +32,7 @@ from ..owners import (
     OwnerQueuePreparationExecution,
     OwnerQueuePreparationPaths,
     OwnerQueuePreparationRequest,
+    OwnerQueuePreparationResult,
     OwnerQueuePreparationService,
     OwnerQueuePreparationServices,
     OwnerUpdateOperation,
@@ -213,7 +214,10 @@ class RunApplicationOperations:
             reset=reset,
         )
 
-    def prepare_owner_queue(self, request: OwnerQueuePhaseRequest) -> None:
+    def prepare_owner_queue(
+        self,
+        request: OwnerQueuePhaseRequest,
+    ) -> OwnerQueuePreparationResult:
         """Resolve discovered candidates and persist the global owner queue."""
 
         config = self.application.config
@@ -227,7 +231,7 @@ class RunApplicationOperations:
             self.execution.progress,
         )
         with self._github_client() as client:
-            OwnerQueuePreparationService(
+            return OwnerQueuePreparationService(
                 OwnerQueuePreparationServices(
                     self.application.database,
                     OwnerIdentityResolver(
@@ -254,6 +258,7 @@ class RunApplicationOperations:
                     current_owner=config.github_owner,
                     include_manual=request.include_manual,
                     now=request.now,
+                    excluded_owners=request.excluded_owners,
                 )
             )
 

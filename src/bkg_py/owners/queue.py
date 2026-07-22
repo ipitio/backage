@@ -86,13 +86,18 @@ def _available_candidates(
     candidates: list[str],
     deferred: set[str],
     requested_manual: set[str],
+    excluded_owners: Iterable[str],
     limit: int,
 ) -> list[str]:
+    excluded = {_owner_key(owner) for owner in excluded_owners}
     return [
         candidate
         for candidate in _unique(candidates)
-        if _owner_key(candidate) not in deferred
-        or _owner_key(candidate) in requested_manual
+        if _owner_key(candidate) not in excluded
+        and (
+            _owner_key(candidate) not in deferred
+            or _owner_key(candidate) in requested_manual
+        )
     ][:limit]
 
 
@@ -149,6 +154,13 @@ class OwnerQueueSelector:
     paths: OwnerQueuePaths
     include_manual: bool = True
     deferred_owners: tuple[str, ...] | None = None
+    excluded_owners: tuple[str, ...] = ()
+
+    @property
+    def capacity(self) -> int:
+        """Return the maximum number of candidates admitted in one chunk."""
+
+        return max(0, 4 * self.request_limit)
 
     def history_owners(self) -> list[str]:
         """Return indexed owners ordered from least to most recently changed."""
@@ -289,7 +301,8 @@ class OwnerQueueSelector:
             candidates,
             deferred,
             requested_manual,
-            max(0, 4 * self.request_limit),
+            self.excluded_owners,
+            self.capacity,
         )
         reason_sources = (
             ("manual", requested_manual),

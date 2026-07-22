@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from bkg_py.orchestration import BatchRuntimeService
+from bkg_py.owners import OwnerQueuePreparationResult
 from bkg_py.owners.batch import OwnerBatchRequest
 from bkg_py.result import ExitStatus
 from bkg_py.run import (
@@ -31,6 +32,7 @@ class FakeRunOptions:
     package_plan: PackageWorkPlanSummary | None = None
     stop_at: str | None = None
     owner_status: ExitStatus = ExitStatus.SUCCESS
+    owner_queue_batches: tuple[tuple[str, ...], ...] | None = None
 
 
 class FakeRunPhases:  # pylint: disable=too-many-instance-attributes
@@ -47,8 +49,11 @@ class FakeRunPhases:  # pylint: disable=too-many-instance-attributes
         self.package_plan = selected.package_plan or PackageWorkPlanSummary(10, 2, 8)
         self.stop_at = selected.stop_at
         self.owner_status = selected.owner_status
+        self.owner_queue_batches = selected.owner_queue_batches
         self.events: list[str] = []
         self.owner_queue_request: OwnerQueuePhaseRequest | None = None
+        self.owner_queue_requests: list[OwnerQueuePhaseRequest] = []
+        self.updated_owner_queues: list[tuple[str, ...]] = []
         self.materialized: tuple[str, ...] = ()
         self.owner_request: OwnerBatchRequest | None = None
 
@@ -103,12 +108,35 @@ class FakeRunPhases:  # pylint: disable=too-many-instance-attributes
         self._record("package-plan")
         return self.package_plan
 
-    def prepare_owner_queue(self, request: OwnerQueuePhaseRequest) -> None:
+    def prepare_owner_queue(
+        self,
+        request: OwnerQueuePhaseRequest,
+    ) -> OwnerQueuePreparationResult:
         """Record and populate the global owner queue."""
 
         self._record(f"owner-queue:{str(request.include_manual).lower()}")
         self.owner_queue_request = request
-        self._queue_owners()
+        self.owner_queue_requests.append(request)
+        batch_index = len(self.owner_queue_requests) - 1
+        if self.owner_queue_batches is None:
+            batch = ("1/one", "2/two", "3/one")
+            may_have_more = False
+        else:
+            batch = (
+                self.owner_queue_batches[batch_index]
+                if batch_index < len(self.owner_queue_batches)
+                else ()
+            )
+            may_have_more = batch_index + 1 < len(self.owner_queue_batches)
+        self.state.replace_set("BKG_OWNERS_QUEUE", batch)
+        selected = tuple(owner.rsplit("/", maxsplit=1)[-1] for owner in batch)
+        return OwnerQueuePreparationResult(
+            len(selected),
+            len(selected),
+            0,
+            selected,
+            may_have_more,
+        )
 
     def prepare_targeted_owner_queue(self, connections_file: Path) -> None:
         """Record and populate the targeted owner queue."""
@@ -128,6 +156,7 @@ class FakeRunPhases:  # pylint: disable=too-many-instance-attributes
 
         self._record("update")
         self.owner_request = request
+        self.updated_owner_queues.append(tuple(self.state.get_set("BKG_OWNERS_QUEUE")))
         return self.owner_status
 
     def finalize_run(
@@ -213,6 +242,40 @@ def test_global_modes_run_global_queue_owner_work_and_snapshot(
     assert state.get_int("BKG_REST_TO_TOP") == 1
     assert state.get("BKG_TIMEOUT") is None
     assert progress[:3] == ["all: 10", "done: 2", "left: 8"]
+    assert not diagnostics
+
+
+def test_global_owner_work_replenishes_bounded_queue_chunks(tmp_path: Path) -> None:
+    """A full global queue admits more work until its candidate plan is exhausted."""
+
+    state = StateStore(tmp_path / "state.env")
+    phases = FakeRunPhases(
+        state,
+        FakeRunOptions(
+            owner_queue_batches=(
+                ("1/one", "2/two"),
+                ("3/three",),
+            )
+        ),
+    )
+
+    status, _, phases, progress, diagnostics = _run(
+        tmp_path,
+        RunMode.ALL_PUBLIC,
+        phases=phases,
+    )
+
+    assert status == ExitStatus.SUCCESS
+    assert phases.updated_owner_queues == [
+        ("1/one", "2/two"),
+        ("3/three",),
+    ]
+    assert len(phases.owner_queue_requests) == 2
+    assert phases.owner_queue_requests[1].excluded_owners == ("one", "two")
+    assert (
+        progress.count("Owner queue chunk completed; admitting more pending owners...")
+        == 1
+    )
     assert not diagnostics
 
 

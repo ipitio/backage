@@ -5,7 +5,7 @@ from __future__ import annotations
 import tempfile
 import time
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import IntEnum, unique
 from pathlib import Path
 from typing import Protocol
@@ -15,7 +15,11 @@ from ..orchestration import (
     OwnerPhaseDecision,
     RunOutcomePolicy,
 )
-from ..owners import OwnerBatchRequest, parse_owner_queue
+from ..owners import (
+    OwnerBatchRequest,
+    OwnerQueuePreparationResult,
+    parse_owner_queue,
+)
 from ..result import ExitStatus
 from ..run_planning import PackageWorkPlanSummary
 from ..run_startup import RunStartupResult
@@ -92,6 +96,23 @@ class OwnerQueuePhaseRequest:
     include_manual: bool
     working_directory: Path
     now: int
+    excluded_owners: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class _GlobalOwnerAdmission:
+    """One bounded global-owner queue and the request used to continue it."""
+
+    request: OwnerQueuePhaseRequest
+    result: OwnerQueuePreparationResult
+
+
+@dataclass(frozen=True)
+class _PreparedOwnerWork:
+    """Prepared owner work and optional global-queue continuation state."""
+
+    status: int
+    global_admission: _GlobalOwnerAdmission | None = None
 
 
 class RunPhaseOperations(Protocol):
@@ -129,7 +150,10 @@ class RunPhaseOperations(Protocol):
 
         raise NotImplementedError
 
-    def prepare_owner_queue(self, request: OwnerQueuePhaseRequest) -> None:
+    def prepare_owner_queue(
+        self,
+        request: OwnerQueuePhaseRequest,
+    ) -> OwnerQueuePreparationResult:
         """Resolve and persist the global owner queue."""
 
         raise NotImplementedError
@@ -189,21 +213,30 @@ class RunCoordinator:  # pylint: disable=too-few-public-methods
         if mode is not RunMode.CLEAN:
             with tempfile.TemporaryDirectory(prefix="bkg-run-") as directory:
                 connections_file = Path(directory) / "connections"
-                run_status = self._prepare_owner_work(
-                    request,
-                    startup,
-                    connections_file,
-                    mode,
-                )
-                if run_status != ExitStatus.GRACEFUL_STOP:
-                    decision = self._update_queued_owners(startup, run_status)
-                    if decision.action == "abort":
+                try:
+                    prepared = self._prepare_owner_work(
+                        request,
+                        startup,
+                        connections_file,
+                        mode,
+                    )
+                    run_status = prepared.status
+                    if run_status != ExitStatus.GRACEFUL_STOP:
+                        decision = self._update_prepared_owner_work(
+                            startup,
+                            run_status,
+                            prepared.global_admission,
+                        )
+                        if decision.action == "abort":
+                            if decision.message:
+                                self.execution.diagnostic(decision.message)
+                            return decision.run_status
+                        run_status = decision.run_status
                         if decision.message:
-                            self.execution.diagnostic(decision.message)
-                        return decision.run_status
-                    run_status = decision.run_status
-                    if decision.message:
-                        self.execution.progress(decision.message)
+                            self.execution.progress(decision.message)
+                finally:
+                    if mode.uses_global_discovery:
+                        self._clean_planning_files(request.working_directory)
 
         self.phases.finalize_run(
             request.today,
@@ -219,16 +252,18 @@ class RunCoordinator:  # pylint: disable=too-few-public-methods
         startup: RunStartupResult,
         connections_file: Path,
         mode: RunMode,
-    ) -> int:
+    ) -> _PreparedOwnerWork:
         if mode.uses_global_discovery:
             if startup.fast_out:
-                return self._prepare_fast_optout_queue()
+                return _PreparedOwnerWork(self._prepare_fast_optout_queue())
             return self._prepare_global_owner_queue(
                 request,
                 startup,
                 connections_file,
             )
-        return self._prepare_targeted_owner_queue(request, connections_file)
+        return _PreparedOwnerWork(
+            self._prepare_targeted_owner_queue(request, connections_file)
+        )
 
     def _prepare_fast_optout_queue(self) -> int:
         self._log_prequeue_elapsed_once()
@@ -242,7 +277,7 @@ class RunCoordinator:  # pylint: disable=too-few-public-methods
         request: RunCoordinatorRequest,
         startup: RunStartupResult,
         connections_file: Path,
-    ) -> int:
+    ) -> _PreparedOwnerWork:
         skip_explore = (
             request.github_owner == "ipitio"
             and self.runtime.should_skip_daily_gate(
@@ -263,7 +298,7 @@ class RunCoordinator:  # pylint: disable=too-few-public-methods
             self.execution.progress(
                 "Reached BKG_MAX_LEN, stopping after persisting state..."
             )
-            return int(status)
+            return _PreparedOwnerWork(int(status))
 
         transition = self.runtime.complete_batch_if_exhausted(
             request.today,
@@ -286,21 +321,17 @@ class RunCoordinator:  # pylint: disable=too-few-public-methods
         )
         if not include_manual:
             self.execution.progress("Skipping owners.txt queue; already ran today")
-        status = self._interruptible(
-            lambda: self.phases.prepare_owner_queue(
-                OwnerQueuePhaseRequest(
-                    rest_first,
-                    connections_file,
-                    request.owner_request_limit,
-                    include_manual,
-                    request.working_directory,
-                    self.execution.now(),
-                )
-            )
+        queue_request = OwnerQueuePhaseRequest(
+            rest_first,
+            connections_file,
+            request.owner_request_limit,
+            include_manual,
+            request.working_directory,
+            self.execution.now(),
         )
+        status, result = self._prepare_owner_queue_interruptibly(queue_request)
         if include_manual and status != ExitStatus.GRACEFUL_STOP:
             self.runtime.complete_daily_gate(_OWNER_QUEUE_GATE, request.today)
-        self._clean_planning_files(request.working_directory)
         self.state.set_many(
             {
                 "BKG_DIFF": startup.database_size,
@@ -308,7 +339,10 @@ class RunCoordinator:  # pylint: disable=too-few-public-methods
             }
         )
         self._log_phase("queue-discovered-owners", phase_started_at)
-        return int(status)
+        admission = (
+            _GlobalOwnerAdmission(queue_request, result) if result is not None else None
+        )
+        return _PreparedOwnerWork(int(status), admission)
 
     def _prepare_targeted_owner_queue(
         self,
@@ -357,6 +391,64 @@ class RunCoordinator:  # pylint: disable=too-few-public-methods
                 )
             )
         return RunOutcomePolicy.owner_updates(int(phase_status), run_status)
+
+    def _update_prepared_owner_work(
+        self,
+        startup: RunStartupResult,
+        run_status: int,
+        admission: _GlobalOwnerAdmission | None,
+    ) -> OwnerPhaseDecision:
+        if admission is None:
+            return self._update_queued_owners(startup, run_status)
+        return self._update_global_owner_work(startup, run_status, admission)
+
+    def _update_global_owner_work(
+        self,
+        startup: RunStartupResult,
+        run_status: int,
+        admission: _GlobalOwnerAdmission,
+    ) -> OwnerPhaseDecision:
+        excluded: set[str] = set()
+        current = admission
+
+        while True:
+            excluded.update(
+                owner.casefold() for owner in current.result.attempted_owners
+            )
+            decision = self._update_queued_owners(startup, run_status)
+            if (
+                decision.action == "abort"
+                or decision.run_status != ExitStatus.SUCCESS
+                or not current.result.may_have_more
+            ):
+                return decision
+
+            self.state.replace_set("BKG_OWNERS_QUEUE", ())
+            self.execution.progress(
+                "Owner queue chunk completed; admitting more pending owners..."
+            )
+            request = replace(
+                current.request,
+                excluded_owners=tuple(sorted(excluded)),
+                now=self.execution.now(),
+            )
+            status, result = self._prepare_owner_queue_interruptibly(request)
+            if status == ExitStatus.GRACEFUL_STOP:
+                return RunOutcomePolicy.owner_updates(int(status), decision.run_status)
+            if result is None:
+                raise AssertionError("successful owner queue preparation has no result")
+            current = _GlobalOwnerAdmission(request, result)
+
+    def _prepare_owner_queue_interruptibly(
+        self,
+        request: OwnerQueuePhaseRequest,
+    ) -> tuple[ExitStatus, OwnerQueuePreparationResult | None]:
+        try:
+            return ExitStatus.SUCCESS, self.phases.prepare_owner_queue(request)
+        except GracefulStop as error:
+            reason = str(error) or "requested"
+            self.execution.diagnostic(f"Graceful stop requested: {reason}")
+            return ExitStatus.GRACEFUL_STOP, None
 
     def _report_package_counts(self, summary: PackageWorkPlanSummary) -> None:
         self.execution.progress(f"all: {summary.total}")

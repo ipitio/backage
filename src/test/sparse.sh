@@ -41,7 +41,7 @@ test_index_top_level_owner_count_uses_git_tree_with_root_sparse_checkout() {
 	[ "$owner_count" = "2" ] || fail "Expected git tree owner count to remain available without materializing owner directories"
 }
 
-test_materialize_index_queue_owners_adds_owner_subtrees() {
+test_materialize_index_queue_owners_adds_and_rotates_owner_subtrees() {
 	local repo_path="$workdir/index-queue-materialize"
 
 	setup_index_repo "$repo_path"
@@ -57,6 +57,19 @@ test_materialize_index_queue_owners_adds_owner_subtrees() {
 	[ -d "$repo_path/beta" ] || fail "Expected queued owner beta to be materialized"
 	assert_file_exists "$repo_path/alpha/repo-a/package.json"
 	assert_file_exists "$repo_path/beta/repo-b/package.json"
+	printf '%s\n' changed >"$repo_path/alpha/repo-a/package.json"
+
+	BKG_INDEX_DIR="$repo_path" \
+		BKG_SKIP_DEP_VERIFY=1 \
+		BKG_UTIL_BOOTSTRAPPED=1 \
+		bash "$src_dir/lib/materialize-owner-trees.sh" beta ||
+		fail "Expected the next owner wave to replace the prior sparse paths"
+
+	[ ! -d "$repo_path/alpha" ] || fail "Expected the completed owner wave to be released"
+	assert_file_exists "$repo_path/beta/repo-b/package.json"
+	if git -C "$repo_path" diff --cached --quiet -- alpha/repo-a/package.json; then
+		fail "Expected completed owner changes to be staged before sparse replacement"
+	fi
 }
 
 test_python_run_materializer_keeps_shell_workspace_boundary() {
@@ -81,7 +94,7 @@ trap cleanup EXIT
 source_project_script "lib/util.sh"
 
 run_test test_index_top_level_owner_count_uses_git_tree_with_root_sparse_checkout
-run_test test_materialize_index_queue_owners_adds_owner_subtrees
+run_test test_materialize_index_queue_owners_adds_and_rotates_owner_subtrees
 run_test test_python_run_materializer_keeps_shell_workspace_boundary
 
 echo "Sparse workflow regression tests passed"

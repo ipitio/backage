@@ -64,6 +64,9 @@ def _run_workspace_command(args: argparse.Namespace) -> ExitStatus:
     command = args.workspace_command
     if command in {"configure-repository", "prepare-index", "publish-update"}:
         return _run_repository_command(args)
+    if command in {"sparse-root", "sparse-add", "sparse-replace"}:
+        _run_sparse_command(command, Path(args.index_dir))
+        return ExitStatus.SUCCESS
     if command == "layout":
         layout = WorkspaceLayout.discover(
             Path(args.root),
@@ -78,12 +81,6 @@ def _run_workspace_command(args: argparse.Namespace) -> ExitStatus:
     elif command == "is-repo":
         if not GitRepository(Path(args.index_dir)).is_worktree():
             return ExitStatus.NON_FATAL
-    elif command == "sparse-root":
-        GitRepository(Path(args.index_dir)).set_sparse_root()
-    elif command == "sparse-add":
-        GitRepository(Path(args.index_dir)).add_sparse_paths(
-            line.rstrip("\n") for line in sys.stdin
-        )
     elif command == "top-level-count":
         count = GitRepository(Path(args.index_dir)).top_level_directory_count()
         sys.stdout.write(f"{count}\n")
@@ -92,6 +89,18 @@ def _run_workspace_command(args: argparse.Namespace) -> ExitStatus:
     else:
         raise WorkspaceError(f"unknown workspace command: {command}")
     return ExitStatus.SUCCESS
+
+
+def _run_sparse_command(command: str, index_dir: Path) -> None:
+    repository = GitRepository(index_dir)
+    if command == "sparse-root":
+        repository.set_sparse_root()
+        return
+    paths = (line.rstrip("\n") for line in sys.stdin)
+    repository.materialize_sparse_paths(
+        paths,
+        replace=command == "sparse-replace",
+    )
 
 
 def _run_repository_command(args: argparse.Namespace) -> ExitStatus:

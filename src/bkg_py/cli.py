@@ -146,6 +146,7 @@ def _add_workspace_parsers(subparsers: Any) -> None:
         "is-repo",
         "sparse-root",
         "sparse-add",
+        "sparse-replace",
         "top-level-count",
         "ensure-pages",
     ):

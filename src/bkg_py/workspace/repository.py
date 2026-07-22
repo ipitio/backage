@@ -343,10 +343,18 @@ class GitRepository(_GitCommandRunner):
         self._run(("sparse-checkout", "init", "--cone"), required=True)
         self._run(("sparse-checkout", "set"), required=True)
 
-    def add_sparse_paths(self, paths: Iterable[str]) -> None:
-        """Materialize sparse paths in bounded Git command batches."""
+    def materialize_sparse_paths(
+        self,
+        paths: Iterable[str],
+        *,
+        replace: bool = False,
+    ) -> None:
+        """Materialize sparse paths, optionally replacing the completed paths."""
 
         if not self.is_worktree():
+            return
+        if replace:
+            self._replace_sparse_paths(paths)
             return
         batch: list[str] = []
         for path in paths:
@@ -358,6 +366,24 @@ class GitRepository(_GitCommandRunner):
                 batch = []
         if batch:
             self._add_sparse_batch(batch)
+
+    def _replace_sparse_paths(self, paths: Iterable[str]) -> None:
+        current = tuple(
+            path
+            for path in self._run(
+                ("sparse-checkout", "list"),
+                required=True,
+            ).stdout.splitlines()
+            if path
+        )
+        if current:
+            self._run(("add", "--all", "--", *current), required=True)
+        selected = tuple(dict.fromkeys(path for path in paths if path))
+        self._run(
+            ("sparse-checkout", "set", "--skip-checks", "--stdin"),
+            input_text="".join(f"{path}\n" for path in selected),
+            required=True,
+        )
 
     def top_level_directory_count(self) -> int:
         """Count tracked top-level directories without materializing them."""

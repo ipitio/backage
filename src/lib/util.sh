@@ -149,6 +149,11 @@ index_sparse_add_paths() {
     bkg_python workspace sparse-add "$BKG_INDEX_DIR"
 }
 
+index_sparse_replace_paths() {
+    [ -n "${BKG_INDEX_DIR:-}" ] || return 1
+    bkg_python workspace sparse-replace "$BKG_INDEX_DIR"
+}
+
 index_queue_owner_names() {
     get_BKG_set BKG_OWNERS_QUEUE | cut -d'/' -f2 | awk 'NF && !seen[$0]++'
 }

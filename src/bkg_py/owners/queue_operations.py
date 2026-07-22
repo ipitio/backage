@@ -60,6 +60,7 @@ class OwnerQueuePreparationRequest:
     current_owner: str
     include_manual: bool
     now: int
+    excluded_owners: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -69,6 +70,8 @@ class OwnerQueuePreparationResult:
     candidates: int
     queued: int
     missing: int
+    attempted_owners: tuple[str, ...]
+    may_have_more: bool
 
 
 @dataclass(frozen=True)
@@ -119,7 +122,7 @@ class OwnerQueuePreparationService:  # pylint: disable=too-few-public-methods
                 f"Deferred {owner} until {_utc_timestamp(retry_after)}"
             )
 
-        connections, selected = self._select(request, deferred)
+        connections, selected, capacity = self._select(request, deferred)
         self.execution.check_stop()
         resolved, missing = self.services.resolver.resolve_candidates(
             owner for owner, _reason in selected
@@ -132,13 +135,18 @@ class OwnerQueuePreparationService:  # pylint: disable=too-few-public-methods
             candidates=len(selected),
             queued=queued,
             missing=missing_count,
+            attempted_owners=_unique_owner_logins(
+                (owner for owner, _reason in selected),
+                resolved,
+            ),
+            may_have_more=capacity > 0 and len(selected) == capacity,
         )
 
     def _select(
         self,
         request: OwnerQueuePreparationRequest,
         deferred: tuple[tuple[str, int], ...],
-    ) -> tuple[tuple[str, ...], list[tuple[str, str]]]:
+    ) -> tuple[tuple[str, ...], list[tuple[str, str]], int]:
         paths = request.paths
         connections = _prepare_connections(paths)
         _prepare_manual_owners(paths)
@@ -154,8 +162,13 @@ class OwnerQueuePreparationService:  # pylint: disable=too-few-public-methods
             ),
             include_manual=request.include_manual,
             deferred_owners=tuple(owner for owner, _retry_after in deferred),
+            excluded_owners=request.excluded_owners,
         )
-        return connections, selector.select_with_reasons(self.execution.generator)
+        return (
+            connections,
+            selector.select_with_reasons(self.execution.generator),
+            selector.capacity,
+        )
 
     def _record_discovered(
         self,
@@ -170,7 +183,10 @@ class OwnerQueuePreparationService:  # pylint: disable=too-few-public-methods
         )
         for _owner_ref in discovered:
             self.execution.check_stop()
-        self.services.state.replace_set("BKG_DISCOVERED_CONNECTION_OWNERS", discovered)
+        self.services.state.add_many_to_set(
+            "BKG_DISCOVERED_CONNECTION_OWNERS",
+            discovered,
+        )
 
     def _queue_resolved(
         self,
@@ -282,6 +298,19 @@ def _prepare_manual_owners(paths: OwnerQueuePreparationPaths) -> tuple[str, ...]
 
 def _owner_login(value: str) -> str:
     return value.split("/", maxsplit=1)[-1]
+
+
+def _unique_owner_logins(*sources: Iterable[str]) -> tuple[str, ...]:
+    owners: list[str] = []
+    seen: set[str] = set()
+    for value in (value for source in sources for value in source):
+        owner = _owner_login(value)
+        key = owner.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        owners.append(owner)
+    return tuple(owners)
 
 
 def _owner_key(value: str) -> str:
