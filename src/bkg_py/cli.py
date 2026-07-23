@@ -13,7 +13,7 @@ from .result import PUBLIC_EXIT_STATUSES, ExitStatus
 def build_parser() -> argparse.ArgumentParser:
     """Create the command-line parser for the Python migration helpers."""
 
-    parser = argparse.ArgumentParser(prog="python -m bkg_py")
+    parser = argparse.ArgumentParser(prog="bkg")
     subparsers = parser.add_subparsers(dest="command", required=True)
     subparsers.add_parser(
         "config",

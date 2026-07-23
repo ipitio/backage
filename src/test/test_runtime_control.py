@@ -42,7 +42,7 @@ class FakeClock:
 def _is_running(pid: int) -> bool:
     try:
         status = Path(f"/proc/{pid}/stat").read_text(encoding="utf-8").split()[2]
-    except (FileNotFoundError, IndexError, ProcessLookupError):
+    except FileNotFoundError, IndexError, ProcessLookupError:
         return False
     return status != "Z"
 

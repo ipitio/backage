@@ -3,12 +3,16 @@
 from __future__ import annotations
 
 import os
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 
 def _repo_root() -> Path:
-    return Path(__file__).resolve().parents[2]
+    working_directory = Path.cwd().resolve()
+    for candidate in (working_directory, *working_directory.parents):
+        if (candidate / "src" / "bkg_py").is_dir():
+            return candidate
+    return working_directory
 
 
 def _env_int(name: str, default: int) -> int:
@@ -42,6 +46,10 @@ def _env_positive_float(name: str, default: float) -> float:
     return parsed if parsed > 0 else default
 
 
+def _default_parallel_jobs() -> int:
+    return max(1, (os.process_cpu_count() or 1) * 2)
+
+
 @dataclass(frozen=True)
 class RuntimeConfig:  # pylint: disable=too-many-instance-attributes
     """Runtime settings read from the environment used by the Bash entrypoints."""
@@ -70,7 +78,7 @@ class RuntimeConfig:  # pylint: disable=too-many-instance-attributes
     append_tagged_versions_limit: int = 30
     owner_discovery_max_pages: int = 1
     snapshot_rotation_threshold_bytes: int = 2_000_000_000
-    parallel_async_max_jobs: int = max(1, (os.cpu_count() or 1) * 2)
+    parallel_async_max_jobs: int = field(default_factory=_default_parallel_jobs)
     owner_update_stop_grace: float = 180.0
 
     @classmethod
@@ -132,7 +140,7 @@ class RuntimeConfig:  # pylint: disable=too-many-instance-attributes
             ),
             parallel_async_max_jobs=_env_positive_int(
                 "BKG_PARALLEL_ASYNC_MAX_JOBS",
-                max(1, (os.cpu_count() or 1) * 2),
+                _default_parallel_jobs(),
             ),
             owner_update_stop_grace=_env_positive_float(
                 "BKG_OWNER_UPDATE_STOP_GRACE",

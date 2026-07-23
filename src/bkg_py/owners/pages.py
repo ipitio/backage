@@ -79,7 +79,7 @@ def admit_owner_page(
 
 
 @contextmanager
-def _owners_lock(config: OwnerPageAdmissionConfig) -> Generator[None, None, None]:
+def _owners_lock(config: OwnerPageAdmissionConfig) -> Generator[None]:
     config.owners_path.parent.mkdir(parents=True, exist_ok=True)
     config.owners_path.touch(exist_ok=True)
     lock_path = Path(f"{config.owners_path}.lock")
@@ -185,6 +185,6 @@ def _positive_id(value: object) -> int | None:
         return None
     try:
         parsed = int(value)  # type: ignore[arg-type]
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return None
     return parsed if parsed > 0 else None

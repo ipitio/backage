@@ -38,6 +38,8 @@ _MUTED_SPAN_PATTERN = re.compile(
 )
 _PRE_BLOCK_PATTERN = re.compile(r"<pre\b[^>]*>(.*?)</pre>", re.DOTALL)
 _TAG_PATTERN = re.compile(r"<[^>]+>", re.DOTALL)
+_DOCKER_IMAGE_MANIFEST = "application/vnd.docker.distribution.manifest.v2+json"
+_DOCKER_IMAGE_CONFIG = "application/vnd.docker.container.image.v1+json"
 
 
 @dataclass(frozen=True)
@@ -349,6 +351,8 @@ def manifest_size(manifest: str) -> ManifestSizeResult:
     layer_sizes = tuple(_nonnegative_sizes(iter(layer_items)))
     if layer_sizes or (_has_array(data, "layers") and not layer_items):
         return ManifestSizeResult(size=math.floor(sum(layer_sizes)))
+    if _has_null_docker_image_layers(data):
+        return ManifestSizeResult(size=0)
 
     if _has_array(data, "manifests"):
         manifest_items = tuple(_array_items(data, "manifests"))
@@ -423,6 +427,22 @@ def _has_array(value: object, name: str) -> bool:
         for node in _walk(value)
         if (mapping := _as_dict(node)) is not None
     )
+
+
+def _has_null_docker_image_layers(value: object) -> bool:
+    for node in _walk(value):
+        manifest = _as_dict(node)
+        if (
+            manifest is None
+            or manifest.get("mediaType") != _DOCKER_IMAGE_MANIFEST
+            or "layers" not in manifest
+            or manifest["layers"] is not None
+        ):
+            continue
+        config = _as_dict(manifest.get("config"))
+        if config is not None and config.get("mediaType") == _DOCKER_IMAGE_CONFIG:
+            return True
+    return False
 
 
 def _nonnegative_sizes(items: Iterator[object]) -> Iterator[float]:

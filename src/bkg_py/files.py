@@ -31,7 +31,7 @@ def atomic_path(
     destination: Path,
     *,
     default_mode: int = 0o644,
-) -> Generator[Path, None, None]:
+) -> Generator[Path]:
     """Yield a sibling path and replace the destination after successful use."""
 
     descriptor, temporary_name = tempfile.mkstemp(
@@ -60,7 +60,7 @@ def atomic_text_output(
     encoding: str = "utf-8",
     newline: str | None = "\n",
     default_mode: int = 0o644,
-) -> Generator[TextIO, None, None]:
+) -> Generator[TextIO]:
     """Yield a text stream that atomically replaces its destination."""
 
     with (
@@ -81,7 +81,7 @@ def atomic_binary_output(
     destination: Path,
     *,
     default_mode: int = 0o644,
-) -> Generator[BinaryIO, None, None]:
+) -> Generator[BinaryIO]:
     """Yield a binary stream that atomically replaces its destination."""
 
     with (

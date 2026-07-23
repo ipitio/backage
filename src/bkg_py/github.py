@@ -935,7 +935,7 @@ def _positive_int(value: object, *, default: int) -> int:
         return default
     try:
         parsed = int(value)  # type: ignore[arg-type]
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return default
     return parsed if parsed > 0 else default
 
@@ -945,7 +945,7 @@ def _nonnegative_int(value: object) -> int | None:
         return None
     try:
         parsed = int(value)  # type: ignore[arg-type]
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return None
     return parsed if parsed >= 0 else None
 
@@ -961,7 +961,7 @@ def _response_retry_delay(response: httpx.Response) -> float | None:
                 if retry_at.tzinfo is None:
                     retry_at = retry_at.replace(tzinfo=UTC)
                 return max(0.0, (retry_at - datetime.now(UTC)).total_seconds())
-            except (TypeError, ValueError, OverflowError):
+            except TypeError, ValueError, OverflowError:
                 pass
 
     reset_at = response.headers.get("x-ratelimit-reset")

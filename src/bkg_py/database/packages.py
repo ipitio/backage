@@ -46,7 +46,7 @@ def _sql(statement: str, /, **identifiers: _SqlIdentifier) -> str:
 
 
 @contextmanager
-def _transaction(connection: sqlite3.Connection) -> Generator[None, None, None]:
+def _transaction(connection: sqlite3.Connection) -> Generator[None]:
     connection.execute("begin immediate")
     try:
         yield

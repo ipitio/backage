@@ -36,7 +36,7 @@ def _is_valid_json(path: Path) -> bool:
     try:
         text = path.read_text(encoding="utf-8")
         last_value = _last_json_value(text)
-    except (OSError, UnicodeError, ValueError):
+    except OSError, UnicodeError, ValueError:
         return False
     return last_value is not None and last_value is not False
 
@@ -44,7 +44,7 @@ def _is_valid_json(path: Path) -> bool:
 def _is_valid_xml(path: Path) -> bool:
     try:
         element_tree.parse(path)
-    except (OSError, element_tree.ParseError):
+    except OSError, element_tree.ParseError:
         return False
     return True
 

@@ -169,6 +169,43 @@ def test_manifest_inspector_resolves_amd64_and_reuses_pull_token() -> None:
     assert all(request.bearer_token == "pull-token" for request in client.requests[1:])
 
 
+def test_manifest_inspector_prefers_cnab_invocation_over_bundle_config() -> None:
+    """A platformless CNAB index resolves to its runnable invocation image."""
+
+    index = json.dumps(
+        {
+            "schemaVersion": 2,
+            "manifests": [
+                {
+                    "digest": "sha256:config",
+                    "annotations": {"io.cnab.manifest.type": "config"},
+                },
+                {
+                    "digest": "sha256:invocation",
+                    "annotations": {"io.cnab.manifest.type": "invocation"},
+                },
+            ],
+        }
+    )
+    invocation = '{"layers":[{"size":20},{"size":22}]}'
+    client = _FakeClient(
+        {
+            _token_url(): ['{"token":"pull-token","expires_in":600}'],
+            _manifest_url("v1"): [index],
+            _manifest_url("sha256:invocation"): [invocation],
+        }
+    )
+
+    manifest = GHCRManifestInspector(client)("ghcr.io/example/nested/image:v1")
+
+    assert manifest_size(manifest).size == 42
+    assert [request.url for request in client.requests] == [
+        _token_url(),
+        _manifest_url("v1"),
+        _manifest_url("sha256:invocation"),
+    ]
+
+
 def test_manifest_inspector_refreshes_rejected_pull_token() -> None:
     """An expired cached token is replaced once after a registry 401."""
 

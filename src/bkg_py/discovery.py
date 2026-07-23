@@ -121,7 +121,7 @@ class OwnerIdentityCache:
         return Path(f"{self.path}.lock")
 
     @contextmanager
-    def _lock(self) -> Generator[None, None, None]:
+    def _lock(self) -> Generator[None]:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.path.touch(exist_ok=True)
         while True:
@@ -748,7 +748,7 @@ def _merge_rest_owner_pages(
     return tuple(owners_by_login[login] for login in sorted(owners_by_login))
 
 
-def _chunks(values: Sequence[str], size: int) -> Generator[list[str], None, None]:
+def _chunks(values: Sequence[str], size: int) -> Generator[list[str]]:
     for index in range(0, len(values), size):
         yield list(values[index : index + size])
 
@@ -942,6 +942,6 @@ def _positive_id(value: object) -> int | None:
         return None
     try:
         parsed = int(value)  # type: ignore[arg-type]
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return None
     return parsed if parsed > 0 else None

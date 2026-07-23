@@ -185,7 +185,7 @@ class WorkflowHandoffControl:
         self,
         baseline: str | None,
         stop: StopController,
-    ) -> Generator[None, None, None]:
+    ) -> Generator[None]:
         """Monitor a captured baseline for the lifetime of an active run."""
 
         if baseline is None:

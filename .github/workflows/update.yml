@@ -98,18 +98,6 @@ jobs:
           fi
           echo "run=$run_update" >> "$GITHUB_OUTPUT"
 
-      - name: Tune dpkg
-        if: ${{ steps.gate.outputs.run == 'true' }}
-        uses: abbbi/github-actions-tune@v1
-
-      - name: Set dpkg
-        if: ${{ steps.gate.outputs.run == 'true' }}
-        run: sudo rm -f /usr/local/bin/dpkg
-
-      - name: Tune apt
-        if: ${{ steps.gate.outputs.run == 'true' }}
-        uses: firebuild/apt-eatmydata-action@v1
-
       - name: Check for release
         if: ${{ steps.gate.outputs.run == 'true' }}
         id: release
@@ -129,14 +117,14 @@ jobs:
           zipBall: false
           out-file-path: ".bkg/.snapshot"
 
-      - name: Dry run
+      - name: Update
         if: ${{ steps.gate.outputs.run == 'true' }}
         id: update
         run: |
           set +e
           docker run -v $PWD:/app --env-file <(env | grep -E '^(GITHUB|BKG_HANDOFF_)') \
             ghcr.io/ipitio/backage:master \
-            src/update.sh bkg
+            bkg workflow-update bkg --invocation-directory /app
           code=$?
           echo "updated=$code" >> "$GITHUB_OUTPUT"
           exit "$code"

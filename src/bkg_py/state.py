@@ -56,7 +56,7 @@ class StateStore:
             time.sleep(self.lock_poll_interval)
 
     @contextmanager
-    def _lock(self, lock_path: Path) -> Generator[None, None, None]:
+    def _lock(self, lock_path: Path) -> Generator[None]:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.path.touch(exist_ok=True)
         while True:

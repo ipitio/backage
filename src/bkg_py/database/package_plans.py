@@ -177,7 +177,7 @@ def _package_work_item(row: tuple[Any, ...] | sqlite3.Row) -> PackageWorkItem:
 
 
 @contextmanager
-def _read_snapshot(connection: sqlite3.Connection) -> Generator[None, None, None]:
+def _read_snapshot(connection: sqlite3.Connection) -> Generator[None]:
     connection.execute("begin")
     try:
         yield

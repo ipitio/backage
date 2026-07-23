@@ -400,7 +400,7 @@ class UpdateWorkflowService:  # pylint: disable=too-few-public-methods
 
 
 @contextmanager
-def _scoped_runtime_environment() -> Generator[None, None, None]:
+def _scoped_runtime_environment() -> Generator[None]:
     previous = {name: os.environ.get(name) for name in _RUNTIME_ENVIRONMENT_KEYS}
     try:
         yield

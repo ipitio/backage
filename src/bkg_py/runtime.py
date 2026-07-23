@@ -192,7 +192,7 @@ class StopController:
             self._event.wait(min(self.timing.poll_interval, remaining))
 
     @contextmanager
-    def finalization_scope(self) -> Generator[None, None, None]:
+    def finalization_scope(self) -> Generator[None]:
         """Defer an existing stop while allowing a new stop to interrupt cleanup."""
 
         previous_timeout = self.state.get(_TIMEOUT_KEY)
@@ -238,7 +238,7 @@ class StopController:
             signal.SIGINT,
             signal.SIGTERM,
         ),
-    ) -> Generator[None, None, None]:
+    ) -> Generator[None]:
         """Translate process termination signals into graceful stop requests."""
 
         if threading.current_thread() is not threading.main_thread():

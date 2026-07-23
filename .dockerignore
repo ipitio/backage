@@ -2,6 +2,9 @@
 .bkg
 .snapshot
 .env
+.pytest_cache
+.ruff_cache
+.venv
 src/env.env
 
 index
@@ -14,3 +17,6 @@ index-*
 
 **/__pycache__
 **/*.py[cod]
+*.egg-info
+build
+dist

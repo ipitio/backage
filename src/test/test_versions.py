@@ -257,6 +257,24 @@ def test_manifest_size_calculates_resolved_layers_and_rejects_indexes() -> None:
     assert empty_layers.size == 0
     assert empty_layers.fallback_reason is None
 
+    null_docker_layers = manifest_size(
+        '{"mediaType":"application/vnd.docker.distribution.manifest.v2+json",'
+        '"schemaVersion":2,"config":{'
+        '"mediaType":"application/vnd.docker.container.image.v1+json",'
+        '"size":822},"layers":null}'
+    )
+    assert null_docker_layers.size == 0
+    assert null_docker_layers.fallback_reason is None
+
+    artifact_payload = manifest_size(
+        '{"mediaType":"application/vnd.oci.image.manifest.v1+json",'
+        '"schemaVersion":2,"config":{'
+        '"mediaType":"application/x.example.payload+gzip",'
+        '"size":29981303},"layers":null}'
+    )
+    assert artifact_payload.size == -1
+    assert artifact_payload.fallback_reason == "unsupported shape"
+
 
 def test_manifest_size_describes_malformed_and_unsupported_shapes() -> None:
     """Fallbacks produce bounded diagnostics without exposing raw controls."""

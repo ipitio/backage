@@ -51,6 +51,8 @@ _BADGE_CAPABILITY_REJECTIONS = frozenset({"InvalidImageError", "InvalidTagError"
 _SIZE_PATTERN = re.compile(r"^([0-9]+(?:\.[0-9]+)?)\s*([A-Za-z]*)$")
 _SIZE_UNIT_PATTERN = re.compile(r"^([kKmMgGtTpPeEzZyY])(i?)([Bb])$")
 _SIZE_PREFIXES = "KMGTPEZY"
+_CNAB_DESCRIPTOR_TYPE = "io.cnab.manifest.type"
+_CNAB_INVOCATION = "invocation"
 _MANIFEST_ACCEPT = ", ".join(
     (
         "application/vnd.oci.image.index.v1+json",
@@ -455,7 +457,8 @@ def _preferred_child_digest(manifest: str) -> str | None:
         if isinstance(item, dict)
     ]
     return (
-        _first_matching_digest(
+        _first_matching_digest(candidates, _is_cnab_invocation)
+        or _first_matching_digest(
             candidates,
             lambda candidate: _platform(candidate) == ("linux", "amd64"),
         )
@@ -465,6 +468,15 @@ def _preferred_child_digest(manifest: str) -> str | None:
             lambda candidate: _platform(candidate) == ("", ""),
         )
     )
+
+
+def _is_cnab_invocation(descriptor: dict[str, object]) -> bool:
+    value = descriptor.get("annotations")
+    if not isinstance(value, dict):
+        return False
+    annotations = cast(dict[str, object], value)
+    kind = annotations.get(_CNAB_DESCRIPTOR_TYPE)
+    return isinstance(kind, str) and kind.casefold() == _CNAB_INVOCATION
 
 
 def _first_matching_digest(

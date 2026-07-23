@@ -41,7 +41,7 @@ def _table_exists(connection: sqlite3.Connection, table_name: str) -> bool:
 
 
 @contextmanager
-def _transaction(connection: sqlite3.Connection) -> Generator[None, None, None]:
+def _transaction(connection: sqlite3.Connection) -> Generator[None]:
     connection.execute("begin immediate")
     try:
         yield

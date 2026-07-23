@@ -168,7 +168,7 @@ class ApplicationContext:
         self,
         *,
         report: Callable[[str], None] | None = None,
-    ) -> Generator[GitHubClient, None, None]:
+    ) -> Generator[GitHubClient]:
         """Yield a pooled client connected to this process's state and stop control."""
 
         self.ensure_state_file()

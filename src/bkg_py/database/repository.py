@@ -741,7 +741,7 @@ class DatabaseRepository(  # pylint: disable=too-many-public-methods
         owner_id: str,
         *,
         repo: str | None,
-    ) -> Generator[tuple[tuple[str, ...], tuple[VersionRecord, ...]], None, None]:
+    ) -> Generator[tuple[tuple[str, ...], tuple[VersionRecord, ...]]]:
         packages = _SqlIdentifier(self.settings.packages_table)
         versions = _SqlIdentifier(self.settings.versions_table)
         cursor = connection.execute(
@@ -901,7 +901,7 @@ class DatabaseRepository(  # pylint: disable=too-many-public-methods
                 attempt += 1
 
     @contextmanager
-    def _connection(self) -> Generator[sqlite3.Connection, None, None]:
+    def _connection(self) -> Generator[sqlite3.Connection]:
         self.settings.path.parent.mkdir(parents=True, exist_ok=True)
         connection = sqlite3.connect(
             self.settings.path,
@@ -950,7 +950,7 @@ def _file_identity(path: Path) -> tuple[int, int] | None:
 
 
 @contextmanager
-def _transaction(connection: sqlite3.Connection) -> Generator[None, None, None]:
+def _transaction(connection: sqlite3.Connection) -> Generator[None]:
     connection.execute("begin immediate")
     try:
         yield

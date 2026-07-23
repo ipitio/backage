@@ -58,15 +58,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@main
 
-      - name: Tune dpkg
-        uses: abbbi/github-actions-tune@v1
-
-      - name: Set dpkg
-        run: sudo rm -f /usr/local/bin/dpkg
-
-      - name: Tune apt
-        uses: firebuild/apt-eatmydata-action@v1
-
       - name: Check for release
         id: release
         continue-on-error: true
@@ -85,13 +76,13 @@ jobs:
           zipBall: false
           out-file-path: ".bkg/.snapshot"
 
-      - name: Dry run
+      - name: Update
         id: update
         run: |
           set +e
           docker run -v $PWD:/app --env-file <(env | grep -E '^(GITHUB|BKG_HANDOFF_)') \
             ghcr.io/$GITHUB_OWNER/$GITHUB_REPO:master \
-            src/update.sh bkg
+            bkg workflow-update bkg --invocation-directory /app
           code=$?
           echo "updated=$code" >> "$GITHUB_OUTPUT"
           exit "$code"

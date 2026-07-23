@@ -525,7 +525,7 @@ def test_refresh_package_cli_wires_runtime_services(
     @contextmanager
     def fake_github_client(
         _application: ApplicationContext,
-    ) -> Generator[_FakeClient, None, None]:
+    ) -> Generator[_FakeClient]:
         yield client
 
     database_path = tmp_path / "index.db"

@@ -117,7 +117,7 @@ class RequestCircuit:  # pylint: disable=too-few-public-methods
         self._states: dict[str, _CircuitState] = {}
 
     @contextmanager
-    def request(self, scope: str) -> Generator[RequestCircuitLease, None, None]:
+    def request(self, scope: str) -> Generator[RequestCircuitLease]:
         """Yield one generation-bound normal request or half-open probe lease."""
 
         if not scope:

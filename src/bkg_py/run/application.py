@@ -422,7 +422,7 @@ class RunApplicationOperations:
         )
 
     @contextmanager
-    def _github_client(self) -> Generator[GitHubClient, None, None]:
+    def _github_client(self) -> Generator[GitHubClient]:
         if self._shared_github_client is not None:
             yield self._shared_github_client
             return
