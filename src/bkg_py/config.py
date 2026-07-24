@@ -52,7 +52,7 @@ def _default_parallel_jobs() -> int:
 
 @dataclass(frozen=True)
 class RuntimeConfig:  # pylint: disable=too-many-instance-attributes
-    """Runtime settings read from the environment used by the Bash entrypoints."""
+    """Runtime settings read from the process environment."""
 
     github_owner: str
     github_repo: str

@@ -1,6 +1,9 @@
+ARG PYTHON_VERSION=3.14
+FROM python:${PYTHON_VERSION}-slim-bookworm AS python-base
+
 FROM ghcr.io/astral-sh/uv:0.11.19 AS uv
 
-FROM python:3.14.6-slim-bookworm AS build
+FROM python-base AS build
 
 COPY --from=uv /uv /usr/local/bin/uv
 WORKDIR /build
@@ -14,7 +17,7 @@ RUN uv venv /opt/bkg --python /usr/local/bin/python \
     && uv pip install --python /opt/bkg/bin/python \
         --no-cache --no-deps .
 
-FROM python:3.14.6-slim-bookworm
+FROM python-base
 
 ARG DEBIAN_FRONTEND=noninteractive
 ENV PYTHONDONTWRITEBYTECODE=1
@@ -24,11 +27,7 @@ ENV PATH="/opt/bkg/bin:${PATH}"
 WORKDIR /app
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        curl \
         git \
-        jq \
-        libxml2-utils \
-        parallel \
         sqlite3 \
         zstd \
     && rm -rf /var/lib/apt/lists/*

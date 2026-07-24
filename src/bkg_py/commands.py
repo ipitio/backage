@@ -1,4 +1,4 @@
-"""Execute shell-compatible bkg Python commands."""
+"""Execute bkg command adapters."""
 # pylint: disable=import-outside-toplevel
 
 from __future__ import annotations
@@ -900,7 +900,7 @@ def run_command(
     args: argparse.Namespace,
     parser: argparse.ArgumentParser,
 ) -> ExitStatus:
-    """Execute one parsed command and return its shell-facing status."""
+    """Execute one parsed command and return its process status."""
 
     status = ExitStatus.FAILURE
     if args.command == "config":

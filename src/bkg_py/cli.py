@@ -11,7 +11,7 @@ from .result import PUBLIC_EXIT_STATUSES, ExitStatus
 
 
 def build_parser() -> argparse.ArgumentParser:
-    """Create the command-line parser for the Python migration helpers."""
+    """Create the bkg command-line parser."""
 
     parser = argparse.ArgumentParser(prog="bkg")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -21,7 +21,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     run_parser = subparsers.add_parser(
         "run",
-        help="run the complete migrated application lifecycle",
+        help="run the complete application lifecycle",
     )
     run_parser.add_argument("-d", "--duration", type=int)
     run_parser.add_argument("-m", "--mode", type=int, choices=range(6))
@@ -97,6 +97,19 @@ def _add_handoff_parsers(subparsers: Any) -> None:
     for command in ("baseline", "request"):
         command_parser = handoff_commands.add_parser(command)
         command_parser.add_argument("repository", nargs="?", default=".")
+    should_run_parser = handoff_commands.add_parser(
+        "should-run",
+        help="decide whether a serialized scheduled update is still current",
+    )
+    should_run_parser.add_argument("queued_baseline")
+    should_run_parser.add_argument("current_baseline")
+    should_run_parser.add_argument("run_id")
+    should_run_parser.add_argument("latest_scheduled_run_id", nargs="?", default="")
+    should_run_parser.add_argument("active_manual_run_id", nargs="?", default="")
+    handoff_commands.add_parser(
+        "workflow-runs",
+        help="select freshness run IDs from an Actions API response on stdin",
+    )
 
 
 def _add_workspace_parsers(subparsers: Any) -> None:
@@ -157,7 +170,7 @@ def _add_workspace_parsers(subparsers: Any) -> None:
 def _add_orchestration_parsers(subparsers: Any) -> None:
     orchestration_parser = subparsers.add_parser(
         "orchestration",
-        help="run migrated application orchestration decisions",
+        help="run application orchestration decisions",
     )
     orchestration_commands = orchestration_parser.add_subparsers(
         dest="orchestration_command",
@@ -224,7 +237,7 @@ def _add_run_state_parsers(orchestration_commands: Any) -> None:
     update_owners_parser.add_argument("fast_out", choices=("true", "false"))
     package_plan_parser = orchestration_commands.add_parser(
         "prepare-package-plan",
-        help="write package-work compatibility files from one database snapshot",
+        help="write package-work files from one database snapshot",
     )
     package_plan_parser.add_argument("since")
     package_plan_parser.add_argument("directory")
@@ -285,7 +298,7 @@ def _add_orchestration_operation_parsers(orchestration_commands: Any) -> None:
 def _add_database_parsers(subparsers: Any) -> None:
     database_parser = subparsers.add_parser(
         "database",
-        help="run a migrated SQLite repository operation",
+        help="run a SQLite repository operation",
     )
     database_commands = database_parser.add_subparsers(
         dest="database_command",
@@ -390,7 +403,7 @@ def _add_owner_scan_database_parsers(database_commands: Any) -> None:
 def _add_render_parsers(subparsers: Any) -> None:
     render_parser = subparsers.add_parser(
         "render",
-        help="render migrated package and aggregate JSON",
+        help="render package and aggregate JSON",
     )
     render_commands = render_parser.add_subparsers(
         dest="render_command",
@@ -447,7 +460,7 @@ def _add_package_arguments(parser: argparse.ArgumentParser) -> None:
 def _add_version_parsers(subparsers: Any) -> None:
     version_parser = subparsers.add_parser(
         "version",
-        help="run migrated package-version helpers",
+        help="run package-version operations",
     )
     version_commands = version_parser.add_subparsers(
         dest="version_command",
@@ -468,7 +481,7 @@ def _add_version_parsers(subparsers: Any) -> None:
     )
     version_commands.add_parser(
         "extract-page-data",
-        help="extract migrated version-page data from stdin as JSON",
+        help="extract version-page data from stdin as JSON",
     )
     manifest_size_parser = version_commands.add_parser(
         "manifest-size",
@@ -477,7 +490,7 @@ def _add_version_parsers(subparsers: Any) -> None:
     manifest_size_parser.add_argument("context", nargs="?")
     version_commands.add_parser(
         "cache-candidates",
-        help="normalize version page JSON into shell cache records",
+        help="normalize version page JSON into cache records",
     )
     refresh_parser = version_commands.add_parser(
         "refresh-package",
@@ -493,7 +506,7 @@ def _add_version_parsers(subparsers: Any) -> None:
 def _add_package_parsers(subparsers: Any) -> None:
     package_parser = subparsers.add_parser(
         "package",
-        help="run migrated package metadata operations",
+        help="run package metadata operations",
     )
     package_commands = package_parser.add_subparsers(
         dest="package_command",
@@ -557,7 +570,7 @@ def _add_package_parsers(subparsers: Any) -> None:
 def _add_owner_parsers(subparsers: Any) -> None:
     owner_parser = subparsers.add_parser(
         "owner",
-        help="run migrated owner update operations",
+        help="run owner update operations",
     )
     owner_commands = owner_parser.add_subparsers(
         dest="owner_command",
@@ -621,7 +634,7 @@ def _add_owner_parsers(subparsers: Any) -> None:
 def _add_snapshot_parsers(subparsers: Any) -> None:
     snapshot_parser = subparsers.add_parser(
         "snapshot",
-        help="run migrated local database snapshot operations",
+        help="run local database snapshot operations",
     )
     snapshot_commands = snapshot_parser.add_subparsers(
         dest="snapshot_command",
@@ -727,7 +740,7 @@ def _add_github_parsers(subparsers: Any) -> None:
 def _add_discovery_parsers(subparsers: Any) -> None:
     discovery_parser = subparsers.add_parser(
         "discovery",
-        help="run migrated owner discovery operations",
+        help="run owner discovery operations",
     )
     discovery_commands = discovery_parser.add_subparsers(
         dest="discovery_command",

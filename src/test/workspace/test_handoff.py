@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import io
 import time
 from collections.abc import Callable
 from pathlib import Path
@@ -16,6 +17,8 @@ from bkg_py.workspace import (
     HandoffSettings,
     WorkflowHandoffControl,
     WorkspaceError,
+    scheduled_update_skip_reason,
+    workflow_run_freshness,
 )
 
 from .repository_support import clone_repository, create_repository_with_remote, git
@@ -186,3 +189,128 @@ def test_handoff_cli_reports_missing_baseline(
 
     assert status is ExitStatus.SUCCESS
     assert capsys.readouterr().out == "missing\n"
+
+
+@pytest.mark.parametrize(
+    ("values", "expected"),
+    [
+        (
+            ("current", "current", "100", "100", ""),
+            None,
+        ),
+        (
+            ("current", "current", "100", "99", ""),
+            None,
+        ),
+        (
+            ("queued", "current", "100", "100", ""),
+            "a Manual handoff was requested after this run queued",
+        ),
+        (
+            ("current", "current", "100", "101", ""),
+            "scheduled run 101 supersedes 100",
+        ),
+        (
+            ("current", "current", "100", "100", "200"),
+            "Manual run 200 is waiting",
+        ),
+    ],
+)
+def test_scheduled_update_yields_only_to_newer_or_manual_work(
+    values: tuple[str, str, str, str, str],
+    expected: str | None,
+) -> None:
+    """Queue admission preserves the serialized update priority rules."""
+
+    reason = scheduled_update_skip_reason(*values)
+
+    if expected is None:
+        assert reason is None
+    else:
+        assert reason is not None
+        assert expected in reason
+
+
+def test_handoff_should_run_cli_returns_nonfatal_for_a_superseded_run(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """The workflow command prints its skip reason and returns status one."""
+
+    status = main(
+        [
+            "handoff",
+            "should-run",
+            "current",
+            "current",
+            "100",
+            "101",
+            "",
+        ]
+    )
+
+    assert status is ExitStatus.NON_FATAL
+    assert "scheduled run 101 supersedes 100" in capsys.readouterr().out
+
+
+def test_workflow_run_freshness_selects_current_update_and_manual() -> None:
+    """Actions response parsing ignores unrelated and completed runs."""
+
+    result = workflow_run_freshness(
+        {
+            "workflow_runs": [
+                {
+                    "id": 100,
+                    "event": "schedule",
+                    "path": ".github/workflows/update.yml",
+                    "status": "completed",
+                },
+                {
+                    "id": 101,
+                    "event": "schedule",
+                    "path": ".github/workflows/update.yml",
+                    "status": "queued",
+                },
+                {
+                    "id": 200,
+                    "event": "workflow_dispatch",
+                    "path": ".github/workflows/manual.yml",
+                    "status": "completed",
+                },
+                {
+                    "id": 201,
+                    "event": "workflow_dispatch",
+                    "path": ".github/workflows/manual.yml",
+                    "status": "in_progress",
+                },
+                {
+                    "id": 300,
+                    "event": "schedule",
+                    "path": ".github/workflows/vacuum.yml",
+                    "status": "queued",
+                },
+            ]
+        }
+    )
+
+    assert result == ("101", "201")
+
+
+def test_workflow_runs_cli_prints_delimited_empty_values(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """The workflow can split an empty freshness selection without jq."""
+
+    monkeypatch.setattr("sys.stdin", io.StringIO('{"workflow_runs":[]}'))
+
+    status = main(["handoff", "workflow-runs"])
+
+    assert status is ExitStatus.SUCCESS
+    assert capsys.readouterr().out == "|\n"
+
+
+def test_workflow_run_freshness_rejects_an_invalid_response() -> None:
+    """A malformed Actions response takes the workflow's fail-open path."""
+
+    with pytest.raises(ValueError, match="workflow_runs"):
+        workflow_run_freshness({"unexpected": []})

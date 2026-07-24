@@ -32,10 +32,15 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@main
 
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version-file: ".python-version"
+
       - name: Capture queue handoff baseline
         id: handoff
         run: |
-          baseline=$(bash src/lib/handoff.sh baseline)
+          baseline=$(PYTHONPATH=src python -m bkg_py handoff baseline)
           echo "sha=$baseline" >> "$GITHUB_OUTPUT"
 
   update:
@@ -56,15 +61,18 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@main
 
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version-file: ".python-version"
+
       - name: Check queued update freshness
         id: gate
         env:
           GH_TOKEN: ${{ github.token }}
           QUEUED_HANDOFF_BASELINE: ${{ needs.prepare.outputs.handoff_baseline }}
         run: |
-          source src/lib/handoff.sh
-
-          if ! current_baseline=$(current_workflow_handoff_baseline); then
+          if ! current_baseline=$(PYTHONPATH=src python -m bkg_py handoff baseline); then
             echo "Could not refresh the handoff baseline; allowing this serialized update" >&2
             current_baseline=$QUEUED_HANDOFF_BASELINE
           fi
@@ -72,12 +80,9 @@ jobs:
           latest_scheduled_run_id=
           active_manual_run_id=
           if runs=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs?per_page=100"); then
-            if latest_scheduled_run_id=$(jq -r \
-              '[.workflow_runs[] | select(.event == "schedule" and ((.path // "") | endswith("/update.yml")))] | max_by(.id) | .id // empty' \
-              <<<"$runs") && active_manual_run_id=$(jq -r \
-              '[.workflow_runs[] | select(((.path // "") | endswith("/manual.yml")) and .status != "completed")] | max_by(.id) | .id // empty' \
-              <<<"$runs"); then
-              :
+            if freshness=$(PYTHONPATH=src python -m bkg_py handoff workflow-runs <<<"$runs"); then
+              IFS='|' read -r latest_scheduled_run_id active_manual_run_id \
+                <<<"$freshness"
             else
               echo "Could not parse workflow freshness; allowing this serialized update" >&2
               latest_scheduled_run_id=
@@ -88,7 +93,7 @@ jobs:
           fi
 
           run_update=false
-          if scheduled_update_should_run \
+          if PYTHONPATH=src python -m bkg_py handoff should-run \
             "$QUEUED_HANDOFF_BASELINE" \
             "$current_baseline" \
             "$GITHUB_RUN_ID" \

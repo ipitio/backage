@@ -1,6 +1,11 @@
 """Repository workspace preparation and sparse-worktree operations."""
 
-from .handoff import HandoffSettings, WorkflowHandoffControl
+from .handoff import (
+    HandoffSettings,
+    WorkflowHandoffControl,
+    scheduled_update_skip_reason,
+    workflow_run_freshness,
+)
 from .layout import WorkspaceLayout
 from .payload import import_workflow_payload
 from .publication import (
@@ -29,4 +34,6 @@ __all__ = [
     "clone_repository",
     "import_workflow_payload",
     "published_run_status",
+    "scheduled_update_skip_reason",
+    "workflow_run_freshness",
 ]

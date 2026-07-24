@@ -15,9 +15,10 @@ from ..database import DatabaseError
 from ..discovery import DiscoveryError
 from ..github import GitHubError
 from ..result import ExitStatus
-from ..runtime import CommandOptions, GracefulStop
+from ..runtime import GracefulStop
 from ..snapshots import SnapshotError
 from ..state import StateValueError
+from ..workspace import GitRepository, WorkspaceError
 from .application import (
     LockedRunOutput,
     RunApplicationExecution,
@@ -121,7 +122,7 @@ def execute_prepared_application(
     execution = RunApplicationExecution(
         output.progress,
         output.diagnostic,
-        _owner_materializer(application, output),
+        _owner_materializer(application),
     )
 
     try:
@@ -158,6 +159,7 @@ def execute_prepared_application(
         SnapshotError,
         StateValueError,
         ValueError,
+        WorkspaceError,
     ) as error:
         output.diagnostic(str(error))
         return ExitStatus.NON_FATAL
@@ -169,29 +171,21 @@ def _coordinator_execution(output: LockedRunOutput) -> RunCoordinatorExecution:
 
 def _owner_materializer(
     application: ApplicationContext,
-    output: LockedRunOutput,
 ) -> Callable[[tuple[str, ...]], None]:
     def materialize(owners: tuple[str, ...]) -> None:
         if not owners:
             return
-        script = Path(application.config.root) / "src/lib/materialize-owner-trees.sh"
-        result = application.process_runner.run(
-            ("bash", str(script), *owners),
-            options=CommandOptions(cwd=application.config.root),
+        application.stop.check()
+        index_dir = application.config.index_dir
+        if index_dir is None:
+            raise WorkspaceError("BKG_INDEX_DIR is required for owner materialization")
+        GitRepository(Path(index_dir)).materialize_sparse_paths(
+            owners,
+            replace=True,
         )
-        _forward_output(result.stdout, output.progress)
-        _forward_output(result.stderr, output.diagnostic)
-        if result.returncode != 0:
-            raise OSError(
-                f"Owner tree materialization failed with status {result.returncode}"
-            )
+        application.stop.check()
 
     return materialize
-
-
-def _forward_output(content: bytes, sink: Callable[[str], None]) -> None:
-    for line in content.decode("utf-8", errors="replace").splitlines():
-        sink(line)
 
 
 def _stdout(message: str) -> None:

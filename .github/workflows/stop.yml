@@ -18,5 +18,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@main
 
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version-file: ".python-version"
+
       - name: Request graceful stop
-        run: bash src/lib/handoff.sh request
+        run: PYTHONPATH=src python -m bkg_py handoff request

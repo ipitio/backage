@@ -8,6 +8,7 @@ from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
+from typing import cast
 
 from ..runtime import StopController
 from .repository import GitControlRefRepository, WorkspaceError
@@ -30,6 +31,75 @@ def _positive_float(value: str | None, default: float) -> float:
     except ValueError:
         return default
     return parsed if parsed > 0 else default
+
+
+def scheduled_update_skip_reason(
+    queued_baseline: str,
+    current_baseline: str,
+    run_id: str,
+    latest_scheduled_run_id: str,
+    active_manual_run_id: str,
+) -> str | None:
+    """Return why a serialized scheduled update should yield to newer work."""
+
+    if current_baseline != queued_baseline:
+        return (
+            "Skipping scheduled update: a Manual handoff was requested "
+            "after this run queued"
+        )
+    if active_manual_run_id:
+        return (
+            f"Skipping scheduled update: Manual run {active_manual_run_id} is waiting"
+        )
+    if (
+        run_id.isdigit()
+        and latest_scheduled_run_id.isdigit()
+        and int(latest_scheduled_run_id) > int(run_id)
+    ):
+        return (
+            "Skipping scheduled update: scheduled run "
+            f"{latest_scheduled_run_id} supersedes {run_id}"
+        )
+    return None
+
+
+def workflow_run_freshness(data: object) -> tuple[str, str]:
+    """Select the newest scheduled and waiting Manual run IDs."""
+
+    if not isinstance(data, dict):
+        raise ValueError("workflow runs response must be an object")
+    response = cast(dict[str, object], data)
+    raw_runs = response.get("workflow_runs")
+    if not isinstance(raw_runs, list):
+        raise ValueError("workflow runs response is missing workflow_runs")
+    runs = cast(list[object], raw_runs)
+
+    scheduled: list[int] = []
+    manual: list[int] = []
+    for raw_item in runs:
+        if not isinstance(raw_item, dict):
+            continue
+        item = cast(dict[str, object], raw_item)
+        run_id = item.get("id")
+        path = item.get("path")
+        if not isinstance(run_id, int) or isinstance(run_id, bool):
+            continue
+        if (
+            item.get("event") == "schedule"
+            and isinstance(path, str)
+            and path.endswith("/update.yml")
+        ):
+            scheduled.append(run_id)
+        if (
+            isinstance(path, str)
+            and path.endswith("/manual.yml")
+            and item.get("status") != "completed"
+        ):
+            manual.append(run_id)
+    return (
+        str(max(scheduled)) if scheduled else "",
+        str(max(manual)) if manual else "",
+    )
 
 
 @dataclass(frozen=True)

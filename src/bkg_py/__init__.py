@@ -1,8 +1,4 @@
-"""Python implementations of selected bkg operations.
-
-The Bash entrypoints remain available while individual operations move into
-this package.
-"""
+"""Bkg's application, service, and command-line implementation."""
 
 from .result import ExitStatus
 

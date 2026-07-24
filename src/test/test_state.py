@@ -1,6 +1,5 @@
-"""Tests for the shell-compatible persisted state store."""
+"""Tests for the persisted state store."""
 
-import subprocess
 import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -10,12 +9,9 @@ import pytest
 
 from bkg_py.state import StateStore, StateValueError
 
-_REPO_ROOT = Path(__file__).resolve().parents[2]
-_UTIL_SH = _REPO_ROOT / "src" / "lib" / "util.sh"
-
 
 class TestStateStore:
-    """Exercise state compatibility, locking, and atomic file replacement."""
+    """Exercise state parsing, locking, and atomic file replacement."""
 
     def test_scalar_updates_preserve_unknown_records(self) -> None:
         """Known updates do not discard keys or lines owned by newer versions."""
@@ -184,7 +180,7 @@ class TestStateStore:
             assert not Path(f"{path}.lock").exists()
 
     def test_unrepresentable_values_are_rejected(self) -> None:
-        """Values that Bash would split or truncate cannot be persisted."""
+        """Values that the line-oriented state format cannot represent fail."""
 
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "env.env"
@@ -198,48 +194,33 @@ class TestStateStore:
             with pytest.raises(StateValueError):
                 store.set("not-a-shell-name", "value")
 
-    def test_bash_and_python_read_each_others_updates(self) -> None:
-        """Both implementations share scalar and newline-backed set state."""
+    def test_existing_state_round_trips_scalars_and_newline_sets(self) -> None:
+        """Existing scalar and newline-backed set values remain readable."""
 
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "env.env"
-            path.touch()
-            bash_write = r"""
-set -uo pipefail
-export BKG_SKIP_DEP_VERIFY=1
-export BKG_ENV=$1
-source "$2"
-set_BKG BKG_SCALAR from-bash
-set_BKG BKG_UNKNOWN preserved
-set_BKG_set BKG_QUEUE alpha
-set_BKG_set BKG_QUEUE beta
-set_BKG_set BKG_QUEUE alpha || :
-"""
-            subprocess.run(
-                ["bash", "-c", bash_write, "bash", str(path), str(_UTIL_SH)],
-                check=True,
+            path.write_text(
+                r"""BKG_SCALAR=from-existing
+BKG_UNKNOWN=preserved
+BKG_QUEUE=alpha\nbeta
+
+""",
+                encoding="utf-8",
             )
 
             store = StateStore(path)
-            assert store.get("BKG_SCALAR") == "from-bash"
+            assert store.get("BKG_SCALAR") == "from-existing"
             assert store.get_set("BKG_QUEUE") == ["alpha", "beta"]
             store.set("BKG_SCALAR", "from-python")
             store.add_to_set("BKG_QUEUE", "gamma")
             store.delete("BKG_UNKNOWN")
 
-            bash_read = r"""
-set -euo pipefail
-export BKG_SKIP_DEP_VERIFY=1
-export BKG_ENV=$1
-source "$2"
-printf '%s\n' "$(get_BKG BKG_SCALAR)"
-get_BKG_set BKG_QUEUE
-printf 'unknown=%s\n' "$(get_BKG BKG_UNKNOWN)"
-"""
-            result = subprocess.run(
-                ["bash", "-c", bash_read, "bash", str(path), str(_UTIL_SH)],
-                check=True,
-                capture_output=True,
-                text=True,
+            assert store.snapshot() == {
+                "BKG_SCALAR": "from-python",
+                "BKG_QUEUE": r"alpha\nbeta\ngamma",
+            }
+            assert path.read_text(encoding="utf-8") == (
+                "BKG_SCALAR=from-python\n"
+                r"BKG_QUEUE=alpha\nbeta\ngamma"
+                "\n\n"
             )
-            assert result.stdout == "from-python\nalpha\nbeta\ngamma\nunknown=\n"
