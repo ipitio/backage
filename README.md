@@ -1,3 +1,5 @@
+<!-- Generated READMEs come from this file. Edit this template, not README.md. -->
+
 <div align="center">
 
 [![logo](logo-b.webp)](https://github.com/ipitio/backage)
@@ -23,7 +25,7 @@ If this is [`ipitio/backage`](https://github.com/ipitio/backage), all you have t
 > [!WARNING]
 > Ensure your profile is [public](https://github.com/ipitio/backage/issues/34#issuecomment-2968850773) so that this repo can see your packages.
 
-Otherwise, if this is a fork, you'd prefer an alternative method, or your packages weren't added to the [index](https://github.com/ipitio/backage/tree/index) after a day, enter the case-sensitive name of each missing user or organization on a new line at the top of the queue, `owners.txt`, [here](https://github.com/ipitio/backage/edit/master/owners.txt) and make a pull request. Don't worry -- while my Contribution Graph is an uptime monitor of sorts, yours won't be. See the top of `bkg.sh` for details about available options, which must come last when passed to `update.sh`, as shown in `Self-Host` below.
+Otherwise, if this is a fork, you'd prefer an alternative method, or your packages weren't added to the [index](https://github.com/ipitio/backage/tree/index) after a day, enter the case-sensitive name of each missing user or organization on a new line at the top of the queue, `owners.txt`, [here](https://github.com/ipitio/backage/edit/master/owners.txt) and make a pull request. Don't worry -- while my Contribution Graph is an uptime monitor of sorts, yours won't be. Run `bkg workflow-update --help` in the image for the available update options; the common ones are shown in `Self-Host` below.
 
 > [!TIP]
 > You only need to add names to the queue; IDs are fetched as needed and entries are removed once processed.
@@ -75,7 +77,8 @@ ExecStart=/usr/bin/sh -c '                   \\
   docker run -v /opt/\$BKG_PATH:/app         \\
     --env-file <(env | grep GITHUB)          \\
     ghcr.io/\$GITHUB_OWNER/\${BKG_PATH////:} \\
-    src/update.sh -m 0 -d 0'
+    bkg workflow-update bkg                   \\
+      --invocation-directory /app -m 0 -d 0'
 
 [Install]
 WantedBy=multi-user.target
