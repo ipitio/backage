@@ -14,6 +14,16 @@ for workflow in manual publish stop update; do
     }
 done
 
+grep -Fq 'required-version = "==0.11.*"' "$repo_dir/pyproject.toml" || {
+    echo "Project does not declare the supported uv compatibility line" >&2
+    exit 1
+}
+if grep -Eq '^[[:space:]]+version:[[:space:]]+"?0\.[0-9]+\.[0-9]+' \
+    "$repo_dir/.github/workflows/publish.yml"; then
+    echo "Build workflow pins uv more narrowly than the project policy" >&2
+    exit 1
+fi
+
 grep -Fq -- '-m bkg_py workflow-update' "$launcher" || {
     echo "Update launcher does not delegate to the Python workflow service" >&2
     exit 1

@@ -1,7 +1,8 @@
 ARG PYTHON_VERSION=3.14
+ARG UV_VERSION=0.11
 FROM python:${PYTHON_VERSION}-slim-bookworm AS python-base
 
-FROM ghcr.io/astral-sh/uv:0.11.19 AS uv
+FROM ghcr.io/astral-sh/uv:${UV_VERSION} AS uv
 
 FROM python-base AS build
 
