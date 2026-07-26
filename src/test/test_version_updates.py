@@ -393,6 +393,7 @@ def test_refresh_pauses_failing_detail_requests_and_preserves_stored_metrics(
         text_values={
             _detail_url("1", package_type="npm"): failure,
             _detail_url("2", package_type="npm"): failure,
+            _detail_url("3", package_type="npm"): failure,
         },
     )
     diagnostics: list[str] = []
@@ -429,10 +430,13 @@ def test_refresh_pauses_failing_detail_requests_and_preserves_stored_metrics(
         for row in repository.version_rows(package, since=_TODAY).rows
     }
     assert result.records_written == 3
-    assert client.text_requests == [
+    assert len(client.text_requests) == 2
+    assert len(set(client.text_requests)) == 2
+    assert set(client.text_requests) <= {
         _detail_url("1", package_type="npm"),
         _detail_url("2", package_type="npm"),
-    ]
+        _detail_url("3", package_type="npm"),
+    }
     assert rows["1"].metrics == _record("1").metrics
     assert rows["1"].date == _TODAY
     assert rows["2"].metrics.downloads == -1

@@ -65,7 +65,7 @@ class RunOutcomePolicy:  # pylint: disable=too-few-public-methods
             return OwnerPhaseDecision(
                 "publish",
                 int(ExitStatus.GRACEFUL_STOP),
-                "Reached BKG_MAX_LEN, stopping after persisting state...",
+                "Graceful stop requested; stopping after persisting state...",
             )
         return OwnerPhaseDecision(
             "abort",

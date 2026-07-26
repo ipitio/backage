@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-import shutil
 import sqlite3
 import stat
-import subprocess
+from compression import zstd
 from pathlib import Path
 
 import httpx
@@ -42,14 +41,8 @@ def _read_payload(path: Path) -> str:
 
 
 def _write_zstd_archive(path: Path, content: str) -> None:
-    zstd = shutil.which("zstd")
-    assert zstd is not None
-    subprocess.run(  # noqa: S603
-        (zstd, "-q", "-f", "-o", str(path)),
-        input=content,
-        text=True,
-        check=True,
-    )
+    with zstd.open(path, "wt", encoding="utf-8") as archive:
+        archive.write(content)
 
 
 def _config(tmp_path: Path, *, index_db: str | None) -> RuntimeConfig:
@@ -404,6 +397,27 @@ def test_rotate_database_archives_current_snapshot_and_prunes(
     assert prune_calls == 1
 
 
+def test_interrupted_rotation_preserves_existing_archive(tmp_path: Path) -> None:
+    """A stop cannot replace a completed rotation archive with partial output."""
+
+    paths = SnapshotPaths(tmp_path / "index.db")
+    paths.current_db_archive.parent.mkdir()
+    _create_database(paths.current_db_archive)
+    archive = paths.snapshot_directory / "2026.06.16.index.db.zst"
+    archive.write_bytes(b"existing archive")
+
+    def stop() -> None:
+        raise GracefulStop("test")
+
+    store = SnapshotStore(paths, check_stop=stop)
+
+    with pytest.raises(GracefulStop):
+        store.archive_current_snapshot_for_rotation("2026.06.16")
+
+    assert archive.read_bytes() == b"existing archive"
+    assert not list(paths.snapshot_directory.glob(".2026.06.16.index.db.zst.*"))
+
+
 def test_restore_current_database_snapshot_replaces_after_validation(
     tmp_path: Path,
 ) -> None:
@@ -474,12 +488,11 @@ def test_restore_legacy_sql_snapshot_imports_into_temporary_database(
 
     paths = SnapshotPaths(tmp_path / "index.db", index_sql=tmp_path / "index.sql")
     store = SnapshotStore(paths)
+    value = f"{'x' * (1024 * 1024)};from sql"
     _write_zstd_archive(
         paths.legacy_sql_archive,
-        """
-        create table payload (value text);
-        insert into payload (value) values ('from sql');
-        """,
+        "begin; create table payload (value text);\n"
+        f"insert into payload (value) values ('{value}'); commit;\n",
     )
 
     result = store.restore_database_if_needed()
@@ -487,7 +500,52 @@ def test_restore_legacy_sql_snapshot_imports_into_temporary_database(
     assert result is not None
     assert result.restored
     assert result.message == "Restoring database from legacy index.sql.zst..."
-    assert _read_payload(paths.index_db) == "from sql"
+    assert _read_payload(paths.index_db) == value
+
+
+def test_restore_legacy_compressed_database_snapshot(tmp_path: Path) -> None:
+    """Legacy compressed databases stream through the standard-library codec."""
+
+    paths = SnapshotPaths(tmp_path / "index.db")
+    store = SnapshotStore(paths)
+    source = tmp_path / "source.db"
+    _create_database(source)
+    with (
+        source.open("rb") as database,
+        zstd.open(
+            paths.legacy_db_archive,
+            "wb",
+        ) as archive,
+    ):
+        while chunk := database.read(1024 * 1024):
+            archive.write(chunk)
+
+    result = store.restore_database_if_needed()
+
+    assert result is not None
+    assert result.restored
+    assert result.message == "Restoring database from index.db.zst..."
+    assert _read_payload(paths.index_db) == "stored"
+
+
+def test_invalid_legacy_sql_never_replaces_existing_database(tmp_path: Path) -> None:
+    """A failed streaming SQL import leaves the current database untouched."""
+
+    paths = SnapshotPaths(tmp_path / "index.db", index_sql=tmp_path / "index.sql")
+    store = SnapshotStore(paths)
+    _create_database(paths.index_db)
+    original_database = paths.index_db.read_bytes()
+    _write_zstd_archive(
+        paths.legacy_sql_archive,
+        "begin; create table replacement (value); invalid syntax; commit;",
+    )
+
+    with pytest.raises(SnapshotError, match="legacy SQL restore failed"):
+        store.restore_database_if_needed()
+
+    assert paths.index_db.read_bytes() == original_database
+    assert not paths.restore_signature.exists()
+    assert not list(paths.index_db.parent.glob(".index.db.*"))
 
 
 def test_snapshot_cli_exposes_shell_shaped_archive_commands(

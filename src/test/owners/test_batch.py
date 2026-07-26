@@ -160,6 +160,7 @@ def test_owner_batch_applies_each_completed_outcome(tmp_path: Path) -> None:
     assert state.get("BKG_PAGE_2") is None
     assert state.get("BKG_OWNER_SCAN_5") is None
     assert state.get("BKG_PAGE_5") is None
+    assert state.get_set("BKG_OWNERS_QUEUE") == ["3/paused"]
     assert harness.messages.allocated == [2]
     assert "Updated alpha" in harness.messages.progress
     assert "Retired unavailable owner missing" in harness.messages.progress

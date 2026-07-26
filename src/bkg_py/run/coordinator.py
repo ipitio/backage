@@ -296,7 +296,7 @@ class RunCoordinator:  # pylint: disable=too-few-public-methods
         )
         if status == ExitStatus.GRACEFUL_STOP:
             self.execution.progress(
-                "Reached BKG_MAX_LEN, stopping after persisting state..."
+                "Graceful stop requested; stopping after persisting state..."
             )
             return _PreparedOwnerWork(int(status))
 
@@ -399,7 +399,8 @@ class RunCoordinator:  # pylint: disable=too-few-public-methods
         admission: _GlobalOwnerAdmission | None,
     ) -> OwnerPhaseDecision:
         if admission is None:
-            return self._update_queued_owners(startup, run_status)
+            decision = self._update_queued_owners(startup, run_status)
+            return self._continue_paused_owner_work(startup, decision)
         return self._update_global_owner_work(startup, run_status, admission)
 
     def _update_global_owner_work(
@@ -409,6 +410,7 @@ class RunCoordinator:  # pylint: disable=too-few-public-methods
         admission: _GlobalOwnerAdmission,
     ) -> OwnerPhaseDecision:
         excluded: set[str] = set()
+        paused: dict[str, str] = {}
         current = admission
 
         while True:
@@ -416,12 +418,13 @@ class RunCoordinator:  # pylint: disable=too-few-public-methods
                 owner.casefold() for owner in current.result.attempted_owners
             )
             decision = self._update_queued_owners(startup, run_status)
-            if (
-                decision.action == "abort"
-                or decision.run_status != ExitStatus.SUCCESS
-                or not current.result.may_have_more
-            ):
+            for owner in parse_owner_queue(self.state.get_set("BKG_OWNERS_QUEUE")):
+                paused[owner.owner.casefold()] = owner.ref
+            if decision.action == "abort" or decision.run_status != ExitStatus.SUCCESS:
                 return decision
+            if not current.result.may_have_more:
+                self.state.replace_set("BKG_OWNERS_QUEUE", paused.values())
+                return self._continue_paused_owner_work(startup, decision)
 
             self.state.replace_set("BKG_OWNERS_QUEUE", ())
             self.execution.progress(
@@ -438,6 +441,22 @@ class RunCoordinator:  # pylint: disable=too-few-public-methods
             if result is None:
                 raise AssertionError("successful owner queue preparation has no result")
             current = _GlobalOwnerAdmission(request, result)
+
+    def _continue_paused_owner_work(
+        self,
+        startup: RunStartupResult,
+        decision: OwnerPhaseDecision,
+    ) -> OwnerPhaseDecision:
+        while decision.action != "abort" and decision.run_status == ExitStatus.SUCCESS:
+            paused = parse_owner_queue(self.state.get_set("BKG_OWNERS_QUEUE"))
+            if not paused:
+                return decision
+            self.execution.progress(
+                f"All available owners received a listing pass; continuing "
+                f"{len(paused)} paused owner scan(s)..."
+            )
+            decision = self._update_queued_owners(startup, decision.run_status)
+        return decision
 
     def _prepare_owner_queue_interruptibly(
         self,

@@ -270,10 +270,28 @@ def test_manifest_size_calculates_resolved_layers_and_rejects_indexes() -> None:
         '{"mediaType":"application/vnd.oci.image.manifest.v1+json",'
         '"schemaVersion":2,"config":{'
         '"mediaType":"application/x.example.payload+gzip",'
-        '"size":29981303},"layers":null}'
+        '"digest":"sha256:payload","size":29981303},"layers":null}'
     )
-    assert artifact_payload.size == -1
-    assert artifact_payload.fallback_reason == "unsupported shape"
+    assert artifact_payload.size == 29981303
+    assert artifact_payload.fallback_reason is None
+    assert (
+        manifest_size(
+            '{"mediaType":"application/vnd.oci.image.manifest.v1+json",'
+            '"schemaVersion":2,"config":{'
+            '"mediaType":"application/x.example.payload+gzip",'
+            '"digest":"sha256:payload","size":29981303}}'
+        ).size
+        == -1
+    )
+
+    null_oci_image_layers = manifest_size(
+        '{"mediaType":"application/vnd.oci.image.manifest.v1+json",'
+        '"schemaVersion":2,"config":{'
+        '"mediaType":"application/vnd.oci.image.config.v1+json",'
+        '"digest":"sha256:config","size":822},"layers":null}'
+    )
+    assert null_oci_image_layers.size == -1
+    assert null_oci_image_layers.fallback_reason == "unsupported shape"
 
 
 def test_manifest_size_describes_malformed_and_unsupported_shapes() -> None:
@@ -300,6 +318,8 @@ def test_manifest_size_describes_malformed_and_unsupported_shapes() -> None:
     assert "mediaTypes=application/vnd.oci.image.manifest.v1+json" in (
         unsupported.diagnostic_summary
     )
+    assert "layersType=missing" in unsupported.diagnostic_summary
+    assert "manifestsType=missing" in unsupported.diagnostic_summary
     assert "layerEntries=0" in unsupported.diagnostic_summary
     assert "manifestEntries=0" in unsupported.diagnostic_summary
     assert "positiveSizeFields=1" in unsupported.diagnostic_summary

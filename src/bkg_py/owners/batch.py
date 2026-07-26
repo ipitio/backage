@@ -216,6 +216,7 @@ class OwnerBatchService:  # pylint: disable=too-few-public-methods
         owners = parse_owner_queue(self.execution.state.get_set("BKG_OWNERS_QUEUE"))
         if not owners:
             return ExitStatus.SUCCESS
+        paused: list[QueuedOwner] = []
         owner_workers, per_owner_workers = allocate_owner_worker_counts(
             len(owners),
             self.execution.concurrency.max_workers,
@@ -235,9 +236,14 @@ class OwnerBatchService:  # pylint: disable=too-few-public-methods
             wave = owners[start : start + wave_size]
             if not self._materialize_wave(wave, wave_number, wave_count):
                 return ExitStatus.GRACEFUL_STOP
-            status = self._run_wave(wave, update)
+            status, items = self._run_wave(wave, update)
             if status is not ExitStatus.SUCCESS:
                 return status
+            paused.extend(item.owner for item in items if item.outcome == "paused")
+        self.execution.state.replace_set(
+            "BKG_OWNERS_QUEUE",
+            (owner.ref for owner in paused),
+        )
         return ExitStatus.SUCCESS
 
     def _materialize_wave(
@@ -268,7 +274,7 @@ class OwnerBatchService:  # pylint: disable=too-few-public-methods
         self,
         wave: tuple[QueuedOwner, ...],
         update: _OwnerWaveUpdate,
-    ) -> ExitStatus:
+    ) -> tuple[ExitStatus, tuple[OwnerBatchItem, ...]]:
         runner = BoundedWorkerRunner(
             replace(self.execution.concurrency, max_workers=update.workers),
             check_stop=self.execution.check_stop,
@@ -286,10 +292,14 @@ class OwnerBatchService:  # pylint: disable=too-few-public-methods
         )
         self._report_failures(result.failures, result.interrupted)
         if result.stopped:
-            return ExitStatus.GRACEFUL_STOP
+            return ExitStatus.GRACEFUL_STOP, ()
         if not result.ok:
-            return ExitStatus.NON_FATAL
-        return ExitStatus.SUCCESS
+            return ExitStatus.NON_FATAL, ()
+        items = tuple(
+            completed.value
+            for completed in sorted(result.completed, key=lambda item: item.index)
+        )
+        return ExitStatus.SUCCESS, items
 
     def _update_one(
         self,

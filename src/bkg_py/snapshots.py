@@ -9,10 +9,11 @@ import subprocess
 import tempfile
 import time
 from collections.abc import Callable, Mapping, Sequence
-from contextlib import suppress
+from compression import zstd
+from contextlib import closing, suppress
 from dataclasses import dataclass
 from pathlib import Path
-from typing import BinaryIO, Literal, cast
+from typing import BinaryIO, Literal, TextIO, cast
 from urllib.parse import quote
 
 from .config import RuntimeConfig
@@ -451,7 +452,6 @@ class SnapshotStore:
             self.paths.snapshot_directory
             / f"{date_stamp}.{self.paths.current_db_archive.name}.zst"
         )
-        destination.unlink(missing_ok=True)
         self._compress_zstd_file(self.paths.current_db_archive, destination)
         return destination
 
@@ -471,12 +471,7 @@ class SnapshotStore:
 
     def _copy_file(self, source: Path, destination: Path) -> None:
         with source.open("rb") as source_file, destination.open("wb") as output_file:
-            while True:
-                self._check_stop()
-                chunk = source_file.read(_COPY_CHUNK_SIZE)
-                if not chunk:
-                    break
-                output_file.write(chunk)
+            self._copy_stream(source_file, output_file)
 
     def _copy_file_atomic(self, source: Path, destination: Path) -> None:
         with (
@@ -486,73 +481,91 @@ class SnapshotStore:
                 default_mode=_SNAPSHOT_MODE,
             ) as output_file,
         ):
-            while True:
-                self._check_stop()
-                chunk = source_file.read(_COPY_CHUNK_SIZE)
-                if not chunk:
-                    break
-                output_file.write(chunk)
+            self._copy_stream(source_file, output_file)
+
+    def _copy_stream(
+        self,
+        source: BinaryIO | zstd.ZstdFile,
+        destination: BinaryIO | zstd.ZstdFile,
+    ) -> None:
+        while True:
+            self._check_stop()
+            chunk = source.read(_COPY_CHUNK_SIZE)
+            if not chunk:
+                break
+            destination.write(chunk)
 
     def _decompress_zstd_to_file(self, source: Path, destination: Path) -> None:
-        with (
-            destination.open("wb") as output_file,
-            tempfile.TemporaryFile() as stderr,
-            subprocess.Popen(  # noqa: S603
-                (_required_executable("unzstd"), "-c", str(source)),
-                stdout=output_file,
-                stderr=stderr,
-            ) as process,
-        ):
-            self._wait_processes((process,))
-            if process.returncode != 0:
-                raise SnapshotError(_process_error("unzstd", stderr))
+        try:
+            with (
+                zstd.open(source, "rb") as source_file,
+                destination.open("wb") as output_file,
+            ):
+                self._copy_stream(source_file, output_file)
+        except (OSError, zstd.ZstdError) as error:
+            raise SnapshotError(f"zstd decompression failed: {error}") from error
 
     def _compress_zstd_file(self, source: Path, destination: Path) -> None:
         destination.parent.mkdir(parents=True, exist_ok=True)
+        self._check_stop()
         with (
+            atomic_path(destination, default_mode=_SNAPSHOT_MODE) as temporary_archive,
             tempfile.TemporaryFile() as stderr,
             subprocess.Popen(  # noqa: S603
                 (
                     _required_executable("zstd"),
+                    "-f",
                     "-22",
                     "--ultra",
                     "--long",
                     "-T0",
                     str(source),
                     "-o",
-                    str(destination),
+                    str(temporary_archive),
                 ),
                 stderr=stderr,
             ) as process,
         ):
             self._wait_processes((process,))
             if process.returncode != 0:
-                destination.unlink(missing_ok=True)
                 raise SnapshotError(_process_error("zstd", stderr))
 
     def _import_legacy_sql_archive(self, source: Path, destination: Path) -> None:
-        with (
-            tempfile.TemporaryFile() as zstd_stderr,
-            tempfile.TemporaryFile() as sqlite_stderr,
-            subprocess.Popen(  # noqa: S603
-                (_required_executable("unzstd"), "-c", str(source)),
-                stdout=subprocess.PIPE,
-                stderr=zstd_stderr,
-            ) as zstd,
-        ):
-            if zstd.stdout is None:
-                raise SnapshotError("unzstd stdout was not available")
-            with subprocess.Popen(  # noqa: S603
-                (_required_executable("sqlite3"), str(destination)),
-                stdin=zstd.stdout,
-                stderr=sqlite_stderr,
-            ) as sqlite:
-                zstd.stdout.close()
-                self._wait_processes((zstd, sqlite))
-            if zstd.returncode != 0:
-                raise SnapshotError(_process_error("unzstd", zstd_stderr))
-            if sqlite.returncode != 0:
-                raise SnapshotError(_process_error("sqlite3", sqlite_stderr))
+        try:
+            with (
+                closing(sqlite3.connect(destination, autocommit=True)) as database,
+                zstd.open(source, "rt", encoding="utf-8") as sql_file,
+            ):
+                self._execute_sql_stream(database, sql_file)
+        except (OSError, UnicodeError, sqlite3.Error, zstd.ZstdError) as error:
+            raise SnapshotError(f"legacy SQL restore failed: {error}") from error
+
+    def _execute_sql_stream(
+        self,
+        database: sqlite3.Connection,
+        sql_file: TextIO,
+    ) -> None:
+        pending = ""
+        search_from = 0
+        while chunk := sql_file.read(_COPY_CHUNK_SIZE):
+            pending += chunk
+            complete_end = 0
+            while True:
+                self._check_stop()
+                statement_end = pending.find(";", search_from)
+                if statement_end < 0:
+                    break
+                candidate = pending[complete_end : statement_end + 1]
+                if sqlite3.complete_statement(candidate):
+                    complete_end = statement_end + 1
+                search_from = statement_end + 1
+            if complete_end:
+                database.executescript(pending[:complete_end])
+                pending = pending[complete_end:]
+                search_from -= complete_end
+        if pending.strip():
+            self._check_stop()
+            database.executescript(pending)
 
     def _wait_processes(self, processes: Sequence[subprocess.Popen[bytes]]) -> None:
         try:

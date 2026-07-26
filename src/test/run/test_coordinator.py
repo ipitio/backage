@@ -33,6 +33,7 @@ class FakeRunOptions:
     stop_at: str | None = None
     owner_status: ExitStatus = ExitStatus.SUCCESS
     owner_queue_batches: tuple[tuple[str, ...], ...] | None = None
+    paused_owner_batches: tuple[tuple[str, ...], ...] = ()
 
 
 class FakeRunPhases:  # pylint: disable=too-many-instance-attributes
@@ -50,6 +51,7 @@ class FakeRunPhases:  # pylint: disable=too-many-instance-attributes
         self.stop_at = selected.stop_at
         self.owner_status = selected.owner_status
         self.owner_queue_batches = selected.owner_queue_batches
+        self.paused_owner_batches = selected.paused_owner_batches
         self.events: list[str] = []
         self.owner_queue_request: OwnerQueuePhaseRequest | None = None
         self.owner_queue_requests: list[OwnerQueuePhaseRequest] = []
@@ -157,6 +159,13 @@ class FakeRunPhases:  # pylint: disable=too-many-instance-attributes
         self._record("update")
         self.owner_request = request
         self.updated_owner_queues.append(tuple(self.state.get_set("BKG_OWNERS_QUEUE")))
+        update_index = len(self.updated_owner_queues) - 1
+        paused = (
+            self.paused_owner_batches[update_index]
+            if update_index < len(self.paused_owner_batches)
+            else ()
+        )
+        self.state.replace_set("BKG_OWNERS_QUEUE", paused)
         return self.owner_status
 
     def finalize_run(
@@ -279,6 +288,46 @@ def test_global_owner_work_replenishes_bounded_queue_chunks(tmp_path: Path) -> N
     assert not diagnostics
 
 
+def test_global_owner_work_continues_paused_scans_after_fair_pass(
+    tmp_path: Path,
+) -> None:
+    """Paused owners resume only after all global candidates receive one pass."""
+
+    state = StateStore(tmp_path / "state.env")
+    phases = FakeRunPhases(
+        state,
+        FakeRunOptions(
+            owner_queue_batches=(
+                ("1/one", "2/two"),
+                ("3/three",),
+            ),
+            paused_owner_batches=(
+                ("1/one",),
+                ("3/three",),
+                (),
+            ),
+        ),
+    )
+
+    status, _, phases, progress, diagnostics = _run(
+        tmp_path,
+        RunMode.ALL_PUBLIC,
+        phases=phases,
+    )
+
+    assert status == ExitStatus.SUCCESS
+    assert phases.updated_owner_queues == [
+        ("1/one", "2/two"),
+        ("3/three",),
+        ("1/one", "3/three"),
+    ]
+    assert progress[-1] == (
+        "All available owners received a listing pass; continuing "
+        "2 paused owner scan(s)..."
+    )
+    assert not diagnostics
+
+
 @pytest.mark.parametrize(
     "mode",
     [
@@ -303,6 +352,33 @@ def test_targeted_modes_run_membership_queue_owner_work_and_snapshot(
         "update",
         "finalize:true",
     ]
+
+
+def test_targeted_owner_work_continues_paused_scan(tmp_path: Path) -> None:
+    """A large targeted owner keeps using the run allowance after one page pass."""
+
+    state = StateStore(tmp_path / "state.env")
+    phases = FakeRunPhases(
+        state,
+        FakeRunOptions(paused_owner_batches=(("1/one",), ())),
+    )
+
+    status, _, phases, progress, diagnostics = _run(
+        tmp_path,
+        RunMode.OWN_PUBLIC,
+        phases=phases,
+    )
+
+    assert status == ExitStatus.SUCCESS
+    assert phases.updated_owner_queues == [
+        ("1/one", "2/two", "3/one"),
+        ("1/one",),
+    ]
+    assert progress[-1] == (
+        "All available owners received a listing pass; continuing "
+        "1 paused owner scan(s)..."
+    )
+    assert not diagnostics
 
 
 def test_clean_mode_only_prepares_and_publishes_without_snapshot(

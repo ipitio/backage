@@ -40,6 +40,8 @@ _PRE_BLOCK_PATTERN = re.compile(r"<pre\b[^>]*>(.*?)</pre>", re.DOTALL)
 _TAG_PATTERN = re.compile(r"<[^>]+>", re.DOTALL)
 _DOCKER_IMAGE_MANIFEST = "application/vnd.docker.distribution.manifest.v2+json"
 _DOCKER_IMAGE_CONFIG = "application/vnd.docker.container.image.v1+json"
+_OCI_IMAGE_MANIFEST = "application/vnd.oci.image.manifest.v1+json"
+_OCI_IMAGE_CONFIG = "application/vnd.oci.image.config.v1+json"
 
 
 @dataclass(frozen=True)
@@ -351,8 +353,11 @@ def manifest_size(manifest: str) -> ManifestSizeResult:
     layer_sizes = tuple(_nonnegative_sizes(iter(layer_items)))
     if layer_sizes or (_has_array(data, "layers") and not layer_items):
         return ManifestSizeResult(size=math.floor(sum(layer_sizes)))
-    if _has_null_docker_image_layers(data):
-        return ManifestSizeResult(size=0)
+    artifact_config_size = _null_layer_artifact_config_size(data)
+    if _has_null_docker_image_layers(data) or artifact_config_size is not None:
+        return ManifestSizeResult(
+            size=artifact_config_size if artifact_config_size is not None else 0
+        )
 
     if _has_array(data, "manifests"):
         manifest_items = tuple(_array_items(data, "manifests"))
@@ -445,6 +450,34 @@ def _has_null_docker_image_layers(value: object) -> bool:
     return False
 
 
+def _null_layer_artifact_config_size(value: object) -> int | None:
+    manifest = _as_dict(value)
+    if manifest is None:
+        return None
+    if (
+        manifest.get("mediaType") != _OCI_IMAGE_MANIFEST
+        or "layers" not in manifest
+        or manifest.get("layers") is not None
+    ):
+        return None
+    config = _as_dict(manifest.get("config"))
+    if config is None:
+        return None
+    media_type = config.get("mediaType")
+    digest = config.get("digest")
+    size = config.get("size")
+    if (
+        not isinstance(media_type, str)
+        or media_type in {_DOCKER_IMAGE_CONFIG, _OCI_IMAGE_CONFIG}
+        or not isinstance(digest, str)
+        or not digest
+    ):
+        return None
+    if isinstance(size, bool) or not isinstance(size, int) or size < 0:
+        return None
+    return size
+
+
 def _nonnegative_sizes(items: Iterator[object]) -> Iterator[float]:
     for item in items:
         mapping = _as_dict(item)
@@ -466,6 +499,8 @@ def _shape_summary(data: object) -> str:
         (
             _type_summary(data),
             f"mediaTypes={_media_types(data)}",
+            f"layersType={_root_field_type(data, 'layers')}",
+            f"manifestsType={_root_field_type(data, 'manifests')}",
             f"layerEntries={_array_entry_count(data, 'layers')}",
             f"manifestEntries={_array_entry_count(data, 'manifests')}",
             f"positiveSizeFields={_positive_size_field_count(data)}",
@@ -504,6 +539,13 @@ def _media_types(data: object) -> str:
         if isinstance(media_type, str):
             values.add(media_type)
     return ",".join(sorted(values)[:4])
+
+
+def _root_field_type(data: object, name: str) -> str:
+    mapping = _as_dict(data)
+    if mapping is None or name not in mapping:
+        return "missing"
+    return _json_type_name(mapping[name])
 
 
 def _array_entry_count(data: object, name: str) -> int:

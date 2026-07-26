@@ -237,7 +237,7 @@ def test_daily_gate_tracks_date_batch_directions_and_source_publish(
     [
         (0, 0, "publish", 0, ""),
         (0, 3, "publish", 3, ""),
-        (3, 0, "publish", 3, "Reached BKG_MAX_LEN"),
+        (3, 0, "publish", 3, "Graceful stop requested"),
         (1, 0, "abort", 1, "stopping before snapshot publication"),
         (2, 0, "abort", 2, "stopping before snapshot publication"),
     ],
@@ -290,7 +290,7 @@ def test_begin_run_cli_uses_the_configured_state_file(
     status = main(["orchestration", "owner-phase-decision", "3", "0"])
     assert status == ExitStatus.SUCCESS
     assert capsys.readouterr().out == (
-        "publish\t3\tReached BKG_MAX_LEN, stopping after persisting state...\n"
+        "publish\t3\tGraceful stop requested; stopping after persisting state...\n"
     )
 
     status = main(
