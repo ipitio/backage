@@ -77,8 +77,7 @@ ExecStart=/usr/bin/sh -c '                   \\
   docker run -v /opt/\$BKG_PATH:/app         \\
     --env-file <(env | grep GITHUB)          \\
     ghcr.io/\$GITHUB_OWNER/\${BKG_PATH////:} \\
-    bkg workflow-update bkg                   \\
-      --invocation-directory /app -m 0 -d 0'
+    bkg workflow-update -C /app -m 0 -d 0'
 
 [Install]
 WantedBy=multi-user.target
