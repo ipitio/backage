@@ -10,9 +10,10 @@ import pytest
 
 import bkg_py.cli
 from bkg_py.application import ApplicationContext
-from bkg_py.cli import entrypoint, main
+from bkg_py.cli import build_parser, entrypoint, main
 from bkg_py.database import DatabaseError
 from bkg_py.result import ExitStatus
+from bkg_py.workspace import update as workspace_update
 
 
 def test_context_constructs_services_lazily_and_reuses_them(
@@ -224,6 +225,111 @@ def test_config_cli_remains_independent_of_runtime_services(
     assert output["root"] == str(tmp_path)
     assert output["index_db"] is None
     assert not Path(output["env_file"]).exists()
+
+
+@pytest.mark.parametrize(
+    ("short_arguments", "long_arguments"),
+    [
+        (
+            ["run", "-d", "17", "-m", "2", "-C", "work", "-n", "7"],
+            [
+                "run",
+                "--duration",
+                "17",
+                "--mode",
+                "2",
+                "--working-directory",
+                "work",
+                "--owner-request-limit",
+                "7",
+            ],
+        ),
+        (
+            [
+                "workflow-update",
+                "-r",
+                "root",
+                "-d",
+                "17",
+                "-m",
+                "2",
+                "-C",
+                "invocation",
+                "-n",
+                "7",
+                "-p",
+                "payload",
+            ],
+            [
+                "workflow-update",
+                "--root",
+                "root",
+                "--duration",
+                "17",
+                "--mode",
+                "2",
+                "--invocation-directory",
+                "invocation",
+                "--owner-request-limit",
+                "7",
+                "--payload-directory",
+                "payload",
+            ],
+        ),
+    ],
+)
+def test_operational_short_options_match_long_forms(
+    short_arguments: list[str],
+    long_arguments: list[str],
+) -> None:
+    """Concise operational options preserve their descriptive forms."""
+
+    parser = build_parser()
+
+    assert parser.parse_args(short_arguments) == parser.parse_args(long_arguments)
+
+
+@pytest.mark.parametrize(
+    ("arguments", "expected_root"),
+    [
+        (["workflow-update"], Path("bkg")),
+        (["workflow-update", "positional"], Path("positional")),
+        (["workflow-update", "-r", "short"], Path("short")),
+        (["workflow-update", "--root", "named"], Path("named")),
+    ],
+)
+def test_workflow_update_root_forms(
+    arguments: list[str],
+    expected_root: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The named root, compatibility root, and workflow default agree."""
+
+    observed: list[Path] = []
+
+    def capture_request(
+        request: workspace_update.UpdateWorkflowRequest,
+        _execution: workspace_update.UpdateWorkflowExecution,
+    ) -> ExitStatus:
+        observed.append(request.root)
+        return ExitStatus.SUCCESS
+
+    monkeypatch.setattr(workspace_update, "run_update_workflow", capture_request)
+
+    assert main(arguments) is ExitStatus.SUCCESS
+    assert observed == [expected_root]
+
+
+def test_workflow_update_rejects_positional_and_named_roots(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """One invocation cannot select two repository roots."""
+
+    with pytest.raises(SystemExit) as raised:
+        main(["workflow-update", "positional", "--root", "named"])
+
+    assert raised.value.code == 2
+    assert "ROOT and --root cannot be used together" in capsys.readouterr().err
 
 
 def test_entrypoint_collapses_internal_failure_status(

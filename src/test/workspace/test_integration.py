@@ -115,29 +115,6 @@ def test_workspace_layout_rejects_unidentified_detached_checkout(
         WorkspaceLayout.discover(repository)
 
 
-def test_workspace_layout_cli_emits_nul_delimited_shell_fields(
-    tmp_path: Path,
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    """The launcher receives paths without relying on whitespace splitting."""
-
-    repository = tmp_path / "repository"
-    _create_repository(repository)
-
-    status = main(["workspace", "layout", str(repository)])
-
-    assert status == ExitStatus.SUCCESS
-    assert capsys.readouterr().out.split("\0") == [
-        "master",
-        "master",
-        "index",
-        str(repository / "index.db"),
-        str(repository / "index.sql"),
-        str(repository / "index"),
-        "",
-    ]
-
-
 def test_workflow_payload_import_merges_directories_and_replaces_files(
     tmp_path: Path,
 ) -> None:

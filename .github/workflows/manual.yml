@@ -87,7 +87,7 @@ jobs:
           set +e
           docker run -v $PWD:/app --env-file <(env | grep -E '^(GITHUB|BKG_HANDOFF_)') \
             ghcr.io/$GITHUB_OWNER/$GITHUB_REPO:master \
-            bkg workflow-update bkg --invocation-directory /app
+            bkg workflow-update -C /app
           code=$?
           echo "updated=$code" >> "$GITHUB_OUTPUT"
           exit "$code"

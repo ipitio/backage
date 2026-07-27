@@ -83,7 +83,7 @@ def _run_monitored_application(
 
 @dataclass(frozen=True)
 class UpdateWorkflowRequest:
-    """Inputs that differ between compatibility and direct workflow callers."""
+    """Inputs to one repository update workflow."""
 
     root: Path = Path()
     invocation_directory: Path = Path()

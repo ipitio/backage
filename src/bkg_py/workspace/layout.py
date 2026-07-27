@@ -63,15 +63,3 @@ class WorkspaceLayout:
             index_sql=resolved_root / f"{index_name}.sql",
             index_dir=resolved_root / index_name,
         )
-
-    def shell_fields(self) -> tuple[str, ...]:
-        """Return the ordered fields consumed by the compatibility launcher."""
-
-        return (
-            self.source_branch,
-            self.github_branch,
-            self.index_name,
-            str(self.index_db),
-            str(self.index_sql),
-            str(self.index_dir),
-        )

@@ -30,8 +30,8 @@ def build_parser() -> argparse.ArgumentParser:
         choices=("true", "false"),
         default="false",
     )
-    run_parser.add_argument("--working-directory", default=".")
-    run_parser.add_argument("--owner-request-limit", type=int, default=100)
+    run_parser.add_argument("-C", "--working-directory", default=".")
+    run_parser.add_argument("-n", "--owner-request-limit", type=int, default=100)
     validate_parser = subparsers.add_parser(
         "validate",
         help="validate a generated JSON or XML file",
@@ -76,12 +76,29 @@ def build_parser() -> argparse.ArgumentParser:
         "workflow-update",
         help="run the complete repository update and publication lifecycle",
     )
-    update_parser.add_argument("root", nargs="?", default=".")
+    update_parser.add_argument(
+        "root",
+        nargs="?",
+        metavar="ROOT",
+        help="repository root; retained as a positional form for compatibility",
+    )
+    update_parser.add_argument(
+        "-r",
+        "--root",
+        dest="named_root",
+        metavar="ROOT",
+        help="repository root (default: bkg)",
+    )
     update_parser.add_argument("-d", "--duration", type=int)
     update_parser.add_argument("-m", "--mode", type=int, choices=range(6))
-    update_parser.add_argument("--owner-request-limit", type=int, default=100)
-    update_parser.add_argument("--invocation-directory", default=".")
-    update_parser.add_argument("--payload-directory")
+    update_parser.add_argument(
+        "-n",
+        "--owner-request-limit",
+        type=int,
+        default=100,
+    )
+    update_parser.add_argument("-C", "--invocation-directory", default=".")
+    update_parser.add_argument("-p", "--payload-directory")
     return parser
 
 
@@ -121,12 +138,6 @@ def _add_workspace_parsers(subparsers: Any) -> None:
         dest="workspace_command",
         required=True,
     )
-    layout_parser = workspace_commands.add_parser(
-        "layout",
-        help="derive source and index branch paths",
-    )
-    layout_parser.add_argument("root")
-    layout_parser.add_argument("requested_branch", nargs="?")
     import_parser = workspace_commands.add_parser(
         "import-payload",
         help="move a downloaded workflow payload into the repository",

@@ -14,7 +14,6 @@ from .handoff import (
     scheduled_update_skip_reason,
     workflow_run_freshness,
 )
-from .layout import WorkspaceLayout
 from .payload import import_workflow_payload
 from .publication import UpdateWorkspacePublisher, published_run_status
 from .repository import (
@@ -96,13 +95,7 @@ def _run_workspace_command(args: argparse.Namespace) -> ExitStatus:
     if command in {"sparse-root", "sparse-add", "sparse-replace"}:
         _run_sparse_command(command, Path(args.index_dir))
         return ExitStatus.SUCCESS
-    if command == "layout":
-        layout = WorkspaceLayout.discover(
-            Path(args.root),
-            requested_branch=args.requested_branch,
-        )
-        sys.stdout.write("\0".join(layout.shell_fields()) + "\0")
-    elif command == "import-payload":
+    if command == "import-payload":
         import_workflow_payload(
             Path(args.payload_dir),
             Path(args.destination),

@@ -3,7 +3,6 @@
 set -euo pipefail
 
 test_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-launcher="$test_dir/../update.sh"
 repo_dir=$(cd "$test_dir/../.." && pwd)
 
 for workflow in manual publish stop update; do
@@ -24,26 +23,12 @@ if grep -Eq '^[[:space:]]+version:[[:space:]]+"?0\.[0-9]+\.[0-9]+' \
     exit 1
 fi
 
-grep -Fq -- '-m bkg_py workflow-update' "$launcher" || {
-    echo "Update launcher does not delegate to the Python workflow service" >&2
-    exit 1
-}
-
-if grep -Eq '(^|[[:space:]])source[[:space:]]' "$launcher"; then
-    echo "Update launcher still sources the removed shell implementation" >&2
-    exit 1
-fi
-
 for workflow in manual update; do
     workflow_file="$repo_dir/.github/workflows/$workflow.yml"
-    grep -Fq 'bkg workflow-update bkg --invocation-directory /app' "$workflow_file" || {
+    grep -Fq 'bkg workflow-update -C /app' "$workflow_file" || {
         echo "$workflow workflow does not call the installed Python entrypoint" >&2
         exit 1
     }
-    if grep -Fq 'src/update.sh' "$workflow_file"; then
-        echo "$workflow workflow still calls the compatibility launcher" >&2
-        exit 1
-    fi
     grep -Fq 'python -m bkg_py handoff' "$workflow_file" || {
         echo "$workflow workflow does not use Python handoff control" >&2
         exit 1
@@ -91,4 +76,4 @@ grep -Fq 'Edit this template, not README.md.' \
     exit 1
 }
 
-echo "Workflow and compatibility launcher regression tests passed"
+echo "Workflow regression tests passed"

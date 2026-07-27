@@ -35,7 +35,7 @@ class RunStartupRequest:
 
 @dataclass(frozen=True)
 class RunStartupResult:
-    """Startup values consumed by the compatibility launcher."""
+    """Startup values consumed by the run coordinator."""
 
     batch_first_started: str
     package_plan: PackageWorkPlanSummary

@@ -25,7 +25,7 @@ class PackageWorkPlanRepository(Protocol):  # pylint: disable=too-few-public-met
 
 @dataclass(frozen=True)
 class PackageWorkPlanSummary:
-    """Counts emitted to the compatibility launcher."""
+    """Package counts reported to the run coordinator."""
 
     total: int
     completed: int

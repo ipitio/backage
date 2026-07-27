@@ -956,7 +956,7 @@ def run_command(
 
         status = run_update_workflow(
             UpdateWorkflowRequest(
-                root=Path(args.root),
+                root=_workflow_update_root(args, parser),
                 invocation_directory=Path(args.invocation_directory),
                 payload_directory=(
                     None
@@ -975,3 +975,14 @@ def run_command(
     else:
         status = _run_application_command(args, parser)
     return status
+
+
+def _workflow_update_root(
+    args: argparse.Namespace,
+    parser: argparse.ArgumentParser,
+) -> Path:
+    """Resolve the named, positional, or default workflow repository root."""
+
+    if args.root is not None and args.named_root is not None:
+        parser.error("ROOT and --root cannot be used together")
+    return Path(args.named_root or args.root or "bkg")
