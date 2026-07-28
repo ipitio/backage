@@ -8,14 +8,12 @@ from pathlib import Path
 import httpx
 import pytest
 
-from bkg_py.cli import main
 from bkg_py.discovery import (
     OwnerIdentityCache,
     OwnerIdentityResolver,
 )
 from bkg_py.github import GitHubClient, GitHubSettings
 from bkg_py.owners.pages import OwnerPageAdmissionConfig, admit_owner_page
-from bkg_py.result import ExitStatus
 from bkg_py.state import StateStore
 
 TEST_TOKEN = "github_pat_discovery_secret"
@@ -908,19 +906,3 @@ def test_owner_page_admitter_keeps_marker_when_owner_file_is_capped(
     assert not result.requested_logins
     assert owners.read_text(encoding="utf-8") == ""
     assert state.get_int("BKG_LAST_SCANNED_ID") == 0
-
-
-def test_discovery_cli_resolves_existing_owner_ref_without_network(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    """The shell-facing discovery CLI preserves ID/login refs directly."""
-
-    monkeypatch.setenv("BKG_ROOT", str(tmp_path))
-    monkeypatch.setenv("BKG_ENV", str(tmp_path / "env.env"))
-
-    status = main(["discovery", "resolve-owner", "123/alpha"])
-
-    assert status == ExitStatus.SUCCESS
-    assert capsys.readouterr().out == "123/alpha\n"

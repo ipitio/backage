@@ -2,17 +2,13 @@
 
 from __future__ import annotations
 
-import argparse
 import json
 from dataclasses import replace
 from pathlib import Path
 
 import pytest
 
-import bkg_py.package_commands
 import bkg_py.package_updates
-from bkg_py.application import ApplicationContext
-from bkg_py.cli import main
 from bkg_py.concurrency import BoundedWorkerRunner, ConcurrencySettings
 from bkg_py.database import (
     DatabaseRepository,
@@ -31,11 +27,9 @@ from bkg_py.package_updates import (
     PackageRefreshExecution,
     PackageRefreshPolicy,
     PackageRefreshRequest,
-    PackageRefreshResult,
     PackageRefreshService,
 )
 from bkg_py.publication import PublicationLimits
-from bkg_py.result import ExitStatus
 from bkg_py.runtime import GracefulStop
 from bkg_py.version_selection import VersionSelectionSettings
 from bkg_py.version_updates import VersionRefreshExecution
@@ -138,54 +132,6 @@ def test_external_enrichment_policy_respects_private_capable_modes() -> None:
     assert PackageRefreshPolicy(False, True, False, 0).allow_hosted_size_fallback
     assert not PackageRefreshPolicy(False, True, False, 3).allow_hosted_size_fallback
     assert not PackageRefreshPolicy(False, False, False, 3).allow_hosted_size_fallback
-
-
-def test_package_refresh_cli_dispatches_shell_arguments(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    """The public package command reaches the application operation."""
-
-    captured: list[tuple[str, str]] = []
-
-    def execute(
-        args: argparse.Namespace,
-        _application: ApplicationContext,
-        index_dir: Path,
-    ) -> PackageRefreshResult:
-        captured.append((args.package, str(index_dir)))
-        return PackageRefreshResult("refreshed", package_written=True)
-
-    monkeypatch.setattr(
-        bkg_py.package_commands,
-        "_execute_package_refresh",
-        execute,
-    )
-    monkeypatch.setenv("BKG_ROOT", str(tmp_path))
-    monkeypatch.setenv("BKG_INDEX_DIR", str(tmp_path / "index"))
-
-    status = main(
-        [
-            "package",
-            "refresh",
-            "42",
-            "orgs",
-            "npm",
-            "Example",
-            "Packages",
-            "Demo",
-            "legacy_versions",
-            _TODAY,
-            "false",
-            "true",
-            "false",
-        ]
-    )
-
-    assert status == ExitStatus.SUCCESS
-    assert captured == [("Demo", str(tmp_path / "index"))]
-    assert json.loads(capsys.readouterr().out)["outcome"] == "refreshed"
 
 
 def test_missing_package_detail_stays_pending_without_response_body_diagnostic(

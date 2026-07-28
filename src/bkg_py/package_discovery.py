@@ -5,9 +5,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from html.parser import HTMLParser
 from typing import Protocol
-from urllib.parse import parse_qs, urlencode, urlsplit
+from urllib.parse import parse_qs, quote, urlencode, urlsplit
 
 from .database import OwnerScanPackage
+from .github import GitHubJsonResponse, GitHubNotFoundError
 
 _PAGE_SIZE = 100
 _OWNER_TYPES = frozenset({"orgs", "users"})
@@ -33,6 +34,18 @@ class PackageListingClient(Protocol):  # pylint: disable=too-few-public-methods
         accept: str = "text/html",
     ) -> str:
         """Request one text response."""
+
+        raise NotImplementedError
+
+
+class OwnerListingClient(
+    PackageListingClient,
+    Protocol,
+):  # pylint: disable=too-few-public-methods
+    """GitHub operations used to classify a missing package listing."""
+
+    def rest_json_optional(self, path: str) -> GitHubJsonResponse | None:
+        """Return owner metadata or an absent-resource marker."""
 
         raise NotImplementedError
 
@@ -83,6 +96,15 @@ class PackageListingPage:
 
     packages: tuple[OwnerScanPackage, ...]
     has_more: bool
+
+
+@dataclass(frozen=True)
+class PackageListingFetch:
+    """One listing page classified against the owner's current existence."""
+
+    page: PackageListingPage
+    owner_missing: bool = False
+    listing_unavailable: bool = False
 
 
 @dataclass(frozen=True)
@@ -242,3 +264,21 @@ class PackageListingService:  # pylint: disable=too-few-public-methods
             authenticated=request.authenticated,
         )
         return parse_package_listing_html(html, request)
+
+
+def fetch_package_listing_page(
+    client: OwnerListingClient,
+    request: PackageListingRequest,
+) -> PackageListingFetch:
+    """Fetch a listing and confirm whether a 404 means its owner is absent."""
+
+    try:
+        return PackageListingFetch(PackageListingService(client).fetch(request))
+    except GitHubNotFoundError:
+        owner_path = f"{request.owner_type}/{quote(request.owner, safe='')}"
+        if client.rest_json_optional(owner_path) is None:
+            return PackageListingFetch(PackageListingPage((), False), True)
+        return PackageListingFetch(
+            PackageListingPage((), False),
+            listing_unavailable=True,
+        )

@@ -11,10 +11,8 @@ import httpx
 import pytest
 
 from bkg_py.application import ApplicationContext
-from bkg_py.cli import main
 from bkg_py.config import RuntimeConfig
 from bkg_py.github import GitHubClient, GitHubSettings
-from bkg_py.result import ExitStatus
 from bkg_py.runtime import GracefulStop
 from bkg_py.snapshots import (
     SnapshotError,
@@ -67,18 +65,6 @@ def _config(tmp_path: Path, *, index_db: str | None) -> RuntimeConfig:
         index_sql=None,
         index_dir=None,
     )
-
-
-def _set_snapshot_env(
-    monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
-    paths: SnapshotPaths,
-) -> None:
-    monkeypatch.setenv("BKG_ROOT", str(tmp_path))
-    monkeypatch.setenv("BKG_ENV", str(tmp_path / "env.env"))
-    monkeypatch.setenv("BKG_INDEX_DB", str(paths.index_db))
-    if paths.index_sql is not None:
-        monkeypatch.setenv("BKG_INDEX_SQL", str(paths.index_sql))
 
 
 def _github_client(
@@ -546,153 +532,3 @@ def test_invalid_legacy_sql_never_replaces_existing_database(tmp_path: Path) -> 
     assert paths.index_db.read_bytes() == original_database
     assert not paths.restore_signature.exists()
     assert not list(paths.index_db.parent.glob(".index.db.*"))
-
-
-def test_snapshot_cli_exposes_shell_shaped_archive_commands(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    """Snapshot CLI commands print values and report booleans by status."""
-
-    paths = SnapshotPaths(tmp_path / "index.db", index_sql=tmp_path / "index.sql")
-    _set_snapshot_env(monkeypatch, tmp_path, paths)
-    paths.current_db_archive.parent.mkdir()
-    paths.current_db_archive.write_bytes(b"snapshot")
-
-    assert main(["snapshot", "current-archive"]) == ExitStatus.SUCCESS
-    assert capsys.readouterr().out.strip() == str(paths.current_db_archive)
-
-    assert main(["snapshot", "path", "db"]) == ExitStatus.SUCCESS
-    assert capsys.readouterr().out.strip() == str(paths.current_db_archive)
-
-    assert main(["snapshot", "path", "db-zst"]) == ExitStatus.SUCCESS
-    assert capsys.readouterr().out.strip() == str(paths.legacy_db_archive)
-
-    assert main(["snapshot", "path", "sql-zst"]) == ExitStatus.SUCCESS
-    assert capsys.readouterr().out.strip() == str(paths.legacy_sql_archive)
-
-    assert main(["snapshot", "path", "restore-signature"]) == ExitStatus.SUCCESS
-    assert capsys.readouterr().out.strip() == str(paths.restore_signature)
-
-    assert main(["snapshot", "asset-name", "db"]) == ExitStatus.SUCCESS
-    assert capsys.readouterr().out.strip() == paths.current_db_asset_name
-
-    assert main(["snapshot", "asset-name", "db-zst"]) == ExitStatus.SUCCESS
-    assert capsys.readouterr().out.strip() == paths.legacy_db_asset_name
-
-    assert main(["snapshot", "asset-name", "sql-zst"]) == ExitStatus.SUCCESS
-    assert capsys.readouterr().out.strip() == paths.legacy_sql_asset_name
-
-    assert main(["snapshot", "current-signature"]) == ExitStatus.SUCCESS
-    assert capsys.readouterr().out.strip() == sha256_file(paths.current_db_archive)
-
-    assert main(["snapshot", "restore-signature-matches"]) == ExitStatus.NON_FATAL
-    assert capsys.readouterr().out == ""
-
-    paths.index_db.write_bytes(b"database")
-    assert main(["snapshot", "write-restore-signature"]) == ExitStatus.SUCCESS
-    assert capsys.readouterr().out == ""
-
-    assert main(["snapshot", "restore-signature-matches"]) == ExitStatus.SUCCESS
-    assert capsys.readouterr().out == ""
-
-
-def test_snapshot_cli_reports_missing_current_archive(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    """Direct archive probes explain a missing snapshot."""
-
-    paths = SnapshotPaths(tmp_path / "index.db")
-    _set_snapshot_env(monkeypatch, tmp_path, paths)
-
-    assert main(["snapshot", "current-archive"]) == ExitStatus.NON_FATAL
-
-    captured = capsys.readouterr()
-    assert captured.out == ""
-    assert captured.err.strip() == "No database snapshot archive found"
-
-
-def test_snapshot_cli_reports_graceful_stop_reason(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    """Status 3 includes the stop reason in Action logs."""
-
-    paths = SnapshotPaths(tmp_path / "index.db")
-    _set_snapshot_env(monkeypatch, tmp_path, paths)
-    (tmp_path / "env.env").write_text("BKG_TIMEOUT=1\n", encoding="utf-8")
-
-    assert main(["snapshot", "current-archive"]) == ExitStatus.GRACEFUL_STOP
-
-    captured = capsys.readouterr()
-    assert captured.out == ""
-    assert captured.err.strip() == "Graceful stop requested: persisted"
-
-
-def test_snapshot_cli_restores_database_if_needed(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    """The restore command prints the shell-compatible restore message."""
-
-    paths = SnapshotPaths(tmp_path / "index.db")
-    _set_snapshot_env(monkeypatch, tmp_path, paths)
-    paths.current_db_archive.parent.mkdir()
-    _create_database(paths.current_db_archive)
-
-    assert main(["snapshot", "restore-if-needed"]) == ExitStatus.SUCCESS
-
-    assert capsys.readouterr().out.strip() == "Restoring database from index.db..."
-    assert _read_payload(paths.index_db) == "stored"
-
-
-def test_snapshot_cli_restores_explicit_archive_if_needed(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    """The startup restore command restores the archive selected by the shell."""
-
-    paths = SnapshotPaths(tmp_path / "index.db")
-    _set_snapshot_env(monkeypatch, tmp_path, paths)
-    paths.current_db_archive.parent.mkdir()
-    _create_database(paths.current_db_archive)
-
-    assert (
-        main(
-            [
-                "snapshot",
-                "restore-archive-if-needed",
-                str(paths.current_db_archive),
-            ]
-        )
-        == ExitStatus.SUCCESS
-    )
-
-    assert capsys.readouterr().out.strip() == "Restoring database from index.db..."
-    assert _read_payload(paths.index_db) == "stored"
-
-
-def test_snapshot_cli_prepares_archive(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    """The prepare command publishes a checkpointed current archive."""
-
-    paths = SnapshotPaths(tmp_path / "index.db", index_sql=tmp_path / "index.sql")
-    _set_snapshot_env(monkeypatch, tmp_path, paths)
-    _create_database(paths.index_db)
-    paths.legacy_db_archive.write_bytes(b"legacy db")
-    paths.legacy_sql_archive.write_bytes(b"legacy sql")
-
-    assert main(["snapshot", "prepare"]) == ExitStatus.SUCCESS
-    assert capsys.readouterr().out.strip() == str(paths.current_db_archive)
-    assert paths.current_db_archive.is_file()
-    assert not paths.legacy_db_archive.exists()
-    assert not paths.legacy_sql_archive.exists()

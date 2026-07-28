@@ -8,7 +8,6 @@ from pathlib import Path
 
 import pytest
 
-from bkg_py.cli import main
 from bkg_py.result import ExitStatus
 from bkg_py.workspace import (
     GitRepository,
@@ -450,20 +449,6 @@ def test_update_publication_keeps_branch_ownership_and_skips_no_op_commits(
     assert not second.source_committed
     assert _git(index_dir, "rev-parse", "HEAD").stdout.strip() == index_head
     assert _git(repository, "rev-parse", "HEAD").stdout.strip() == source_head
-    assert (
-        main(
-            [
-                "workspace",
-                "publish-update",
-                str(repository),
-                "index",
-                str(index_dir),
-                str(state_file),
-                str(ExitStatus.GRACEFUL_STOP),
-            ]
-        )
-        == ExitStatus.SUCCESS
-    )
 
 
 def test_update_publication_retains_index_commit_when_push_fails(
@@ -488,31 +473,6 @@ def test_update_publication_retains_index_commit_when_push_fails(
     assert (repository / "index.bak" / "recoverable.txt").is_file()
     assert _git(index_dir, "status", "--short").stdout == ""
     assert _git(index_dir, "rev-list", "--count", "origin/index..HEAD").stdout == "1\n"
-
-
-def test_publish_update_cli_skips_failed_run_state(tmp_path: Path) -> None:
-    """A run that did not finalize cannot publish state ahead of its database."""
-
-    repository, remote, index_dir, state_file = _create_publication_workspace(tmp_path)
-    state_file.write_text("BKG_TIMEOUT=failed\n", encoding="utf-8")
-    index_head = _git(index_dir, "rev-parse", "HEAD").stdout.strip()
-
-    status = main(
-        [
-            "workspace",
-            "publish-update",
-            str(repository),
-            "index",
-            str(index_dir),
-            str(state_file),
-            str(ExitStatus.NON_FATAL),
-        ]
-    )
-
-    assert status == ExitStatus.NON_FATAL
-    assert _git(index_dir, "rev-parse", "HEAD").stdout.strip() == index_head
-    assert _git(remote, "show", "index:.env").stdout == "state\n"
-    assert _git(remote, "show", "master:owners.txt").stdout == "original-owner\n"
 
 
 @pytest.mark.parametrize(

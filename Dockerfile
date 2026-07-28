@@ -33,6 +33,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=build /opt/bkg /opt/bkg
 COPY . .
-RUN BKG_ROOT=/app BKG_INDEX_DB=/tmp/index.db bkg database ensure-schema \
+RUN BKG_INDEX_DB=/tmp/index.db python -c \
+        "from bkg_py.database import DatabaseRepository, DatabaseSettings; DatabaseRepository(DatabaseSettings.from_env()).ensure_schema()" \
     && python -c "import bkg_py, compression.zstd, httpx" \
     && rm -f /tmp/index.db

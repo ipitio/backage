@@ -2,14 +2,10 @@
 
 from __future__ import annotations
 
-import io
-import json
 from pathlib import Path
 
 import pytest
 
-from bkg_py import ExitStatus
-from bkg_py.cli import main
 from bkg_py.concurrency import BoundedWorkerRunner, ConcurrencySettings
 from bkg_py.database import (
     DatabaseRepository,
@@ -22,7 +18,6 @@ from bkg_py.database import (
 from bkg_py.owners.package_updates import (
     OwnerPackageRefreshExecution,
     OwnerPackageRefreshRequest,
-    OwnerPackageRefreshResult,
     OwnerPackageRefreshService,
     allocate_worker_counts,
 )
@@ -170,50 +165,6 @@ def test_owner_package_refresh_propagates_graceful_stop(
         service.refresh(request)
 
 
-def test_owner_refresh_packages_cli_reads_refs_from_stdin(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """The shell-facing command converts package refs into one owner batch."""
-
-    captured: list[OwnerPackageRefreshRequest] = []
-
-    def refresh(
-        _service: OwnerPackageRefreshService,
-        request: OwnerPackageRefreshRequest,
-    ) -> OwnerPackageRefreshResult:
-        captured.append(request)
-        return OwnerPackageRefreshResult(())
-
-    monkeypatch.setattr(OwnerPackageRefreshService, "refresh", refresh)
-    monkeypatch.setattr(
-        "sys.stdin",
-        io.StringIO("container/repo-one/pkg-one\nnpm/repo-two/pkg-two\n"),
-    )
-    monkeypatch.setenv("BKG_ROOT", str(tmp_path))
-    monkeypatch.setenv("BKG_INDEX_DB", str(tmp_path / "index.db"))
-    monkeypatch.setenv("BKG_INDEX_DIR", str(tmp_path / "index"))
-    monkeypatch.setenv("BKG_ENV", str(tmp_path / "state.env"))
-
-    status = main(
-        [
-            "owner",
-            "refresh-packages",
-            "42",
-            "orgs",
-            "example",
-            "2026-06-28",
-            "false",
-        ]
-    )
-
-    assert status == ExitStatus.SUCCESS
-    assert captured[0].packages == (
-        OwnerScanPackage("orgs", "container", "repo-one", "pkg-one"),
-        OwnerScanPackage("orgs", "npm", "repo-two", "pkg-two"),
-    )
-
-
 def test_owner_page_service_advances_multiple_pages_with_one_client(
     tmp_path: Path,
 ) -> None:
@@ -315,53 +266,3 @@ def test_owner_page_service_advances_multiple_pages_with_one_client(
         "Starting example page 2...",
         "Started example page 2",
     ]
-
-
-def test_owner_scan_pages_cli_writes_the_shell_result(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """The page-loop command streams work and writes one structured result."""
-
-    captured: list[OwnerScanPagesRequest] = []
-
-    def scan(
-        _service: OwnerScanPageService,
-        request: OwnerScanPagesRequest,
-    ) -> OwnerScanPagesResult:
-        captured.append(request)
-        return OwnerScanPagesResult(8, 3, completed=False)
-
-    monkeypatch.setattr(OwnerScanPageService, "scan", scan)
-    monkeypatch.setenv("BKG_ROOT", str(tmp_path))
-    monkeypatch.setenv("BKG_INDEX_DB", str(tmp_path / "index.db"))
-    monkeypatch.setenv("BKG_INDEX_DIR", str(tmp_path / "index"))
-    monkeypatch.setenv("BKG_ENV", str(tmp_path / "state.env"))
-    result_file = tmp_path / "scan-result.json"
-
-    status = main(
-        [
-            "owner",
-            "scan-pages",
-            "42",
-            "orgs",
-            "example",
-            "scan-1",
-            "2026-06-28",
-            "5",
-            "false",
-            str(result_file),
-        ]
-    )
-
-    assert status == ExitStatus.SUCCESS
-    assert captured[0].start_page == 5
-    assert json.loads(result_file.read_text(encoding="utf-8")) == {
-        "next_page": 8,
-        "pages_processed": 3,
-        "completed": False,
-        "owner_missing": False,
-        "first_page_empty": False,
-        "listing_unavailable": False,
-        "reconciliation": None,
-    }

@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-import json
 import sqlite3
 from pathlib import Path
+from typing import cast
 
 import pytest
 
-from bkg_py import ExitStatus
-from bkg_py.cli import main
+from bkg_py.application import ApplicationContext
+from bkg_py.concurrency import ConcurrencySettings
 from bkg_py.database import (
     DatabaseRepository,
     DatabaseSettings,
@@ -22,12 +22,18 @@ from bkg_py.database import (
     PackageRef,
 )
 from bkg_py.discovery import OwnerIdentityResolver
+from bkg_py.github import GitHubClient
 from bkg_py.owners.lifecycle import (
     OwnerLifecycleExecution,
     OwnerLifecycleRequest,
     OwnerLifecycleResult,
     OwnerLifecycleService,
     OwnerLifecycleServices,
+)
+from bkg_py.owners.operations import (
+    OwnerOperationExecution,
+    OwnerUpdateOperation,
+    OwnerUpdateRequest,
 )
 from bkg_py.owners.package_updates import (
     OwnerPackageRefreshRequest,
@@ -46,6 +52,8 @@ from bkg_py.owners.updates import (
 )
 from bkg_py.package_updates import PackageRefreshPolicy
 from bkg_py.state import StateStore
+
+from ..github_client_fake import FakeGitHubClient
 
 _TODAY = "2026-06-29"
 
@@ -370,10 +378,9 @@ def test_discovered_empty_owner_is_remembered_after_complete_scan(
     assert any("Discarding stale owner scan marker" in line for line in progress)
 
 
-def test_owner_update_cli_persists_backoff_and_reports_a_deferred_result(
+def test_owner_update_operation_persists_backoff_and_reports_a_deferred_result(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
 ) -> None:
     """Retryable inner failures remain successful, durable worker outcomes."""
 
@@ -402,30 +409,33 @@ def test_owner_update_cli_persists_backoff_and_reports_a_deferred_result(
     repository = DatabaseRepository(DatabaseSettings(database_path))
     _package_ref, package_record = _package("known")
     repository.write_package(package_record)
-    result_path = tmp_path / "result.json"
     monkeypatch.setenv("BKG_ROOT", str(tmp_path))
     monkeypatch.setenv("BKG_INDEX_DB", str(database_path))
     monkeypatch.setenv("BKG_INDEX_DIR", str(tmp_path / "index"))
     monkeypatch.setenv("BKG_ENV", str(tmp_path / "state.env"))
 
-    status = main(
-        [
-            "owner",
-            "update",
+    progress: list[str] = []
+    application = ApplicationContext.from_env()
+    result = OwnerUpdateOperation(
+        application,
+        cast(GitHubClient, FakeGitHubClient()),
+        OwnerOperationExecution(
+            ConcurrencySettings(max_workers=1),
+            progress.append,
+            progress.append,
+        ),
+    ).update(
+        OwnerUpdateRequest(
             "42",
             "Example",
             _TODAY,
             "batch-1",
-            "false",
-            str(result_path),
-        ]
+        )
     )
 
-    result = json.loads(result_path.read_text(encoding="utf-8"))
     deferred = repository.deferred_owners(0)
-    assert status == ExitStatus.SUCCESS
-    assert result["outcome"] == "deferred"
-    assert result["error"] == "temporary owner failure"
+    assert result.outcome == "deferred"
+    assert result.error == "temporary owner failure"
     assert requests[0].owner_type == "orgs"
-    assert deferred == (("Example", result["retry_after"]),)
-    assert "Deferred Example after failed work" in capsys.readouterr().out
+    assert deferred == (("Example", result.retry_after),)
+    assert any("Deferred Example after failed work" in message for message in progress)
