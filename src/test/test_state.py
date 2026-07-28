@@ -73,7 +73,7 @@ class TestStateStore:
             ]
 
     def test_concurrent_updates_do_not_lose_unrelated_values(self) -> None:
-        """The shared hard-link lock serializes complete file replacements."""
+        """The shared advisory lock serializes complete file replacements."""
 
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "env.env"

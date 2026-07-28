@@ -3,11 +3,9 @@
 from __future__ import annotations
 
 import json
-import os
 import re
-import time
-from collections.abc import Generator, Iterable, Sequence
-from contextlib import contextmanager, suppress
+from collections.abc import Callable, Generator, Iterable, Sequence
+from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
@@ -16,6 +14,7 @@ from urllib.parse import quote
 from .config import RuntimeConfig
 from .files import atomic_text_output
 from .github import GitHubClient, GitHubError
+from .locking import FileLockOptions, LockWaitCheck, advisory_file_lock
 
 _OWNER_REF_PATTERN = re.compile(r"^[1-9][0-9]*/.+$")
 _OWNER_LOOKUP_BATCH_SIZE = 50
@@ -109,33 +108,48 @@ class OwnerIdentityCache:
 
     path: Path
     lock_poll_interval: float = 0.05
+    lock_timeout: float = 30.0
+    check_lock_wait: LockWaitCheck | None = None
+    lock_diagnostic: Callable[[str], None] | None = None
 
     @classmethod
-    def from_config(cls, config: RuntimeConfig) -> OwnerIdentityCache:
+    def from_config(
+        cls,
+        config: RuntimeConfig,
+        *,
+        check_lock_wait: LockWaitCheck | None = None,
+        lock_diagnostic: Callable[[str], None] | None = None,
+    ) -> OwnerIdentityCache:
         """Build the cache path from shell-compatible runtime settings."""
 
-        return cls(Path(config.owner_id_cache_file))
+        return cls(
+            Path(config.owner_id_cache_file),
+            check_lock_wait=check_lock_wait,
+            lock_diagnostic=lock_diagnostic,
+        )
 
     @property
     def _lock_path(self) -> Path:
+        return Path(f"{self.path}.bkg-lock")
+
+    @property
+    def _legacy_lock_path(self) -> Path:
         return Path(f"{self.path}.lock")
 
-    @contextmanager
-    def _lock(self) -> Generator[None]:
+    def _lock(self) -> AbstractContextManager[None]:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.path.touch(exist_ok=True)
-        while True:
-            try:
-                os.link(self.path, self._lock_path)
-                break
-            except FileExistsError:
-                time.sleep(self.lock_poll_interval)
-
-        try:
-            yield
-        finally:
-            with suppress(FileNotFoundError):
-                self._lock_path.unlink()
+        return advisory_file_lock(
+            self.path,
+            lock_path=self._lock_path,
+            legacy_lock_path=self._legacy_lock_path,
+            options=FileLockOptions(
+                poll_interval=self.lock_poll_interval,
+                timeout=self.lock_timeout,
+                check_wait=self.check_lock_wait,
+                diagnostic=self.lock_diagnostic,
+            ),
+        )
 
     def _read_refs(self) -> list[str]:
         try:
@@ -147,8 +161,8 @@ class OwnerIdentityCache:
         """Start one run with an empty owner identity cache."""
 
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        self._lock_path.unlink(missing_ok=True)
-        with atomic_text_output(self.path):
+        self.path.touch(exist_ok=True)
+        with self._lock(), atomic_text_output(self.path):
             pass
 
     def lookup(self, value: str) -> str | None:

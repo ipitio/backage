@@ -119,6 +119,7 @@ def execute_prepared_application(
     """Execute a run after its final stop controller has been installed."""
 
     output = LockedRunOutput(_stdout, _stderr)
+    application.configure_lock_diagnostic(output.diagnostic)
     execution = RunApplicationExecution(
         output.progress,
         output.diagnostic,

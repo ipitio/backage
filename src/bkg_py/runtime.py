@@ -156,7 +156,30 @@ class StopController:
             self._reason = reason
         self._event.set()
         if self.state.get(_TIMEOUT_KEY) != "1":
-            self.state.set(_TIMEOUT_KEY, "1")
+            self.state.set(_TIMEOUT_KEY, "1", interruptible=False)
+
+    def check_lock_wait(self, path: Path, elapsed_wait: float) -> None:
+        """Raise for a stop during lock contention without reentering the lock."""
+
+        if self._event.is_set():
+            reason = self._reason or "requested"
+        elif self.state.get(_TIMEOUT_KEY) == "1":
+            reason = "persisted"
+            self._event.set()
+            if self._reason is None:
+                self._reason = reason
+        elif self.max_duration > 0 and self.elapsed >= self.max_duration:
+            reason = "elapsed"
+            self._event.set()
+            if self._reason is None:
+                self._reason = reason
+        else:
+            return
+
+        raise GracefulStop(
+            f"{reason}; stopped waiting for file lock on {path} "
+            f"after {elapsed_wait:.1f}s"
+        )
 
     def is_requested(self) -> bool:
         """Return whether persisted state, elapsed time, or a signal requests stop."""

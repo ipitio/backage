@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
-import os
 import re
-import time
-from collections.abc import Generator, Iterable, Mapping
-from contextlib import contextmanager, suppress
+from collections.abc import Iterable, Mapping
+from contextlib import AbstractContextManager
 from pathlib import Path
 
 from .files import atomic_text_output
+from .locking import (
+    FileLockOptions,
+    LockDiagnostic,
+    LockWaitCheck,
+    advisory_file_lock,
+)
 
 _KEY_PATTERN = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 
@@ -37,47 +41,88 @@ def _line_key(line: str) -> str | None:
     return key
 
 
-class StateStore:
-    """Read and update the state file while interoperating with Bash locks."""
+def _incremented_counters(
+    lines: list[str],
+    increments: Mapping[str, int],
+) -> dict[str, int]:
+    updated: dict[str, int] = {}
+    for key, amount in increments.items():
+        prefix = f"{key}="
+        raw_values = [
+            line.split("=", maxsplit=2)[1] for line in lines if line.startswith(prefix)
+        ]
+        try:
+            current = int("\n".join(raw_values)) if raw_values else 0
+        except ValueError:
+            current = 0
+        updated[key] = current + amount
+    return updated
 
-    def __init__(self, path: Path, *, lock_poll_interval: float = 0.05) -> None:
+
+class StateStore:
+    """Read and atomically update the shell-readable runtime state file."""
+
+    def __init__(
+        self,
+        path: Path,
+        *,
+        lock_poll_interval: float = 0.05,
+        lock_timeout: float = 30.0,
+        check_lock_wait: LockWaitCheck | None = None,
+    ) -> None:
         self.path = path
         self.lock_poll_interval = lock_poll_interval
+        self.lock_timeout = lock_timeout
+        self.check_lock_wait = check_lock_wait
+        self.lock_diagnostic: LockDiagnostic | None = None
+
+    def configure_locking(
+        self,
+        *,
+        check_wait: LockWaitCheck | None,
+        diagnostic: LockDiagnostic | None = None,
+    ) -> None:
+        """Bind runtime stop and diagnostic hooks after application construction."""
+
+        self.check_lock_wait = check_wait
+        self.lock_diagnostic = diagnostic
 
     @property
     def _global_lock_path(self) -> Path:
+        return Path(f"{self.path}.bkg-lock")
+
+    @property
+    def _legacy_global_lock_path(self) -> Path:
         return Path(f"{self.path}.lock")
 
     def _key_lock_path(self, key: str) -> Path:
+        return Path(f"{self.path}.{key}.bkg-lock")
+
+    def _legacy_key_lock_path(self, key: str) -> Path:
         return Path(f"{self.path}.{key}.lock")
 
-    def _wait_for_unlock(self) -> None:
-        while self._global_lock_path.exists():
-            time.sleep(self.lock_poll_interval)
-
-    @contextmanager
-    def _lock(self, lock_path: Path) -> Generator[None]:
+    def _lock(
+        self,
+        lock_path: Path,
+        legacy_lock_path: Path,
+        *,
+        interruptible: bool = True,
+    ) -> AbstractContextManager[None]:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.path.touch(exist_ok=True)
-        while True:
-            try:
-                os.link(self.path, lock_path)
-                break
-            except FileExistsError:
-                time.sleep(self.lock_poll_interval)
-            except FileNotFoundError:
-                self.path.touch(exist_ok=True)
-                time.sleep(self.lock_poll_interval)
+        return advisory_file_lock(
+            self.path,
+            lock_path=lock_path,
+            legacy_lock_path=legacy_lock_path,
+            options=FileLockOptions(
+                poll_interval=self.lock_poll_interval,
+                timeout=self.lock_timeout,
+                check_wait=self.check_lock_wait if interruptible else None,
+                diagnostic=self.lock_diagnostic,
+            ),
+        )
 
-        try:
-            yield
-        finally:
-            with suppress(FileNotFoundError):
-                lock_path.unlink()
-
-    def _read_lines(self, *, wait_for_unlock: bool = True) -> list[str]:
-        if wait_for_unlock:
-            self._wait_for_unlock()
+    def _read_lines(self) -> list[str]:
         try:
             return self.path.read_text(encoding="utf-8").splitlines()
         except FileNotFoundError:
@@ -121,21 +166,33 @@ class StateStore:
                 result[key] = line.split("=", maxsplit=2)[1]
         return result
 
-    def set(self, key: str, value: str | int) -> None:
+    def set(
+        self,
+        key: str,
+        value: str | int,
+        *,
+        interruptible: bool = True,
+    ) -> None:
         """Set one scalar while preserving unrelated and unrecognized records."""
 
-        self.set_many({key: value})
+        self.set_many({key: value}, interruptible=interruptible)
 
-    def set_many(self, values: Mapping[str, str | int]) -> None:
+    def set_many(
+        self,
+        values: Mapping[str, str | int],
+        *,
+        interruptible: bool = True,
+    ) -> None:
         """Set several scalar values with one locked atomic replacement."""
 
-        self.update_many(values)
+        self.update_many(values, interruptible=interruptible)
 
     def update_many(
         self,
         values: Mapping[str, str | int],
         *,
         increments: Mapping[str, int] | None = None,
+        interruptible: bool = True,
     ) -> dict[str, int]:
         """Set values and increment counters in one atomic replacement."""
 
@@ -152,22 +209,13 @@ class StateStore:
         if not normalized and not counter_changes:
             return {}
 
-        with self._lock(self._global_lock_path):
-            lines = self._read_lines(wait_for_unlock=False)
-            updated_counters: dict[str, int] = {}
-            for key, amount in counter_changes.items():
-                prefix = f"{key}="
-                raw_values = [
-                    line.split("=", maxsplit=2)[1]
-                    for line in lines
-                    if line.startswith(prefix)
-                ]
-                try:
-                    current = int("\n".join(raw_values)) if raw_values else 0
-                except ValueError:
-                    current = 0
-                updated_counters[key] = current + amount
-
+        with self._lock(
+            self._global_lock_path,
+            self._legacy_global_lock_path,
+            interruptible=interruptible,
+        ):
+            lines = self._read_lines()
+            updated_counters = _incremented_counters(lines, counter_changes)
             replacements = normalized | {
                 key: str(value) for key, value in updated_counters.items()
             }
@@ -197,9 +245,9 @@ class StateStore:
             _validate_key(prefix)
 
         deleted: set[str] = set()
-        with self._lock(self._global_lock_path):
+        with self._lock(self._global_lock_path, self._legacy_global_lock_path):
             retained: list[str] = []
-            for line in self._read_lines(wait_for_unlock=False):
+            for line in self._read_lines():
                 key = _line_key(line)
                 if key is not None and (
                     key in exact_keys
@@ -238,10 +286,13 @@ class StateStore:
             return ()
 
         with (
-            self._lock(self._key_lock_path(key)),
-            self._lock(self._global_lock_path),
+            self._lock(
+                self._key_lock_path(key),
+                self._legacy_key_lock_path(key),
+            ),
+            self._lock(self._global_lock_path, self._legacy_global_lock_path),
         ):
-            lines = self._read_lines(wait_for_unlock=False)
+            lines = self._read_lines()
             prefix = f"{key}="
             raw_values = [
                 line.split("=", maxsplit=2)[1]
@@ -266,8 +317,8 @@ class StateStore:
         """Atomically add to an integer state value and return the new value."""
 
         _validate_key(key)
-        with self._lock(self._global_lock_path):
-            lines = self._read_lines(wait_for_unlock=False)
+        with self._lock(self._global_lock_path, self._legacy_global_lock_path):
+            lines = self._read_lines()
             prefix = f"{key}="
             raw_values = [
                 line.split("=", maxsplit=2)[1]

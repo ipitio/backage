@@ -18,7 +18,7 @@ from ..database import (
     PackageBatch,
     PackageRef,
 )
-from ..discovery import OwnerIdentityCache, OwnerIdentityResolver
+from ..discovery import OwnerIdentityResolver
 from ..github import GitHubClient, GitHubError
 from ..package_discovery import PackageDiscoveryError
 from ..package_updates import PackageRefreshExecution, PackageRefreshPolicy
@@ -83,7 +83,7 @@ class OwnerUpdateOperation:  # pylint: disable=too-few-public-methods
         self.client = client
         self.execution = execution
         self.identity = OwnerIdentityResolver(
-            OwnerIdentityCache.from_config(application.config),
+            application.owner_identity_cache,
             client,
         )
 

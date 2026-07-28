@@ -11,6 +11,7 @@ from pathlib import Path
 from .concurrency import BoundedWorkerRunner, ConcurrencySettings
 from .config import RuntimeConfig
 from .database import DatabaseRepository, DatabaseSettings
+from .discovery import OwnerIdentityCache
 from .enrichment import RequestCircuit, RequestCircuitSettings
 from .github import (
     GitHubClient,
@@ -25,7 +26,13 @@ from .snapshots import SnapshotStore
 from .state import StateStore
 from .version_selection import VersionSelectionSettings
 
-_STOP_BOUND_SERVICES = ("database", "snapshots", "worker_runner", "process_runner")
+_STOP_BOUND_SERVICES = (
+    "database",
+    "owner_identity_cache",
+    "snapshots",
+    "worker_runner",
+    "process_runner",
+)
 
 
 @dataclass
@@ -37,8 +44,14 @@ class ApplicationContext:
     stop: StopController
     metric_enrichment: RequestCircuit = field(init=False, repr=False)
     version_listing_recovery: RequestCircuit = field(init=False, repr=False)
+    _lock_diagnostic: Callable[[str], None] | None = field(
+        default=None,
+        init=False,
+        repr=False,
+    )
 
     def __post_init__(self) -> None:
+        self._configure_state_locking()
         self._configure_request_circuits()
 
     @classmethod
@@ -75,7 +88,24 @@ class ApplicationContext:
         )
         for service in _STOP_BOUND_SERVICES:
             self.__dict__.pop(service, None)
+        self._configure_state_locking()
         self._configure_request_circuits()
+
+    def _configure_state_locking(self) -> None:
+        self.state.configure_locking(
+            check_wait=self.stop.check_lock_wait,
+            diagnostic=self._lock_diagnostic,
+        )
+
+    def configure_lock_diagnostic(
+        self,
+        diagnostic: Callable[[str], None],
+    ) -> None:
+        """Route contended lock diagnostics through serialized run output."""
+
+        self._lock_diagnostic = diagnostic
+        self._configure_state_locking()
+        self.__dict__.pop("owner_identity_cache", None)
 
     def _configure_request_circuits(self) -> None:
         self.metric_enrichment = RequestCircuit(check_stop=self.stop.check)
@@ -162,6 +192,16 @@ class ApplicationContext:
         """Return the stop-aware external process runner."""
 
         return ProcessRunner(self.stop)
+
+    @cached_property
+    def owner_identity_cache(self) -> OwnerIdentityCache:
+        """Return the shared stop-aware owner identity cache."""
+
+        return OwnerIdentityCache.from_config(
+            self.config,
+            check_lock_wait=self.stop.check_lock_wait,
+            lock_diagnostic=self._lock_diagnostic,
+        )
 
     @contextmanager
     def github_client(

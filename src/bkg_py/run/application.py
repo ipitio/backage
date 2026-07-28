@@ -9,7 +9,7 @@ from pathlib import Path
 from threading import Lock
 
 from ..application import ApplicationContext
-from ..discovery import DiscoveryError, OwnerIdentityCache, OwnerIdentityResolver
+from ..discovery import DiscoveryError, OwnerIdentityResolver
 from ..discovery_fallback import PublicHtmlDiscoveryTraversal
 from ..discovery_operations import (
     DiscoveryPhaseExecution,
@@ -21,6 +21,7 @@ from ..discovery_operations import (
     DiscoveryTraversal,
 )
 from ..github import GitHubClient, GitHubError
+from ..locking import FileLockOptions
 from ..orchestration import BatchRuntimeService
 from ..owners import (
     OwnerBatchEffects,
@@ -100,7 +101,7 @@ class RunApplicationOperations:
                 self.application.database,
                 self.application.snapshots,
                 self.application.state,
-                OwnerIdentityCache.from_config(config),
+                self.application.owner_identity_cache,
             ),
             RunStartupExecution(
                 self.application.stop.check,
@@ -129,13 +130,17 @@ class RunApplicationOperations:
         config = self.application.config
         with self._github_client() as client:
             resolver = OwnerIdentityResolver(
-                OwnerIdentityCache.from_config(config),
+                self.application.owner_identity_cache,
                 client,
             )
             admission = OwnerPageAdmissionConfig(
                 self.application.state,
                 Path(config.owners_file),
                 packages_all_file,
+                lock_options=FileLockOptions(
+                    check_wait=self.application.stop.check_lock_wait,
+                    diagnostic=self.execution.diagnostic,
+                ),
             )
             request = DiscoveryPhaseRequest(
                 paths=DiscoveryPhasePaths(
@@ -235,7 +240,7 @@ class RunApplicationOperations:
                 OwnerQueuePreparationServices(
                     self.application.database,
                     OwnerIdentityResolver(
-                        OwnerIdentityCache.from_config(config),
+                        self.application.owner_identity_cache,
                         client,
                     ),
                     self.application.state,
@@ -388,7 +393,7 @@ class RunApplicationOperations:
     ) -> TargetedOwnerQueueService:
         return TargetedOwnerQueueService(
             OwnerIdentityResolver(
-                OwnerIdentityCache.from_config(self.application.config),
+                self.application.owner_identity_cache,
                 client,
             ),
             self.application.state,

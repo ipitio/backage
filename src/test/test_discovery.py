@@ -13,6 +13,7 @@ from bkg_py.discovery import (
     OwnerIdentityResolver,
 )
 from bkg_py.github import GitHubClient, GitHubSettings
+from bkg_py.locking import FileLockOptions
 from bkg_py.owners.pages import OwnerPageAdmissionConfig, admit_owner_page
 from bkg_py.state import StateStore
 
@@ -753,7 +754,7 @@ def test_owner_page_admitter_queues_new_rest_owners_and_advances_marker(
             state,
             owners,
             packages_all,
-            lock_poll_interval=0,
+            lock_options=FileLockOptions(poll_interval=0),
         ),
         1,
         2,
@@ -802,7 +803,7 @@ def test_owner_page_admitter_advances_marker_for_existing_queue_entry(
             state,
             owners,
             packages_all,
-            lock_poll_interval=0,
+            lock_options=FileLockOptions(poll_interval=0),
         ),
         1,
         100,
@@ -851,7 +852,7 @@ def test_owner_page_admitter_advances_marker_for_known_package_owner(
             state,
             owners,
             packages_all,
-            lock_poll_interval=0,
+            lock_options=FileLockOptions(poll_interval=0),
         ),
         1,
         100,
@@ -895,8 +896,8 @@ def test_owner_page_admitter_keeps_marker_when_owner_file_is_capped(
             state,
             owners,
             packages_all,
-            lock_poll_interval=0,
             owner_file_max_bytes=1,
+            lock_options=FileLockOptions(poll_interval=0),
         ),
         1,
         100,

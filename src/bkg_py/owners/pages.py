@@ -2,14 +2,12 @@
 
 from __future__ import annotations
 
-import os
-import time
-from collections.abc import Generator
-from contextlib import contextmanager, suppress
-from dataclasses import dataclass
+from contextlib import AbstractContextManager
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from ..discovery import OwnerIdentity, OwnerIdentityResolver
+from ..locking import FileLockOptions, advisory_file_lock
 from ..state import StateStore
 
 _OWNER_FILE_MAX_BYTES = 100_000_000
@@ -22,8 +20,8 @@ class OwnerPageAdmissionConfig:
     state: StateStore
     owners_path: Path
     packages_all_path: Path
-    lock_poll_interval: float = 0.05
     owner_file_max_bytes: int = _OWNER_FILE_MAX_BYTES
+    lock_options: FileLockOptions = field(default_factory=FileLockOptions)
 
 
 @dataclass(frozen=True)
@@ -78,26 +76,14 @@ def admit_owner_page(
     )
 
 
-@contextmanager
-def _owners_lock(config: OwnerPageAdmissionConfig) -> Generator[None]:
+def _owners_lock(config: OwnerPageAdmissionConfig) -> AbstractContextManager[None]:
     config.owners_path.parent.mkdir(parents=True, exist_ok=True)
     config.owners_path.touch(exist_ok=True)
-    lock_path = Path(f"{config.owners_path}.lock")
-    while True:
-        try:
-            os.link(config.owners_path, lock_path)
-            break
-        except FileExistsError:
-            time.sleep(config.lock_poll_interval)
-        except FileNotFoundError:
-            config.owners_path.touch(exist_ok=True)
-            time.sleep(config.lock_poll_interval)
-
-    try:
-        yield
-    finally:
-        with suppress(FileNotFoundError):
-            lock_path.unlink()
+    return advisory_file_lock(
+        config.owners_path,
+        legacy_lock_path=Path(f"{config.owners_path}.lock"),
+        options=config.lock_options,
+    )
 
 
 def _package_owners(path: Path) -> set[str]:
