@@ -6,8 +6,8 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from threading import Lock
-from urllib.parse import unquote
 
+from .artifact_sizes import ArtifactSizeRequest, ArtifactSizeResolver
 from .concurrency import BoundedWorkerRunner
 from .database import (
     DatabaseRepository,
@@ -35,18 +35,14 @@ from .version_selection import (
     VersionSelectionSettings,
 )
 from .versions import (
-    ManifestSizeResult,
     VersionListingContext,
     extract_oci_version_labels,
     extract_version_page_data,
-    manifest_size,
     package_detail_html_url,
     package_version_detail_html_url,
 )
 
 DiagnosticSink = Callable[[str], None]
-ManifestInspector = Callable[[str], str]
-HostedSizeInspector = Callable[[str, str, str], int]
 VersionRecordFallback = Callable[[str], VersionRecord | None]
 
 
@@ -60,10 +56,6 @@ def _ignore_diagnostic(_message: str) -> None:
 
 def _no_fallback_record(_version_id: str) -> VersionRecord | None:
     return None
-
-
-def _no_hosted_size(_owner: str, _package: str, _reference: str) -> int:
-    return -1
 
 
 class VersionRefreshError(RuntimeError):
@@ -105,7 +97,7 @@ class VersionRefreshRequest:
 
 
 class _LazyVersionRecordFallback:  # pylint: disable=too-few-public-methods
-    """Load latest historical version rows only after enrichment fails."""
+    """Load latest historical rows when a candidate needs persisted values."""
 
     def __init__(
         self,
@@ -144,24 +136,23 @@ class VersionRefreshExecution:
     """Worker and fallback policy shared by one version refresh."""
 
     worker_runner: BoundedWorkerRunner
-    manifest_inspector: ManifestInspector
+    size_resolver: ArtifactSizeResolver
     diagnostic: DiagnosticSink = _ignore_diagnostic
     today: Callable[[], str] = _utc_today
     metric_enrichment: RequestCircuit = field(default_factory=RequestCircuit)
     listing_recovery: RequestCircuit = field(default_factory=RequestCircuit)
-    hosted_size_inspector: HostedSizeInspector = _no_hosted_size
 
 
 @dataclass(frozen=True)
 class VersionDetailExecution:
     """Manifest, authentication, and diagnostics for version detail requests."""
 
-    manifest_inspector: ManifestInspector
+    size_resolver: ArtifactSizeResolver
     authenticated: bool = False
+    allow_hosted_size_fallback: bool = True
     diagnostic: DiagnosticSink = _ignore_diagnostic
     metric_enrichment: RequestCircuit = field(default_factory=RequestCircuit)
     fallback_record: VersionRecordFallback = _no_fallback_record
-    hosted_size_inspector: HostedSizeInspector = _no_hosted_size
 
 
 class VersionDetailInspector:  # pylint: disable=too-few-public-methods
@@ -185,41 +176,25 @@ class VersionDetailInspector:  # pylint: disable=too-few-public-methods
             authenticated=self.execution.authenticated,
         )
         page_data = extract_version_page_data(html or "")
-        fallback = (
-            self.execution.fallback_record(candidate.version_id)
-            if html is None
-            else None
-        )
+        stored = self.execution.fallback_record(candidate.version_id)
+        fallback = stored if html is None else None
         tags = candidate.tags
-        size = -1
-
-        if self.context.package_type == "container":
-            embedded = manifest_size(page_data.manifest)
-            self._report_manifest_fallback(
-                embedded,
-                f"{self.context.owner}/{self.context.package}/"
-                f"{candidate.version_id} embedded manifest",
+        size = self.execution.size_resolver.resolve(
+            ArtifactSizeRequest(
+                self.context,
+                candidate.version_id,
+                candidate.name,
+                embedded_metadata=page_data.manifest,
+                stored_size=(-1 if stored is None else stored.metrics.size),
+                allow_hosted_fallback=(
+                    self.execution.allow_hosted_size_fallback
+                    and not self.execution.authenticated
+                ),
             )
-            size = embedded.size
-            if not tags:
-                tags = extract_oci_version_labels(page_data.manifest)
+        ).size
 
-            if size < 0:
-                reference = self._manifest_reference(candidate.name)
-                inspected_manifest = self.execution.manifest_inspector(reference)
-                inspected = manifest_size(inspected_manifest)
-                self._report_manifest_fallback(
-                    inspected,
-                    f"{reference} inspected manifest",
-                )
-                size = inspected.size
-
-            if size < 0 and not self.execution.authenticated:
-                size = self.execution.hosted_size_inspector(
-                    self.context.owner,
-                    self.context.package,
-                    candidate.name,
-                )
+        if self.context.package_type == "container" and not tags:
+            tags = extract_oci_version_labels(page_data.manifest)
 
         if fallback is not None:
             if size < 0:
@@ -293,26 +268,6 @@ class VersionDetailInspector:  # pylint: disable=too-few-public-methods
             return package_detail_html_url(self.context)
         return package_version_detail_html_url(self.context, version_id)
 
-    def _manifest_reference(self, version_name: str) -> str:
-        owner = self.context.owner.lower()
-        package = unquote(self.context.package).lower()
-        separator = "@" if version_name.startswith("sha256:") else ":"
-        return f"ghcr.io/{owner}/{package}{separator}{version_name}"
-
-    def _report_manifest_fallback(
-        self,
-        result: ManifestSizeResult,
-        context: str,
-    ) -> None:
-        fallback_reason = result.fallback_reason
-        if fallback_reason is None:
-            return
-        summary = result.diagnostic_summary
-        suffix = f"; {summary}" if summary else ""
-        self.execution.diagnostic(
-            f"Unable to derive container size from {context}: {fallback_reason}{suffix}"
-        )
-
 
 class VersionRefreshService:  # pylint: disable=too-few-public-methods
     """Select, inspect, and persist one package's version refresh."""
@@ -360,19 +315,15 @@ class VersionRefreshService:  # pylint: disable=too-few-public-methods
             self.client,
             request.listing_context,
             VersionDetailExecution(
-                self.execution.manifest_inspector,
+                self.execution.size_resolver,
                 authenticated=request.policy.authenticate_html,
+                allow_hosted_size_fallback=(request.policy.allow_hosted_size_fallback),
                 diagnostic=self.execution.diagnostic,
                 metric_enrichment=self.execution.metric_enrichment,
                 fallback_record=_LazyVersionRecordFallback(
                     self.repository,
                     request,
                     existing.rows,
-                ),
-                hosted_size_inspector=(
-                    self.execution.hosted_size_inspector
-                    if request.policy.allow_hosted_size_fallback
-                    else _no_hosted_size
                 ),
             ),
         )

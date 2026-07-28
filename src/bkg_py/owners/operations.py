@@ -9,6 +9,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from ..application import ApplicationContext
+from ..artifact_sizes import ArtifactSizeResolver, ContainerArtifactSizeAdapter
 from ..concurrency import BoundedWorkerRunner, ConcurrencySettings
 from ..database import (
     DatabaseError,
@@ -19,11 +20,18 @@ from ..database import (
     PackageRef,
 )
 from ..discovery import OwnerIdentityResolver
+from ..docker_sizes import DockerSizeInspector, DockerSizeSettings
 from ..github import GitHubClient, GitHubError
+from ..graphql_sizes import MavenArtifactSizeAdapter
 from ..package_discovery import PackageDiscoveryError
 from ..package_updates import PackageRefreshExecution, PackageRefreshPolicy
 from ..publication import PublicationError
 from ..registry import GHCRBadgeSizeInspector, GHCRManifestInspector
+from ..registry_sizes import (
+    NpmArtifactSizeAdapter,
+    NuGetArtifactSizeAdapter,
+    RubyGemsArtifactSizeAdapter,
+)
 from ..rendering import RenderingError
 from ..version_updates import VersionRefreshExecution
 from .lifecycle import (
@@ -86,6 +94,11 @@ class OwnerUpdateOperation:  # pylint: disable=too-few-public-methods
             application.owner_identity_cache,
             client,
         )
+        self.artifact_size_resolver = _artifact_size_resolver(
+            application,
+            client,
+            execution.diagnostic,
+        )
 
     def update(self, request: OwnerUpdateRequest) -> OwnerLifecycleResult:
         """Run one owner and persist retry backoff for expected failures."""
@@ -102,9 +115,8 @@ class OwnerUpdateOperation:  # pylint: disable=too-few-public-methods
             package_refresh = build_package_refresh_service(
                 self.application,
                 self.client,
-                self.execution.concurrency,
-                self.execution.progress,
-                self.execution.diagnostic,
+                self.execution,
+                self.artifact_size_resolver,
             )
             pages = OwnerScanPageService(
                 self.application.database,
@@ -212,9 +224,8 @@ class OwnerUpdateOperation:  # pylint: disable=too-few-public-methods
 def build_package_refresh_service(
     application: ApplicationContext,
     client: GitHubClient,
-    concurrency: ConcurrencySettings,
-    progress: MessageSink,
-    diagnostic: MessageSink,
+    execution: OwnerOperationExecution,
+    artifact_size_resolver: ArtifactSizeResolver,
 ) -> OwnerPackageRefreshService:
     """Build package refresh behavior using a caller-provided worker budget."""
 
@@ -225,28 +236,77 @@ def build_package_refresh_service(
             PackageRefreshExecution(
                 VersionRefreshExecution(
                     BoundedWorkerRunner(
-                        concurrency,
+                        execution.concurrency,
                         check_stop=application.stop.check,
                     ),
-                    GHCRManifestInspector(client, diagnostic=diagnostic),
-                    diagnostic=diagnostic,
+                    artifact_size_resolver,
+                    diagnostic=execution.diagnostic,
                     metric_enrichment=application.metric_enrichment,
                     listing_recovery=application.version_listing_recovery,
-                    hosted_size_inspector=GHCRBadgeSizeInspector(
-                        client,
-                        application.metric_enrichment,
-                        diagnostic=diagnostic,
-                    ),
                 ),
                 application.version_selection_settings,
                 application.publication_limits,
                 Path(application.config.optout_file),
                 application.stop.check,
             ),
-            concurrency,
-            progress,
-            diagnostic,
+            execution.concurrency,
+            execution.progress,
+            execution.diagnostic,
         ),
+    )
+
+
+def _artifact_size_resolver(
+    application: ApplicationContext,
+    client: GitHubClient,
+    diagnostic: MessageSink,
+) -> ArtifactSizeResolver:
+    return ArtifactSizeResolver(
+        {
+            "container": ContainerArtifactSizeAdapter(
+                manifest_inspector=GHCRManifestInspector(
+                    client,
+                    diagnostic=diagnostic,
+                ),
+                hosted_inspector=GHCRBadgeSizeInspector(
+                    client,
+                    application.metric_enrichment,
+                    diagnostic=diagnostic,
+                ),
+                diagnostic=diagnostic,
+                local_inspector=DockerSizeInspector(
+                    application.process_runner,
+                    application.artifact_size_enrichment["docker"],
+                    DockerSizeSettings(
+                        enabled=application.config.docker_size_fallback,
+                        platform=application.config.docker_platform,
+                        pull_timeout=application.config.docker_pull_timeout,
+                        command_timeout=application.config.docker_command_timeout,
+                    ),
+                    diagnostic=diagnostic,
+                ),
+            ),
+            "maven": MavenArtifactSizeAdapter(
+                client,
+                application.artifact_size_enrichment["maven"],
+                diagnostic=diagnostic,
+            ),
+            "npm": NpmArtifactSizeAdapter(
+                client.package_registry,
+                application.artifact_size_enrichment["npm"],
+                diagnostic=diagnostic,
+            ),
+            "nuget": NuGetArtifactSizeAdapter(
+                client.package_registry,
+                application.artifact_size_enrichment["nuget"],
+                diagnostic=diagnostic,
+            ),
+            "rubygems": RubyGemsArtifactSizeAdapter(
+                client.package_registry,
+                application.artifact_size_enrichment["rubygems"],
+                diagnostic=diagnostic,
+            ),
+        }
     )
 
 

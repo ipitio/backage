@@ -18,6 +18,11 @@ from typing import Any, cast
 import httpx
 
 from .files import atomic_binary_output
+from .registry_transport import (
+    PackageRegistryTransport,
+    PackageRegistryTransportRuntime,
+    PackageRegistryTransportSettings,
+)
 from .runtime import GracefulStop
 from .state import StateStore
 
@@ -440,6 +445,21 @@ class GitHubClient:
                 max_keepalive_connections=10,
             ),
             follow_redirects=True,
+        )
+        self.package_registry = PackageRegistryTransport(
+            self._client,
+            PackageRegistryTransportSettings(
+                token=settings.token,
+                user_agent=settings.user_agent,
+                connect_timeout=settings.connect_timeout,
+                read_timeout=settings.read_timeout,
+                write_timeout=settings.write_timeout,
+                pool_timeout=settings.pool_timeout,
+            ),
+            PackageRegistryTransportRuntime(
+                check_stop=self.runtime.check_stop,
+                clock=self.runtime.clock,
+            ),
         )
 
     def __enter__(self) -> GitHubClient:
@@ -971,14 +991,3 @@ def _response_retry_delay(response: httpx.Response) -> float | None:
         except ValueError:
             pass
     return None
-
-
-def dump_json(value: object) -> str:
-    """Serialize API output compactly without altering Unicode."""
-
-    return json.dumps(
-        value,
-        ensure_ascii=False,
-        allow_nan=False,
-        separators=(",", ":"),
-    )

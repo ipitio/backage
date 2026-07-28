@@ -3,12 +3,18 @@
 from __future__ import annotations
 
 import json
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 import pytest
 
 import bkg_py.package_updates
+from bkg_py.artifact_sizes import (
+    ArtifactSizeRequest,
+    ArtifactSizeResolver,
+    ArtifactSizeResult,
+    ArtifactSizeSemantics,
+)
 from bkg_py.concurrency import BoundedWorkerRunner, ConcurrencySettings
 from bkg_py.database import (
     DatabaseRepository,
@@ -78,11 +84,29 @@ def _package_record(package: PackageRef) -> PackageRecord:
     )
 
 
-def _execution(optout_file: Path) -> PackageRefreshExecution:
+@dataclass(frozen=True)
+class _FixedSizeAdapter:
+    size: int
+
+    def resolve(self, request: ArtifactSizeRequest) -> ArtifactSizeResult:
+        """Return one fixed compressed-download size."""
+
+        return ArtifactSizeResult(
+            self.size,
+            ArtifactSizeSemantics.COMPRESSED_DOWNLOAD,
+            f"test-{request.context.package_type}-metadata",
+        )
+
+
+def _execution(
+    optout_file: Path,
+    *,
+    size_resolver: ArtifactSizeResolver | None = None,
+) -> PackageRefreshExecution:
     return PackageRefreshExecution(
         version=VersionRefreshExecution(
             BoundedWorkerRunner(ConcurrencySettings(max_workers=1)),
-            lambda _reference: "",
+            ArtifactSizeResolver() if size_resolver is None else size_resolver,
             today=lambda: _TODAY,
         ),
         selection=VersionSelectionSettings(
@@ -191,7 +215,10 @@ def test_refresh_commits_versions_package_and_publication(
     result = PackageRefreshService(
         repository,
         client,
-        _execution(optout_file),
+        _execution(
+            optout_file,
+            size_resolver=ArtifactSizeResolver({"npm": _FixedSizeAdapter(0)}),
+        ),
     ).refresh(_request(package, destination))
 
     assert result.outcome == "refreshed"
@@ -203,7 +230,7 @@ def test_refresh_commits_versions_package_and_publication(
     assert not repository.package_publication_pending(package)
     rendered = json.loads(destination.read_text(encoding="utf-8"))
     assert rendered["raw_downloads"] == 1_500
-    assert rendered["raw_size"] == -1
+    assert rendered["raw_size"] == 0
     assert rendered["version"][0]["id"] == 7
     assert client.rest_requests == [api_path]
     assert client.text_requests == [package_url, version_url]

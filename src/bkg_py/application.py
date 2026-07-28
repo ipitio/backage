@@ -44,6 +44,10 @@ class ApplicationContext:
     stop: StopController
     metric_enrichment: RequestCircuit = field(init=False, repr=False)
     version_listing_recovery: RequestCircuit = field(init=False, repr=False)
+    artifact_size_enrichment: dict[str, RequestCircuit] = field(
+        init=False,
+        repr=False,
+    )
     _lock_diagnostic: Callable[[str], None] | None = field(
         default=None,
         init=False,
@@ -113,6 +117,14 @@ class ApplicationContext:
             RequestCircuitSettings(
                 max_concurrent=self.config.parallel_async_max_jobs,
             ),
+            check_stop=self.stop.check,
+        )
+        self.artifact_size_enrichment = {
+            package_type: RequestCircuit(check_stop=self.stop.check)
+            for package_type in ("maven", "npm", "nuget", "rubygems")
+        }
+        self.artifact_size_enrichment["docker"] = RequestCircuit(
+            RequestCircuitSettings(max_concurrent=1),
             check_stop=self.stop.check,
         )
 

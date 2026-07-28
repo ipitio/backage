@@ -328,12 +328,11 @@ class PackageRefreshService:  # pylint: disable=too-few-public-methods
                 self.client,
                 VersionRefreshExecution(
                     execution.worker_runner,
-                    execution.manifest_inspector,
+                    execution.size_resolver,
                     diagnostic=execution.diagnostic,
                     today=lambda: today,
                     metric_enrichment=execution.metric_enrichment,
                     listing_recovery=execution.listing_recovery,
-                    hosted_size_inspector=execution.hosted_size_inspector,
                 ),
             ).refresh(
                 VersionRefreshRequest(
@@ -457,7 +456,7 @@ def _package_record(
     today: str,
 ) -> PackageRecord:
     newest_sized = max(
-        (version for version in versions if version.metrics.size > 1),
+        (version for version in versions if version.metrics.size >= 0),
         key=lambda version: (_numeric_version_id(version.version_id), version.date),
         default=None,
     )

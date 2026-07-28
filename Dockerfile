@@ -1,8 +1,10 @@
 ARG PYTHON_VERSION=3.14
 ARG UV_VERSION=0.11
+ARG DOCKER_VERSION=29.1
 FROM python:${PYTHON_VERSION}-slim-bookworm AS python-base
 
 FROM ghcr.io/astral-sh/uv:${UV_VERSION} AS uv
+FROM docker:${DOCKER_VERSION}-cli AS docker-cli
 
 FROM python-base AS build
 
@@ -32,8 +34,10 @@ RUN apt-get update \
         zstd \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=build /opt/bkg /opt/bkg
+COPY --from=docker-cli /usr/local/bin/docker /usr/local/bin/docker
 COPY . .
 RUN BKG_INDEX_DB=/tmp/index.db python -c \
         "from bkg_py.database import DatabaseRepository, DatabaseSettings; DatabaseRepository(DatabaseSettings.from_env()).ensure_schema()" \
     && python -c "import bkg_py, compression.zstd, httpx" \
+    && docker --version \
     && rm -f /tmp/index.db

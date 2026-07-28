@@ -38,6 +38,7 @@ class CommandResult:
     returncode: int
     stdout: bytes
     stderr: bytes
+    timed_out: bool = False
 
 
 @dataclass(frozen=True)
@@ -56,6 +57,12 @@ class CommandOptions:
     cwd: str | os.PathLike[str] | None = None
     env: Mapping[str, str] | None = None
     combine_output: bool = False
+    timeout: float | None = None
+    interruptible: bool = True
+
+    def __post_init__(self) -> None:
+        if self.timeout is not None and self.timeout <= 0:
+            raise ValueError("command timeout must be positive")
 
 
 def resolve_executable(
@@ -357,7 +364,14 @@ class ProcessRunner:
             resolve_executable(command[0], cwd=options.cwd, env=options.env),
             *(os.fspath(part) for part in command[1:]),
         )
-        self.stop.check()
+        if options.interruptible:
+            self.stop.check()
+        deadline = (
+            None
+            if options.timeout is None
+            else self.stop.timing.clock() + options.timeout
+        )
+        timed_out = False
 
         with (
             (
@@ -379,7 +393,24 @@ class ProcessRunner:
         ):
             try:
                 while process.poll() is None:
-                    self.stop.sleep(self.poll_interval)
+                    remaining = (
+                        None
+                        if deadline is None
+                        else deadline - self.stop.timing.clock()
+                    )
+                    if remaining is not None and remaining <= 0:
+                        timed_out = True
+                        self._terminate(process)
+                        break
+                    delay = (
+                        self.poll_interval
+                        if remaining is None
+                        else min(self.poll_interval, remaining)
+                    )
+                    if options.interruptible:
+                        self.stop.sleep(delay)
+                    else:
+                        time.sleep(delay)
             except BaseException:
                 self._terminate(process)
                 raise
@@ -399,6 +430,7 @@ class ProcessRunner:
             returncode=returncode,
             stdout=stdout,
             stderr=stderr,
+            timed_out=timed_out,
         )
 
     def _terminate(self, process: subprocess.Popen[bytes]) -> None:

@@ -17,6 +17,7 @@ from .github import (
 
 StopCheck = Callable[[], None]
 Clock = Callable[[], float]
+DiagnosticSink = Callable[[str], None]
 
 METRIC_TEXT_REQUEST_POLICY = GitHubTextRequestPolicy(
     total_timeout=30.0,
@@ -30,6 +31,28 @@ VERSION_METRIC_SCOPE = "version"
 
 def _ignore_stop() -> None:
     pass
+
+
+def _ignore_diagnostic(_message: str) -> None:
+    pass
+
+
+class DeduplicatedDiagnostics:  # pylint: disable=too-few-public-methods
+    """Emit at most one diagnostic for each process-scoped condition key."""
+
+    def __init__(self, sink: DiagnosticSink = _ignore_diagnostic) -> None:
+        self._sink = sink
+        self._reported: set[str] = set()
+        self._lock = Lock()
+
+    def report(self, key: str, message: str) -> None:
+        """Emit one message unless its condition key was already reported."""
+
+        with self._lock:
+            if key in self._reported:
+                return
+            self._reported.add(key)
+        self._sink(message)
 
 
 @dataclass(frozen=True)

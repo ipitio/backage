@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+from bkg_py.artifact_sizes import ArtifactSizeResolver
 from bkg_py.concurrency import BoundedWorkerRunner, ConcurrencySettings
 from bkg_py.database import (
     DatabaseRepository,
@@ -54,7 +55,7 @@ def _execution(
         PackageRefreshExecution(
             VersionRefreshExecution(
                 BoundedWorkerRunner(settings),
-                lambda _reference: "",
+                ArtifactSizeResolver(),
                 diagnostic=diagnostics.append,
             ),
             VersionSelectionSettings(),

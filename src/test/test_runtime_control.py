@@ -238,6 +238,47 @@ class TestRuntimeControl:
             assert succeeded.returncode == 0
             assert destination.read_text(encoding="utf-8") == "complete\n"
 
+    def test_process_runner_terminates_command_at_its_deadline(self) -> None:
+        """A command-specific timeout returns a structured timed-out result."""
+
+        with tempfile.TemporaryDirectory() as directory:
+            state_path = Path(directory) / "env.env"
+            state_path.touch()
+            runner = ProcessRunner(
+                StopController(StateStore(state_path), max_duration=0),
+                poll_interval=0.01,
+                termination_grace=0.1,
+            )
+
+            started_at = time.monotonic()
+            result = runner.run(
+                [sys.executable, "-c", "import time; time.sleep(30)"],
+                options=CommandOptions(timeout=0.05),
+            )
+
+            assert result.timed_out
+            assert result.returncode != 0
+            assert time.monotonic() - started_at < 1
+
+    def test_process_runner_allows_bounded_cleanup_after_stop(self) -> None:
+        """A non-interruptible cleanup command can run after stop persistence."""
+
+        with tempfile.TemporaryDirectory() as directory:
+            state_path = Path(directory) / "env.env"
+            state_path.touch()
+            controller = StopController(StateStore(state_path), max_duration=0)
+            controller.request_stop("elapsed")
+            runner = ProcessRunner(controller)
+
+            result = runner.run(
+                [sys.executable, "-c", "print('cleaned')"],
+                options=CommandOptions(timeout=1, interruptible=False),
+            )
+
+            assert result.returncode == 0
+            assert not result.timed_out
+            assert result.stdout == b"cleaned\n"
+
     def test_process_runner_kills_blocked_process_group(self) -> None:
         """A stop terminates both a blocked command and its child."""
 

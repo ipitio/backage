@@ -3,10 +3,15 @@
 from __future__ import annotations
 
 import sqlite3
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
 
+from bkg_py.artifact_sizes import (
+    ArtifactSizeResolver,
+    ContainerArtifactSizeAdapter,
+)
 from bkg_py.concurrency import BoundedWorkerRunner, ConcurrencySettings
 from bkg_py.database import (
     DatabaseRepository,
@@ -46,6 +51,28 @@ _CONTEXT = VersionListingContext(
     package_type="container",
     package="Nested%2FImage",
 )
+
+
+def _no_manifest(_reference: str) -> str:
+    return ""
+
+
+def _no_hosted_size(_owner: str, _package: str, _reference: str) -> int:
+    return -1
+
+
+def _size_resolver(
+    manifest_inspector: Callable[[str], str] = _no_manifest,
+    hosted_inspector: Callable[[str, str, str], int] = _no_hosted_size,
+) -> ArtifactSizeResolver:
+    return ArtifactSizeResolver(
+        {
+            "container": ContainerArtifactSizeAdapter(
+                manifest_inspector,
+                hosted_inspector,
+            )
+        }
+    )
 
 
 def _detail_url(version_id: str, *, package_type: str = "container") -> str:
@@ -119,7 +146,9 @@ def test_detail_inspector_uses_embedded_manifest_and_oci_label() -> None:
         client,
         _CONTEXT,
         VersionDetailExecution(
-            lambda reference: inspected_references.append(reference) or ""
+            _size_resolver(
+                lambda reference: inspected_references.append(reference) or ""
+            )
         ),
     )
 
@@ -144,11 +173,13 @@ def test_detail_inspector_leaves_unknown_size_after_manifest_fallbacks() -> None
         client,
         _CONTEXT,
         VersionDetailExecution(
-            lambda reference: references.append(reference) or "",
-            authenticated=True,
-            hosted_size_inspector=lambda _owner, _package, _reference: pytest.fail(
-                "private-capable refresh used hosted size fallback"
+            _size_resolver(
+                lambda reference: references.append(reference) or "",
+                lambda _owner, _package, _reference: pytest.fail(
+                    "private-capable refresh used hosted size fallback"
+                ),
             ),
+            authenticated=True,
         ),
     )
 
@@ -177,9 +208,10 @@ def test_detail_inspector_uses_hosted_size_after_manifest_fallbacks() -> None:
         client,
         _CONTEXT,
         VersionDetailExecution(
-            lambda _reference: "",
-            hosted_size_inspector=lambda owner, package, reference: (
-                hosted_requests.append((owner, package, reference)) or 4_000_000
+            _size_resolver(
+                hosted_inspector=lambda owner, package, reference: (
+                    hosted_requests.append((owner, package, reference)) or 4_000_000
+                )
             ),
         ),
     )
@@ -210,9 +242,10 @@ def test_refresh_can_disable_hosted_size_without_authenticating_html(
         client,
         VersionRefreshExecution(
             BoundedWorkerRunner(ConcurrencySettings(max_workers=1)),
-            lambda _reference: "",
-            hosted_size_inspector=lambda owner, package_name, reference: (
-                hosted_requests.append((owner, package_name, reference)) or 1
+            _size_resolver(
+                hosted_inspector=lambda owner, package_name, reference: (
+                    hosted_requests.append((owner, package_name, reference)) or 1
+                )
             ),
         ),
     )
@@ -242,7 +275,7 @@ def test_detail_inspector_uses_registry_manifest_after_page_fallback() -> None:
         client,
         _CONTEXT,
         VersionDetailExecution(
-            lambda _reference: '{"layers":[{"size":10},{"size":20}]}'
+            _size_resolver(lambda _reference: '{"layers":[{"size":10},{"size":20}]}')
         ),
     )
 
@@ -268,7 +301,7 @@ def test_detail_inspector_uses_package_page_for_fallback_candidate() -> None:
     inspector = VersionDetailInspector(
         client,
         package_context,
-        VersionDetailExecution(lambda _reference: ""),
+        VersionDetailExecution(_size_resolver()),
     )
 
     record = inspector.inspect(VersionCandidate("-1", "latest"), today=_TODAY)
@@ -302,7 +335,7 @@ def test_refresh_skips_existing_versions_and_flushes_one_batch(tmp_path: Path) -
         client,
         VersionRefreshExecution(
             BoundedWorkerRunner(ConcurrencySettings(max_workers=2)),
-            lambda _reference: "",
+            _size_resolver(),
             lambda _message: None,
             lambda: _TODAY,
         ),
@@ -344,7 +377,7 @@ def test_force_refresh_reinspects_existing_same_day_versions(tmp_path: Path) -> 
         client,
         VersionRefreshExecution(
             BoundedWorkerRunner(ConcurrencySettings(max_workers=1)),
-            lambda _reference: "",
+            _size_resolver(),
             today=lambda: _TODAY,
         ),
     )
@@ -396,7 +429,7 @@ def test_refresh_pauses_failing_detail_requests_and_preserves_stored_metrics(
         client,
         VersionRefreshExecution(
             BoundedWorkerRunner(ConcurrencySettings(max_workers=3)),
-            lambda _reference: "",
+            _size_resolver(),
             diagnostic=diagnostics.append,
             today=lambda: _TODAY,
             metric_enrichment=RequestCircuit(
@@ -483,7 +516,7 @@ def test_refresh_flushes_completed_rows_before_graceful_stop(tmp_path: Path) -> 
                 ConcurrencySettings(max_workers=1),
                 check_stop=check_stop,
             ),
-            lambda _reference: "",
+            _size_resolver(),
             lambda _message: None,
             lambda: _TODAY,
         ),

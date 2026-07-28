@@ -46,6 +46,18 @@ def _env_positive_float(name: str, default: float) -> float:
     return parsed if parsed > 0 else default
 
 
+def _env_bool(name: str, default: bool) -> bool:
+    value = os.environ.get(name)
+    if value is None or value == "":
+        return default
+    normalized = value.casefold()
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "off"}:
+        return False
+    return default
+
+
 def _default_parallel_jobs() -> int:
     return max(1, (os.process_cpu_count() or 1) * 2)
 
@@ -80,6 +92,10 @@ class RuntimeConfig:  # pylint: disable=too-many-instance-attributes
     snapshot_rotation_threshold_bytes: int = 2_000_000_000
     parallel_async_max_jobs: int = field(default_factory=_default_parallel_jobs)
     owner_update_stop_grace: float = 180.0
+    docker_size_fallback: bool = False
+    docker_platform: str = "linux/amd64"
+    docker_pull_timeout: float = 300.0
+    docker_command_timeout: float = 30.0
 
     @classmethod
     def from_env(cls) -> RuntimeConfig:
@@ -146,9 +162,19 @@ class RuntimeConfig:  # pylint: disable=too-many-instance-attributes
                 "BKG_OWNER_UPDATE_STOP_GRACE",
                 180.0,
             ),
+            docker_size_fallback=_env_bool("BKG_DOCKER_SIZE_FALLBACK", False),
+            docker_platform=(os.environ.get("BKG_DOCKER_PLATFORM") or "linux/amd64"),
+            docker_pull_timeout=_env_positive_float(
+                "BKG_DOCKER_PULL_TIMEOUT",
+                300.0,
+            ),
+            docker_command_timeout=_env_positive_float(
+                "BKG_DOCKER_COMMAND_TIMEOUT",
+                30.0,
+            ),
         )
 
-    def as_dict(self) -> dict[str, float | int | str | None]:
+    def as_dict(self) -> dict[str, bool | float | int | str | None]:
         """Return a JSON-serializable representation of this configuration."""
 
         return asdict(self)

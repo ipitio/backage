@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Iterator
 from pathlib import Path
 
 import httpx
@@ -19,11 +20,21 @@ from bkg_py.github import (
     GitHubTextRequestPolicy,
     GitHubTransportError,
 )
+from bkg_py.registry_transport import (
+    PackageRegistryDecodeError,
+    PackageRegistryError,
+    PackageRegistryResource,
+)
 from bkg_py.runtime import GracefulStop
 from bkg_py.state import StateStore
 
 TEST_TOKEN = "github_pat_secret"
 TEST_REGISTRY_TOKEN = "registry-token"
+
+
+class _UnreadableStream(httpx.SyncByteStream):
+    def __iter__(self) -> Iterator[bytes]:
+        raise AssertionError("range-ignoring response body was consumed")
 
 
 def _settings(**overrides: object) -> GitHubSettings:
@@ -685,3 +696,99 @@ def test_interrupted_download_preserves_destination(tmp_path: Path) -> None:
     with pytest.raises(GracefulStop):
         client.download("https://objects.example/asset.db", destination)
     assert destination.read_bytes() == b"old"
+
+
+def test_package_registry_metadata_is_authenticated_and_bounded() -> None:
+    """Registry metadata uses its designated host and a strict response limit."""
+
+    def respond(request: httpx.Request) -> httpx.Response:
+        assert request.url == "https://npm.pkg.github.com/@example%2Fdemo"
+        assert request.headers["authorization"] == f"Bearer {TEST_TOKEN}"
+        assert request.headers["accept"] == "application/json"
+        return httpx.Response(200, content=b"1234")
+
+    client = _client(httpx.MockTransport(respond))
+    resource = PackageRegistryResource(
+        "https://npm.pkg.github.com/@example%2Fdemo",
+        frozenset({"npm.pkg.github.com"}),
+        frozenset({"npm.pkg.github.com"}),
+        accept="application/json",
+    )
+
+    assert client.package_registry.read_bytes(resource, max_bytes=4) == b"1234"
+    with pytest.raises(PackageRegistryDecodeError, match="byte limit"):
+        client.package_registry.read_bytes(resource, max_bytes=3)
+
+
+def test_package_registry_size_strips_credentials_from_approved_redirect() -> None:
+    """A signed storage redirect retains the range but never the GitHub token."""
+
+    def respond(request: httpx.Request) -> httpx.Response:
+        assert request.headers["range"] == "bytes=0-0"
+        if request.url.host == "npm.pkg.github.com":
+            assert request.headers["authorization"] == f"Bearer {TEST_TOKEN}"
+            return httpx.Response(
+                302,
+                headers={
+                    "location": "https://pkg-npm.githubusercontent.com/blob?sig=value"
+                },
+            )
+        assert request.url.host == "pkg-npm.githubusercontent.com"
+        assert "authorization" not in request.headers
+        return httpx.Response(206, headers={"content-range": "bytes 0-0/1403"})
+
+    client = _client(httpx.MockTransport(respond))
+    resource = PackageRegistryResource(
+        "https://npm.pkg.github.com/download/example",
+        frozenset({"npm.pkg.github.com", "pkg-npm.githubusercontent.com"}),
+        frozenset({"npm.pkg.github.com"}),
+    )
+
+    probe = client.package_registry.probe_size(resource)
+
+    assert probe.size == 1403
+    assert probe.reason is None
+
+
+def test_package_registry_rejects_unapproved_redirect_before_requesting_it() -> None:
+    """Metadata cannot redirect a credentialed request to an arbitrary host."""
+
+    requests: list[str] = []
+
+    def respond(request: httpx.Request) -> httpx.Response:
+        requests.append(request.url.host)
+        return httpx.Response(
+            302,
+            headers={"location": "https://packages.example/archive"},
+        )
+
+    client = _client(httpx.MockTransport(respond))
+    resource = PackageRegistryResource(
+        "https://npm.pkg.github.com/download/example",
+        frozenset({"npm.pkg.github.com"}),
+        frozenset({"npm.pkg.github.com"}),
+    )
+
+    with pytest.raises(PackageRegistryError, match="URL is not allowed"):
+        client.package_registry.probe_size(resource)
+    assert requests == ["npm.pkg.github.com"]
+
+
+def test_package_registry_range_ignoring_response_is_not_consumed() -> None:
+    """A server returning 200 cannot make a size probe download its archive."""
+
+    client = _client(
+        httpx.MockTransport(
+            lambda _request: httpx.Response(200, stream=_UnreadableStream())
+        )
+    )
+    resource = PackageRegistryResource(
+        "https://npm.pkg.github.com/download/example",
+        frozenset({"npm.pkg.github.com"}),
+        frozenset({"npm.pkg.github.com"}),
+    )
+
+    probe = client.package_registry.probe_size(resource)
+
+    assert probe.size == -1
+    assert probe.reason == "range-ignored"

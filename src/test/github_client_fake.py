@@ -7,6 +7,37 @@ from collections.abc import Callable, Mapping
 import httpx
 
 from bkg_py.github import GitHubJsonResponse, GitHubTextRequestPolicy
+from bkg_py.registry_transport import (
+    PackageRegistryResource,
+    PackageRegistrySizeProbe,
+)
+
+
+class UnexpectedPackageRegistryClient:
+    """Reject registry requests that a test did not explicitly configure."""
+
+    def read_bytes(
+        self,
+        resource: PackageRegistryResource,
+        *,
+        max_bytes: int,
+    ) -> bytes:
+        """Reject an unexpected metadata read."""
+
+        raise AssertionError(
+            f"unexpected package registry metadata request: {resource.url}; "
+            f"max_bytes={max_bytes}"
+        )
+
+    def probe_size(
+        self,
+        resource: PackageRegistryResource,
+    ) -> PackageRegistrySizeProbe:
+        """Reject an unexpected archive probe."""
+
+        raise AssertionError(
+            f"unexpected package registry archive request: {resource.url}"
+        )
 
 
 class FakeGitHubClient:
@@ -24,6 +55,7 @@ class FakeGitHubClient:
         self.text_requests: list[str] = []
         self.text_authentication: list[bool] = []
         self.text_policies: list[GitHubTextRequestPolicy | None] = []
+        self.package_registry = UnexpectedPackageRegistryClient()
 
     def rest_json(self, path: str) -> GitHubJsonResponse:
         """Return one configured REST response."""
