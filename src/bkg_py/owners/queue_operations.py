@@ -10,6 +10,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Protocol
 
+from ..database import OwnerQueueAdmission, OwnerQueueEntry
 from ..files import atomic_text_output
 from ..state import StateStore
 from .queue import OwnerQueuePaths, OwnerQueueSelector, normalize_owner_lines
@@ -31,11 +32,31 @@ class OwnerCandidateResolver(Protocol):  # pylint: disable=too-few-public-method
         raise NotImplementedError
 
 
-class DeferredOwnerRepository(Protocol):  # pylint: disable=too-few-public-methods
-    """Database read needed to exclude owners still under retry backoff."""
+class DurableOwnerQueueRepository(Protocol):
+    """Database operations needed by owner queue preparation."""
 
     def deferred_owners(self, now: int) -> tuple[tuple[str, int], ...]:
         """Return owner names and future retry timestamps."""
+
+        raise NotImplementedError
+
+    def admit_owner_queue(
+        self,
+        generation: str,
+        admissions: tuple[OwnerQueueAdmission, ...],
+        now: int,
+    ) -> tuple[OwnerQueueEntry, ...]:
+        """Add or promote canonical owner work."""
+
+        raise NotImplementedError
+
+    def owner_queue_entries(
+        self,
+        generation: str,
+        *,
+        status: str | None = None,
+    ) -> tuple[OwnerQueueEntry, ...]:
+        """Return remaining owner work in deterministic order."""
 
         raise NotImplementedError
 
@@ -51,7 +72,7 @@ class OwnerQueuePreparationPaths:
 
 
 @dataclass(frozen=True)
-class OwnerQueuePreparationRequest:
+class OwnerQueuePreparationRequest:  # pylint: disable=too-many-instance-attributes
     """Run decisions used while constructing one owner queue."""
 
     paths: OwnerQueuePreparationPaths
@@ -60,6 +81,7 @@ class OwnerQueuePreparationRequest:
     current_owner: str
     include_manual: bool
     now: int
+    batch_marker: str
     excluded_owners: tuple[str, ...] = ()
 
 
@@ -78,7 +100,7 @@ class OwnerQueuePreparationResult:
 class OwnerQueuePreparationServices:
     """Stateful services used while preparing an owner queue."""
 
-    repository: DeferredOwnerRepository
+    repository: DurableOwnerQueueRepository
     resolver: OwnerCandidateResolver
     state: StateStore
     retire_owner: RetireOwner
@@ -128,8 +150,18 @@ class OwnerQueuePreparationService:  # pylint: disable=too-few-public-methods
             owner for owner, _reason in selected
         )
         self._record_discovered(resolved, connections)
-        queued = self._queue_resolved(resolved, selected)
+        queued = self._queue_resolved(
+            resolved,
+            selected,
+            request.batch_marker,
+            request.now,
+        )
         missing_count = self._retire_missing(missing)
+        _project_owner_queue(
+            self.services.repository,
+            self.services.state,
+            request.batch_marker,
+        )
 
         return OwnerQueuePreparationResult(
             candidates=len(selected),
@@ -192,17 +224,28 @@ class OwnerQueuePreparationService:  # pylint: disable=too-few-public-methods
         self,
         resolved: tuple[str, ...],
         selected: list[tuple[str, str]],
+        batch_marker: str,
+        now: int,
     ) -> int:
         reason_by_owner: dict[str, str] = {}
         for owner, reason in selected:
             reason_by_owner.setdefault(_owner_key(owner), reason)
         for _owner_ref in resolved:
             self.execution.check_stop()
-        added = self.services.state.add_many_to_set("BKG_OWNERS_QUEUE", resolved)
-        for owner_ref in added:
-            owner = _owner_login(owner_ref)
-            reason = reason_by_owner.get(owner.casefold(), "discovered")
-            self.execution.progress(f"Queued {owner} (reason: {reason})")
+        admissions = tuple(
+            _owner_admission(
+                owner_ref,
+                reason_by_owner.get(_owner_key(owner_ref), "discovered"),
+            )
+            for owner_ref in resolved
+        )
+        added = self.services.repository.admit_owner_queue(
+            batch_marker,
+            admissions,
+            now,
+        )
+        for entry in added:
+            self.execution.progress(f"Queued {entry.owner} (reason: {entry.reason})")
         return len(added)
 
     def _retire_missing(self, missing: tuple[str, ...]) -> int:
@@ -222,18 +265,25 @@ class TargetedOwnerQueueResult:
     missing: int
 
 
+@dataclass(frozen=True)
+class TargetedOwnerQueueServices:
+    """Stateful services used by targeted owner admission."""
+
+    repository: DurableOwnerQueueRepository
+    resolver: OwnerCandidateResolver
+    state: StateStore
+
+
 class TargetedOwnerQueueService:  # pylint: disable=too-few-public-methods
     """Resolve and queue every owner selected by a targeted update mode."""
 
     def __init__(
         self,
-        resolver: OwnerCandidateResolver,
-        state: StateStore,
+        services: TargetedOwnerQueueServices,
         check_stop: StopCheck,
         progress: MessageSink,
     ) -> None:
-        self.resolver = resolver
-        self.state = state
+        self.services = services
         self.check_stop = check_stop
         self.progress = progress
 
@@ -241,34 +291,78 @@ class TargetedOwnerQueueService:  # pylint: disable=too-few-public-methods
         self,
         current_owner: str,
         connections_path: Path,
+        batch_marker: str,
+        now: int,
     ) -> TargetedOwnerQueueResult:
         """Persist all resolvable configured-owner and membership candidates."""
 
         return self._prepare(
-            normalize_owner_lines((current_owner, *_read_lines(connections_path)))
+            normalize_owner_lines((current_owner, *_read_lines(connections_path))),
+            batch_marker,
+            "targeted",
+            now,
         )
 
-    def prepare_optouts(self, optout_path: Path) -> TargetedOwnerQueueResult:
+    def prepare_optouts(
+        self,
+        optout_path: Path,
+        batch_marker: str,
+        now: int,
+    ) -> TargetedOwnerQueueResult:
         """Persist every resolvable owner named by an opt-out entry."""
 
         return self._prepare(
             normalize_owner_lines(
                 line.split("/", maxsplit=1)[0] for line in _read_lines(optout_path)
-            )
+            ),
+            batch_marker,
+            "optout",
+            now,
         )
 
     def _prepare(
         self,
         candidates: tuple[str, ...],
+        batch_marker: str,
+        reason: str,
+        now: int,
     ) -> TargetedOwnerQueueResult:
         self.check_stop()
-        resolved, missing = self.resolver.resolve_candidates(candidates)
+        resolved, missing = self.services.resolver.resolve_candidates(candidates)
         for _owner_ref in resolved:
             self.check_stop()
-        added = self.state.add_many_to_set("BKG_OWNERS_QUEUE", resolved)
-        for owner_ref in added:
-            self.progress(f"Queued {_owner_login(owner_ref)}")
+        added = self.services.repository.admit_owner_queue(
+            batch_marker,
+            tuple(_owner_admission(owner_ref, reason) for owner_ref in resolved),
+            now,
+        )
+        _project_owner_queue(
+            self.services.repository,
+            self.services.state,
+            batch_marker,
+        )
+        for entry in added:
+            self.progress(f"Queued {entry.owner}")
         return TargetedOwnerQueueResult(len(candidates), len(added), len(missing))
+
+
+def _project_owner_queue(
+    repository: DurableOwnerQueueRepository,
+    state: StateStore,
+    batch_marker: str,
+) -> tuple[str, ...]:
+    entries = repository.owner_queue_entries(batch_marker)
+    return state.replace_set(
+        "BKG_OWNERS_QUEUE",
+        (entry.ref for entry in entries),
+    )
+
+
+def _owner_admission(owner_ref: str, reason: str) -> OwnerQueueAdmission:
+    owner_id, separator, owner = owner_ref.partition("/")
+    if not separator:
+        raise ValueError(f"invalid resolved owner reference: {owner_ref}")
+    return OwnerQueueAdmission(owner_id, owner, reason)
 
 
 def _prepare_connections(paths: OwnerQueuePreparationPaths) -> tuple[str, ...]:

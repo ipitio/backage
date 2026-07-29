@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import sqlite3
+from datetime import date
 from pathlib import Path
 
 import pytest
@@ -90,6 +91,7 @@ def test_update_workflow_clones_restores_runs_and_publishes(
             root=Path("checkout"),
             invocation_directory=invocation,
             clone_url=remote.as_uri(),
+            run_date=date(2026, 7, 28),
         ),
         UpdateWorkflowExecution(run_application=run_application),
     )
@@ -98,6 +100,7 @@ def test_update_workflow_clones_restores_runs_and_publishes(
     assert len(observed_options) == 1
     assert observed_options[0].source_published_today
     assert observed_options[0].working_directory == invocation / "checkout/src"
+    assert observed_options[0].run_date == date(2026, 7, 28)
     assert os.environ["BKG_INDEX_DB"] == "outer.db"
     assert git(remote, "show", "index:generated.json").stdout == "{}\n"
     assert git(remote, "show", "master:README.md").stdout == "updated source\n"

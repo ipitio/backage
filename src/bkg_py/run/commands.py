@@ -6,7 +6,7 @@ import argparse
 import sys
 from collections.abc import Callable
 from dataclasses import dataclass, replace
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 
 from ..application import ApplicationContext
@@ -41,6 +41,7 @@ class RunCommandOptions:
     source_published_today: bool = False
     working_directory: Path = Path()
     owner_request_limit: int = 100
+    run_date: date | None = None
 
 
 @dataclass(frozen=True)
@@ -64,6 +65,7 @@ def run_application(
             source_published_today=args.source_published_today == "true",
             working_directory=Path(args.working_directory),
             owner_request_limit=args.owner_request_limit,
+            run_date=args.run_date,
         ),
         application,
     )
@@ -100,8 +102,9 @@ def prepare_application_run(
         config,
         started_at_epoch=started_at,
     )
+    run_date = options.run_date or started.date()
     request = RunCoordinatorRequest(
-        today=started.date().isoformat(),
+        today=run_date.isoformat(),
         started_at=started_at,
         mode=config.mode,
         github_owner=config.github_owner,

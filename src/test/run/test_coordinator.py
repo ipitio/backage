@@ -58,6 +58,8 @@ class FakeRunPhases:  # pylint: disable=too-many-instance-attributes
         self.updated_owner_queues: list[tuple[str, ...]] = []
         self.materialized: tuple[str, ...] = ()
         self.owner_request: OwnerBatchRequest | None = None
+        self.ready_owner_queue: list[str] = []
+        self.paused_owner_queue: list[str] = []
 
     def prepare_run(self, request: RunCoordinatorRequest) -> RunStartupResult:
         """Return configured startup values and initialize batch state."""
@@ -91,9 +93,10 @@ class FakeRunPhases:  # pylint: disable=too-many-instance-attributes
         del today, connections_file, packages_all_file
         self._record(f"discover:{str(skip_explore).lower()}")
 
-    def prepare_optout_owner_queue(self) -> None:
+    def prepare_optout_owner_queue(self, batch_marker: str, now: int) -> None:
         """Record and populate the opt-out owner queue."""
 
+        del batch_marker, now
         self._record("optout-queue")
         self._queue_owners()
 
@@ -121,7 +124,7 @@ class FakeRunPhases:  # pylint: disable=too-many-instance-attributes
         self.owner_queue_requests.append(request)
         batch_index = len(self.owner_queue_requests) - 1
         if self.owner_queue_batches is None:
-            batch = ("1/one", "2/two", "3/one")
+            batch = ("1/one", "2/two")
             may_have_more = False
         else:
             batch = (
@@ -130,7 +133,7 @@ class FakeRunPhases:  # pylint: disable=too-many-instance-attributes
                 else ()
             )
             may_have_more = batch_index + 1 < len(self.owner_queue_batches)
-        self.state.replace_set("BKG_OWNERS_QUEUE", batch)
+        self._add_ready(batch)
         selected = tuple(owner.rsplit("/", maxsplit=1)[-1] for owner in batch)
         return OwnerQueuePreparationResult(
             len(selected),
@@ -140,12 +143,45 @@ class FakeRunPhases:  # pylint: disable=too-many-instance-attributes
             may_have_more,
         )
 
-    def prepare_targeted_owner_queue(self, connections_file: Path) -> None:
+    def prepare_targeted_owner_queue(
+        self,
+        connections_file: Path,
+        batch_marker: str,
+        now: int,
+    ) -> None:
         """Record and populate the targeted owner queue."""
 
-        del connections_file
+        del connections_file, batch_marker, now
         self._record("targeted-queue")
         self._queue_owners()
+
+    def reset_owner_queue(self, batch_marker: str, now: int) -> None:
+        """Reset the fake durable queue after batch rollover."""
+
+        del batch_marker, now
+        self.ready_owner_queue.clear()
+        self.paused_owner_queue.clear()
+        self._project_queue()
+
+    def owner_queue_refs(self, batch_marker: str) -> tuple[str, ...]:
+        """Return the fake authoritative queue."""
+
+        del batch_marker
+        return (*self.ready_owner_queue, *self.paused_owner_queue)
+
+    def activate_paused_owner_queue(
+        self,
+        batch_marker: str,
+        now: int,
+    ) -> tuple[str, ...]:
+        """Move fake paused rows into the next ready pass."""
+
+        del batch_marker, now
+        activated = tuple(self.paused_owner_queue)
+        self.ready_owner_queue.extend(self.paused_owner_queue)
+        self.paused_owner_queue.clear()
+        self._project_queue()
+        return activated
 
     def materialize_owner_trees(self, owners: tuple[str, ...]) -> None:
         """Capture owner paths requested for materialization."""
@@ -158,14 +194,16 @@ class FakeRunPhases:  # pylint: disable=too-many-instance-attributes
 
         self._record("update")
         self.owner_request = request
-        self.updated_owner_queues.append(tuple(self.state.get_set("BKG_OWNERS_QUEUE")))
+        self.updated_owner_queues.append(tuple(self.ready_owner_queue))
         update_index = len(self.updated_owner_queues) - 1
         paused = (
             self.paused_owner_batches[update_index]
             if update_index < len(self.paused_owner_batches)
             else ()
         )
-        self.state.replace_set("BKG_OWNERS_QUEUE", paused)
+        self.ready_owner_queue.clear()
+        self._add_paused(paused)
+        self._project_queue()
         return self.owner_status
 
     def finalize_run(
@@ -180,7 +218,22 @@ class FakeRunPhases:  # pylint: disable=too-many-instance-attributes
         self._record(f"finalize:{str(prepare_snapshot).lower()}")
 
     def _queue_owners(self) -> None:
-        self.state.set("BKG_OWNERS_QUEUE", r"1/one\n2/two\n3/one")
+        self._add_ready(("1/one", "2/two"))
+
+    def _add_ready(self, owners: tuple[str, ...]) -> None:
+        known = {*self.ready_owner_queue, *self.paused_owner_queue}
+        self.ready_owner_queue.extend(owner for owner in owners if owner not in known)
+        self._project_queue()
+
+    def _add_paused(self, owners: tuple[str, ...]) -> None:
+        known = set(self.paused_owner_queue)
+        self.paused_owner_queue.extend(owner for owner in owners if owner not in known)
+
+    def _project_queue(self) -> None:
+        self.state.replace_set(
+            "BKG_OWNERS_QUEUE",
+            (*self.ready_owner_queue, *self.paused_owner_queue),
+        )
 
     def _record(self, event: str) -> None:
         self.events.append(event)
@@ -243,9 +296,10 @@ def test_global_modes_run_global_queue_owner_work_and_snapshot(
         "finalize:true",
     ]
     assert phases.owner_request == OwnerBatchRequest(
-        "2026-07-12",
-        "batch-1",
-        False,
+        since="2026-07-12",
+        batch_marker="batch-1",
+        today="2026-07-13",
+        fast_out=False,
     )
     assert state.get_int("BKG_DIFF") == 1_234
     assert state.get_int("BKG_REST_TO_TOP") == 1
@@ -371,7 +425,7 @@ def test_targeted_owner_work_continues_paused_scan(tmp_path: Path) -> None:
 
     assert status == ExitStatus.SUCCESS
     assert phases.updated_owner_queues == [
-        ("1/one", "2/two", "3/one"),
+        ("1/one", "2/two"),
         ("1/one",),
     ]
     assert progress[-1] == (

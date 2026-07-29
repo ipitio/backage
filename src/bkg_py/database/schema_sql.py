@@ -114,6 +114,30 @@ SCHEMA_SQL = (
     )
     """,
     """
+    create table if not exists "bkg_owner_queue" (
+        generation text not null,
+        owner_id text not null,
+        owner text not null,
+        owner_key text not null,
+        priority integer not null,
+        sequence integer not null,
+        reason text not null,
+        status text not null check (
+            status in ('ready', 'claimed', 'paused', 'completed')
+        ),
+        attempt_after integer not null default 0,
+        claim_token text not null default '',
+        claimed_at integer not null default 0,
+        outcome text not null default '',
+        finished_at integer not null default 0,
+        created_at integer not null,
+        updated_at integer not null,
+        primary key (generation, owner_id),
+        unique (generation, owner_key),
+        unique (generation, sequence)
+    )
+    """,
+    """
     create index if not exists "idx_bkg_owners_date_owner"
     on {owners} (date, owner)
     """,
@@ -152,6 +176,12 @@ SCHEMA_SQL = (
     """
     create index if not exists "idx_bkg_package_batch_progress_marker"
     on "bkg_package_batch_progress" (batch_marker, owner_id, owner)
+    """,
+    """
+    create index if not exists "idx_bkg_owner_queue_ready"
+    on "bkg_owner_queue" (
+        generation, status, attempt_after, priority, sequence
+    )
     """,
     "pragma auto_vacuum = full",
 )

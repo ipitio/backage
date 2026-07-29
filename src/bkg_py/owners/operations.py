@@ -66,6 +66,7 @@ class OwnerUpdateRequest:
     owner: str
     since: str
     batch_marker: str
+    today: str
     fast_out: bool = False
 
 
@@ -117,6 +118,7 @@ class OwnerUpdateOperation:  # pylint: disable=too-few-public-methods
                 self.client,
                 self.execution,
                 self.artifact_size_resolver,
+                today=request.today,
             )
             pages = OwnerScanPageService(
                 self.application.database,
@@ -226,6 +228,8 @@ def build_package_refresh_service(
     client: GitHubClient,
     execution: OwnerOperationExecution,
     artifact_size_resolver: ArtifactSizeResolver,
+    *,
+    today: str,
 ) -> OwnerPackageRefreshService:
     """Build package refresh behavior using a caller-provided worker budget."""
 
@@ -241,6 +245,7 @@ def build_package_refresh_service(
                     ),
                     artifact_size_resolver,
                     diagnostic=execution.diagnostic,
+                    today=lambda: today,
                     metric_enrichment=application.metric_enrichment,
                     listing_recovery=application.version_listing_recovery,
                 ),

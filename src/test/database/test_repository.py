@@ -223,12 +223,14 @@ class TestDatabaseRepository:
                 "bkg_owner_scans",
                 "bkg_owner_scan_packages",
                 "bkg_package_batch_progress",
+                "bkg_owner_queue",
             } <= tables
             assert retained == "keep"
             assert "next_page" in scan_columns
             assert scan == ("batch:42:100", "running", 1)
             assert "idx_bkg_packages_owner_repo_package_date" in indexes
             assert "idx_bkg_versions_package_date" in indexes
+            assert "idx_bkg_owner_queue_ready" in indexes
 
     def test_typed_owner_and_package_writes_match_existing_rows(self) -> None:
         """Typed writes retain the current normalized table representation."""

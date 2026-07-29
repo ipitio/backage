@@ -12,6 +12,7 @@ from typing import Any
 
 from . import (
     batch_progress,
+    owner_queue,
     owner_scans,
     package_plans,
     schema,
@@ -34,6 +35,7 @@ from .models import (
     VersionStage,
 )
 from .owner_identities import OwnerIdentityRepositoryMixin
+from .owner_queue_repository import OwnerQueueRepositoryMixin
 from .owner_repository import OwnerScanRepositoryMixin
 from .render_sql import (
     OWNER_VERSION_LIMIT_SQL,
@@ -81,6 +83,7 @@ class _SqlIdentifier(str):
 
 class DatabaseRepository(  # pylint: disable=too-many-public-methods
     OwnerIdentityRepositoryMixin,
+    OwnerQueueRepositoryMixin,
     OwnerScanRepositoryMixin,
 ):
     """Own bkg's SQLite schema, transactions, fallback reads, and cleanup."""
@@ -663,11 +666,7 @@ class DatabaseRepository(  # pylint: disable=too-many-public-methods
             self.settings.versions_table,
         )
         return self._run_write(
-            lambda connection: owner_scans.retire_owner(
-                connection,
-                owner,
-                tables,
-            )
+            lambda connection: _retire_owner(connection, owner, tables)
         )
 
     def _normalized_version_rows(
@@ -924,6 +923,16 @@ class DatabaseRepository(  # pylint: disable=too-many-public-methods
 
 def _sql(statement: str, /, **identifiers: _SqlIdentifier) -> str:
     return statement.format_map(identifiers)
+
+
+def _retire_owner(
+    connection: sqlite3.Connection,
+    owner: str,
+    tables: owner_scans.OwnerScanTables,
+) -> int:
+    deleted = owner_scans.retire_owner(connection, owner, tables)
+    owner_queue.retire_owner(connection, owner)
+    return deleted
 
 
 def _table_exists(connection: sqlite3.Connection, table_name: str) -> bool:

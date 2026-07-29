@@ -9,6 +9,13 @@ from pathlib import Path
 
 import pytest
 
+from bkg_py.database import (
+    DatabaseRepository,
+    DatabaseSettings,
+    OwnerQueueAdmission,
+    OwnerQueueCompletion,
+    OwnerQueueEntry,
+)
 from bkg_py.owners.batch import OwnerBatchEffects
 from bkg_py.owners.queue import OwnerQueuePaths, OwnerQueueSelector
 from bkg_py.owners.queue_operations import (
@@ -18,12 +25,14 @@ from bkg_py.owners.queue_operations import (
     OwnerQueuePreparationService,
     OwnerQueuePreparationServices,
     TargetedOwnerQueueService,
+    TargetedOwnerQueueServices,
 )
 from bkg_py.state import StateStore
 
 
 @dataclass
 class _Repository:
+    database: DatabaseRepository
     retired: list[str] = field(default_factory=list[str])
 
     def deferred_owners(self, now: int) -> tuple[tuple[str, int], ...]:
@@ -36,7 +45,49 @@ class _Repository:
         """Record one authoritatively missing owner."""
 
         self.retired.append(owner)
-        return 1
+        return self.database.retire_owner(owner)
+
+    def admit_owner_queue(
+        self,
+        generation: str,
+        admissions: tuple[OwnerQueueAdmission, ...],
+        now: int,
+    ) -> tuple[OwnerQueueEntry, ...]:
+        """Delegate owner admission to the production repository."""
+
+        return self.database.admit_owner_queue(generation, admissions, now)
+
+    def owner_queue_entries(
+        self,
+        generation: str,
+        *,
+        status: str | None = None,
+    ) -> tuple[OwnerQueueEntry, ...]:
+        """Delegate ordered queue reads to the production repository."""
+
+        return self.database.owner_queue_entries(generation, status=status)
+
+    def claim_owner_queue_wave(
+        self,
+        generation: str,
+        limit: int,
+        claim_token: str,
+        now: int,
+    ) -> tuple[OwnerQueueEntry, ...]:
+        """Delegate bounded claims to the production repository."""
+
+        return self.database.claim_owner_queue_wave(generation, limit, claim_token, now)
+
+    def finish_owner_queue_claim(self, completion: OwnerQueueCompletion) -> None:
+        """Delegate parent-owned completion to the production repository."""
+
+        self.database.finish_owner_queue_claim(completion)
+
+
+def _repository(tmp_path: Path) -> _Repository:
+    database = DatabaseRepository(DatabaseSettings(tmp_path / "index.db"))
+    database.prepare_owner_queue("batch-1", (), 1)
+    return _Repository(database)
 
 
 @dataclass
@@ -145,9 +196,10 @@ def test_queue_preparation_reports_and_advances_a_full_chunk(
     _write_lines(owners)
     monkeypatch.setattr(OwnerQueueSelector, "history_owners", _no_history)
     state = StateStore(tmp_path / "state.env")
+    repository = _repository(tmp_path)
     service = OwnerQueuePreparationService(
         OwnerQueuePreparationServices(
-            _Repository(),
+            repository,
             _Resolver(),
             state,
             lambda _owner: None,
@@ -161,7 +213,7 @@ def test_queue_preparation_reports_and_advances_a_full_chunk(
     paths = OwnerQueuePreparationPaths(connections, owners, index, working)
 
     first = service.prepare(
-        OwnerQueuePreparationRequest(paths, "0", 1, "", True, 1_788_652_800)
+        OwnerQueuePreparationRequest(paths, "0", 1, "", True, 1_788_652_800, "batch-1")
     )
     second = service.prepare(
         OwnerQueuePreparationRequest(
@@ -171,6 +223,7 @@ def test_queue_preparation_reports_and_advances_a_full_chunk(
             "",
             True,
             1_788_652_801,
+            "batch-1",
             excluded_owners=first.attempted_owners,
         )
     )
@@ -212,8 +265,13 @@ def test_queue_preparation_owns_normalization_resolution_and_effects(
     monkeypatch.setattr(OwnerQueueSelector, "history_owners", _no_history)
 
     state = StateStore(tmp_path / "state.env")
-    state.add_to_set("BKG_OWNERS_QUEUE", "2/service")
-    repository = _Repository()
+    repository = _repository(tmp_path)
+    initial = repository.database.admit_owner_queue(
+        "batch-1",
+        (OwnerQueueAdmission("2", "service", "legacy"),),
+        2,
+    )
+    state.replace_set("BKG_OWNERS_QUEUE", (entry.ref for entry in initial))
     resolver = _Resolver()
     messages: list[str] = []
     effects = OwnerBatchEffects(repository, state, owners, index, messages.append)
@@ -244,6 +302,7 @@ def test_queue_preparation_owns_normalization_resolution_and_effects(
             current_owner="service",
             include_manual=True,
             now=1_788_652_800,
+            batch_marker="batch-1",
         )
     )
 
@@ -266,8 +325,8 @@ def test_queue_preparation_owns_normalization_resolution_and_effects(
         "99/Beta",
     }
     assert state.get_set("BKG_OWNERS_QUEUE") == [
-        "2/service",
         "1/Manual",
+        "2/service",
         "3/Alpha",
         "99/Beta",
     ]
@@ -297,13 +356,12 @@ def test_targeted_owner_queue_resolves_configured_owner_and_memberships(
     resolver = _Resolver()
     messages: list[str] = []
     service = TargetedOwnerQueueService(
-        resolver,
-        state,
+        TargetedOwnerQueueServices(_repository(tmp_path), resolver, state),
         lambda: None,
         messages.append,
     )
 
-    result = service.prepare("service", connections)
+    result = service.prepare("service", connections, "batch-1", 100)
 
     assert result.candidates == 4
     assert result.queued == 3
@@ -333,13 +391,12 @@ def test_targeted_owner_queue_extracts_and_resolves_optout_owners(
     state = StateStore(tmp_path / "state.env")
     resolver = _Resolver()
     service = TargetedOwnerQueueService(
-        resolver,
-        state,
+        TargetedOwnerQueueServices(_repository(tmp_path), resolver, state),
         lambda: None,
         lambda _message: None,
     )
 
-    result = service.prepare_optouts(optouts)
+    result = service.prepare_optouts(optouts, "batch-1", 100)
 
     assert result.candidates == 3
     assert result.queued == 2

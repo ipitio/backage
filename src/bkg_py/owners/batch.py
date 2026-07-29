@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import secrets
 import shutil
 import time
 from collections.abc import Callable, Sequence
@@ -18,6 +19,7 @@ from ..concurrency import (
     TaskInterruption,
     WorkerEvent,
 )
+from ..database import OwnerQueueCompletion, OwnerQueueEntry, OwnerQueueOutcome
 from ..files import atomic_text_output
 from ..result import ExitStatus
 from ..runtime import GracefulStop
@@ -40,11 +42,37 @@ _OWNER_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9-]{0,38}")
 _OWNER_MATERIALIZATION_WAVE_SIZE = 100
 
 
-class OwnerRetirementRepository(Protocol):  # pylint: disable=too-few-public-methods
-    """Database operation needed by outer owner effects."""
+class OwnerBatchRepository(Protocol):
+    """Database operations needed by outer owner execution and effects."""
 
     def retire_owner(self, owner: str) -> int:
         """Remove one owner's persisted package state."""
+
+        raise NotImplementedError
+
+    def owner_queue_entries(
+        self,
+        generation: str,
+        *,
+        status: str | None = None,
+    ) -> tuple[OwnerQueueEntry, ...]:
+        """Return remaining owner work in deterministic order."""
+
+        raise NotImplementedError
+
+    def claim_owner_queue_wave(
+        self,
+        generation: str,
+        limit: int,
+        claim_token: str,
+        now: int,
+    ) -> tuple[OwnerQueueEntry, ...]:
+        """Claim the next bounded ready wave."""
+
+        raise NotImplementedError
+
+    def finish_owner_queue_claim(self, completion: OwnerQueueCompletion) -> None:
+        """Persist one parent-applied worker outcome."""
 
         raise NotImplementedError
 
@@ -69,6 +97,7 @@ class OwnerBatchRequest:
 
     since: str
     batch_marker: str
+    today: str
     fast_out: bool = False
 
 
@@ -84,7 +113,7 @@ class OwnerBatchItem:
 class OwnerBatchEffects:
     """Apply owner outcomes to durable database, source, and generated files."""
 
-    repository: OwnerRetirementRepository
+    repository: OwnerBatchRepository
     state: StateStore
     owners_file: Path
     index_dir: Path
@@ -172,7 +201,7 @@ class OwnerBatchEffects:
 
 
 @dataclass(frozen=True)
-class OwnerBatchExecution:
+class OwnerBatchExecution:  # pylint: disable=too-many-instance-attributes
     """Concurrency, paths, and runtime callbacks for a queued-owner batch."""
 
     state: StateStore
@@ -182,6 +211,8 @@ class OwnerBatchExecution:
     progress: MessageSink
     diagnostic: MessageSink
     materialize: OwnerMaterializer = lambda _owners: None
+    now: Callable[[], int] = lambda: int(time.time())
+    token: Callable[[], str] = lambda: secrets.token_hex(16)
 
 
 @dataclass(frozen=True)
@@ -190,6 +221,13 @@ class _OwnerWaveUpdate:
     updater: OwnerUpdater
     opted_out: set[str]
     workers: int
+
+
+@dataclass(frozen=True)
+class _OwnerWorkerResult:
+    owner: QueuedOwner
+    result: OwnerLifecycleResult | None = None
+    opted_out: bool = False
 
 
 class OwnerBatchService:  # pylint: disable=too-few-public-methods
@@ -213,49 +251,52 @@ class OwnerBatchService:  # pylint: disable=too-few-public-methods
     def run(self, request: OwnerBatchRequest) -> ExitStatus:
         """Run queued owners and preserve completed effects across graceful stops."""
 
-        owners = parse_owner_queue(self.execution.state.get_set("BKG_OWNERS_QUEUE"))
-        if not owners:
-            return ExitStatus.SUCCESS
-        paused: list[QueuedOwner] = []
-        owner_workers, per_owner_workers = allocate_owner_worker_counts(
-            len(owners),
-            self.execution.concurrency.max_workers,
-        )
-        updater = self.updater_factory(
-            replace(self.execution.concurrency, max_workers=per_owner_workers)
-        )
-        update = _OwnerWaveUpdate(
-            request,
-            updater,
-            _owner_opt_outs(self.execution.optout_file),
-            owner_workers,
-        )
-        wave_size = self.materialization_wave_size
-        wave_count = (len(owners) + wave_size - 1) // wave_size
-        for wave_number, start in enumerate(range(0, len(owners), wave_size), start=1):
-            wave = owners[start : start + wave_size]
-            if not self._materialize_wave(wave, wave_number, wave_count):
+        claim_token = self.execution.token()
+        opted_out = _owner_opt_outs(self.execution.optout_file)
+        wave_number = 1
+        while True:
+            claimed = self.effects.repository.claim_owner_queue_wave(
+                request.batch_marker,
+                self.materialization_wave_size,
+                claim_token,
+                self.execution.now(),
+            )
+            self._project_queue(request.batch_marker)
+            if not claimed:
+                return ExitStatus.SUCCESS
+            wave = tuple(QueuedOwner(entry.owner_id, entry.owner) for entry in claimed)
+            owner_workers, per_owner_workers = allocate_owner_worker_counts(
+                len(wave),
+                self.execution.concurrency.max_workers,
+            )
+            update = _OwnerWaveUpdate(
+                request,
+                self.updater_factory(
+                    replace(
+                        self.execution.concurrency,
+                        max_workers=per_owner_workers,
+                    )
+                ),
+                opted_out,
+                owner_workers,
+            )
+            if not self._materialize_wave(wave, wave_number):
                 return ExitStatus.GRACEFUL_STOP
             status, items = self._run_wave(wave, update)
+            self._apply_items(items, claim_token, request.batch_marker)
+            self._project_queue(request.batch_marker)
             if status is not ExitStatus.SUCCESS:
                 return status
-            paused.extend(item.owner for item in items if item.outcome == "paused")
-        self.execution.state.replace_set(
-            "BKG_OWNERS_QUEUE",
-            (owner.ref for owner in paused),
-        )
-        return ExitStatus.SUCCESS
+            wave_number += 1
 
     def _materialize_wave(
         self,
         wave: tuple[QueuedOwner, ...],
         wave_number: int,
-        wave_count: int,
     ) -> bool:
         owner_names = tuple(owner.owner for owner in wave)
         self.execution.progress(
-            f"Materializing owner wave {wave_number}/{wave_count} "
-            f"({len(wave)} tree(s))..."
+            f"Materializing owner wave {wave_number} ({len(wave)} tree(s))..."
         )
         started_at = time.monotonic()
         try:
@@ -266,7 +307,7 @@ class OwnerBatchService:  # pylint: disable=too-few-public-methods
             return False
         elapsed = max(0.0, time.monotonic() - started_at)
         self.execution.progress(
-            f"Materialized owner wave {wave_number}/{wave_count} in {elapsed:.1f}s"
+            f"Materialized owner wave {wave_number} in {elapsed:.1f}s"
         )
         return True
 
@@ -274,7 +315,7 @@ class OwnerBatchService:  # pylint: disable=too-few-public-methods
         self,
         wave: tuple[QueuedOwner, ...],
         update: _OwnerWaveUpdate,
-    ) -> tuple[ExitStatus, tuple[OwnerBatchItem, ...]]:
+    ) -> tuple[ExitStatus, tuple[_OwnerWorkerResult, ...]]:
         runner = BoundedWorkerRunner(
             replace(self.execution.concurrency, max_workers=update.workers),
             check_stop=self.execution.check_stop,
@@ -291,14 +332,14 @@ class OwnerBatchService:  # pylint: disable=too-few-public-methods
             task_name=lambda owner: owner.owner,
         )
         self._report_failures(result.failures, result.interrupted)
-        if result.stopped:
-            return ExitStatus.GRACEFUL_STOP, ()
-        if not result.ok:
-            return ExitStatus.NON_FATAL, ()
         items = tuple(
             completed.value
             for completed in sorted(result.completed, key=lambda item: item.index)
         )
+        if result.stopped:
+            return ExitStatus.GRACEFUL_STOP, items
+        if not result.ok:
+            return ExitStatus.NON_FATAL, items
         return ExitStatus.SUCCESS, items
 
     def _update_one(
@@ -307,20 +348,55 @@ class OwnerBatchService:  # pylint: disable=too-few-public-methods
         request: OwnerBatchRequest,
         updater: OwnerUpdater,
         opted_out: set[str],
-    ) -> OwnerBatchItem:
+    ) -> _OwnerWorkerResult:
         if owner.owner in opted_out:
-            return self.effects.apply_opt_out(owner)
+            return _OwnerWorkerResult(owner, opted_out=True)
         self.execution.progress(f"Updating {owner.owner}...")
-        result = updater(
-            OwnerUpdateRequest(
-                owner.owner_id,
-                owner.owner,
-                request.since,
-                request.batch_marker,
-                request.fast_out,
-            )
+        return _OwnerWorkerResult(
+            owner,
+            updater(
+                OwnerUpdateRequest(
+                    owner_id=owner.owner_id,
+                    owner=owner.owner,
+                    since=request.since,
+                    batch_marker=request.batch_marker,
+                    today=request.today,
+                    fast_out=request.fast_out,
+                )
+            ),
         )
-        return self.effects.apply_result(owner, result)
+
+    def _apply_items(
+        self,
+        items: tuple[_OwnerWorkerResult, ...],
+        claim_token: str,
+        generation: str,
+    ) -> None:
+        for completed in items:
+            item = (
+                self.effects.apply_opt_out(completed.owner)
+                if completed.opted_out
+                else self.effects.apply_result(
+                    completed.owner,
+                    _required_result(completed),
+                )
+            )
+            self.effects.repository.finish_owner_queue_claim(
+                OwnerQueueCompletion(
+                    generation=generation,
+                    owner_id=item.owner.owner_id,
+                    claim_token=claim_token,
+                    outcome=_queue_outcome(item.outcome),
+                    finished_at=self.execution.now(),
+                )
+            )
+
+    def _project_queue(self, generation: str) -> None:
+        entries = self.effects.repository.owner_queue_entries(generation)
+        self.execution.state.replace_set(
+            "BKG_OWNERS_QUEUE",
+            (entry.ref for entry in entries),
+        )
 
     def _worker_event(self, event: WorkerEvent) -> None:
         if event.kind == "stop-requested":
@@ -388,3 +464,13 @@ def _owner_opt_outs(path: Path) -> set[str]:
     except FileNotFoundError:
         return set()
     return {line.strip() for line in lines if _OWNER_PATTERN.fullmatch(line.strip())}
+
+
+def _required_result(completed: _OwnerWorkerResult) -> OwnerLifecycleResult:
+    if completed.result is None:
+        raise ValueError(f"owner update for {completed.owner.owner} has no result")
+    return completed.result
+
+
+def _queue_outcome(outcome: OwnerBatchItemOutcome) -> OwnerQueueOutcome:
+    return outcome

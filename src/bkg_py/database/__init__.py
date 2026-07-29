@@ -27,6 +27,12 @@ from .models import (
     VersionStage,
     load_owner_scan_packages,
 )
+from .owner_queue import (
+    OwnerQueueAdmission,
+    OwnerQueueCompletion,
+    OwnerQueueEntry,
+    OwnerQueueOutcome,
+)
 from .repository import DatabaseRepository
 from .settings import DatabaseSettings
 from .support import DatabaseError
@@ -36,6 +42,10 @@ __all__ = [
     "DatabaseRepository",
     "DatabaseSettings",
     "OwnerIdentityCleanup",
+    "OwnerQueueAdmission",
+    "OwnerQueueCompletion",
+    "OwnerQueueEntry",
+    "OwnerQueueOutcome",
     "OwnerRecord",
     "OwnerRefreshPlan",
     "OwnerRefreshSelection",

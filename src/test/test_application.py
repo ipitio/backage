@@ -231,7 +231,19 @@ def test_config_cli_remains_independent_of_runtime_services(
     ("short_arguments", "long_arguments"),
     [
         (
-            ["run", "-d", "17", "-m", "2", "-C", "work", "-n", "7"],
+            [
+                "run",
+                "-d",
+                "17",
+                "-m",
+                "2",
+                "-C",
+                "work",
+                "-n",
+                "7",
+                "-D",
+                "2026-07-28",
+            ],
             [
                 "run",
                 "--duration",
@@ -242,6 +254,8 @@ def test_config_cli_remains_independent_of_runtime_services(
                 "work",
                 "--owner-request-limit",
                 "7",
+                "--run-date",
+                "2026-07-28",
             ],
         ),
         (
@@ -259,6 +273,8 @@ def test_config_cli_remains_independent_of_runtime_services(
                 "7",
                 "-p",
                 "payload",
+                "-D",
+                "2026-07-28",
             ],
             [
                 "workflow-update",
@@ -274,6 +290,8 @@ def test_config_cli_remains_independent_of_runtime_services(
                 "7",
                 "--payload-directory",
                 "payload",
+                "--run-date",
+                "2026-07-28",
             ],
         ),
     ],
@@ -330,6 +348,18 @@ def test_workflow_update_rejects_positional_and_named_roots(
 
     assert raised.value.code == 2
     assert "ROOT and --root cannot be used together" in capsys.readouterr().err
+
+
+def test_run_date_requires_extended_iso_form(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """The workflow boundary accepts one unambiguous persisted date form."""
+
+    with pytest.raises(SystemExit) as raised:
+        build_parser().parse_args(["run", "--run-date", "20260728"])
+
+    assert raised.value.code == 2
+    assert "date must use YYYY-MM-DD" in capsys.readouterr().err
 
 
 def test_entrypoint_collapses_internal_failure_status(

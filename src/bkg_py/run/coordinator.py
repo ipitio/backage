@@ -87,7 +87,7 @@ class RunCoordinatorExecution:
 
 
 @dataclass(frozen=True)
-class OwnerQueuePhaseRequest:
+class OwnerQueuePhaseRequest:  # pylint: disable=too-many-instance-attributes
     """Inputs for the post-discovery global owner queue transition."""
 
     rest_first: str
@@ -96,6 +96,7 @@ class OwnerQueuePhaseRequest:
     include_manual: bool
     working_directory: Path
     now: int
+    batch_marker: str
     excluded_owners: tuple[str, ...] = ()
 
 
@@ -134,7 +135,7 @@ class RunPhaseOperations(Protocol):
 
         raise NotImplementedError
 
-    def prepare_optout_owner_queue(self) -> None:
+    def prepare_optout_owner_queue(self, batch_marker: str, now: int) -> None:
         """Queue owners affected by a fast opt-out transition."""
 
         raise NotImplementedError
@@ -158,8 +159,32 @@ class RunPhaseOperations(Protocol):
 
         raise NotImplementedError
 
-    def prepare_targeted_owner_queue(self, connections_file: Path) -> None:
+    def prepare_targeted_owner_queue(
+        self,
+        connections_file: Path,
+        batch_marker: str,
+        now: int,
+    ) -> None:
         """Queue the configured owner and discovered memberships."""
+
+        raise NotImplementedError
+
+    def reset_owner_queue(self, batch_marker: str, now: int) -> None:
+        """Replace stale generations with one empty active queue."""
+
+        raise NotImplementedError
+
+    def owner_queue_refs(self, batch_marker: str) -> tuple[str, ...]:
+        """Return the authoritative remaining owner queue."""
+
+        raise NotImplementedError
+
+    def activate_paused_owner_queue(
+        self,
+        batch_marker: str,
+        now: int,
+    ) -> tuple[str, ...]:
+        """Make paused owner scans ready for another pass."""
 
         raise NotImplementedError
 
@@ -226,6 +251,7 @@ class RunCoordinator:  # pylint: disable=too-few-public-methods
                             startup,
                             run_status,
                             prepared.global_admission,
+                            request.today,
                         )
                         if decision.action == "abort":
                             if decision.message:
@@ -267,7 +293,12 @@ class RunCoordinator:  # pylint: disable=too-few-public-methods
 
     def _prepare_fast_optout_queue(self) -> int:
         self._log_prequeue_elapsed_once()
-        status = self._interruptible(self.phases.prepare_optout_owner_queue)
+        status = self._interruptible(
+            lambda: self.phases.prepare_optout_owner_queue(
+                self._batch_marker(),
+                self.execution.now(),
+            )
+        )
         if status == ExitStatus.GRACEFUL_STOP:
             return int(status)
         return int(ExitStatus.NON_FATAL)
@@ -306,6 +337,10 @@ class RunCoordinator:  # pylint: disable=too-few-public-methods
             startup.package_plan.completed,
         )
         if transition.reset:
+            self.phases.reset_owner_queue(
+                self._batch_marker(),
+                self.execution.now(),
+            )
             self.phases.prepare_package_plan(
                 transition.batch_first_started,
                 request.working_directory,
@@ -322,12 +357,13 @@ class RunCoordinator:  # pylint: disable=too-few-public-methods
         if not include_manual:
             self.execution.progress("Skipping owners.txt queue; already ran today")
         queue_request = OwnerQueuePhaseRequest(
-            rest_first,
-            connections_file,
-            request.owner_request_limit,
-            include_manual,
-            request.working_directory,
-            self.execution.now(),
+            rest_first=rest_first,
+            connections_file=connections_file,
+            request_limit=request.owner_request_limit,
+            include_manual=include_manual,
+            working_directory=request.working_directory,
+            now=self.execution.now(),
+            batch_marker=self._batch_marker(),
         )
         status, result = self._prepare_owner_queue_interruptibly(queue_request)
         if include_manual and status != ExitStatus.GRACEFUL_STOP:
@@ -361,7 +397,11 @@ class RunCoordinator:  # pylint: disable=too-few-public-methods
         )
         if status != ExitStatus.GRACEFUL_STOP:
             status = self._interruptible(
-                lambda: self.phases.prepare_targeted_owner_queue(connections_file)
+                lambda: self.phases.prepare_targeted_owner_queue(
+                    connections_file,
+                    self._batch_marker(),
+                    self.execution.now(),
+                )
             )
         self._log_phase("queue-membership-owners", phase_started_at)
         return int(status)
@@ -370,23 +410,23 @@ class RunCoordinator:  # pylint: disable=too-few-public-methods
         self,
         startup: RunStartupResult,
         run_status: int,
+        today: str,
     ) -> OwnerPhaseDecision:
-        queued = parse_owner_queue(self.state.get_set("BKG_OWNERS_QUEUE"))
+        batch_marker = self._batch_marker()
+        queued = parse_owner_queue(self.phases.owner_queue_refs(batch_marker))
         if not queued:
             phase_status = ExitStatus.SUCCESS
         else:
-            batch_marker = self.state.get("BKG_BATCH_MARKER")
-            if not batch_marker:
-                raise ValueError("BKG_BATCH_MARKER is required for owner updates")
             batch_first_started = (
                 self.state.get("BKG_BATCH_FIRST_STARTED") or "0000-00-00"
             )
             phase_status = self._interruptible_status(
                 lambda: self.phases.update_owners(
                     OwnerBatchRequest(
-                        batch_first_started,
-                        batch_marker,
-                        startup.fast_out,
+                        since=batch_first_started,
+                        batch_marker=batch_marker,
+                        today=today,
+                        fast_out=startup.fast_out,
                     )
                 )
             )
@@ -397,36 +437,33 @@ class RunCoordinator:  # pylint: disable=too-few-public-methods
         startup: RunStartupResult,
         run_status: int,
         admission: _GlobalOwnerAdmission | None,
+        today: str,
     ) -> OwnerPhaseDecision:
         if admission is None:
-            decision = self._update_queued_owners(startup, run_status)
-            return self._continue_paused_owner_work(startup, decision)
-        return self._update_global_owner_work(startup, run_status, admission)
+            decision = self._update_queued_owners(startup, run_status, today)
+            return self._continue_paused_owner_work(startup, decision, today)
+        return self._update_global_owner_work(startup, run_status, admission, today)
 
     def _update_global_owner_work(
         self,
         startup: RunStartupResult,
         run_status: int,
         admission: _GlobalOwnerAdmission,
+        today: str,
     ) -> OwnerPhaseDecision:
         excluded: set[str] = set()
-        paused: dict[str, str] = {}
         current = admission
 
         while True:
             excluded.update(
                 owner.casefold() for owner in current.result.attempted_owners
             )
-            decision = self._update_queued_owners(startup, run_status)
-            for owner in parse_owner_queue(self.state.get_set("BKG_OWNERS_QUEUE")):
-                paused[owner.owner.casefold()] = owner.ref
+            decision = self._update_queued_owners(startup, run_status, today)
             if decision.action == "abort" or decision.run_status != ExitStatus.SUCCESS:
                 return decision
             if not current.result.may_have_more:
-                self.state.replace_set("BKG_OWNERS_QUEUE", paused.values())
-                return self._continue_paused_owner_work(startup, decision)
+                return self._continue_paused_owner_work(startup, decision, today)
 
-            self.state.replace_set("BKG_OWNERS_QUEUE", ())
             self.execution.progress(
                 "Owner queue chunk completed; admitting more pending owners..."
             )
@@ -446,17 +483,31 @@ class RunCoordinator:  # pylint: disable=too-few-public-methods
         self,
         startup: RunStartupResult,
         decision: OwnerPhaseDecision,
+        today: str,
     ) -> OwnerPhaseDecision:
         while decision.action != "abort" and decision.run_status == ExitStatus.SUCCESS:
-            paused = parse_owner_queue(self.state.get_set("BKG_OWNERS_QUEUE"))
+            paused = self.phases.activate_paused_owner_queue(
+                self._batch_marker(),
+                self.execution.now(),
+            )
             if not paused:
                 return decision
             self.execution.progress(
                 f"All available owners received a listing pass; continuing "
                 f"{len(paused)} paused owner scan(s)..."
             )
-            decision = self._update_queued_owners(startup, decision.run_status)
+            decision = self._update_queued_owners(
+                startup,
+                decision.run_status,
+                today,
+            )
         return decision
+
+    def _batch_marker(self) -> str:
+        marker = self.state.get("BKG_BATCH_MARKER")
+        if not marker:
+            raise ValueError("BKG_BATCH_MARKER is required for owner updates")
+        return marker
 
     def _prepare_owner_queue_interruptibly(
         self,

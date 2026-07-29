@@ -61,6 +61,7 @@ def _run_workflow_update(
             duration=args.duration,
             mode=args.mode,
             owner_request_limit=args.owner_request_limit,
+            run_date=args.run_date,
         ),
         UpdateWorkflowExecution(
             progress=print,

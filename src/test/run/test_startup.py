@@ -124,3 +124,39 @@ def test_startup_recovers_database_backup_before_planning(tmp_path: Path) -> Non
     assert database_path.is_file()
     assert not backup.exists()
     assert not result.fast_out
+
+
+def test_startup_imports_legacy_owner_queue_only_once(tmp_path: Path) -> None:
+    """The compatibility key seeds an empty generation but cannot rewrite it later."""
+
+    database_path = tmp_path / "index.db"
+    state = StateStore(tmp_path / "state.env")
+    state.set_many(
+        {
+            "BKG_BATCH_MARKER": "batch-1",
+            "BKG_OWNERS_QUEUE": r"1/Alpha\n2/Beta",
+        }
+    )
+    cache = OwnerIdentityCache(tmp_path / "owner-id-cache.txt")
+    service = _service(database_path, state, cache, [])
+    request = RunStartupRequest(
+        "2026-06-29",
+        1_000,
+        tmp_path / "plan",
+        database_path,
+        tmp_path / "optout.txt",
+        "fork-owner",
+    )
+
+    service.prepare(request)
+    assert state.get_set("BKG_OWNERS_QUEUE") == ["1/Alpha", "2/Beta"]
+
+    state.replace_set("BKG_OWNERS_QUEUE", ("3/Replacement",))
+    service.prepare(request)
+
+    assert state.get_set("BKG_OWNERS_QUEUE") == ["1/Alpha", "2/Beta"]
+    repository = DatabaseRepository(DatabaseSettings(database_path))
+    assert tuple(entry.ref for entry in repository.owner_queue_entries("batch-1")) == (
+        "1/Alpha",
+        "2/Beta",
+    )

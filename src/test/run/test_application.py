@@ -43,6 +43,8 @@ def test_clean_mode_runs_startup_and_publication_without_snapshot(
             "2",
             "--working-directory",
             str(working_directory),
+            "--run-date",
+            "2026-07-28",
         ]
     )
 
@@ -50,6 +52,7 @@ def test_clean_mode_runs_startup_and_publication_without_snapshot(
     assert database_path.stat().st_size > 0
     assert (root / "README.md").is_file()
     assert (root / "CHANGELOG.md").is_file()
+    assert (root / "CHANGELOG.md").read_text(encoding="utf-8").startswith("2026-07-28 ")
     assert (index_directory / "README.md").is_file()
     assert (index_directory / ".json").is_file()
     assert (index_directory / ".xml").is_file()

@@ -4,10 +4,18 @@ from __future__ import annotations
 
 import argparse
 import sys
+from datetime import date
 from typing import Any, NoReturn
 
 from .commands import run_command
 from .result import PUBLIC_EXIT_STATUSES, ExitStatus
+
+
+def _iso_date(value: str) -> date:
+    parsed = date.fromisoformat(value)
+    if value != parsed.isoformat():
+        raise argparse.ArgumentTypeError("date must use YYYY-MM-DD")
+    return parsed
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -44,6 +52,7 @@ def _add_run_parser(subparsers: Any) -> None:
     )
     run_parser.add_argument("-C", "--working-directory", default=".")
     run_parser.add_argument("-n", "--owner-request-limit", type=int, default=100)
+    run_parser.add_argument("-D", "--run-date", type=_iso_date)
 
 
 def _add_handoff_parser(subparsers: Any) -> None:
@@ -101,6 +110,7 @@ def _add_workflow_update_parser(subparsers: Any) -> None:
     )
     update_parser.add_argument("-C", "--invocation-directory", default=".")
     update_parser.add_argument("-p", "--payload-directory")
+    update_parser.add_argument("-D", "--run-date", type=_iso_date)
 
 
 def main(argv: list[str] | None = None) -> ExitStatus:

@@ -9,7 +9,7 @@ import time
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
@@ -82,7 +82,7 @@ def _run_monitored_application(
 
 
 @dataclass(frozen=True)
-class UpdateWorkflowRequest:
+class UpdateWorkflowRequest:  # pylint: disable=too-many-instance-attributes
     """Inputs to one repository update workflow."""
 
     root: Path = Path()
@@ -92,6 +92,7 @@ class UpdateWorkflowRequest:
     mode: int | None = None
     owner_request_limit: int = 100
     clone_url: str | None = None
+    run_date: date | None = None
 
 
 @dataclass(frozen=True)
@@ -139,6 +140,7 @@ class UpdateWorkflowService:  # pylint: disable=too-few-public-methods
                 source_published_today=source_published_today,
                 working_directory=prepared.root / "src",
                 owner_request_limit=request.owner_request_limit,
+                run_date=request.run_date,
             ),
             prepared.application,
             prepared.handoff,

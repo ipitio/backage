@@ -9,6 +9,12 @@ from pathlib import Path
 import pytest
 
 from bkg_py.concurrency import ConcurrencySettings
+from bkg_py.database import (
+    DatabaseRepository,
+    DatabaseSettings,
+    OwnerQueueCompletion,
+    OwnerQueueEntry,
+)
 from bkg_py.owners.batch import (
     OwnerBatchEffects,
     OwnerBatchExecution,
@@ -28,13 +34,40 @@ from bkg_py.state import StateStore
 
 @dataclass
 class _Repository:
+    database: DatabaseRepository
     retired: list[str] = field(default_factory=list[str])
 
     def retire_owner(self, owner: str) -> int:
         """Record one owner retirement."""
 
         self.retired.append(owner)
-        return 1
+        return self.database.retire_owner(owner)
+
+    def owner_queue_entries(
+        self,
+        generation: str,
+        *,
+        status: str | None = None,
+    ) -> tuple[OwnerQueueEntry, ...]:
+        """Delegate one compatibility projection read."""
+
+        return self.database.owner_queue_entries(generation, status=status)
+
+    def claim_owner_queue_wave(
+        self,
+        generation: str,
+        limit: int,
+        claim_token: str,
+        now: int,
+    ) -> tuple[OwnerQueueEntry, ...]:
+        """Delegate one bounded queue claim."""
+
+        return self.database.claim_owner_queue_wave(generation, limit, claim_token, now)
+
+    def finish_owner_queue_claim(self, completion: OwnerQueueCompletion) -> None:
+        """Delegate parent-owned queue completion."""
+
+        self.database.finish_owner_queue_claim(completion)
 
 
 @dataclass
@@ -52,7 +85,7 @@ class _Harness:
     messages: _Messages
 
 
-def _service(
+def _service(  # pylint: disable=too-many-locals
     tmp_path: Path,
     updater: Callable[[OwnerUpdateRequest], OwnerLifecycleResult],
     *,
@@ -61,8 +94,9 @@ def _service(
     materialization_wave_size: int = 100,
 ) -> _Harness:
     state = StateStore(tmp_path / "state.env")
-    for owner in queued:
-        state.add_to_set("BKG_OWNERS_QUEUE", owner)
+    database = DatabaseRepository(DatabaseSettings(tmp_path / "index.db"))
+    entries = database.prepare_owner_queue("batch-1", queued, 1)
+    state.replace_set("BKG_OWNERS_QUEUE", (entry.ref for entry in entries))
     owners_file = tmp_path / "owners.txt"
     owners_file.write_text(
         "".join(f"{owner.split('/', maxsplit=1)[1]}\n" for owner in queued),
@@ -73,7 +107,7 @@ def _service(
     index_dir = tmp_path / "index"
     for owner in queued:
         (index_dir / owner.split("/", maxsplit=1)[1]).mkdir(parents=True)
-    repository = _Repository()
+    repository = _Repository(database)
     messages = _Messages()
 
     def factory(
@@ -99,6 +133,8 @@ def _service(
             messages.progress.append,
             messages.diagnostic.append,
             messages.materialized.append,
+            now=lambda: 2,
+            token=lambda: "test-claim",
         ),
         materialization_wave_size=materialization_wave_size,
     )
@@ -143,7 +179,9 @@ def test_owner_batch_applies_each_completed_outcome(tmp_path: Path) -> None:
         }
     )
 
-    status = harness.service.run(OwnerBatchRequest("2026-07-01", "batch-1"))
+    status = harness.service.run(
+        OwnerBatchRequest("2026-07-01", "batch-1", "2026-07-02")
+    )
 
     assert status == ExitStatus.SUCCESS
     assert set(called) == {"alpha", "missing", "paused", "deferred"}
@@ -161,6 +199,11 @@ def test_owner_batch_applies_each_completed_outcome(tmp_path: Path) -> None:
     assert state.get("BKG_OWNER_SCAN_5") is None
     assert state.get("BKG_PAGE_5") is None
     assert state.get_set("BKG_OWNERS_QUEUE") == ["3/paused"]
+    completed = harness.repository.database.owner_queue_entries(
+        "batch-1",
+        status="completed",
+    )
+    assert {entry.owner for entry in completed} == {"alpha", "deferred"}
     assert harness.messages.allocated == [2]
     assert "Updated alpha" in harness.messages.progress
     assert "Retired unavailable owner missing" in harness.messages.progress
@@ -179,7 +222,9 @@ def test_owner_batch_materializes_bounded_waves(tmp_path: Path) -> None:
         materialization_wave_size=4,
     )
 
-    status = harness.service.run(OwnerBatchRequest("2026-07-01", "batch-1"))
+    status = harness.service.run(
+        OwnerBatchRequest("2026-07-01", "batch-1", "2026-07-02")
+    )
 
     assert status == ExitStatus.SUCCESS
     assert harness.messages.materialized == [
@@ -208,7 +253,9 @@ def test_owner_batch_does_not_materialize_a_later_wave_after_stop(
         materialization_wave_size=4,
     )
 
-    status = harness.service.run(OwnerBatchRequest("2026-07-01", "batch-1"))
+    status = harness.service.run(
+        OwnerBatchRequest("2026-07-01", "batch-1", "2026-07-02")
+    )
 
     assert status == ExitStatus.GRACEFUL_STOP
     assert harness.messages.materialized == [("a", "b", "c", "d")]
@@ -231,7 +278,9 @@ def test_first_empty_page_removes_manual_owner_before_pause(tmp_path: Path) -> N
 
     harness = _service(tmp_path, update)
 
-    status = harness.service.run(OwnerBatchRequest("2026-07-01", "batch-1"))
+    status = harness.service.run(
+        OwnerBatchRequest("2026-07-01", "batch-1", "2026-07-02")
+    )
 
     assert status == ExitStatus.SUCCESS
     assert (tmp_path / "owners.txt").read_text(encoding="utf-8") == ""
@@ -260,7 +309,9 @@ def test_owner_batch_maps_worker_failures(
         update,
     )
 
-    status = harness.service.run(OwnerBatchRequest("2026-07-01", "batch-1"))
+    status = harness.service.run(
+        OwnerBatchRequest("2026-07-01", "batch-1", "2026-07-02")
+    )
 
     assert status == expected_status
     assert any(

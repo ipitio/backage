@@ -25,8 +25,20 @@ fi
 
 for workflow in manual update; do
     workflow_file="$repo_dir/.github/workflows/$workflow.yml"
-    grep -Fq 'bkg workflow-update -C /app' "$workflow_file" || {
-        echo "$workflow workflow does not call the installed Python entrypoint" >&2
+    grep -Fq "bkg workflow-update -C /app -D \"\$run_date\"" "$workflow_file" || {
+        echo "$workflow workflow does not pass one date to the Python entrypoint" >&2
+        exit 1
+    }
+    grep -Fq "RUN_DATE: \${{ steps.update.outputs.run_date }}" "$workflow_file" || {
+        echo "$workflow workflow does not reuse the run date for publication" >&2
+        exit 1
+    }
+    grep -Fq '/var/run/docker.sock:/var/run/docker.sock' "$workflow_file" || {
+        echo "$workflow workflow does not expose its Docker daemon to the fallback" >&2
+        exit 1
+    }
+    grep -Fq 'BKG_DOCKER_SIZE_FALLBACK=true' "$workflow_file" || {
+        echo "$workflow workflow does not opt in to Docker size inspection" >&2
         exit 1
     }
     grep -Fq 'python -m bkg_py handoff' "$workflow_file" || {

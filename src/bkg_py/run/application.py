@@ -38,6 +38,7 @@ from ..owners import (
     OwnerQueuePreparationServices,
     OwnerUpdateOperation,
     TargetedOwnerQueueService,
+    TargetedOwnerQueueServices,
     admit_owner_page,
 )
 from ..result import ExitStatus
@@ -195,12 +196,14 @@ class RunApplicationOperations:
                 ),
             )
 
-    def prepare_optout_owner_queue(self) -> None:
+    def prepare_optout_owner_queue(self, batch_marker: str, now: int) -> None:
         """Resolve and queue owners named by opt-out entries."""
 
         with self._github_client() as client:
             self._targeted_queue_service(client).prepare_optouts(
-                Path(self.application.config.optout_file)
+                Path(self.application.config.optout_file),
+                batch_marker,
+                now,
             )
 
     def prepare_package_plan(
@@ -263,18 +266,58 @@ class RunApplicationOperations:
                     current_owner=config.github_owner,
                     include_manual=request.include_manual,
                     now=request.now,
+                    batch_marker=request.batch_marker,
                     excluded_owners=request.excluded_owners,
                 )
             )
 
-    def prepare_targeted_owner_queue(self, connections_file: Path) -> None:
+    def prepare_targeted_owner_queue(
+        self,
+        connections_file: Path,
+        batch_marker: str,
+        now: int,
+    ) -> None:
         """Queue the configured owner and discovered memberships."""
 
         with self._github_client() as client:
             self._targeted_queue_service(client).prepare(
                 self.application.config.github_owner,
                 connections_file,
+                batch_marker,
+                now,
             )
+
+    def reset_owner_queue(self, batch_marker: str, now: int) -> None:
+        """Replace stale queue generations and refresh the compatibility view."""
+
+        self.application.database.prepare_owner_queue(batch_marker, (), now)
+        self._project_owner_queue(batch_marker)
+
+    def owner_queue_refs(self, batch_marker: str) -> tuple[str, ...]:
+        """Return the authoritative remaining owner queue."""
+
+        return tuple(
+            entry.ref
+            for entry in self.application.database.owner_queue_entries(batch_marker)
+        )
+
+    def activate_paused_owner_queue(
+        self,
+        batch_marker: str,
+        now: int,
+    ) -> tuple[str, ...]:
+        """Make paused scans ready and refresh the compatibility view."""
+
+        self.application.database.activate_paused_owner_queue(batch_marker, now)
+        ready = tuple(
+            entry.ref
+            for entry in self.application.database.owner_queue_entries(
+                batch_marker,
+                status="ready",
+            )
+        )
+        self._project_owner_queue(batch_marker)
+        return ready
 
     def materialize_owner_trees(self, owners: tuple[str, ...]) -> None:
         """Delegate index workspace materialization to its current owner."""
@@ -392,13 +435,22 @@ class RunApplicationOperations:
         client: GitHubClient,
     ) -> TargetedOwnerQueueService:
         return TargetedOwnerQueueService(
-            OwnerIdentityResolver(
-                self.application.owner_identity_cache,
-                client,
+            TargetedOwnerQueueServices(
+                self.application.database,
+                OwnerIdentityResolver(
+                    self.application.owner_identity_cache,
+                    client,
+                ),
+                self.application.state,
             ),
-            self.application.state,
             self.application.stop.check,
             self.execution.progress,
+        )
+
+    def _project_owner_queue(self, batch_marker: str) -> None:
+        self.application.state.replace_set(
+            "BKG_OWNERS_QUEUE",
+            self.owner_queue_refs(batch_marker),
         )
 
     def _publication_request(

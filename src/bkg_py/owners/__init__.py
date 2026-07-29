@@ -18,6 +18,7 @@ from .queue_operations import (
     OwnerQueuePreparationService,
     OwnerQueuePreparationServices,
     TargetedOwnerQueueService,
+    TargetedOwnerQueueServices,
 )
 
 __all__ = [
@@ -38,6 +39,7 @@ __all__ = [
     "OwnerQueueSelector",
     "OwnerUpdateOperation",
     "TargetedOwnerQueueService",
+    "TargetedOwnerQueueServices",
     "admit_owner_page",
     "normalize_owner_lines",
     "parse_owner_queue",

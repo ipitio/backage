@@ -38,6 +38,7 @@ from bkg_py.owners.operations import (
 from bkg_py.owners.package_updates import (
     OwnerPackageRefreshRequest,
     OwnerPackageRefreshResult,
+    OwnerPackageRefreshService,
 )
 from bkg_py.owners.publication import (
     OwnerPublicationRequest,
@@ -56,6 +57,7 @@ from bkg_py.state import StateStore
 from ..github_client_fake import FakeGitHubClient
 
 _TODAY = "2026-06-29"
+_RUN_TODAY = "2026-06-30"
 
 
 def _package(name: str, date: str = _TODAY) -> tuple[PackageRef, PackageRecord]:
@@ -387,10 +389,15 @@ def test_owner_update_operation_persists_backoff_and_reports_a_deferred_result(
     requests: list[OwnerLifecycleRequest] = []
 
     def fail_update(
-        _service: OwnerLifecycleService,
+        service: OwnerLifecycleService,
         _request_value: OwnerLifecycleRequest,
     ) -> OwnerLifecycleResult:
         requests.append(_request_value)
+        package_refresh = cast(
+            OwnerPackageRefreshService,
+            service.services.package_refresh,
+        )
+        assert package_refresh.execution.package.version.today() == _RUN_TODAY
         raise OwnerUpdateError("temporary owner failure")
 
     def unexpected_owner_type_lookup(
@@ -426,10 +433,11 @@ def test_owner_update_operation_persists_backoff_and_reports_a_deferred_result(
         ),
     ).update(
         OwnerUpdateRequest(
-            "42",
-            "Example",
-            _TODAY,
-            "batch-1",
+            owner_id="42",
+            owner="Example",
+            since=_TODAY,
+            batch_marker="batch-1",
+            today=_RUN_TODAY,
         )
     )
 

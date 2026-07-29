@@ -85,16 +85,24 @@ jobs:
         id: update
         run: |
           set +e
-          docker run -v $PWD:/app --env-file <(env | grep -E '^(GITHUB|BKG_HANDOFF_)') \
+          run_date=$(date -u +%F)
+          docker run -v $PWD:/app -v /var/run/docker.sock:/var/run/docker.sock \
+            -e BKG_DOCKER_SIZE_FALLBACK=true \
+            --env-file <(env | grep -E '^(GITHUB|BKG_HANDOFF_)') \
             ghcr.io/$GITHUB_OWNER/$GITHUB_REPO:master \
-            bkg workflow-update -C /app
+            bkg workflow-update -C /app -D "$run_date"
           code=$?
           echo "updated=$code" >> "$GITHUB_OUTPUT"
+          echo "run_date=$run_date" >> "$GITHUB_OUTPUT"
           exit "$code"
 
       - name: Get date
         id: date
-        run: echo "tag=$(date -u +%-Y.%-m).$((($(date -u +%-d)-1)/14))" >> "$GITHUB_OUTPUT"
+        env:
+          RUN_DATE: ${{ steps.update.outputs.run_date }}
+        run: |
+          IFS=- read -r year month day <<< "$RUN_DATE"
+          echo "tag=$((10#$year)).$((10#$month)).$(((10#$day - 1) / 14))" >> "$GITHUB_OUTPUT"
 
       - name: Save database
         if: ${{ steps.update.outputs.updated == '0' }}

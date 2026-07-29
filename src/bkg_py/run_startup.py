@@ -79,6 +79,7 @@ class RunStartupService:  # pylint: disable=too-few-public-methods
 
         self.services.state.path.parent.mkdir(parents=True, exist_ok=True)
         self.services.state.path.touch(exist_ok=True)
+        legacy_owner_queue = tuple(self.services.state.get_set("BKG_OWNERS_QUEUE"))
         initialized = BatchRuntimeService(self.services.state).begin_run(
             request.today,
             request.started_at,
@@ -89,6 +90,15 @@ class RunStartupService:  # pylint: disable=too-few-public-methods
         phase_started_at = self.execution.now()
         self._recover_database_backup(request.database_path)
         self.services.repository.ensure_schema()
+        owner_queue = self.services.repository.prepare_owner_queue(
+            initialized.batch_marker,
+            legacy_owner_queue,
+            request.started_at,
+        )
+        self.services.state.replace_set(
+            "BKG_OWNERS_QUEUE",
+            (entry.ref for entry in owner_queue),
+        )
         progress_marker = self.services.state.get("BKG_PACKAGE_PROGRESS_MARKER")
         if progress_marker != initialized.batch_marker:
             if progress_marker is None:
