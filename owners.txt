@@ -394,3 +394,5 @@
 3127718/casasoft
 3127720/archsale16
 3127814/hyper-scraper
+3127836/Yanpix
+3127815/wujingjing
