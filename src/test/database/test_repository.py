@@ -109,6 +109,40 @@ class TestDatabaseRepository:
             assert {item.owner for item in plan.pending} == {"Alpha", "Gamma"}
             assert plan.owners == ("Alpha", "Beta", "Empty", "Gamma")
 
+    def test_package_write_prunes_only_unpaired_partial_version_stages(self) -> None:
+        """Successful package work removes superseded interrupted-stage rows."""
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "index.db"
+            repository = DatabaseRepository(DatabaseSettings(path))
+            package = _package()
+            repository.write_package(PackageRecord(package, 1, 1, 1, 1, 1, _YESTERDAY))
+            repository.flush_version_stage(
+                VersionStage(
+                    package,
+                    _legacy_table(package),
+                    False,
+                    (
+                        _version("paired-old", date=_YESTERDAY),
+                        _version("unpaired-old", date="2026-06-08"),
+                        _version("paired-current", date=_TODAY),
+                    ),
+                )
+            )
+
+            repository.write_package_pending_publication(
+                PackageRecord(package, 2, 2, 2, 2, 2, _TODAY)
+            )
+
+            with sqlite3.connect(path) as connection:
+                rows = connection.execute(
+                    "select id, date from versions order by date, id"
+                ).fetchall()
+            assert rows == [
+                ("paired-old", _YESTERDAY),
+                ("paired-current", _TODAY),
+            ]
+
     def test_table_identifiers_are_quoted_and_nul_is_rejected(self) -> None:
         """Configured names remain identifiers even when they resemble SQL."""
 
@@ -124,6 +158,7 @@ class TestDatabaseRepository:
 
             repository.ensure_schema()
             repository.write_owner(OwnerRecord("1", "owner", _TODAY))
+            repository.write_package(PackageRecord(_package(), 1, 1, 1, 1, 1, _TODAY))
 
             with sqlite3.connect(path) as connection:
                 tables = {
@@ -135,6 +170,9 @@ class TestDatabaseRepository:
                 owner_count = connection.execute(
                     'select count(*) from "owner "" records"'
                 ).fetchone()[0]
+                package_count = connection.execute(
+                    'select count(*) from "select"'
+                ).fetchone()[0]
 
             assert {
                 'owner " records',
@@ -142,6 +180,7 @@ class TestDatabaseRepository:
                 "versions; drop table select",
             } <= tables
             assert owner_count == 1
+            assert package_count == 1
 
         with tempfile.TemporaryDirectory() as directory:
             repository = DatabaseRepository(

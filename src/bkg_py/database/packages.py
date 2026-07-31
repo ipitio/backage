@@ -59,13 +59,15 @@ def _transaction(connection: sqlite3.Connection) -> Generator[None]:
 def write(
     connection: sqlite3.Connection,
     packages_table: str,
+    versions_table: str,
     record: PackageRecord,
     *,
     mark_pending: bool,
 ) -> None:
-    """Write one package row and optionally mark its files stale."""
+    """Write one package row, prune obsolete partial stages, and mark files."""
 
     package = record.package_ref
+    package_identity = package_values(package)
     with _transaction(connection):
         connection.execute(
             _sql(
@@ -79,7 +81,7 @@ def write(
                 packages=_SqlIdentifier(packages_table),
             ),
             (
-                *package_values(package),
+                *package_identity,
                 record.downloads,
                 record.downloads_month,
                 record.downloads_week,
@@ -88,8 +90,42 @@ def write(
                 record.date,
             ),
         )
+        _delete_unpaired_versions(
+            connection,
+            packages_table,
+            versions_table,
+            package_identity,
+        )
         if mark_pending:
             mark_publication_pending(connection, package, record.date)
+
+
+def _delete_unpaired_versions(
+    connection: sqlite3.Connection,
+    packages_table: str,
+    versions_table: str,
+    package_identity: tuple[str, ...],
+) -> None:
+    packages = _SqlIdentifier(packages_table)
+    versions = _SqlIdentifier(versions_table)
+    connection.execute(
+        _sql(
+            """
+            delete from {versions}
+            where owner_id = ? and owner_type = ? and package_type = ?
+              and owner = ? and repo = ? and package = ?
+              and not exists (
+                  select 1 from {packages}
+                  where owner_id = ? and owner_type = ? and package_type = ?
+                    and owner = ? and repo = ? and package = ?
+                    and {packages}.date = {versions}.date
+              )
+            """,
+            packages=packages,
+            versions=versions,
+        ),
+        (*package_identity, *package_identity),
+    )
 
 
 def updated_since(

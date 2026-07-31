@@ -160,6 +160,7 @@ class DatabaseRepository(  # pylint: disable=too-many-public-methods
             lambda connection: package_records.write(
                 connection,
                 self.settings.packages_table,
+                self.settings.versions_table,
                 record,
                 mark_pending=publication_pending,
             )

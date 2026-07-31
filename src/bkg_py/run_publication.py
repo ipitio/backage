@@ -24,9 +24,10 @@ _SIDECAR_MARKERS = (".json.tmp", ".json.abs", ".json.rel")
 _TRANSIENT_STATE_PREFIXES = (
     "BKG_VERSIONS_",
     "BKG_PACKAGES_",
-    "BKG_OWNERS_",
     "BKG_OWNER_SCAN_",
 )
+_TRANSIENT_OWNER_PREFIX = "BKG_OWNERS_"
+_OWNER_QUEUE_KEY = "BKG_OWNERS_QUEUE"
 _NUMBERED_PAGE_KEY = re.compile(r"BKG_PAGE_[0-9].*")
 _INTERMEDIATE_FILES = (
     "packages_already_updated",
@@ -273,11 +274,14 @@ def _cleanup_sidecars(index_directory: Path, check_stop: StopCheck) -> None:
 
 
 def _prune_transient_state(state: StateStore) -> None:
-    numbered_page_keys = tuple(
-        key for key in state.snapshot() if _NUMBERED_PAGE_KEY.fullmatch(key)
+    transient_keys = tuple(
+        key
+        for key in state.snapshot()
+        if _NUMBERED_PAGE_KEY.fullmatch(key)
+        or (key.startswith(_TRANSIENT_OWNER_PREFIX) and key != _OWNER_QUEUE_KEY)
     )
     state.delete_matching(
-        keys=numbered_page_keys,
+        keys=transient_keys,
         prefixes=_TRANSIENT_STATE_PREFIXES,
     )
 
