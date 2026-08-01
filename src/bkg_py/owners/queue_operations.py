@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import random
+import time
 from collections import Counter
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
@@ -10,8 +11,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Protocol
 
-from ..database import OwnerQueueAdmission, OwnerQueueEntry
+from ..database import OwnerQueueAdmission, OwnerQueueCandidate, OwnerQueueEntry
 from ..files import atomic_text_output
+from ..runtime import peak_resident_memory_mib
 from ..state import StateStore
 from .queue import OwnerQueuePaths, OwnerQueueSelector, normalize_owner_lines
 
@@ -50,6 +52,26 @@ class DurableOwnerQueueRepository(Protocol):
 
         raise NotImplementedError
 
+    def known_owner_queue_candidates(
+        self,
+        generation: str,
+        candidates: tuple[str, ...],
+    ) -> frozenset[str]:
+        """Return candidate logins already attempted this generation."""
+
+        raise NotImplementedError
+
+    def record_owner_queue_candidates(
+        self,
+        generation: str,
+        candidates: tuple[OwnerQueueCandidate, ...],
+        admissions: tuple[OwnerQueueAdmission, ...],
+        now: int,
+    ) -> tuple[OwnerQueueEntry, ...]:
+        """Persist attempted candidates and canonical admissions together."""
+
+        raise NotImplementedError
+
     def owner_queue_entries(
         self,
         generation: str,
@@ -82,7 +104,6 @@ class OwnerQueuePreparationRequest:  # pylint: disable=too-many-instance-attribu
     include_manual: bool
     now: int
     batch_marker: str
-    excluded_owners: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -94,6 +115,15 @@ class OwnerQueuePreparationResult:
     missing: int
     attempted_owners: tuple[str, ...]
     may_have_more: bool
+
+
+@dataclass(frozen=True)
+class _CandidateSelection:
+    """One bounded selection and its SQLite filtering counts."""
+
+    candidates: list[tuple[str, str]]
+    windows: int
+    known: int
 
 
 @dataclass(frozen=True)
@@ -150,17 +180,18 @@ class OwnerQueuePreparationService:  # pylint: disable=too-few-public-methods
             owner for owner, _reason in selected
         )
         self._record_discovered(resolved, connections)
+        missing_count = self._retire_missing(missing)
         queued = self._queue_resolved(
             resolved,
             selected,
             request.batch_marker,
             request.now,
         )
-        missing_count = self._retire_missing(missing)
-        _project_owner_queue(
+        _project_owner_queue_with_telemetry(
             self.services.repository,
             self.services.state,
             request.batch_marker,
+            self.execution.progress,
         )
 
         return OwnerQueuePreparationResult(
@@ -179,6 +210,7 @@ class OwnerQueuePreparationService:  # pylint: disable=too-few-public-methods
         request: OwnerQueuePreparationRequest,
         deferred: tuple[tuple[str, int], ...],
     ) -> tuple[tuple[str, ...], list[tuple[str, str]], int]:
+        started_at = time.monotonic()
         paths = request.paths
         connections = _prepare_connections(paths)
         _prepare_manual_owners(paths)
@@ -194,13 +226,47 @@ class OwnerQueuePreparationService:  # pylint: disable=too-few-public-methods
             ),
             include_manual=request.include_manual,
             deferred_owners=tuple(owner for owner, _retry_after in deferred),
-            excluded_owners=request.excluded_owners,
         )
-        return (
-            connections,
-            selector.select_with_reasons(self.execution.generator),
-            selector.capacity,
+        selection = self._select_unattempted(selector, request.batch_marker)
+        elapsed = max(0.0, time.monotonic() - started_at)
+        self.execution.progress(
+            "Owner candidate selection: "
+            f"windows={selection.windows} known={selection.known} "
+            f"selected={len(selection.candidates)} in {elapsed:.3f}s; "
+            f"peak_rss={peak_resident_memory_mib():.1f}MiB"
         )
+        return connections, selection.candidates, selector.capacity
+
+    def _select_unattempted(
+        self,
+        selector: OwnerQueueSelector,
+        batch_marker: str,
+    ) -> _CandidateSelection:
+        selected: list[tuple[str, str]] = []
+        selected_keys: set[str] = set()
+        windows = 0
+        known_count = 0
+        capacity_reached = False
+        for batch in selector.candidate_batches(self.execution.generator):
+            self.execution.check_stop()
+            windows += 1
+            known = self.services.repository.known_owner_queue_candidates(
+                batch_marker,
+                tuple(owner for owner, _reason in batch),
+            )
+            known_count += len(known)
+            for owner, reason in batch:
+                owner_key = _owner_key(owner)
+                if owner_key in known or owner_key in selected_keys:
+                    continue
+                selected.append((owner, reason))
+                selected_keys.add(owner_key)
+                if len(selected) == selector.capacity:
+                    capacity_reached = True
+                    break
+            if capacity_reached:
+                break
+        return _CandidateSelection(selected, windows, known_count)
 
     def _record_discovered(
         self,
@@ -239,10 +305,18 @@ class OwnerQueuePreparationService:  # pylint: disable=too-few-public-methods
             )
             for owner_ref in resolved
         )
-        added = self.services.repository.admit_owner_queue(
+        started_at = time.monotonic()
+        added = self.services.repository.record_owner_queue_candidates(
             batch_marker,
+            tuple(OwnerQueueCandidate(owner, reason) for owner, reason in selected),
             admissions,
             now,
+        )
+        elapsed = max(0.0, time.monotonic() - started_at)
+        self.execution.progress(
+            "Owner queue admission: "
+            f"attempted={len(selected)} resolved={len(admissions)} "
+            f"added={len(added)} sqlite={elapsed:.3f}s"
         )
         for entry in added:
             self.execution.progress(f"Queued {entry.owner} (reason: {entry.reason})")
@@ -336,10 +410,11 @@ class TargetedOwnerQueueService:  # pylint: disable=too-few-public-methods
             tuple(_owner_admission(owner_ref, reason) for owner_ref in resolved),
             now,
         )
-        _project_owner_queue(
+        _project_owner_queue_with_telemetry(
             self.services.repository,
             self.services.state,
             batch_marker,
+            self.progress,
         )
         for entry in added:
             self.progress(f"Queued {entry.owner}")
@@ -356,6 +431,23 @@ def _project_owner_queue(
         "BKG_OWNERS_QUEUE",
         (entry.ref for entry in entries),
     )
+
+
+def _project_owner_queue_with_telemetry(
+    repository: DurableOwnerQueueRepository,
+    state: StateStore,
+    batch_marker: str,
+    progress: MessageSink,
+) -> tuple[str, ...]:
+    started_at = time.monotonic()
+    projection = _project_owner_queue(repository, state, batch_marker)
+    elapsed = max(0.0, time.monotonic() - started_at)
+    progress(
+        "Owner queue projection: "
+        f"remaining={len(projection)} in {elapsed:.3f}s; "
+        f"peak_rss={peak_resident_memory_mib():.1f}MiB"
+    )
+    return projection
 
 
 def _owner_admission(owner_ref: str, reason: str) -> OwnerQueueAdmission:

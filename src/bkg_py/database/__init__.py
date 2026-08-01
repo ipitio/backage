@@ -29,9 +29,11 @@ from .models import (
 )
 from .owner_queue import (
     OwnerQueueAdmission,
+    OwnerQueueCandidate,
     OwnerQueueCompletion,
     OwnerQueueEntry,
     OwnerQueueOutcome,
+    OwnerQueueStats,
 )
 from .repository import DatabaseRepository
 from .settings import DatabaseSettings
@@ -43,9 +45,11 @@ __all__ = [
     "DatabaseSettings",
     "OwnerIdentityCleanup",
     "OwnerQueueAdmission",
+    "OwnerQueueCandidate",
     "OwnerQueueCompletion",
     "OwnerQueueEntry",
     "OwnerQueueOutcome",
+    "OwnerQueueStats",
     "OwnerRecord",
     "OwnerRefreshPlan",
     "OwnerRefreshSelection",

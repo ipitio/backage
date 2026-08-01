@@ -334,7 +334,7 @@ def test_global_owner_work_replenishes_bounded_queue_chunks(tmp_path: Path) -> N
         ("3/three",),
     ]
     assert len(phases.owner_queue_requests) == 2
-    assert phases.owner_queue_requests[1].excluded_owners == ("one", "two")
+    assert phases.owner_queue_requests[1] == phases.owner_queue_requests[0]
     assert (
         progress.count("Owner queue chunk completed; admitting more pending owners...")
         == 1

@@ -94,7 +94,11 @@ def test_startup_prepares_state_plan_cache_and_optouts(tmp_path: Path) -> None:
     assert state.get("BKG_SCRIPT_START") == "1000"
     assert state.get("BKG_PACKAGE_PROGRESS_MARKER") == state.get("BKG_BATCH_MARKER")
     assert (tmp_path / "plan" / "packages_to_update").is_file()
-    assert progress == ["Startup phase 'prepare-package-state' completed in 0s"]
+    assert progress[0].startswith(
+        "Owner queue recovery: active=0 ready=0 claimed=0 paused=0 completed=0 "
+        "candidates=0 imported=0 recovered_claims=0 pruned_stale=0; "
+    )
+    assert progress[1:] == ["Startup phase 'prepare-package-state' completed in 0s"]
 
 
 def test_startup_recovers_database_backup_before_planning(tmp_path: Path) -> None:

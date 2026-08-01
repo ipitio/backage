@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import os
+import resource
 import shutil
 import signal
 import subprocess
+import sys
 import tempfile
 import threading
 import time
@@ -22,6 +24,14 @@ from .state import StateStore
 _TIMEOUT_KEY = "BKG_TIMEOUT"
 _SCRIPT_START_KEY = "BKG_SCRIPT_START"
 SignalHandler = Callable[[int, FrameType | None], object] | int | signal.Handlers | None
+
+
+def peak_resident_memory_mib() -> float:
+    """Return this process's peak resident memory in mebibytes."""
+
+    resident = float(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
+    bytes_per_unit = 1 if sys.platform == "darwin" else 1024
+    return max(0.0, resident * bytes_per_unit / (1024 * 1024))
 
 
 class GracefulStop(RuntimeError):

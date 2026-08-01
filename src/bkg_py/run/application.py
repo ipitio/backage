@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -62,6 +63,7 @@ from ..run_startup import (
     RunStartupService,
     RunStartupServices,
 )
+from ..runtime import peak_resident_memory_mib
 from .coordinator import OwnerQueuePhaseRequest, RunCoordinatorRequest
 
 MessageSink = Callable[[str], None]
@@ -267,7 +269,6 @@ class RunApplicationOperations:
                     include_manual=request.include_manual,
                     now=request.now,
                     batch_marker=request.batch_marker,
-                    excluded_owners=request.excluded_owners,
                 )
             )
 
@@ -448,9 +449,16 @@ class RunApplicationOperations:
         )
 
     def _project_owner_queue(self, batch_marker: str) -> None:
-        self.application.state.replace_set(
+        started_at = time.monotonic()
+        projection = self.application.state.replace_set(
             "BKG_OWNERS_QUEUE",
             self.owner_queue_refs(batch_marker),
+        )
+        elapsed = max(0.0, time.monotonic() - started_at)
+        self.execution.progress(
+            "Owner queue projection: "
+            f"remaining={len(projection)} in {elapsed:.3f}s; "
+            f"peak_rss={peak_resident_memory_mib():.1f}MiB"
         )
 
     def _publication_request(

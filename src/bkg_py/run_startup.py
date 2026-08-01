@@ -13,6 +13,7 @@ from .files import atomic_text_output
 from .orchestration import BatchRuntimeService
 from .owners import normalize_owner_lines
 from .run_planning import PackageWorkPlanService, PackageWorkPlanSummary
+from .runtime import peak_resident_memory_mib
 from .snapshots import SnapshotError, SnapshotStore
 from .state import StateStore
 
@@ -90,14 +91,10 @@ class RunStartupService:  # pylint: disable=too-few-public-methods
         phase_started_at = self.execution.now()
         self._recover_database_backup(request.database_path)
         self.services.repository.ensure_schema()
-        owner_queue = self.services.repository.prepare_owner_queue(
+        self._recover_owner_queue(
             initialized.batch_marker,
             legacy_owner_queue,
             request.started_at,
-        )
-        self.services.state.replace_set(
-            "BKG_OWNERS_QUEUE",
-            (entry.ref for entry in owner_queue),
         )
         progress_marker = self.services.state.get("BKG_PACKAGE_PROGRESS_MARKER")
         if progress_marker != initialized.batch_marker:
@@ -130,6 +127,41 @@ class RunStartupService:  # pylint: disable=too-few-public-methods
             database_size,
             opted_out,
             fast_out,
+        )
+
+    def _recover_owner_queue(
+        self,
+        batch_marker: str,
+        legacy_owner_queue: tuple[str, ...],
+        started_at: int,
+    ) -> None:
+        queue_before = self.services.repository.owner_queue_stats(batch_marker)
+        recovery_started_at = time.monotonic()
+        owner_queue = self.services.repository.prepare_owner_queue(
+            batch_marker,
+            legacy_owner_queue,
+            started_at,
+        )
+        recovery_elapsed = max(0.0, time.monotonic() - recovery_started_at)
+        queue_after = self.services.repository.owner_queue_stats(batch_marker)
+        projection_started_at = time.monotonic()
+        self.services.state.replace_set(
+            "BKG_OWNERS_QUEUE",
+            (entry.ref for entry in owner_queue),
+        )
+        projection_elapsed = max(0.0, time.monotonic() - projection_started_at)
+        self.execution.progress(
+            "Owner queue recovery: "
+            f"active={queue_after.total} ready={queue_after.ready} "
+            f"claimed={queue_after.claimed} paused={queue_after.paused} "
+            f"completed={queue_after.completed} "
+            f"candidates={queue_after.candidates} "
+            f"imported={max(0, queue_after.total - queue_before.total)} "
+            f"recovered_claims={queue_before.claimed} "
+            f"pruned_stale={queue_before.stale_rows + queue_before.stale_candidates}; "
+            f"sqlite={recovery_elapsed:.3f}s "
+            f"projection={projection_elapsed:.3f}s "
+            f"peak_rss={peak_resident_memory_mib():.1f}MiB"
         )
 
     def _restore_snapshot(self) -> None:

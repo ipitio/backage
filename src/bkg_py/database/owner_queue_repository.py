@@ -8,7 +8,13 @@ from collections.abc import Callable
 from typing import Any
 
 from . import owner_queue
-from .owner_queue import OwnerQueueAdmission, OwnerQueueCompletion, OwnerQueueEntry
+from .owner_queue import (
+    OwnerQueueAdmission,
+    OwnerQueueCandidate,
+    OwnerQueueCompletion,
+    OwnerQueueEntry,
+    OwnerQueueStats,
+)
 
 
 class OwnerQueueRepositoryMixin(ABC):
@@ -58,6 +64,42 @@ class OwnerQueueRepositoryMixin(ABC):
             )
         )
 
+    def known_owner_queue_candidates(
+        self,
+        generation: str,
+        candidates: tuple[str, ...],
+    ) -> frozenset[str]:
+        """Return bounded candidate logins already attempted this generation."""
+
+        self.ensure_schema()
+        return self._run_read(
+            lambda connection: owner_queue.known_candidates(
+                connection,
+                generation,
+                candidates,
+            )
+        )
+
+    def record_owner_queue_candidates(
+        self,
+        generation: str,
+        candidates: tuple[OwnerQueueCandidate, ...],
+        admissions: tuple[OwnerQueueAdmission, ...],
+        now: int,
+    ) -> tuple[OwnerQueueEntry, ...]:
+        """Record bounded candidate attempts and canonical admissions together."""
+
+        self.ensure_schema()
+        return self._run_write(
+            lambda connection: owner_queue.record_candidates(
+                connection,
+                generation,
+                candidates,
+                admissions,
+                now,
+            )
+        )
+
     def owner_queue_entries(
         self,
         generation: str,
@@ -71,6 +113,14 @@ class OwnerQueueRepositoryMixin(ABC):
             lambda connection: owner_queue.entries(
                 connection, generation, status=status
             )
+        )
+
+    def owner_queue_stats(self, generation: str) -> OwnerQueueStats:
+        """Return compact active and stale generation telemetry."""
+
+        self.ensure_schema()
+        return self._run_read(
+            lambda connection: owner_queue.stats(connection, generation)
         )
 
     def claim_owner_queue_wave(

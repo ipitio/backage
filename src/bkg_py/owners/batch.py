@@ -22,7 +22,7 @@ from ..concurrency import (
 from ..database import OwnerQueueCompletion, OwnerQueueEntry, OwnerQueueOutcome
 from ..files import atomic_text_output
 from ..result import ExitStatus
-from ..runtime import GracefulStop
+from ..runtime import GracefulStop, peak_resident_memory_mib
 from ..state import StateStore
 from .lifecycle import OwnerLifecycleResult
 from .operations import OwnerUpdateRequest
@@ -255,11 +255,19 @@ class OwnerBatchService:  # pylint: disable=too-few-public-methods
         opted_out = _owner_opt_outs(self.execution.optout_file)
         wave_number = 1
         while True:
+            claim_started_at = time.monotonic()
             claimed = self.effects.repository.claim_owner_queue_wave(
                 request.batch_marker,
                 self.materialization_wave_size,
                 claim_token,
                 self.execution.now(),
+            )
+            claim_elapsed = max(0.0, time.monotonic() - claim_started_at)
+            self.execution.progress(
+                "Owner queue claim: "
+                f"wave={wave_number} claimed={len(claimed)} "
+                f"sqlite={claim_elapsed:.3f}s; "
+                f"peak_rss={peak_resident_memory_mib():.1f}MiB"
             )
             self._project_queue(request.batch_marker)
             if not claimed:
@@ -392,10 +400,17 @@ class OwnerBatchService:  # pylint: disable=too-few-public-methods
             )
 
     def _project_queue(self, generation: str) -> None:
+        started_at = time.monotonic()
         entries = self.effects.repository.owner_queue_entries(generation)
         self.execution.state.replace_set(
             "BKG_OWNERS_QUEUE",
             (entry.ref for entry in entries),
+        )
+        elapsed = max(0.0, time.monotonic() - started_at)
+        self.execution.progress(
+            "Owner queue projection: "
+            f"remaining={len(entries)} in {elapsed:.3f}s; "
+            f"peak_rss={peak_resident_memory_mib():.1f}MiB"
         )
 
     def _worker_event(self, event: WorkerEvent) -> None:

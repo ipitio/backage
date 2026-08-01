@@ -138,6 +138,16 @@ SCHEMA_SQL = (
     )
     """,
     """
+    create table if not exists "bkg_owner_queue_candidates" (
+        generation text not null,
+        owner text not null,
+        owner_key text not null,
+        reason text not null,
+        attempted_at integer not null,
+        primary key (generation, owner_key)
+    )
+    """,
+    """
     create index if not exists "idx_bkg_owners_date_owner"
     on {owners} (date, owner)
     """,

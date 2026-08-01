@@ -5,7 +5,7 @@ from __future__ import annotations
 import random
 import re
 import subprocess
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -82,25 +82,6 @@ def _owner_key(value: str) -> str:
     return _owner_name(value).casefold()
 
 
-def _available_candidates(
-    candidates: list[str],
-    deferred: set[str],
-    requested_manual: set[str],
-    excluded_owners: Iterable[str],
-    limit: int,
-) -> list[str]:
-    excluded = {_owner_key(owner) for owner in excluded_owners}
-    return [
-        candidate
-        for candidate in _unique(candidates)
-        if _owner_key(candidate) not in excluded
-        and (
-            _owner_key(candidate) not in deferred
-            or _owner_key(candidate) in requested_manual
-        )
-    ][:limit]
-
-
 def _queue_reason(
     candidate: str,
     reason_sources: tuple[tuple[str, set[str]], ...],
@@ -145,6 +126,14 @@ class OwnerQueuePaths:
 
 
 @dataclass(frozen=True)
+class _OwnerCandidatePlan:
+    candidates: list[str]
+    deferred: set[str]
+    requested_manual: set[str]
+    reason_sources: tuple[tuple[str, set[str]], ...]
+
+
+@dataclass(frozen=True)
 class OwnerQueueSelector:
     """Inputs and state used to assemble the next owner candidate queue."""
 
@@ -154,7 +143,6 @@ class OwnerQueueSelector:
     paths: OwnerQueuePaths
     include_manual: bool = True
     deferred_owners: tuple[str, ...] | None = None
-    excluded_owners: tuple[str, ...] = ()
 
     @property
     def capacity(self) -> int:
@@ -236,7 +224,37 @@ class OwnerQueueSelector:
     ) -> list[tuple[str, str]]:
         """Return owner candidates paired with their highest-priority reason."""
 
+        return list(next(self.candidate_batches(generator), ()))
+
+    def candidate_batches(
+        self,
+        generator: random.Random | None = None,
+    ) -> Iterator[tuple[tuple[str, str], ...]]:
+        """Yield bounded candidate windows without retaining prior windows."""
+
         generator = generator or random.SystemRandom()
+        plan = self._candidate_plan(generator)
+        if self.capacity == 0:
+            return
+
+        batch: list[tuple[str, str]] = []
+        batch_keys: set[str] = set()
+        for candidate in plan.candidates:
+            owner_key = _owner_key(candidate)
+            if owner_key in batch_keys or (
+                owner_key in plan.deferred and owner_key not in plan.requested_manual
+            ):
+                continue
+            batch.append((candidate, _queue_reason(candidate, plan.reason_sources)))
+            batch_keys.add(owner_key)
+            if len(batch) == self.capacity:
+                yield tuple(batch)
+                batch = []
+                batch_keys = set()
+        if batch:
+            yield tuple(batch)
+
+    def _candidate_plan(self, generator: random.Random) -> _OwnerCandidatePlan:
         connections = _read_lines(self.paths.connections_file)
         manual = _read_lines(self.paths.manual_file) if self.include_manual else []
         known_owners = _read_lines(self.paths.state_dir / "all_owners_in_db")
@@ -297,13 +315,6 @@ class OwnerQueueSelector:
             )
         )
 
-        selected = _available_candidates(
-            candidates,
-            deferred,
-            requested_manual,
-            self.excluded_owners,
-            self.capacity,
-        )
         reason_sources = (
             ("manual", requested_manual),
             ("partially-updated", {_owner_key(value) for value in partially_updated}),
@@ -312,7 +323,9 @@ class OwnerQueueSelector:
             ("connection", {_owner_key(value) for value in connections}),
             ("index-history", {_owner_key(value) for value in history}),
         )
-        return [
-            (candidate, _queue_reason(candidate, reason_sources))
-            for candidate in selected
-        ]
+        return _OwnerCandidatePlan(
+            candidates,
+            deferred,
+            requested_manual,
+            reason_sources,
+        )

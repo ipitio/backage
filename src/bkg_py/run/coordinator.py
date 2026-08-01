@@ -97,7 +97,6 @@ class OwnerQueuePhaseRequest:  # pylint: disable=too-many-instance-attributes
     working_directory: Path
     now: int
     batch_marker: str
-    excluded_owners: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -451,13 +450,9 @@ class RunCoordinator:  # pylint: disable=too-few-public-methods
         admission: _GlobalOwnerAdmission,
         today: str,
     ) -> OwnerPhaseDecision:
-        excluded: set[str] = set()
         current = admission
 
         while True:
-            excluded.update(
-                owner.casefold() for owner in current.result.attempted_owners
-            )
             decision = self._update_queued_owners(startup, run_status, today)
             if decision.action == "abort" or decision.run_status != ExitStatus.SUCCESS:
                 return decision
@@ -469,7 +464,6 @@ class RunCoordinator:  # pylint: disable=too-few-public-methods
             )
             request = replace(
                 current.request,
-                excluded_owners=tuple(sorted(excluded)),
                 now=self.execution.now(),
             )
             status, result = self._prepare_owner_queue_interruptibly(request)

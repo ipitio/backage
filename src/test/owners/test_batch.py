@@ -207,6 +207,14 @@ def test_owner_batch_applies_each_completed_outcome(tmp_path: Path) -> None:
     assert harness.messages.allocated == [2]
     assert "Updated alpha" in harness.messages.progress
     assert "Retired unavailable owner missing" in harness.messages.progress
+    assert any(
+        message.startswith("Owner queue claim: wave=1 claimed=5 sqlite=")
+        for message in harness.messages.progress
+    )
+    assert any(
+        message.startswith("Owner queue projection: remaining=")
+        for message in harness.messages.progress
+    )
     assert not harness.messages.diagnostic
 
 

@@ -13,6 +13,7 @@ from bkg_py.database import (
     DatabaseRepository,
     DatabaseSettings,
     OwnerQueueAdmission,
+    OwnerQueueCandidate,
     OwnerQueueCompletion,
     OwnerQueueEntry,
 )
@@ -56,6 +57,31 @@ class _Repository:
         """Delegate owner admission to the production repository."""
 
         return self.database.admit_owner_queue(generation, admissions, now)
+
+    def known_owner_queue_candidates(
+        self,
+        generation: str,
+        candidates: tuple[str, ...],
+    ) -> frozenset[str]:
+        """Delegate bounded candidate lookups to the production repository."""
+
+        return self.database.known_owner_queue_candidates(generation, candidates)
+
+    def record_owner_queue_candidates(
+        self,
+        generation: str,
+        candidates: tuple[OwnerQueueCandidate, ...],
+        admissions: tuple[OwnerQueueAdmission, ...],
+        now: int,
+    ) -> tuple[OwnerQueueEntry, ...]:
+        """Delegate atomic candidate and canonical owner admission."""
+
+        return self.database.record_owner_queue_candidates(
+            generation,
+            candidates,
+            admissions,
+            now,
+        )
 
     def owner_queue_entries(
         self,
@@ -165,18 +191,10 @@ def test_queue_selection_prioritizes_pending_work_over_discovery(
     }
     assert len(selected) == 4
 
-    continued = OwnerQueueSelector(
-        rest_first="0",
-        request_limit=1,
-        current_owner="",
-        paths=OwnerQueuePaths(connections, owners, index, working),
-        excluded_owners=tuple(owner for owner, _reason in selected),
-    ).select_with_reasons(random.Random(0))  # noqa: S311
+    batches = tuple(selector.candidate_batches(random.Random(0)))  # noqa: S311
 
-    assert len(continued) == 4
-    assert {owner for owner, _reason in selected}.isdisjoint(
-        owner for owner, _reason in continued
-    )
+    assert all(0 < len(batch) <= selector.capacity for batch in batches)
+    assert len(batches) > 1
 
 
 def test_queue_preparation_reports_and_advances_a_full_chunk(
@@ -224,7 +242,6 @@ def test_queue_preparation_reports_and_advances_a_full_chunk(
             True,
             1_788_652_801,
             "batch-1",
-            excluded_owners=first.attempted_owners,
         )
     )
 
@@ -342,6 +359,20 @@ def test_queue_preparation_owns_normalization_resolution_and_effects(
     assert "Queued Alpha (reason: connection)" in messages
     assert "Queued Beta (reason: connection)" in messages
     assert "Retired unavailable owner missing" in messages
+    assert any(
+        message.startswith("Owner candidate selection: windows=")
+        for message in messages
+    )
+    assert any(
+        message.startswith(
+            "Owner queue admission: attempted=5 resolved=4 added=3 sqlite="
+        )
+        for message in messages
+    )
+    assert any(
+        message.startswith("Owner queue projection: remaining=4 in ")
+        for message in messages
+    )
     assert any(message.startswith("Deferred deferred until ") for message in messages)
 
 
@@ -372,7 +403,8 @@ def test_targeted_owner_queue_resolves_configured_owner_and_memberships(
         "3/Alpha",
         "99/Beta",
     ]
-    assert messages == ["Queued service", "Queued Alpha", "Queued Beta"]
+    assert messages[1:] == ["Queued service", "Queued Alpha", "Queued Beta"]
+    assert messages[0].startswith("Owner queue projection: remaining=3 in ")
 
 
 def test_targeted_owner_queue_extracts_and_resolves_optout_owners(

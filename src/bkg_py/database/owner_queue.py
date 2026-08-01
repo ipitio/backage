@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 import sqlite3
 from collections.abc import Generator
@@ -40,6 +41,28 @@ class OwnerQueueAdmission:
         """Return the compatibility queue representation."""
 
         return f"{self.owner_id}/{self.owner}"
+
+
+@dataclass(frozen=True)
+class OwnerQueueCandidate:
+    """One login attempted while filling an active queue generation."""
+
+    owner: str
+    reason: str
+
+
+@dataclass(frozen=True)
+class OwnerQueueStats:  # pylint: disable=too-many-instance-attributes
+    """Compact queue and candidate counts for one active generation."""
+
+    total: int
+    ready: int
+    claimed: int
+    paused: int
+    completed: int
+    candidates: int
+    stale_rows: int
+    stale_candidates: int
 
 
 @dataclass(frozen=True)
@@ -89,6 +112,10 @@ def prepare_generation(
             (generation,),
         )
         connection.execute(
+            'delete from "bkg_owner_queue_candidates" where generation != ?',
+            (generation,),
+        )
+        connection.execute(
             """
             update "bkg_owner_queue"
             set status = 'ready', claim_token = '', claimed_at = 0,
@@ -124,6 +151,67 @@ def admit(
         return _admit(connection, generation, normalized, now)
 
 
+def known_candidates(
+    connection: sqlite3.Connection,
+    generation: str,
+    candidates: tuple[str, ...],
+) -> frozenset[str]:
+    """Return candidate logins already attempted this generation."""
+
+    _validate_generation(generation)
+    owner_keys = tuple(dict.fromkeys(_candidate_key(value) for value in candidates))
+    known: set[str] = set()
+    for offset in range(0, len(owner_keys), 400):
+        chunk = owner_keys[offset : offset + 400]
+        rows = connection.execute(
+            """
+            select owner_key from "bkg_owner_queue_candidates"
+            where generation = ?
+              and owner_key in (select value from json_each(?))
+            """,
+            (generation, json.dumps(chunk)),
+        ).fetchall()
+        known.update(str(row[0]) for row in rows)
+    return frozenset(known)
+
+
+def record_candidates(
+    connection: sqlite3.Connection,
+    generation: str,
+    candidates: tuple[OwnerQueueCandidate, ...],
+    admissions: tuple[OwnerQueueAdmission, ...],
+    now: int,
+) -> tuple[OwnerQueueEntry, ...]:
+    """Record attempted logins and canonical admissions atomically."""
+
+    _validate_generation(generation)
+    _validate_time(now)
+    normalized_candidates = tuple(
+        _validated_candidate(candidate) for candidate in candidates
+    )
+    normalized_admissions = tuple(
+        _validated_admission(admission) for admission in admissions
+    )
+    with _transaction(connection):
+        for candidate in normalized_candidates:
+            connection.execute(
+                """
+                insert into "bkg_owner_queue_candidates" (
+                    generation, owner, owner_key, reason, attempted_at
+                ) values (?, ?, ?, ?, ?)
+                on conflict (generation, owner_key) do nothing
+                """,
+                (
+                    generation,
+                    candidate.owner,
+                    candidate.owner.casefold(),
+                    candidate.reason,
+                    now,
+                ),
+            )
+        return _admit(connection, generation, normalized_admissions, now)
+
+
 def entries(
     connection: sqlite3.Connection,
     generation: str,
@@ -157,6 +245,33 @@ def entries(
             (generation, status),
         ).fetchall()
     return tuple(_entry(row) for row in rows)
+
+
+def stats(connection: sqlite3.Connection, generation: str) -> OwnerQueueStats:
+    """Return active-generation and stale-generation queue counts."""
+
+    _validate_generation(generation)
+    row = connection.execute(
+        """
+        select
+            count(*),
+            coalesce(sum(status = 'ready'), 0),
+            coalesce(sum(status = 'claimed'), 0),
+            coalesce(sum(status = 'paused'), 0),
+            coalesce(sum(status = 'completed'), 0),
+            (select count(*) from "bkg_owner_queue_candidates"
+             where generation = ?),
+            (select count(*) from "bkg_owner_queue" where generation != ?),
+            (select count(*) from "bkg_owner_queue_candidates"
+             where generation != ?)
+        from "bkg_owner_queue"
+        where generation = ?
+        """,
+        (generation, generation, generation, generation),
+    ).fetchone()
+    if row is None:
+        raise DatabaseError("owner queue stats returned no row")
+    return OwnerQueueStats(*(int(value) for value in row))
 
 
 def claim_wave(
@@ -433,6 +548,24 @@ def _validated_admission(admission: OwnerQueueAdmission) -> OwnerQueueAdmission:
     if not admission.reason:
         raise DatabaseError("owner queue admission reason is required")
     return admission
+
+
+def _validated_candidate(candidate: OwnerQueueCandidate) -> OwnerQueueCandidate:
+    owner = _candidate_owner(candidate.owner)
+    if not candidate.reason:
+        raise DatabaseError("owner queue candidate reason is required")
+    return OwnerQueueCandidate(owner, candidate.reason)
+
+
+def _candidate_key(value: str) -> str:
+    return _candidate_owner(value).casefold()
+
+
+def _candidate_owner(value: str) -> str:
+    owner = value.split("/", maxsplit=1)[-1]
+    if _OWNER_PATTERN.fullmatch(owner) is None:
+        raise DatabaseError(f"invalid owner queue candidate: {value}")
+    return owner
 
 
 def _entry(row: sqlite3.Row | tuple[object, ...]) -> OwnerQueueEntry:

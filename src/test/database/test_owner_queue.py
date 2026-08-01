@@ -5,10 +5,14 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
+import pytest
+
 from bkg_py.database import (
+    DatabaseError,
     DatabaseRepository,
     DatabaseSettings,
     OwnerQueueAdmission,
+    OwnerQueueCandidate,
     OwnerQueueCompletion,
 )
 
@@ -79,6 +83,106 @@ def test_admission_promotes_without_resequencing_or_demoting(tmp_path: Path) -> 
         "Beta": "stale",
         "Gamma": "manual",
     }
+
+
+def test_candidate_attempts_bound_continuation_and_reset_with_generation(
+    tmp_path: Path,
+) -> None:
+    """Attempted and admitted logins are durable only for the active generation."""
+
+    repository = _repository(tmp_path)
+    repository.prepare_owner_queue("batch-1", (), 100)
+    repository.record_owner_queue_candidates(
+        "batch-1",
+        (
+            OwnerQueueCandidate("Alpha", "connection"),
+            OwnerQueueCandidate("2/Missing", "connection"),
+        ),
+        (OwnerQueueAdmission("1", "Alpha", "connection"),),
+        101,
+    )
+
+    assert repository.known_owner_queue_candidates(
+        "batch-1",
+        ("alpha", "Missing", "Unseen"),
+    ) == frozenset({"alpha", "missing"})
+    stats = repository.owner_queue_stats("batch-1")
+    assert (
+        stats.total,
+        stats.ready,
+        stats.claimed,
+        stats.paused,
+        stats.completed,
+        stats.candidates,
+    ) == (1, 1, 0, 0, 0, 2)
+    repository.prepare_owner_queue("batch-2", (), 102)
+
+    assert not repository.known_owner_queue_candidates(
+        "batch-2",
+        ("Alpha", "Missing"),
+    )
+    with sqlite3.connect(tmp_path / "index.db") as connection:
+        assert connection.execute(
+            "select count(*) from bkg_owner_queue_candidates"
+        ).fetchone() == (0,)
+
+
+def test_candidate_admission_reconciles_a_renamed_login(tmp_path: Path) -> None:
+    """An old candidate login maps to one canonical queue identity."""
+
+    repository = _repository(tmp_path)
+    repository.prepare_owner_queue("batch-1", (), 100)
+
+    added = repository.record_owner_queue_candidates(
+        "batch-1",
+        (OwnerQueueCandidate("OldLogin", "connection"),),
+        (OwnerQueueAdmission("1", "NewLogin", "connection"),),
+        101,
+    )
+    repeated = repository.record_owner_queue_candidates(
+        "batch-1",
+        (OwnerQueueCandidate("NewLogin", "stale"),),
+        (OwnerQueueAdmission("1", "NewLogin", "stale"),),
+        102,
+    )
+
+    assert tuple(entry.ref for entry in added) == ("1/NewLogin",)
+    assert repeated == ()
+    assert repository.known_owner_queue_candidates(
+        "batch-1",
+        ("OldLogin", "NewLogin"),
+    ) == frozenset({"oldlogin", "newlogin"})
+    assert tuple(entry.ref for entry in repository.owner_queue_entries("batch-1")) == (
+        "1/NewLogin",
+    )
+
+
+def test_candidate_and_queue_admission_roll_back_together(tmp_path: Path) -> None:
+    """An interrupted canonical insert cannot strand an attempted candidate."""
+
+    repository = _repository(tmp_path)
+    repository.prepare_owner_queue("batch-1", (), 100)
+    with sqlite3.connect(tmp_path / "index.db") as connection:
+        connection.execute(
+            """
+            create trigger fail_owner_queue_admission
+            before insert on bkg_owner_queue
+            begin
+                select raise(abort, 'simulated interruption');
+            end
+            """
+        )
+
+    with pytest.raises(DatabaseError, match="simulated interruption"):
+        repository.record_owner_queue_candidates(
+            "batch-1",
+            (OwnerQueueCandidate("Alpha", "connection"),),
+            (OwnerQueueAdmission("1", "Alpha", "connection"),),
+            101,
+        )
+
+    assert not repository.known_owner_queue_candidates("batch-1", ("Alpha",))
+    assert repository.owner_queue_entries("batch-1") == ()
 
 
 def test_claims_are_bounded_completed_by_parent_and_paused_later(
