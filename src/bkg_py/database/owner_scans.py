@@ -575,7 +575,9 @@ def clear_backoff(
             ) values (?, ?, ?, 'completed', ?, ?, ?, 0, 0, '')
             on conflict(owner_id) do update set
                 owner = excluded.owner,
+                marker = excluded.marker,
                 status = 'completed',
+                started_at = excluded.started_at,
                 updated_at = excluded.updated_at,
                 completed_at = excluded.completed_at,
                 failure_count = 0,
@@ -590,6 +592,10 @@ def clear_backoff(
                 completed_at,
                 completed_at,
             ),
+        )
+        connection.execute(
+            f"delete from {_SCAN_PACKAGES} where owner_id = ?",
+            (owner_id,),
         )
 
 

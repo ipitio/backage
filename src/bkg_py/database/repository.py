@@ -652,6 +652,17 @@ class DatabaseRepository(  # pylint: disable=too-many-public-methods
                     _sql("delete from {versions} where date < ?", versions=versions),
                     (since,),
                 )
+                connection.execute(
+                    """
+                    delete from "bkg_owner_scan_packages"
+                    where not exists (
+                        select 1 from "bkg_owner_scans" scans
+                        where scans.owner_id = bkg_owner_scan_packages.owner_id
+                          and scans.marker = bkg_owner_scan_packages.marker
+                          and scans.status = 'running'
+                    )
+                    """
+                )
 
         self._run_write(prune_normalized)
 

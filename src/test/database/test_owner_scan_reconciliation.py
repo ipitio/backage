@@ -11,6 +11,7 @@ from bkg_py.database import (
     OwnerScanFailure,
     OwnerScanPackage,
     PackageRecord,
+    PackageRef,
     VersionStage,
 )
 
@@ -199,6 +200,109 @@ def test_incomplete_owner_refresh_uses_persisted_exponential_backoff(
         121,
     )
     assert repository.deferred_owners(120) == ()
+
+
+def test_direct_refresh_replaces_scan_marker_and_clears_staging(
+    tmp_path: Path,
+) -> None:
+    """A successful direct refresh closes obsolete resumable scan state."""
+
+    database_path = tmp_path / "index.db"
+    repository = DatabaseRepository(DatabaseSettings(database_path))
+    package_ref = package()
+    repository.begin_owner_scan(
+        package_ref.owner_id,
+        package_ref.owner,
+        "scan-old",
+        100,
+    )
+    repository.observe_owner_scan(
+        package_ref.owner_id,
+        "scan-old",
+        (
+            OwnerScanPackage(
+                package_ref.owner_type,
+                package_ref.package_type,
+                package_ref.repo,
+                package_ref.package,
+            ),
+        ),
+        101,
+    )
+
+    repository.clear_owner_backoff(
+        package_ref.owner_id,
+        package_ref.owner,
+        102,
+    )
+
+    with sqlite3.connect(database_path) as connection:
+        scan = connection.execute(
+            """
+            select marker, status, started_at, updated_at, completed_at
+            from bkg_owner_scans where owner_id = ?
+            """,
+            (package_ref.owner_id,),
+        ).fetchone()
+        staged = connection.execute(
+            "select count(*) from bkg_owner_scan_packages"
+        ).fetchone()[0]
+
+    assert scan == ("refresh:102", "completed", 102, 102, 102)
+    assert staged == 0
+
+
+def test_rotation_prunes_only_inactive_scan_staging(tmp_path: Path) -> None:
+    """Rotation removes old terminal staging without breaking resumable scans."""
+
+    database_path = tmp_path / "index.db"
+    repository = DatabaseRepository(DatabaseSettings(database_path))
+    inactive = PackageRef("100", "orgs", "container", "inactive", "repo", "image")
+    active = PackageRef("200", "orgs", "container", "active", "repo", "image")
+    for package_ref, marker in ((inactive, "scan-old"), (active, "scan-active")):
+        repository.begin_owner_scan(
+            package_ref.owner_id,
+            package_ref.owner,
+            marker,
+            100,
+        )
+        repository.observe_owner_scan(
+            package_ref.owner_id,
+            marker,
+            (
+                OwnerScanPackage(
+                    package_ref.owner_type,
+                    package_ref.package_type,
+                    package_ref.repo,
+                    package_ref.package,
+                ),
+            ),
+            101,
+        )
+    with sqlite3.connect(database_path) as connection:
+        connection.execute(
+            """
+            update bkg_owner_scans
+            set status = 'completed', completed_at = 102
+            where owner_id = ?
+            """,
+            (inactive.owner_id,),
+        )
+
+    repository.cleanup_replaced_legacy_tables(
+        since=TODAY,
+        prune_normalized=True,
+    )
+
+    with sqlite3.connect(database_path) as connection:
+        staged = connection.execute(
+            """
+            select owner_id, marker from bkg_owner_scan_packages
+            order by owner_id
+            """
+        ).fetchall()
+
+    assert staged == [(active.owner_id, "scan-active")]
 
 
 def test_pending_publication_keeps_current_owner_package_incomplete(
