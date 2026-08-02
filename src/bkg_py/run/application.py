@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import time
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -63,7 +62,6 @@ from ..run_startup import (
     RunStartupService,
     RunStartupServices,
 )
-from ..runtime import peak_resident_memory_mib
 from .coordinator import OwnerQueuePhaseRequest, RunCoordinatorRequest
 
 MessageSink = Callable[[str], None]
@@ -289,10 +287,9 @@ class RunApplicationOperations:
             )
 
     def reset_owner_queue(self, batch_marker: str, now: int) -> None:
-        """Replace stale queue generations and refresh the compatibility view."""
+        """Replace stale queue generations with one empty active queue."""
 
         self.application.database.prepare_owner_queue(batch_marker, (), now)
-        self._project_owner_queue(batch_marker)
 
     def owner_queue_refs(self, batch_marker: str) -> tuple[str, ...]:
         """Return the authoritative remaining owner queue."""
@@ -307,18 +304,16 @@ class RunApplicationOperations:
         batch_marker: str,
         now: int,
     ) -> tuple[str, ...]:
-        """Make paused scans ready and refresh the compatibility view."""
+        """Make paused scans ready for another pass."""
 
         self.application.database.activate_paused_owner_queue(batch_marker, now)
-        ready = tuple(
+        return tuple(
             entry.ref
             for entry in self.application.database.owner_queue_entries(
                 batch_marker,
                 status="ready",
             )
         )
-        self._project_owner_queue(batch_marker)
-        return ready
 
     def materialize_owner_trees(self, owners: tuple[str, ...]) -> None:
         """Delegate index workspace materialization to its current owner."""
@@ -352,7 +347,6 @@ class RunApplicationOperations:
                     self.execution.progress,
                 ),
                 OwnerBatchExecution(
-                    self.application.state,
                     Path(config.optout_file),
                     self.application.concurrency_settings,
                     self.application.stop.check,
@@ -446,19 +440,6 @@ class RunApplicationOperations:
             ),
             self.application.stop.check,
             self.execution.progress,
-        )
-
-    def _project_owner_queue(self, batch_marker: str) -> None:
-        started_at = time.monotonic()
-        projection = self.application.state.replace_set(
-            "BKG_OWNERS_QUEUE",
-            self.owner_queue_refs(batch_marker),
-        )
-        elapsed = max(0.0, time.monotonic() - started_at)
-        self.execution.progress(
-            "Owner queue projection: "
-            f"remaining={len(projection)} in {elapsed:.3f}s; "
-            f"peak_rss={peak_resident_memory_mib():.1f}MiB"
         )
 
     def _publication_request(

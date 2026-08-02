@@ -283,12 +283,11 @@ def test_queue_preparation_owns_normalization_resolution_and_effects(
 
     state = StateStore(tmp_path / "state.env")
     repository = _repository(tmp_path)
-    initial = repository.database.admit_owner_queue(
+    repository.database.admit_owner_queue(
         "batch-1",
         (OwnerQueueAdmission("2", "service", "legacy"),),
         2,
     )
-    state.replace_set("BKG_OWNERS_QUEUE", (entry.ref for entry in initial))
     resolver = _Resolver()
     messages: list[str] = []
     effects = OwnerBatchEffects(repository, state, owners, index, messages.append)
@@ -341,7 +340,9 @@ def test_queue_preparation_owns_normalization_resolution_and_effects(
         "alpha",
         "99/Beta",
     }
-    assert state.get_set("BKG_OWNERS_QUEUE") == [
+    assert [
+        entry.ref for entry in repository.database.owner_queue_entries("batch-1")
+    ] == [
         "1/Manual",
         "2/service",
         "3/Alpha",
@@ -369,10 +370,6 @@ def test_queue_preparation_owns_normalization_resolution_and_effects(
         )
         for message in messages
     )
-    assert any(
-        message.startswith("Owner queue projection: remaining=4 in ")
-        for message in messages
-    )
     assert any(message.startswith("Deferred deferred until ") for message in messages)
 
 
@@ -384,10 +381,11 @@ def test_targeted_owner_queue_resolves_configured_owner_and_memberships(
     connections = tmp_path / "connections"
     _write_lines(connections, "alpha", "99/Beta", "alpha", "missing")
     state = StateStore(tmp_path / "state.env")
+    repository = _repository(tmp_path)
     resolver = _Resolver()
     messages: list[str] = []
     service = TargetedOwnerQueueService(
-        TargetedOwnerQueueServices(_repository(tmp_path), resolver, state),
+        TargetedOwnerQueueServices(repository, resolver, state),
         lambda: None,
         messages.append,
     )
@@ -398,13 +396,14 @@ def test_targeted_owner_queue_resolves_configured_owner_and_memberships(
     assert result.queued == 3
     assert result.missing == 1
     assert resolver.candidates == ("service", "alpha", "99/Beta", "missing")
-    assert state.get_set("BKG_OWNERS_QUEUE") == [
+    assert [
+        entry.ref for entry in repository.database.owner_queue_entries("batch-1")
+    ] == [
         "2/service",
         "3/Alpha",
         "99/Beta",
     ]
-    assert messages[1:] == ["Queued service", "Queued Alpha", "Queued Beta"]
-    assert messages[0].startswith("Owner queue projection: remaining=3 in ")
+    assert messages == ["Queued service", "Queued Alpha", "Queued Beta"]
 
 
 def test_targeted_owner_queue_extracts_and_resolves_optout_owners(
@@ -421,9 +420,10 @@ def test_targeted_owner_queue_extracts_and_resolves_optout_owners(
         "missing/repository/package",
     )
     state = StateStore(tmp_path / "state.env")
+    repository = _repository(tmp_path)
     resolver = _Resolver()
     service = TargetedOwnerQueueService(
-        TargetedOwnerQueueServices(_repository(tmp_path), resolver, state),
+        TargetedOwnerQueueServices(repository, resolver, state),
         lambda: None,
         lambda _message: None,
     )
@@ -434,4 +434,6 @@ def test_targeted_owner_queue_extracts_and_resolves_optout_owners(
     assert result.queued == 2
     assert result.missing == 1
     assert resolver.candidates == ("alpha", "beta", "missing")
-    assert state.get_set("BKG_OWNERS_QUEUE") == ["3/Alpha", "99/Beta"]
+    assert tuple(
+        entry.ref for entry in repository.database.owner_queue_entries("batch-1")
+    ) == ("3/Alpha", "99/Beta")

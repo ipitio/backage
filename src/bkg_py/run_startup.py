@@ -137,19 +137,14 @@ class RunStartupService:  # pylint: disable=too-few-public-methods
     ) -> None:
         queue_before = self.services.repository.owner_queue_stats(batch_marker)
         recovery_started_at = time.monotonic()
-        owner_queue = self.services.repository.prepare_owner_queue(
+        self.services.repository.prepare_owner_queue(
             batch_marker,
             legacy_owner_queue,
             started_at,
         )
+        legacy_removed = self.services.state.delete("BKG_OWNERS_QUEUE")
         recovery_elapsed = max(0.0, time.monotonic() - recovery_started_at)
         queue_after = self.services.repository.owner_queue_stats(batch_marker)
-        projection_started_at = time.monotonic()
-        self.services.state.replace_set(
-            "BKG_OWNERS_QUEUE",
-            (entry.ref for entry in owner_queue),
-        )
-        projection_elapsed = max(0.0, time.monotonic() - projection_started_at)
         self.execution.progress(
             "Owner queue recovery: "
             f"active={queue_after.total} ready={queue_after.ready} "
@@ -157,10 +152,10 @@ class RunStartupService:  # pylint: disable=too-few-public-methods
             f"completed={queue_after.completed} "
             f"candidates={queue_after.candidates} "
             f"imported={max(0, queue_after.total - queue_before.total)} "
+            f"legacy_removed={int(legacy_removed)} "
             f"recovered_claims={queue_before.claimed} "
             f"pruned_stale={queue_before.stale_rows + queue_before.stale_candidates}; "
             f"sqlite={recovery_elapsed:.3f}s "
-            f"projection={projection_elapsed:.3f}s "
             f"peak_rss={peak_resident_memory_mib():.1f}MiB"
         )
 

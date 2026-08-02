@@ -27,7 +27,6 @@ _TRANSIENT_STATE_PREFIXES = (
     "BKG_OWNER_SCAN_",
 )
 _TRANSIENT_OWNER_PREFIX = "BKG_OWNERS_"
-_OWNER_QUEUE_KEY = "BKG_OWNERS_QUEUE"
 _NUMBERED_PAGE_KEY = re.compile(r"BKG_PAGE_[0-9].*")
 _INTERMEDIATE_FILES = (
     "packages_already_updated",
@@ -277,8 +276,7 @@ def _prune_transient_state(state: StateStore) -> None:
     transient_keys = tuple(
         key
         for key in state.snapshot()
-        if _NUMBERED_PAGE_KEY.fullmatch(key)
-        or (key.startswith(_TRANSIENT_OWNER_PREFIX) and key != _OWNER_QUEUE_KEY)
+        if _NUMBERED_PAGE_KEY.fullmatch(key) or key.startswith(_TRANSIENT_OWNER_PREFIX)
     )
     state.delete_matching(
         keys=transient_keys,

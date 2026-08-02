@@ -126,7 +126,6 @@ class BatchRuntimeService:
                 "BKG_DIFF": _state_int(snapshot, "BKG_DIFF"),
                 "BKG_REST_TO_TOP": _state_int(snapshot, "BKG_REST_TO_TOP"),
                 "BKG_DISCOVERED_CONNECTION_OWNERS": "",
-                "BKG_OWNERS_QUEUE": "",
                 "BKG_TIMEOUT": 0,
                 "BKG_SCRIPT_START": started_at,
             }

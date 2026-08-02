@@ -38,7 +38,7 @@ class OwnerQueueAdmission:
 
     @property
     def ref(self) -> str:
-        """Return the compatibility queue representation."""
+        """Return the serialized owner reference."""
 
         return f"{self.owner_id}/{self.owner}"
 
@@ -80,7 +80,7 @@ class OwnerQueueEntry:  # pylint: disable=too-many-instance-attributes
 
     @property
     def ref(self) -> str:
-        """Return the compatibility queue representation."""
+        """Return the serialized owner reference."""
 
         return f"{self.owner_id}/{self.owner}"
 

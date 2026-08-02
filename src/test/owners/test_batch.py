@@ -49,7 +49,7 @@ class _Repository:
         *,
         status: str | None = None,
     ) -> tuple[OwnerQueueEntry, ...]:
-        """Delegate one compatibility projection read."""
+        """Delegate one ordered queue read."""
 
         return self.database.owner_queue_entries(generation, status=status)
 
@@ -95,8 +95,7 @@ def _service(  # pylint: disable=too-many-locals
 ) -> _Harness:
     state = StateStore(tmp_path / "state.env")
     database = DatabaseRepository(DatabaseSettings(tmp_path / "index.db"))
-    entries = database.prepare_owner_queue("batch-1", queued, 1)
-    state.replace_set("BKG_OWNERS_QUEUE", (entry.ref for entry in entries))
+    database.prepare_owner_queue("batch-1", queued, 1)
     owners_file = tmp_path / "owners.txt"
     owners_file.write_text(
         "".join(f"{owner.split('/', maxsplit=1)[1]}\n" for owner in queued),
@@ -126,7 +125,6 @@ def _service(  # pylint: disable=too-many-locals
             messages.progress.append,
         ),
         OwnerBatchExecution(
-            state,
             optout_file,
             ConcurrencySettings(4),
             lambda: None,
@@ -198,7 +196,8 @@ def test_owner_batch_applies_each_completed_outcome(tmp_path: Path) -> None:
     assert state.get("BKG_PAGE_2") is None
     assert state.get("BKG_OWNER_SCAN_5") is None
     assert state.get("BKG_PAGE_5") is None
-    assert state.get_set("BKG_OWNERS_QUEUE") == ["3/paused"]
+    remaining = harness.repository.database.owner_queue_entries("batch-1")
+    assert tuple(entry.ref for entry in remaining) == ("3/paused",)
     completed = harness.repository.database.owner_queue_entries(
         "batch-1",
         status="completed",
@@ -212,7 +211,9 @@ def test_owner_batch_applies_each_completed_outcome(tmp_path: Path) -> None:
         for message in harness.messages.progress
     )
     assert any(
-        message.startswith("Owner queue projection: remaining=")
+        message.startswith(
+            "Owner worker telemetry: wave=1 requested=5 submitted=5 completed=5"
+        )
         for message in harness.messages.progress
     )
     assert not harness.messages.diagnostic

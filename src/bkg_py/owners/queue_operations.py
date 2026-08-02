@@ -72,16 +72,6 @@ class DurableOwnerQueueRepository(Protocol):
 
         raise NotImplementedError
 
-    def owner_queue_entries(
-        self,
-        generation: str,
-        *,
-        status: str | None = None,
-    ) -> tuple[OwnerQueueEntry, ...]:
-        """Return remaining owner work in deterministic order."""
-
-        raise NotImplementedError
-
 
 @dataclass(frozen=True)
 class OwnerQueuePreparationPaths:
@@ -187,13 +177,6 @@ class OwnerQueuePreparationService:  # pylint: disable=too-few-public-methods
             request.batch_marker,
             request.now,
         )
-        _project_owner_queue_with_telemetry(
-            self.services.repository,
-            self.services.state,
-            request.batch_marker,
-            self.execution.progress,
-        )
-
         return OwnerQueuePreparationResult(
             candidates=len(selected),
             queued=queued,
@@ -410,44 +393,9 @@ class TargetedOwnerQueueService:  # pylint: disable=too-few-public-methods
             tuple(_owner_admission(owner_ref, reason) for owner_ref in resolved),
             now,
         )
-        _project_owner_queue_with_telemetry(
-            self.services.repository,
-            self.services.state,
-            batch_marker,
-            self.progress,
-        )
         for entry in added:
             self.progress(f"Queued {entry.owner}")
         return TargetedOwnerQueueResult(len(candidates), len(added), len(missing))
-
-
-def _project_owner_queue(
-    repository: DurableOwnerQueueRepository,
-    state: StateStore,
-    batch_marker: str,
-) -> tuple[str, ...]:
-    entries = repository.owner_queue_entries(batch_marker)
-    return state.replace_set(
-        "BKG_OWNERS_QUEUE",
-        (entry.ref for entry in entries),
-    )
-
-
-def _project_owner_queue_with_telemetry(
-    repository: DurableOwnerQueueRepository,
-    state: StateStore,
-    batch_marker: str,
-    progress: MessageSink,
-) -> tuple[str, ...]:
-    started_at = time.monotonic()
-    projection = _project_owner_queue(repository, state, batch_marker)
-    elapsed = max(0.0, time.monotonic() - started_at)
-    progress(
-        "Owner queue projection: "
-        f"remaining={len(projection)} in {elapsed:.3f}s; "
-        f"peak_rss={peak_resident_memory_mib():.1f}MiB"
-    )
-    return projection
 
 
 def _owner_admission(owner_ref: str, reason: str) -> OwnerQueueAdmission:

@@ -151,7 +151,6 @@ def test_run_publication_hydrates_outputs_and_prunes_transient_state(
         )
     )
     assert state.snapshot() == {
-        "BKG_OWNERS_QUEUE": "owner",
         "BKG_PAGE_ALL": "1",
         "BKG_TIMEOUT": "1",
         "UNKNOWN": "kept",

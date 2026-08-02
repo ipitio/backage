@@ -118,6 +118,21 @@ def test_run_bounded_limits_active_workers() -> None:
     assert result.ok
     assert len(result.completed) == 8
     assert max_active <= 3
+    metrics = result.metrics
+    assert metrics is not None
+    assert metrics.counts.requested_tasks == 8
+    assert metrics.counts.submitted_tasks == 8
+    assert metrics.counts.max_workers == 3
+    assert metrics.counts.peak_in_flight == 3
+    assert metrics.timing.wall_seconds > 0
+    assert metrics.timing.process_cpu_seconds >= 0
+    assert metrics.timing.task_seconds > 0
+    assert 0 < metrics.worker_occupancy <= 1
+    assert metrics.process_cpu_cores >= 0
+    assert metrics.tasks.queue_wait_max_seconds >= metrics.tasks.queue_wait_p95_seconds
+    assert 0 < metrics.tasks.task_p50_seconds <= metrics.tasks.task_p95_seconds
+    assert metrics.tasks.task_p95_seconds <= metrics.tasks.task_max_seconds
+    assert metrics.tasks.slowest_task in {str(value) for value in range(8)}
 
 
 def test_runner_bounds_submitted_queue_growth() -> None:
@@ -309,6 +324,8 @@ def test_runner_reports_drain_timeout_for_blocked_worker() -> None:
     assert result.drain_timed_out
     assert result.interrupted
     assert result.interrupted[0].reason == "drain-timeout"
+    assert result.metrics is not None
+    assert result.metrics.timing.drain_seconds >= 0.02
     assert [event.kind for event in events] == [
         "submitted",
         "stop-requested",

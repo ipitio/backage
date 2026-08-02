@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from bkg_py.database import (
     DatabaseRepository,
     DatabaseSettings,
@@ -96,7 +98,8 @@ def test_startup_prepares_state_plan_cache_and_optouts(tmp_path: Path) -> None:
     assert (tmp_path / "plan" / "packages_to_update").is_file()
     assert progress[0].startswith(
         "Owner queue recovery: active=0 ready=0 claimed=0 paused=0 completed=0 "
-        "candidates=0 imported=0 recovered_claims=0 pruned_stale=0; "
+        "candidates=0 imported=0 legacy_removed=0 recovered_claims=0 "
+        "pruned_stale=0; "
     )
     assert progress[1:] == ["Startup phase 'prepare-package-state' completed in 0s"]
 
@@ -153,14 +156,55 @@ def test_startup_imports_legacy_owner_queue_only_once(tmp_path: Path) -> None:
     )
 
     service.prepare(request)
-    assert state.get_set("BKG_OWNERS_QUEUE") == ["1/Alpha", "2/Beta"]
+    assert state.get("BKG_OWNERS_QUEUE") is None
 
     state.replace_set("BKG_OWNERS_QUEUE", ("3/Replacement",))
     service.prepare(request)
 
-    assert state.get_set("BKG_OWNERS_QUEUE") == ["1/Alpha", "2/Beta"]
+    assert state.get("BKG_OWNERS_QUEUE") is None
     repository = DatabaseRepository(DatabaseSettings(database_path))
     assert tuple(entry.ref for entry in repository.owner_queue_entries("batch-1")) == (
         "1/Alpha",
         "2/Beta",
     )
+
+
+def test_startup_retains_legacy_queue_until_database_import_commits(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An interrupted cutover leaves the one-time migration input retryable."""
+
+    database_path = tmp_path / "index.db"
+    state = StateStore(tmp_path / "state.env")
+    state.set_many(
+        {
+            "BKG_BATCH_MARKER": "batch-1",
+            "BKG_OWNERS_QUEUE": r"1/Alpha\n2/Beta",
+        }
+    )
+    cache = OwnerIdentityCache(tmp_path / "owner-id-cache.txt")
+    service = _service(database_path, state, cache, [])
+
+    def interrupt_import(*_args: object) -> tuple[object, ...]:
+        raise RuntimeError("interrupted import")
+
+    monkeypatch.setattr(
+        service.services.repository,
+        "prepare_owner_queue",
+        interrupt_import,
+    )
+
+    with pytest.raises(RuntimeError, match="interrupted import"):
+        service.prepare(
+            RunStartupRequest(
+                "2026-06-29",
+                1_000,
+                tmp_path / "plan",
+                database_path,
+                tmp_path / "optout.txt",
+                "fork-owner",
+            )
+        )
+
+    assert state.get_set("BKG_OWNERS_QUEUE") == ["1/Alpha", "2/Beta"]

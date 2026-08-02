@@ -13,6 +13,7 @@ from threading import Lock
 from typing import Literal, Protocol
 
 from ..concurrency import (
+    BoundedRunResult,
     BoundedWorkerRunner,
     ConcurrencySettings,
     TaskFailure,
@@ -47,16 +48,6 @@ class OwnerBatchRepository(Protocol):
 
     def retire_owner(self, owner: str) -> int:
         """Remove one owner's persisted package state."""
-
-        raise NotImplementedError
-
-    def owner_queue_entries(
-        self,
-        generation: str,
-        *,
-        status: str | None = None,
-    ) -> tuple[OwnerQueueEntry, ...]:
-        """Return remaining owner work in deterministic order."""
 
         raise NotImplementedError
 
@@ -204,7 +195,6 @@ class OwnerBatchEffects:
 class OwnerBatchExecution:  # pylint: disable=too-many-instance-attributes
     """Concurrency, paths, and runtime callbacks for a queued-owner batch."""
 
-    state: StateStore
     optout_file: Path
     concurrency: ConcurrencySettings
     check_stop: Callable[[], None]
@@ -269,7 +259,6 @@ class OwnerBatchService:  # pylint: disable=too-few-public-methods
                 f"sqlite={claim_elapsed:.3f}s; "
                 f"peak_rss={peak_resident_memory_mib():.1f}MiB"
             )
-            self._project_queue(request.batch_marker)
             if not claimed:
                 return ExitStatus.SUCCESS
             wave = tuple(QueuedOwner(entry.owner_id, entry.owner) for entry in claimed)
@@ -290,9 +279,8 @@ class OwnerBatchService:  # pylint: disable=too-few-public-methods
             )
             if not self._materialize_wave(wave, wave_number):
                 return ExitStatus.GRACEFUL_STOP
-            status, items = self._run_wave(wave, update)
+            status, items = self._run_wave(wave, update, wave_number)
             self._apply_items(items, claim_token, request.batch_marker)
-            self._project_queue(request.batch_marker)
             if status is not ExitStatus.SUCCESS:
                 return status
             wave_number += 1
@@ -323,6 +311,7 @@ class OwnerBatchService:  # pylint: disable=too-few-public-methods
         self,
         wave: tuple[QueuedOwner, ...],
         update: _OwnerWaveUpdate,
+        wave_number: int,
     ) -> tuple[ExitStatus, tuple[_OwnerWorkerResult, ...]]:
         runner = BoundedWorkerRunner(
             replace(self.execution.concurrency, max_workers=update.workers),
@@ -339,6 +328,7 @@ class OwnerBatchService:  # pylint: disable=too-few-public-methods
             ),
             task_name=lambda owner: owner.owner,
         )
+        self._report_worker_metrics(wave_number, result)
         self._report_failures(result.failures, result.interrupted)
         items = tuple(
             completed.value
@@ -349,6 +339,35 @@ class OwnerBatchService:  # pylint: disable=too-few-public-methods
         if not result.ok:
             return ExitStatus.NON_FATAL, items
         return ExitStatus.SUCCESS, items
+
+    def _report_worker_metrics(
+        self,
+        wave_number: int,
+        result: BoundedRunResult[_OwnerWorkerResult],
+    ) -> None:
+        metrics = result.metrics
+        if metrics is None:
+            return
+        self.execution.progress(
+            "Owner worker telemetry: "
+            f"wave={wave_number} requested={metrics.counts.requested_tasks} "
+            f"submitted={metrics.counts.submitted_tasks} "
+            f"completed={len(result.completed)} failed={len(result.failures)} "
+            f"interrupted={len(result.interrupted)} "
+            f"workers={metrics.counts.max_workers} "
+            f"peak={metrics.counts.peak_in_flight}; "
+            f"wall={metrics.timing.wall_seconds:.3f}s "
+            f"process_cpu={metrics.timing.process_cpu_seconds:.3f}s "
+            f"process_cpu_cores={metrics.process_cpu_cores:.2f} "
+            f"worker_occupancy={metrics.worker_occupancy:.1%} "
+            f"queue_wait_p95={metrics.tasks.queue_wait_p95_seconds:.3f}s "
+            f"queue_wait_max={metrics.tasks.queue_wait_max_seconds:.3f}s "
+            f"task_p50={metrics.tasks.task_p50_seconds:.3f}s "
+            f"task_p95={metrics.tasks.task_p95_seconds:.3f}s "
+            f"task_max={metrics.tasks.task_max_seconds:.3f}s "
+            f"slowest={metrics.tasks.slowest_task or '-'} "
+            f"drain={metrics.timing.drain_seconds:.3f}s"
+        )
 
     def _update_one(
         self,
@@ -398,20 +417,6 @@ class OwnerBatchService:  # pylint: disable=too-few-public-methods
                     finished_at=self.execution.now(),
                 )
             )
-
-    def _project_queue(self, generation: str) -> None:
-        started_at = time.monotonic()
-        entries = self.effects.repository.owner_queue_entries(generation)
-        self.execution.state.replace_set(
-            "BKG_OWNERS_QUEUE",
-            (entry.ref for entry in entries),
-        )
-        elapsed = max(0.0, time.monotonic() - started_at)
-        self.execution.progress(
-            "Owner queue projection: "
-            f"remaining={len(entries)} in {elapsed:.3f}s; "
-            f"peak_rss={peak_resident_memory_mib():.1f}MiB"
-        )
 
     def _worker_event(self, event: WorkerEvent) -> None:
         if event.kind == "stop-requested":

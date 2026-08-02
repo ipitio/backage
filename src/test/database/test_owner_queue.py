@@ -24,7 +24,7 @@ def _repository(tmp_path: Path) -> DatabaseRepository:
 def test_legacy_import_is_idempotent_and_database_becomes_authoritative(
     tmp_path: Path,
 ) -> None:
-    """Later compatibility-file edits cannot replace an active SQLite queue."""
+    """Later legacy-state edits cannot replace an active SQLite queue."""
 
     repository = _repository(tmp_path)
 

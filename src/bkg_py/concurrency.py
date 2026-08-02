@@ -6,6 +6,7 @@ import time
 from collections.abc import Callable, Sequence
 from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from dataclasses import dataclass
+from math import ceil
 from typing import TYPE_CHECKING, Literal
 
 from .runtime import GracefulStop
@@ -87,6 +88,64 @@ class TaskInterruption:
 
 
 @dataclass(frozen=True)
+class WorkerRunCounts:
+    """Task and worker counts for one bounded run."""
+
+    requested_tasks: int
+    submitted_tasks: int
+    max_workers: int
+    peak_in_flight: int
+
+
+@dataclass(frozen=True)
+class WorkerRunTiming:
+    """Whole-run wall, process CPU, task, and drain timings."""
+
+    wall_seconds: float
+    process_cpu_seconds: float
+    task_seconds: float
+    drain_seconds: float
+
+
+@dataclass(frozen=True)
+class WorkerTaskMetrics:
+    """Dispatch and task-duration distribution for one bounded run."""
+
+    queue_wait_p95_seconds: float
+    queue_wait_max_seconds: float
+    task_p50_seconds: float
+    task_p95_seconds: float
+    task_max_seconds: float
+    slowest_task: str
+
+
+@dataclass(frozen=True)
+class WorkerRunMetrics:
+    """Aggregate measurements for one bounded worker run."""
+
+    counts: WorkerRunCounts
+    timing: WorkerRunTiming
+    tasks: WorkerTaskMetrics
+
+    @property
+    def worker_occupancy(self) -> float:
+        """Return the fraction of available worker time spent inside tasks."""
+
+        capacity = self.timing.wall_seconds * self.counts.max_workers
+        if capacity <= 0:
+            return 0.0
+        return min(1.0, self.timing.task_seconds / capacity)
+
+    @property
+    def process_cpu_cores(self) -> float:
+        """Return process CPU time as an equivalent average core count."""
+
+        if self.timing.wall_seconds <= 0:
+            return 0.0
+        return self.timing.process_cpu_seconds / self.timing.wall_seconds
+
+
+@dataclass(frozen=True)
 class BoundedRunResult[R]:
     """Completed work and the first task failure, if any."""
 
@@ -95,6 +154,7 @@ class BoundedRunResult[R]:
     failures: tuple[TaskFailure, ...] = ()
     interrupted: tuple[TaskInterruption, ...] = ()
     drain_timed_out: bool = False
+    metrics: WorkerRunMetrics | None = None
 
     @property
     def stopped(self) -> bool:
@@ -109,11 +169,34 @@ class BoundedRunResult[R]:
         return not self.failures and not self.interrupted
 
 
+@dataclass
+class _TaskTiming:
+    submitted_at: float
+    started_at: float | None = None
+    finished_at: float | None = None
+
+
+@dataclass(frozen=True)
+class _TaskTimingSample:
+    name: str
+    queue_wait_seconds: float
+    task_seconds: float
+
+
 @dataclass(frozen=True)
 class _InFlight[T]:
     index: int
     name: str
     item: T
+    timing: _TaskTiming
+
+
+@dataclass
+class _RunProgress:
+    next_index: int = 0
+    peak_in_flight: int = 0
+    drain_started_at: float | None = None
+    drain_timed_out: bool = False
 
 
 @dataclass
@@ -122,9 +205,8 @@ class _RunState[T, R]:
     failures: list[TaskFailure]
     interrupted: list[TaskInterruption]
     futures: dict[Future[R], _InFlight[T]]
-    next_index: int = 0
-    drain_started_at: float | None = None
-    drain_timed_out: bool = False
+    timings: list[_TaskTimingSample]
+    progress: _RunProgress
 
 
 @dataclass(frozen=True)
@@ -135,6 +217,15 @@ class _RunPlan[T, R]:
 
 
 @dataclass(frozen=True)
+class _RunMeasurement:
+    requested_tasks: int
+    max_workers: int
+    started_at: float
+    finished_at: float
+    process_cpu_seconds: float
+
+
+@dataclass(frozen=True)
 class BoundedWorkerRunner:
     """Run work with bounded threads and deterministic stop handling."""
 
@@ -142,6 +233,7 @@ class BoundedWorkerRunner:
     check_stop: Callable[[], None] = _no_stop_check
     event_sink: EventSink | None = None
     clock: Callable[[], float] = time.monotonic
+    cpu_clock: Callable[[], float] = time.process_time
     poll_interval: float = _DEFAULT_POLL_INTERVAL_SECONDS
 
     def run[T, R](
@@ -154,8 +246,29 @@ class BoundedWorkerRunner:
         """Run items with bounded concurrency and deterministic completion records."""
 
         self._validate()
+        started_at = self.clock()
+        cpu_started_at = self.cpu_clock()
         plan = _RunPlan(items, worker, task_name)
-        state: _RunState[T, R] = _RunState([], [], [], {})
+        state: _RunState[T, R] = _RunState([], [], [], {}, [], _RunProgress())
+        self._execute(state, plan)
+        finished_at = self.clock()
+        metrics = _worker_run_metrics(
+            state,
+            _RunMeasurement(
+                requested_tasks=len(items),
+                max_workers=self.settings.max_workers,
+                started_at=started_at,
+                finished_at=finished_at,
+                process_cpu_seconds=max(0.0, self.cpu_clock() - cpu_started_at),
+            ),
+        )
+        return _finish_result(state, metrics)
+
+    def _execute[T, R](
+        self,
+        state: _RunState[T, R],
+        plan: _RunPlan[T, R],
+    ) -> None:
         executor = ThreadPoolExecutor(max_workers=self.settings.max_workers)
 
         try:
@@ -163,7 +276,7 @@ class BoundedWorkerRunner:
 
             while state.futures:
                 self._record_external_stop(state, plan)
-                if not state.drain_timed_out and self._drain_expired(state):
+                if not state.progress.drain_timed_out and self._drain_expired(state):
                     self._report_drain_timeout(state)
 
                 done, _pending = wait(
@@ -178,8 +291,6 @@ class BoundedWorkerRunner:
                 self._fill_workers(executor, state, plan)
         finally:
             executor.shutdown(wait=True, cancel_futures=True)
-
-        return _finish_result(state)
 
     def _validate(self) -> None:
         if self.settings.max_workers <= 0:
@@ -198,7 +309,7 @@ class BoundedWorkerRunner:
         while (
             not state.failures
             and len(state.futures) < self.settings.max_workers
-            and state.next_index < len(plan.items)
+            and state.progress.next_index < len(plan.items)
         ):
             self._submit_next(executor, state, plan)
 
@@ -214,22 +325,34 @@ class BoundedWorkerRunner:
             self._record_failure(
                 state,
                 TaskFailure(
-                    state.next_index,
-                    _pending_task_name(plan.items, state.next_index, plan.task_name),
+                    state.progress.next_index,
+                    _pending_task_name(
+                        plan.items,
+                        state.progress.next_index,
+                        plan.task_name,
+                    ),
                     error,
                 ),
             )
             return
 
-        item = plan.items[state.next_index]
+        item = plan.items[state.progress.next_index]
         name = plan.task_name(item)
-        state.futures[executor.submit(plan.worker, item)] = _InFlight(
-            state.next_index,
+        timing = _TaskTiming(self.clock())
+        state.futures[
+            executor.submit(_run_timed, plan.worker, item, timing, self.clock)
+        ] = _InFlight(
+            state.progress.next_index,
             name,
             item,
+            timing,
         )
-        self._emit("submitted", state.next_index, name)
-        state.next_index += 1
+        state.progress.peak_in_flight = max(
+            state.progress.peak_in_flight,
+            len(state.futures),
+        )
+        self._emit("submitted", state.progress.next_index, name)
+        state.progress.next_index += 1
 
     def _record_external_stop[T, R](
         self,
@@ -244,8 +367,12 @@ class BoundedWorkerRunner:
             self._record_failure(
                 state,
                 TaskFailure(
-                    state.next_index,
-                    _pending_task_name(plan.items, state.next_index, plan.task_name),
+                    state.progress.next_index,
+                    _pending_task_name(
+                        plan.items,
+                        state.progress.next_index,
+                        plan.task_name,
+                    ),
                     error,
                 ),
             )
@@ -256,6 +383,7 @@ class BoundedWorkerRunner:
         task: _InFlight[T],
         state: _RunState[T, R],
     ) -> None:
+        self._record_timing(task, state)
         try:
             result = future.result()
         except Exception as error:  # noqa: BLE001  # pylint: disable=broad-exception-caught
@@ -263,6 +391,23 @@ class BoundedWorkerRunner:
         else:
             state.completed.append(TaskResult(task.index, task.name, result))
             self._emit("completed", task.index, task.name)
+
+    @staticmethod
+    def _record_timing[T, R](
+        task: _InFlight[T],
+        state: _RunState[T, R],
+    ) -> None:
+        started_at = task.timing.started_at
+        finished_at = task.timing.finished_at
+        if started_at is None or finished_at is None:
+            return
+        state.timings.append(
+            _TaskTimingSample(
+                task.name,
+                max(0.0, started_at - task.timing.submitted_at),
+                max(0.0, finished_at - started_at),
+            )
+        )
 
     def _record_failure[T, R](
         self,
@@ -273,8 +418,8 @@ class BoundedWorkerRunner:
             isinstance(record.error, GracefulStop) for record in state.failures
         )
         state.failures.append(failure)
-        if state.drain_started_at is None:
-            state.drain_started_at = self.clock()
+        if state.progress.drain_started_at is None:
+            state.progress.drain_started_at = self.clock()
         if isinstance(failure.error, GracefulStop):
             if not stop_was_reported:
                 self._emit(
@@ -292,24 +437,24 @@ class BoundedWorkerRunner:
             )
 
     def _drain_expired[T, R](self, state: _RunState[T, R]) -> bool:
-        if not state.futures or state.drain_started_at is None:
+        if not state.futures or state.progress.drain_started_at is None:
             return False
         return (
-            self.clock() - state.drain_started_at
+            self.clock() - state.progress.drain_started_at
         ) >= self.settings.stop_grace_seconds
 
     def _wait_timeout[T, R](self, state: _RunState[T, R]) -> float:
-        if state.drain_started_at is None or state.drain_timed_out:
+        if state.progress.drain_started_at is None or state.progress.drain_timed_out:
             return self.poll_interval
         remaining = self.settings.stop_grace_seconds - (
-            self.clock() - state.drain_started_at
+            self.clock() - state.progress.drain_started_at
         )
         return max(0.0, min(self.poll_interval, remaining))
 
     def _report_drain_timeout[T, R](self, state: _RunState[T, R]) -> None:
         """Report overdue workers without allowing them to outlive the runner."""
 
-        state.drain_timed_out = True
+        state.progress.drain_timed_out = True
         for future, task in list(state.futures.items()):
             if future.done():
                 state.futures.pop(future)
@@ -354,7 +499,10 @@ def run_bounded[T, R](
     ).run(items, worker, task_name=task_name)
 
 
-def _finish_result[T, R](state: _RunState[T, R]) -> BoundedRunResult[R]:
+def _finish_result[T, R](
+    state: _RunState[T, R],
+    metrics: WorkerRunMetrics,
+) -> BoundedRunResult[R]:
     state.completed.sort(key=lambda result: result.index)
     state.failures.sort(key=lambda failure: failure.index)
     state.interrupted.sort(key=lambda interruption: interruption.index)
@@ -364,8 +512,70 @@ def _finish_result[T, R](state: _RunState[T, R]) -> BoundedRunResult[R]:
         failure=failures[0] if failures else None,
         failures=failures,
         interrupted=tuple(state.interrupted),
-        drain_timed_out=state.drain_timed_out,
+        drain_timed_out=state.progress.drain_timed_out,
+        metrics=metrics,
     )
+
+
+def _run_timed[T, R](
+    worker: Callable[[T], R],
+    item: T,
+    timing: _TaskTiming,
+    clock: Callable[[], float],
+) -> R:
+    timing.started_at = clock()
+    try:
+        return worker(item)
+    finally:
+        timing.finished_at = clock()
+
+
+def _worker_run_metrics[T, R](
+    state: _RunState[T, R],
+    measurement: _RunMeasurement,
+) -> WorkerRunMetrics:
+    task_seconds = sorted(sample.task_seconds for sample in state.timings)
+    queue_wait_seconds = sorted(sample.queue_wait_seconds for sample in state.timings)
+    slowest = max(state.timings, key=lambda sample: sample.task_seconds, default=None)
+    drain_seconds = (
+        max(0.0, measurement.finished_at - state.progress.drain_started_at)
+        if state.progress.drain_started_at is not None
+        else 0.0
+    )
+    return WorkerRunMetrics(
+        counts=WorkerRunCounts(
+            requested_tasks=measurement.requested_tasks,
+            submitted_tasks=state.progress.next_index,
+            max_workers=measurement.max_workers,
+            peak_in_flight=state.progress.peak_in_flight,
+        ),
+        timing=WorkerRunTiming(
+            wall_seconds=max(
+                0.0,
+                measurement.finished_at - measurement.started_at,
+            ),
+            process_cpu_seconds=measurement.process_cpu_seconds,
+            task_seconds=sum(task_seconds),
+            drain_seconds=drain_seconds,
+        ),
+        tasks=WorkerTaskMetrics(
+            queue_wait_p95_seconds=_percentile(queue_wait_seconds, 0.95),
+            queue_wait_max_seconds=max(queue_wait_seconds, default=0.0),
+            task_p50_seconds=_percentile(task_seconds, 0.50),
+            task_p95_seconds=_percentile(task_seconds, 0.95),
+            task_max_seconds=max(task_seconds, default=0.0),
+            slowest_task=slowest.name if slowest is not None else "",
+        ),
+    )
+
+
+def _percentile(values: Sequence[float], percentile: float) -> float:
+    """Return the nearest-rank percentile from ascending values."""
+
+    if not values:
+        return 0.0
+    index = max(0, ceil(percentile * len(values)) - 1)
+    return values[index]
 
 
 def _pending_task_name[T](

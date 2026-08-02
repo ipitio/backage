@@ -11,7 +11,7 @@ from bkg_py.state import StateStore
 
 
 def test_begin_run_initializes_state_atomically(tmp_path: Path) -> None:
-    """A fresh run receives defaults, a batch identity, and empty run queues."""
+    """A fresh run receives defaults and a durable batch identity."""
 
     state = StateStore(tmp_path / "state.env")
 
@@ -34,7 +34,6 @@ def test_begin_run_initializes_state_atomically(tmp_path: Path) -> None:
         "BKG_DIFF": "0",
         "BKG_REST_TO_TOP": "0",
         "BKG_DISCOVERED_CONNECTION_OWNERS": "",
-        "BKG_OWNERS_QUEUE": "",
         "BKG_TIMEOUT": "0",
         "BKG_SCRIPT_START": "1000",
     }
@@ -65,7 +64,7 @@ def test_begin_run_preserves_batch_and_active_rate_windows(tmp_path: Path) -> No
     assert state.get_int("BKG_CALLS_TO_API") == 17
     assert state.get_int("BKG_MIN_RATE_LIMIT_START") == 950
     assert state.get_int("BKG_MIN_CALLS_TO_API") == 7
-    assert state.get("BKG_OWNERS_QUEUE") == ""
+    assert state.get("BKG_OWNERS_QUEUE") == r"1/one\n2/two"
     assert state.get("BKG_TIMEOUT") == "0"
 
 

@@ -161,7 +161,6 @@ class FakeRunPhases:  # pylint: disable=too-many-instance-attributes
         del batch_marker, now
         self.ready_owner_queue.clear()
         self.paused_owner_queue.clear()
-        self._project_queue()
 
     def owner_queue_refs(self, batch_marker: str) -> tuple[str, ...]:
         """Return the fake authoritative queue."""
@@ -180,7 +179,6 @@ class FakeRunPhases:  # pylint: disable=too-many-instance-attributes
         activated = tuple(self.paused_owner_queue)
         self.ready_owner_queue.extend(self.paused_owner_queue)
         self.paused_owner_queue.clear()
-        self._project_queue()
         return activated
 
     def materialize_owner_trees(self, owners: tuple[str, ...]) -> None:
@@ -203,7 +201,6 @@ class FakeRunPhases:  # pylint: disable=too-many-instance-attributes
         )
         self.ready_owner_queue.clear()
         self._add_paused(paused)
-        self._project_queue()
         return self.owner_status
 
     def finalize_run(
@@ -223,17 +220,10 @@ class FakeRunPhases:  # pylint: disable=too-many-instance-attributes
     def _add_ready(self, owners: tuple[str, ...]) -> None:
         known = {*self.ready_owner_queue, *self.paused_owner_queue}
         self.ready_owner_queue.extend(owner for owner in owners if owner not in known)
-        self._project_queue()
 
     def _add_paused(self, owners: tuple[str, ...]) -> None:
         known = set(self.paused_owner_queue)
         self.paused_owner_queue.extend(owner for owner in owners if owner not in known)
-
-    def _project_queue(self) -> None:
-        self.state.replace_set(
-            "BKG_OWNERS_QUEUE",
-            (*self.ready_owner_queue, *self.paused_owner_queue),
-        )
 
     def _record(self, event: str) -> None:
         self.events.append(event)
