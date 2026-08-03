@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+from bkg_py.cli import main
 from bkg_py.result import ExitStatus
 from bkg_py.workspace import (
     GitRepository,
@@ -20,6 +21,9 @@ from bkg_py.workspace import (
 )
 from bkg_py.workspace.repository import ensure_pages_root
 
+from .repository_support import (
+    clone_repository as _clone_repository,
+)
 from .repository_support import (
     create_repository as _create_repository,
 )
@@ -266,6 +270,70 @@ def test_repository_configuration_keeps_token_out_of_git_config(
     ).stdout
     assert "username=workflow-actor" in credentials
     assert "password=workflow-secret" in credentials
+
+
+def test_fork_merge_configuration_preserves_local_inputs_only(
+    tmp_path: Path,
+) -> None:
+    """Upstream source merges while deployment-owned text files stay local."""
+
+    upstream = tmp_path / "upstream"
+    _create_repository(upstream)
+    (upstream / "owners.txt").write_text("main-owner\n", encoding="utf-8")
+    (upstream / "optout.txt").write_text("main/package\n", encoding="utf-8")
+    (upstream / "CONTRIBUTING.md").write_text(
+        "initial contributor guidance\n",
+        encoding="utf-8",
+    )
+    _git(upstream, "add", "owners.txt", "optout.txt", "CONTRIBUTING.md")
+    _git(upstream, "commit", "-qm", "add deployment inputs")
+
+    fork = tmp_path / "fork"
+    _clone_repository(upstream, fork)
+    _git(fork, "config", "user.name", "test")
+    _git(fork, "config", "user.email", "test@example.com")
+    attributes_path = Path(
+        _git(fork, "rev-parse", "--git-path", "info/attributes").stdout.strip()
+    )
+    if not attributes_path.is_absolute():
+        attributes_path = fork / attributes_path
+    attributes_path.parent.mkdir(parents=True, exist_ok=True)
+    attributes_path.write_text("*.json -diff\n", encoding="utf-8")
+
+    assert main(["configure-fork-merge", str(fork)]) is ExitStatus.SUCCESS
+    assert main(["configure-fork-merge", str(fork)]) is ExitStatus.SUCCESS
+
+    attributes = attributes_path.read_text(encoding="utf-8").splitlines()
+    assert "*.json -diff" in attributes
+    assert attributes.count("owners.txt merge=bkg-local") == 1
+    assert attributes.count("optout.txt merge=bkg-local") == 1
+    assert attributes.count("README.md merge=bkg-local") == 1
+    assert _git(fork, "config", "merge.bkg-local.driver").stdout.strip() == "true"
+
+    (fork / "owners.txt").write_text("fork-owner\n", encoding="utf-8")
+    (fork / "optout.txt").write_text("fork/package\n", encoding="utf-8")
+    (fork / "README.md").write_text("fork rendering\n", encoding="utf-8")
+    _git(fork, "commit", "-qam", "customize fork inputs")
+
+    (upstream / "owners.txt").write_text("next-main-owner\n", encoding="utf-8")
+    (upstream / "optout.txt").write_text("next-main/package\n", encoding="utf-8")
+    (upstream / "README.md").write_text("upstream source\n", encoding="utf-8")
+    (upstream / "CONTRIBUTING.md").write_text(
+        "upstream contributor guidance\n",
+        encoding="utf-8",
+    )
+    _git(upstream, "commit", "-qam", "update upstream source and inputs")
+
+    _git(fork, "fetch", "-q", "origin", "master")
+    _git(fork, "merge", "--no-edit", "origin/master")
+
+    assert (fork / "owners.txt").read_text(encoding="utf-8") == "fork-owner\n"
+    assert (fork / "optout.txt").read_text(encoding="utf-8") == "fork/package\n"
+    assert (fork / "README.md").read_text(encoding="utf-8") == "fork rendering\n"
+    assert (fork / "CONTRIBUTING.md").read_text(encoding="utf-8") == (
+        "upstream contributor guidance\n"
+    )
+    assert not _git(fork, "status", "--porcelain").stdout
 
 
 def test_prepare_existing_index_preserves_old_worktree_and_resumes(

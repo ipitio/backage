@@ -219,7 +219,8 @@ def test_runner_drains_completed_work_after_graceful_stop() -> None:
     result = runner.run([1, 2, 3], lambda value: value * 10, task_name=str)
 
     assert result.stopped
-    assert result.failure is not None
+    assert result.stop is not None
+    assert result.failure is None
     assert [task.value for task in result.completed] == [10]
     assert [event.kind for event in events].count("completed") == 1
     assert [event.kind for event in events].count("stop-requested") == 1
@@ -241,7 +242,12 @@ def test_runner_reports_one_stop_transition_for_concurrent_workers() -> None:
     ).run([1, 2], worker, task_name=str)
 
     assert result.stopped
-    assert len(result.failures) == 2
+    assert result.stop is not None
+    assert not result.failures
+    assert [item.reason for item in result.interrupted] == [
+        "graceful-stop",
+        "graceful-stop",
+    ]
     assert [event.kind for event in events].count("stop-requested") == 1
 
 
@@ -269,8 +275,9 @@ def test_run_bounded_reports_graceful_stop_before_new_work() -> None:
     )
 
     assert result.stopped
-    assert result.failure is not None
-    assert isinstance(result.failure.error, GracefulStop)
+    assert isinstance(result.stop, GracefulStop)
+    assert result.failure is None
+    assert not result.interrupted
     assert [task.value for task in result.completed] == [1]
     assert started == [1]
 

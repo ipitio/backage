@@ -422,6 +422,33 @@ class GitRepository(_GitCommandRunner):
         )
 
 
+class GitLocalConfiguration(_GitCommandRunner):
+    """Read and write clone-local Git administration settings."""
+
+    def git_path(self, path: str) -> Path:
+        """Resolve one repository administration path through Git."""
+
+        if not path:
+            raise WorkspaceError("Git administration path is required")
+        value = self._run(
+            ("rev-parse", "--git-path", path),
+            required=True,
+        ).stdout.strip()
+        if not value:
+            raise WorkspaceError(f"Git returned an empty path for {path}")
+        resolved = Path(value)
+        if not resolved.is_absolute():
+            resolved = self.path / resolved
+        return resolved.resolve()
+
+    def set_value(self, key: str, value: str) -> None:
+        """Set one clone-local Git configuration value."""
+
+        if not key:
+            raise WorkspaceError("Git configuration key is required")
+        self._run(("config", "--local", key, value), required=True)
+
+
 class GitControlRefRepository(_GitCommandRunner):
     """Read and mutate one exact remote control ref without checkout changes."""
 

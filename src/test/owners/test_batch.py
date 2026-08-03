@@ -268,6 +268,10 @@ def test_owner_batch_does_not_materialize_a_later_wave_after_stop(
 
     assert status == ExitStatus.GRACEFUL_STOP
     assert harness.messages.materialized == [("a", "b", "c", "d")]
+    assert any(
+        "failed=0 stopped=1 interrupted=0" in message
+        for message in harness.messages.progress
+    )
 
 
 def test_first_empty_page_removes_manual_owner_before_pause(tmp_path: Path) -> None:

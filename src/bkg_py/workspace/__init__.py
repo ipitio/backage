@@ -7,6 +7,7 @@ from .handoff import (
     workflow_run_freshness,
 )
 from .layout import WorkspaceLayout
+from .merge_configuration import ForkMergeConfiguration, configure_fork_merge
 from .payload import import_workflow_payload
 from .publication import (
     UpdateWorkspacePublisher,
@@ -22,6 +23,7 @@ from .repository import (
 )
 
 __all__ = [
+    "ForkMergeConfiguration",
     "GitRepository",
     "HandoffSettings",
     "IndexWorkspacePreparation",
@@ -32,6 +34,7 @@ __all__ = [
     "WorkspaceLayout",
     "WorkspacePublication",
     "clone_repository",
+    "configure_fork_merge",
     "import_workflow_payload",
     "published_run_status",
     "scheduled_update_skip_reason",

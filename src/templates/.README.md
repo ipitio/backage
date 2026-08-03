@@ -35,6 +35,13 @@ New packages may not be added until *all* existing ones are refreshed; you shoul
 > [!IMPORTANT]
 > Your own packages will be picked up automatically! If you need to edit `owners.txt`, do so after the first run.
 
+Forks that merge upstream changes locally should run `bkg configure-fork-merge .`
+once in each clone. Ordinary merges will then retain that deployment's
+`owners.txt`, `optout.txt`, and generated `README.md` while accepting templates,
+contributor documentation, and other upstream changes. The setting is
+clone-local: use a merge rather than a rebase, and do not use GitHub's
+**Sync fork** button for an update that changes any of these files.
+
 <details>
 <summary>With Actions</summary>
 

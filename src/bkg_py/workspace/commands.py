@@ -1,4 +1,4 @@
-"""Command adapter for workflow handoff operations."""
+"""Command adapters for repository workspace operations."""
 
 from __future__ import annotations
 
@@ -14,6 +14,7 @@ from .handoff import (
     scheduled_update_skip_reason,
     workflow_run_freshness,
 )
+from .merge_configuration import configure_fork_merge
 from .repository import WorkspaceError
 
 
@@ -67,4 +68,19 @@ def run_handoff(args: argparse.Namespace) -> ExitStatus:
     except (OSError, WorkspaceError) as error:
         _write_progress(str(error))
         return ExitStatus.NON_FATAL
+    return ExitStatus.SUCCESS
+
+
+def run_fork_merge_configuration(args: argparse.Namespace) -> ExitStatus:
+    """Configure deployment-owned files for ordinary upstream merges."""
+
+    try:
+        result = configure_fork_merge(Path(args.repository))
+    except (OSError, WorkspaceError) as error:
+        _write_progress(str(error))
+        return ExitStatus.NON_FATAL
+    action = "Updated" if result.attributes_changed else "Verified"
+    _write_stdout(
+        f"{action} fork-local merge handling in {result.attributes_path.parent}"
+    )
     return ExitStatus.SUCCESS

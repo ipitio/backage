@@ -27,6 +27,11 @@ def build_parser() -> argparse.ArgumentParser:
         "config",
         help="print the runtime configuration as JSON",
     )
+    merge_parser = subparsers.add_parser(
+        "configure-fork-merge",
+        help="preserve deployment-owned files during upstream merges",
+    )
+    merge_parser.add_argument("repository", nargs="?", default=".")
     _add_run_parser(subparsers)
     validate_parser = subparsers.add_parser(
         "validate",

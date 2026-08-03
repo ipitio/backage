@@ -35,6 +35,10 @@ def run_command(
         from .workspace.commands import run_handoff
 
         return run_handoff(args)
+    if args.command == "configure-fork-merge":
+        from .workspace.commands import run_fork_merge_configuration
+
+        return run_fork_merge_configuration(args)
     if args.command == "workflow-update":
         return _run_workflow_update(args, parser)
     parser.error(f"unknown command: {args.command}")

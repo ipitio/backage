@@ -24,7 +24,6 @@ from ..package_updates import (
     PackageRefreshService,
 )
 from ..publication import PublicationError
-from ..runtime import GracefulStop
 from ..version_ingestion import VersionPageClient
 
 MessageSink = Callable[[str], None]
@@ -138,12 +137,8 @@ class OwnerPackageRefreshService:  # pylint: disable=too-few-public-methods
             lambda package: self._refresh_one(request, package, version_settings),
             task_name=lambda package: package.package,
         )
-        if run_result.stopped:
-            raise next(
-                failure.error
-                for failure in run_result.failures
-                if isinstance(failure.error, GracefulStop)
-            )
+        if run_result.stop is not None:
+            raise run_result.stop
         if not run_result.ok:
             failure = run_result.failure
             message = (

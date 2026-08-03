@@ -25,7 +25,7 @@ WorkerEventKind = Literal[
     "cancelled",
     "drain-timeout",
 ]
-TaskInterruptionReason = Literal["cancelled", "drain-timeout"]
+TaskInterruptionReason = Literal["graceful-stop", "cancelled", "drain-timeout"]
 EventSink = Callable[["WorkerEvent"], None]
 
 
@@ -153,6 +153,7 @@ class BoundedRunResult[R]:
     failure: TaskFailure | None = None
     failures: tuple[TaskFailure, ...] = ()
     interrupted: tuple[TaskInterruption, ...] = ()
+    stop: GracefulStop | None = None
     drain_timed_out: bool = False
     metrics: WorkerRunMetrics | None = None
 
@@ -160,13 +161,13 @@ class BoundedRunResult[R]:
     def stopped(self) -> bool:
         """Return whether graceful stop was observed during the run."""
 
-        return any(isinstance(failure.error, GracefulStop) for failure in self.failures)
+        return self.stop is not None
 
     @property
     def ok(self) -> bool:
         """Return whether every task completed successfully."""
 
-        return not self.failures and not self.interrupted
+        return self.stop is None and not self.failures and not self.interrupted
 
 
 @dataclass
@@ -204,6 +205,7 @@ class _RunState[T, R]:
     completed: list[TaskResult[R]]
     failures: list[TaskFailure]
     interrupted: list[TaskInterruption]
+    stop: GracefulStop | None
     futures: dict[Future[R], _InFlight[T]]
     timings: list[_TaskTimingSample]
     progress: _RunProgress
@@ -249,7 +251,7 @@ class BoundedWorkerRunner:
         started_at = self.clock()
         cpu_started_at = self.cpu_clock()
         plan = _RunPlan(items, worker, task_name)
-        state: _RunState[T, R] = _RunState([], [], [], {}, [], _RunProgress())
+        state: _RunState[T, R] = _RunState([], [], [], None, {}, [], _RunProgress())
         self._execute(state, plan)
         finished_at = self.clock()
         metrics = _worker_run_metrics(
@@ -308,6 +310,7 @@ class BoundedWorkerRunner:
     ) -> None:
         while (
             not state.failures
+            and state.stop is None
             and len(state.futures) < self.settings.max_workers
             and state.progress.next_index < len(plan.items)
         ):
@@ -322,16 +325,14 @@ class BoundedWorkerRunner:
         try:
             self.check_stop()
         except GracefulStop as error:
-            self._record_failure(
+            self._record_stop(
                 state,
-                TaskFailure(
+                error,
+                state.progress.next_index,
+                _pending_task_name(
+                    plan.items,
                     state.progress.next_index,
-                    _pending_task_name(
-                        plan.items,
-                        state.progress.next_index,
-                        plan.task_name,
-                    ),
-                    error,
+                    plan.task_name,
                 ),
             )
             return
@@ -359,21 +360,19 @@ class BoundedWorkerRunner:
         state: _RunState[T, R],
         plan: _RunPlan[T, R],
     ) -> None:
-        if state.failures:
+        if state.failures or state.stop is not None:
             return
         try:
             self.check_stop()
         except GracefulStop as error:
-            self._record_failure(
+            self._record_stop(
                 state,
-                TaskFailure(
+                error,
+                state.progress.next_index,
+                _pending_task_name(
+                    plan.items,
                     state.progress.next_index,
-                    _pending_task_name(
-                        plan.items,
-                        state.progress.next_index,
-                        plan.task_name,
-                    ),
-                    error,
+                    plan.task_name,
                 ),
             )
 
@@ -386,6 +385,11 @@ class BoundedWorkerRunner:
         self._record_timing(task, state)
         try:
             result = future.result()
+        except GracefulStop as error:
+            state.interrupted.append(
+                TaskInterruption(task.index, task.name, "graceful-stop")
+            )
+            self._record_stop(state, error, task.index, task.name)
         except Exception as error:  # noqa: BLE001  # pylint: disable=broad-exception-caught
             self._record_failure(state, TaskFailure(task.index, task.name, error))
         else:
@@ -414,27 +418,29 @@ class BoundedWorkerRunner:
         state: _RunState[T, R],
         failure: TaskFailure,
     ) -> None:
-        stop_was_reported = any(
-            isinstance(record.error, GracefulStop) for record in state.failures
-        )
         state.failures.append(failure)
         if state.progress.drain_started_at is None:
             state.progress.drain_started_at = self.clock()
-        if isinstance(failure.error, GracefulStop):
-            if not stop_was_reported:
-                self._emit(
-                    "stop-requested",
-                    failure.index,
-                    failure.name,
-                    str(failure.error),
-                )
-        else:
-            self._emit(
-                "failed",
-                failure.index,
-                failure.name,
-                str(failure.error),
-            )
+        self._emit(
+            "failed",
+            failure.index,
+            failure.name,
+            str(failure.error),
+        )
+
+    def _record_stop[T, R](
+        self,
+        state: _RunState[T, R],
+        stop: GracefulStop,
+        index: int,
+        name: str,
+    ) -> None:
+        if state.stop is not None:
+            return
+        state.stop = stop
+        if state.progress.drain_started_at is None:
+            state.progress.drain_started_at = self.clock()
+        self._emit("stop-requested", index, name, str(stop))
 
     def _drain_expired[T, R](self, state: _RunState[T, R]) -> bool:
         if not state.futures or state.progress.drain_started_at is None:
@@ -512,6 +518,7 @@ def _finish_result[T, R](
         failure=failures[0] if failures else None,
         failures=failures,
         interrupted=tuple(state.interrupted),
+        stop=state.stop,
         drain_timed_out=state.progress.drain_timed_out,
         metrics=metrics,
     )

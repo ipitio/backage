@@ -23,7 +23,6 @@ from .enrichment import (
     transient_request_error,
 )
 from .github import GitHubError
-from .runtime import GracefulStop
 from .version_ingestion import (
     VersionCandidateLoader,
     VersionCandidateLoaderSettings,
@@ -340,19 +339,14 @@ class VersionRefreshService:  # pylint: disable=too-few-public-methods
             rows=tuple(result.value for result in run_result.completed),
         )
 
-        if run_result.stopped:
+        if run_result.stop is not None:
             self.repository.finalize_version_stage(
                 stage,
                 publication_pending_at=(
                     today if request.mark_publication_pending else None
                 ),
             )
-            stop = next(
-                failure.error
-                for failure in run_result.failures
-                if isinstance(failure.error, GracefulStop)
-            )
-            raise stop
+            raise run_result.stop
 
         records_written = self.repository.flush_version_stage(
             stage,

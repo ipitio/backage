@@ -348,12 +348,17 @@ class OwnerBatchService:  # pylint: disable=too-few-public-methods
         metrics = result.metrics
         if metrics is None:
             return
+        stopped_tasks = sum(
+            interruption.reason == "graceful-stop"
+            for interruption in result.interrupted
+        )
+        other_interruptions = len(result.interrupted) - stopped_tasks
         self.execution.progress(
             "Owner worker telemetry: "
             f"wave={wave_number} requested={metrics.counts.requested_tasks} "
             f"submitted={metrics.counts.submitted_tasks} "
             f"completed={len(result.completed)} failed={len(result.failures)} "
-            f"interrupted={len(result.interrupted)} "
+            f"stopped={stopped_tasks} interrupted={other_interruptions} "
             f"workers={metrics.counts.max_workers} "
             f"peak={metrics.counts.peak_in_flight}; "
             f"wall={metrics.timing.wall_seconds:.3f}s "
@@ -434,12 +439,12 @@ class OwnerBatchService:  # pylint: disable=too-few-public-methods
         interruptions: Sequence[TaskInterruption],
     ) -> None:
         for failure in failures:
-            if isinstance(failure.error, GracefulStop):
-                continue
             self.execution.diagnostic(
                 f"Owner update failed for {failure.name}: {failure.error}"
             )
         for interruption in interruptions:
+            if interruption.reason == "graceful-stop":
+                continue
             self.execution.diagnostic(
                 f"Owner update interrupted for {interruption.name}: "
                 f"{interruption.reason}"
