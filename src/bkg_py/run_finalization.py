@@ -2,12 +2,18 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Protocol
 
-from .database import PackageInventory
+from .database import (
+    DatabaseMetricSample,
+    DatabaseStorageMetrics,
+    DatabaseWriteCounts,
+    PackageInventory,
+)
 from .run_publication import RunPublicationRequest
 from .snapshots import SnapshotRotationResult
 from .state import StateStore
@@ -30,17 +36,27 @@ class RotationRepository(Protocol):  # pylint: disable=too-few-public-methods
 
         raise NotImplementedError
 
+    def database_storage_metrics(self) -> DatabaseStorageMetrics:
+        """Capture bounded storage measurements."""
+
+        raise NotImplementedError
+
+    def database_write_counts(self) -> DatabaseWriteCounts:
+        """Return normalized writes by this process."""
+
+        raise NotImplementedError
+
+    def record_database_metric_sample(self, sample: DatabaseMetricSample) -> None:
+        """Persist one compact daily finalization sample."""
+
+        raise NotImplementedError
+
 
 class SnapshotFinalizer(Protocol):
     """Snapshot operations required by run finalization."""
 
     def checkpoint_database(self) -> None:
         """Checkpoint the live database."""
-
-        raise NotImplementedError
-
-    def database_size(self) -> int:
-        """Return the checkpointed live database size."""
 
         raise NotImplementedError
 
@@ -132,10 +148,11 @@ class RunFinalizationService:  # pylint: disable=too-few-public-methods
             self.execution.progress("Preparing the database snapshot...")
             self.execution.check_stop()
             self.services.snapshots.checkpoint_database()
-            if (
-                self.services.snapshots.database_size()
-                >= request.rotation_threshold_bytes
-            ):
+            writes = self.services.repository.database_write_counts()
+            before = self.services.repository.database_storage_metrics()
+            after = before
+            rotation_archive_bytes = 0
+            if before.pages.physical_bytes >= request.rotation_threshold_bytes:
                 self.execution.progress("Rotating the database...")
                 rotation = self.services.snapshots.rotate_database_if_needed(
                     lambda: self.services.repository.cleanup_replaced_legacy_tables(
@@ -147,8 +164,27 @@ class RunFinalizationService:  # pylint: disable=too-few-public-methods
                     date_stamp=request.publication.today.replace("-", "."),
                 )
                 rotated = rotation.rotated
+                rotation_archive_bytes = _path_size(rotation.archive)
+                after = self.services.repository.database_storage_metrics()
                 self.execution.progress("Rotated the database")
+            sample = DatabaseMetricSample(
+                sample_date=request.publication.today,
+                run_count=1,
+                storage=after,
+                writes=writes,
+                maximum_pre_rotation_bytes=before.pages.physical_bytes,
+                rotation_count=int(rotated),
+                rotation_archive_bytes=rotation_archive_bytes,
+                snapshot_bytes=after.pages.physical_bytes,
+            )
+            self.services.repository.record_database_metric_sample(sample)
             snapshot = self.services.snapshots.prepare_database_snapshot()
+            self._report_database_metrics(
+                sample,
+                snapshot_bytes=(
+                    _path_size(snapshot, fallback=after.pages.physical_bytes)
+                ),
+            )
             self.execution.progress("Prepared the database snapshot")
 
         self.execution.progress("Hydrating templates and cleaning up...")
@@ -158,9 +194,76 @@ class RunFinalizationService:  # pylint: disable=too-few-public-methods
         self.execution.progress("Done!")
         return RunFinalizationResult(rotated, snapshot, inventory)
 
+    def _report_database_metrics(
+        self,
+        sample: DatabaseMetricSample,
+        *,
+        snapshot_bytes: int,
+    ) -> None:
+        storage = sample.storage
+        pages = storage.pages
+        self.execution.progress(
+            "Database finalization telemetry: "
+            + _compact_json(
+                {
+                    "archive_bytes": sample.rotation_archive_bytes,
+                    "freelist_pages": pages.freelist_pages,
+                    "logical_bytes": pages.logical_bytes,
+                    "package_rows": storage.package_rows,
+                    "package_rows_written": sample.writes.package_rows,
+                    "page_count": pages.page_count,
+                    "page_size": pages.page_size,
+                    "physical_bytes": pages.physical_bytes,
+                    "pre_rotation_bytes": sample.maximum_pre_rotation_bytes,
+                    "rotated": bool(sample.rotation_count),
+                    "snapshot_bytes": snapshot_bytes,
+                    "version_rows": storage.version_rows,
+                    "version_rows_written": sample.writes.version_rows,
+                }
+            )
+        )
+        self.execution.progress(
+            "Database object telemetry: "
+            + _compact_json(
+                {
+                    f"{item.kind}:{item.name}": {
+                        "bytes": item.bytes,
+                        "objects": item.objects,
+                    }
+                    for item in storage.objects
+                }
+            )
+        )
+        self.execution.progress(
+            "Database date telemetry: "
+            + _compact_json(
+                {
+                    "packages": [
+                        [item.date, item.rows] for item in storage.package_rows_by_date
+                    ],
+                    "versions": [
+                        [item.date, item.rows] for item in storage.version_rows_by_date
+                    ],
+                }
+            )
+        )
+
 
 def _line_count(path: Path) -> int:
     try:
         return len(path.read_text(encoding="utf-8").splitlines())
     except FileNotFoundError:
         return 0
+
+
+def _path_size(path: Path | None, *, fallback: int = 0) -> int:
+    if path is None:
+        return fallback
+    try:
+        return path.stat().st_size
+    except FileNotFoundError:
+        return fallback
+
+
+def _compact_json(value: object) -> str:
+    return json.dumps(value, separators=(",", ":"), sort_keys=True)

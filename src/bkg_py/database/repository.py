@@ -21,6 +21,8 @@ from . import (
 from . import (
     packages as package_records,
 )
+from .metrics import DatabaseWriteTracker
+from .metrics_repository import DatabaseMetricsRepositoryMixin
 from .models import (
     OwnerRecord,
     PackageInventory,
@@ -82,6 +84,7 @@ class _SqlIdentifier(str):
 
 
 class DatabaseRepository(  # pylint: disable=too-many-public-methods
+    DatabaseMetricsRepositoryMixin,
     OwnerIdentityRepositoryMixin,
     OwnerQueueRepositoryMixin,
     OwnerScanRepositoryMixin,
@@ -100,6 +103,7 @@ class DatabaseRepository(  # pylint: disable=too-many-public-methods
         self._sleep = sleep
         self._schema_lock = Lock()
         self._schema_identity: tuple[int, int] | None = None
+        self._write_tracker = DatabaseWriteTracker()
 
     def ensure_schema(self) -> None:
         """Lazily create normalized tables and their query indexes."""
@@ -165,6 +169,7 @@ class DatabaseRepository(  # pylint: disable=too-many-public-methods
                 mark_pending=publication_pending,
             )
         )
+        self._write_tracker.add_package_rows(1)
 
     def flush_version_stage(
         self,
@@ -217,6 +222,7 @@ class DatabaseRepository(  # pylint: disable=too-many-public-methods
             self._run_final_write(flush)
         else:
             self._run_write(flush)
+        self._write_tracker.add_version_rows(len(stage.rows))
         return len(stage.rows)
 
     def package_updated_since(self, package: PackageRef, since: str) -> bool:

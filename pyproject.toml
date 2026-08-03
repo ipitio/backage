@@ -91,6 +91,7 @@ select = [
 [tool.ruff.lint.per-file-ignores]
 "src/bkg_py/commands.py" = ["PLC0415", "T201"]
 "src/bkg_py/database/batch_progress.py" = ["S608"]
+"src/bkg_py/database/metrics.py" = ["S608"]
 "src/bkg_py/database/owner_plans.py" = ["S608"]
 "src/bkg_py/database/owner_scans.py" = ["S608"]
 "src/bkg_py/database/package_plans.py" = ["S608"]

@@ -8,7 +8,15 @@ from pathlib import Path
 
 import pytest
 
-from bkg_py.database import PackageInventory
+from bkg_py.database import (
+    DatabaseDateRows,
+    DatabaseMetricSample,
+    DatabaseObjectBytes,
+    DatabasePageMetrics,
+    DatabaseStorageMetrics,
+    DatabaseWriteCounts,
+    PackageInventory,
+)
 from bkg_py.run_finalization import (
     RunFinalizationExecution,
     RunFinalizationRequest,
@@ -26,8 +34,12 @@ from bkg_py.state import StateStore
 
 @dataclass
 class _Repository:
+    physical_bytes: int = 101
     cleanups: list[tuple[str, bool, bool]] = field(
         default_factory=list[tuple[str, bool, bool]]
+    )
+    samples: list[DatabaseMetricSample] = field(
+        default_factory=list[DatabaseMetricSample]
     )
 
     def cleanup_replaced_legacy_tables(
@@ -42,10 +54,37 @@ class _Repository:
         self.cleanups.append((since, prune_normalized, vacuum))
         return 3
 
+    def database_storage_metrics(self) -> DatabaseStorageMetrics:
+        """Return deterministic storage measurements."""
+
+        return DatabaseStorageMetrics(
+            pages=DatabasePageMetrics(
+                physical_bytes=self.physical_bytes,
+                logical_bytes=96,
+                page_size=16,
+                page_count=7,
+                freelist_pages=1,
+            ),
+            package_rows=3,
+            version_rows=7,
+            objects=(DatabaseObjectBytes("table", "versions", 1, 64),),
+            package_rows_by_date=(DatabaseDateRows("2026-07-05", 3),),
+            version_rows_by_date=(DatabaseDateRows("2026-07-05", 7),),
+        )
+
+    def database_write_counts(self) -> DatabaseWriteCounts:
+        """Return deterministic process write counts."""
+
+        return DatabaseWriteCounts(2, 5)
+
+    def record_database_metric_sample(self, sample: DatabaseMetricSample) -> None:
+        """Record one daily sample."""
+
+        self.samples.append(sample)
+
 
 @dataclass
 class _Snapshots:
-    size: int
     fail_prepare: bool = False
     calls: list[str] = field(default_factory=list[str])
 
@@ -53,12 +92,6 @@ class _Snapshots:
         """Record the explicit pre-rotation checkpoint."""
 
         self.calls.append("checkpoint")
-
-    def database_size(self) -> int:
-        """Return the configured live database size."""
-
-        self.calls.append("size")
-        return self.size
 
     def rotate_database_if_needed(
         self,
@@ -120,7 +153,7 @@ def test_finalization_rotates_prepares_and_then_publishes(tmp_path: Path) -> Non
     (tmp_path / "optout.txt").write_text("one/repo/pkg\ntwo/repo/pkg\n")
     state = StateStore(tmp_path / "state.env")
     repository = _Repository()
-    snapshots = _Snapshots(size=101)
+    snapshots = _Snapshots()
     publisher = _Publisher()
     messages: list[str] = []
 
@@ -135,16 +168,23 @@ def test_finalization_rotates_prepares_and_then_publishes(tmp_path: Path) -> Non
     assert state.get("BKG_OUT") == "2"
     assert snapshots.calls == [
         "checkpoint",
-        "size",
         "rotate:100:2026.07.05",
         "prepare",
     ]
     assert repository.cleanups == [("2026-06-12", True, True)]
+    assert len(repository.samples) == 1
+    assert repository.samples[0].writes == DatabaseWriteCounts(2, 5)
+    assert repository.samples[0].rotation_count == 1
     assert publisher.requests[0].rotated
-    assert messages == [
+    assert messages[:3] == [
         "Preparing the database snapshot...",
         "Rotating the database...",
         "Rotated the database",
+    ]
+    assert messages[3].startswith("Database finalization telemetry: ")
+    assert messages[4].startswith("Database object telemetry: ")
+    assert messages[5].startswith("Database date telemetry: ")
+    assert messages[6:] == [
         "Prepared the database snapshot",
         "Hydrating templates and cleaning up...",
         "Done!",
@@ -155,7 +195,7 @@ def test_finalization_can_publish_without_snapshot_work(tmp_path: Path) -> None:
     """Mode 2 retains summary publication without touching snapshot state."""
 
     state = StateStore(tmp_path / "state.env")
-    snapshots = _Snapshots(size=1_000)
+    snapshots = _Snapshots()
     publisher = _Publisher()
 
     result = RunFinalizationService(
@@ -176,8 +216,8 @@ def test_finalization_does_not_publish_after_snapshot_failure(tmp_path: Path) ->
     publisher = _Publisher()
     service = RunFinalizationService(
         RunFinalizationServices(
-            _Repository(),
-            _Snapshots(size=1, fail_prepare=True),
+            _Repository(physical_bytes=1),
+            _Snapshots(fail_prepare=True),
             publisher,
             StateStore(tmp_path / "state.env"),
         ),

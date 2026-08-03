@@ -148,6 +148,28 @@ SCHEMA_SQL = (
     )
     """,
     """
+    create table if not exists "bkg_database_metrics" (
+        sample_date text primary key,
+        run_count integer not null,
+        physical_bytes integer not null,
+        logical_bytes integer not null,
+        page_size integer not null,
+        page_count integer not null,
+        freelist_pages integer not null,
+        package_rows integer not null,
+        version_rows integer not null,
+        package_rows_written integer not null,
+        version_rows_written integer not null,
+        maximum_pre_rotation_bytes integer not null,
+        rotation_count integer not null,
+        rotation_archive_bytes integer not null,
+        snapshot_bytes integer not null,
+        object_bytes_json text not null,
+        package_rows_by_date_json text not null,
+        version_rows_by_date_json text not null
+    )
+    """,
+    """
     create index if not exists "idx_bkg_owners_date_owner"
     on {owners} (date, owner)
     """,
@@ -193,7 +215,6 @@ SCHEMA_SQL = (
         generation, status, attempt_after, priority, sequence
     )
     """,
-    "pragma auto_vacuum = full",
 )
 
 OWNER_SCAN_SCHEMA_MIGRATIONS = (

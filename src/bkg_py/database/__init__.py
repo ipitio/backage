@@ -1,5 +1,13 @@
 """Public SQLite repository and persisted metadata values."""
 
+from .metrics import (
+    DatabaseDateRows,
+    DatabaseMetricSample,
+    DatabaseObjectBytes,
+    DatabasePageMetrics,
+    DatabaseStorageMetrics,
+    DatabaseWriteCounts,
+)
 from .models import (
     OwnerIdentityCleanup,
     OwnerRecord,
@@ -40,9 +48,15 @@ from .settings import DatabaseSettings
 from .support import DatabaseError
 
 __all__ = [
+    "DatabaseDateRows",
     "DatabaseError",
+    "DatabaseMetricSample",
+    "DatabaseObjectBytes",
+    "DatabasePageMetrics",
     "DatabaseRepository",
     "DatabaseSettings",
+    "DatabaseStorageMetrics",
+    "DatabaseWriteCounts",
     "OwnerIdentityCleanup",
     "OwnerQueueAdmission",
     "OwnerQueueCandidate",
