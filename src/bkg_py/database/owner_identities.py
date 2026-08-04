@@ -8,6 +8,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
+from . import catalog
 from .models import OwnerIdentityCleanup, PackageRef
 from .settings import DatabaseSettings
 from .support import DatabaseError
@@ -34,6 +35,7 @@ class _CleanupContext:
     owner_id: str
     owner: str
     alias_ids: tuple[str, ...]
+    alias_owners: tuple[str, ...]
     orphaned: tuple[PackageRef, ...]
 
 
@@ -132,6 +134,13 @@ def _retire_owner_aliases(
             connection.commit()
             return OwnerIdentityCleanup((), ())
 
+        alias_owners = _alias_owners(
+            connection,
+            owner_id,
+            owner,
+            owners,
+            packages,
+        )
         orphaned = _orphaned_packages(
             connection,
             owner_id,
@@ -140,7 +149,7 @@ def _retire_owner_aliases(
         )
         _delete_alias_rows(
             connection,
-            _CleanupContext(owner_id, owner, alias_ids, orphaned),
+            _CleanupContext(owner_id, owner, alias_ids, alias_owners, orphaned),
             settings,
             (owners, packages, versions),
         )
@@ -177,6 +186,33 @@ def _alias_ids(
             scans=_SCANS,
         ),
         (owner, owner_id, owner, owner_id, owner, owner_id),
+    ).fetchall()
+    return tuple(str(row[0]) for row in rows)
+
+
+def _alias_owners(
+    connection: sqlite3.Connection,
+    owner_id: str,
+    owner: str,
+    owners: _SqlIdentifier,
+    packages: _SqlIdentifier,
+) -> tuple[str, ...]:
+    rows = connection.execute(
+        _sql(
+            """
+        select owner from {packages} where {alias_condition}
+        union
+        select owner from {owners} where {alias_condition}
+        union
+        select owner from {scans} where {alias_condition}
+        order by owner
+        """,
+            packages=packages,
+            owners=owners,
+            scans=_SCANS,
+            alias_condition=_alias_condition(),
+        ),
+        (owner_id, owner, owner, owner_id) * 3,
     ).fetchall()
     return tuple(str(row[0]) for row in rows)
 
@@ -269,6 +305,13 @@ def _delete_alias_rows(
     settings: DatabaseSettings,
     owner_tables: tuple[_SqlIdentifier, ...],
 ) -> None:
+    catalog.retire_owner_aliases(
+        connection,
+        context.owner_id,
+        context.owner,
+        context.alias_ids,
+        context.alias_owners,
+    )
     for package in context.orphaned:
         legacy_table = (
             f"{settings.versions_table}_{package.owner_type}_{package.package_type}_"

@@ -6,9 +6,12 @@ from pathlib import Path
 
 import pytest
 
+from bkg_py import run_startup
 from bkg_py.database import (
     DatabaseRepository,
     DatabaseSettings,
+    PackageCatalogPath,
+    PackageInventory,
     PackageRecord,
     PackageRef,
 )
@@ -21,6 +24,7 @@ from bkg_py.run_startup import (
 )
 from bkg_py.snapshots import SnapshotPaths, SnapshotStore
 from bkg_py.state import StateStore
+from bkg_py.workspace import IndexPackageCatalogTree
 
 
 def _package(owner: str, date: str) -> PackageRecord:
@@ -131,6 +135,56 @@ def test_startup_recovers_database_backup_before_planning(tmp_path: Path) -> Non
     assert database_path.is_file()
     assert not backup.exists()
     assert not result.fast_out
+
+
+def test_startup_seeds_catalog_once_per_index_revision(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Startup atomically imports changed trees and skips unchanged enumeration."""
+
+    database_path = tmp_path / "index.db"
+    state = StateStore(tmp_path / "state.env")
+    cache = OwnerIdentityCache(tmp_path / "owner-id-cache.txt")
+    progress: list[str] = []
+    service = _service(database_path, state, cache, progress)
+    revision = "a" * 40
+    paths = (
+        PackageCatalogPath("Alpha", "one", "one"),
+        PackageCatalogPath("Beta", "two", "two"),
+    )
+    known_revisions: list[str | None] = []
+
+    def read_catalog(
+        _path: Path,
+        known_revision: str | None = None,
+    ) -> IndexPackageCatalogTree:
+        known_revisions.append(known_revision)
+        return IndexPackageCatalogTree(
+            revision,
+            () if known_revision == revision else paths,
+        )
+
+    monkeypatch.setattr(run_startup, "read_index_package_catalog", read_catalog)
+    request = RunStartupRequest(
+        "2026-06-29",
+        1_000,
+        tmp_path / "plan",
+        database_path,
+        tmp_path / "optout.txt",
+        "fork-owner",
+        tmp_path / "index",
+    )
+
+    service.prepare(request)
+    service.prepare(request)
+
+    assert known_revisions == [None, revision]
+    assert service.services.repository.package_inventory() == PackageInventory(2, 2, 2)
+    assert any(
+        message.startswith("Package catalog initialized: ") for message in progress
+    )
+    assert any(message.startswith("Package catalog ready: ") for message in progress)
 
 
 def test_startup_imports_legacy_owner_queue_only_once(tmp_path: Path) -> None:

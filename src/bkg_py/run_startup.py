@@ -7,7 +7,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
-from .database import DatabaseRepository
+from .database import DatabaseRepository, PackageCatalogStatus
 from .discovery import OwnerIdentityCache
 from .files import atomic_text_output
 from .orchestration import BatchRuntimeService
@@ -16,6 +16,7 @@ from .run_planning import PackageWorkPlanService, PackageWorkPlanSummary
 from .runtime import peak_resident_memory_mib
 from .snapshots import SnapshotError, SnapshotStore
 from .state import StateStore
+from .workspace import WorkspaceError, read_index_package_catalog
 
 MessageSink = Callable[[str], None]
 StopCheck = Callable[[], None]
@@ -32,6 +33,7 @@ class RunStartupRequest:
     database_path: Path
     optout_file: Path
     github_owner: str
+    index_directory: Path | None = None
 
 
 @dataclass(frozen=True)
@@ -91,6 +93,7 @@ class RunStartupService:  # pylint: disable=too-few-public-methods
         phase_started_at = self.execution.now()
         self._recover_database_backup(request.database_path)
         self.services.repository.ensure_schema()
+        self._prepare_package_catalog(request)
         self._recover_owner_queue(
             initialized.batch_marker,
             legacy_owner_queue,
@@ -127,6 +130,62 @@ class RunStartupService:  # pylint: disable=too-few-public-methods
             database_size,
             opted_out,
             fast_out,
+        )
+
+    def _prepare_package_catalog(self, request: RunStartupRequest) -> None:
+        previous = self.services.repository.package_catalog_status()
+        if request.index_directory is None:
+            if previous is not None:
+                self._report_package_catalog("ready", previous)
+            return
+
+        started_at = time.monotonic()
+        try:
+            self.execution.check_stop()
+            tree = read_index_package_catalog(
+                request.index_directory,
+                None if previous is None else previous.source_revision,
+            )
+            if previous is not None and previous.source_revision == tree.revision:
+                self._report_package_catalog("ready", previous)
+                return
+            self.execution.check_stop()
+        except WorkspaceError as error:
+            operation = "initialization" if previous is None else "synchronization"
+            retained = (
+                ""
+                if previous is None
+                else f"; retaining {previous.inventory.packages} ready package paths"
+            )
+            self.execution.progress(
+                f"Package catalog {operation} deferred: {error}{retained}"
+            )
+            return
+
+        catalog_status = self.services.repository.initialize_package_catalog(
+            tree.paths,
+            tree.revision,
+            request.today,
+        )
+        elapsed = max(0.0, time.monotonic() - started_at)
+        operation = "initialized" if previous is None else "synchronized"
+        self._report_package_catalog(operation, catalog_status, elapsed=elapsed)
+
+    def _report_package_catalog(
+        self,
+        operation: str,
+        catalog_status: PackageCatalogStatus,
+        *,
+        elapsed: float | None = None,
+    ) -> None:
+        timing = "" if elapsed is None else f"; elapsed={elapsed:.3f}s"
+        self.execution.progress(
+            f"Package catalog {operation}: "
+            f"owners={catalog_status.inventory.owners} "
+            f"repositories={catalog_status.inventory.repositories} "
+            f"packages={catalog_status.inventory.packages} "
+            f"resolved={catalog_status.resolved_packages} "
+            f"source={catalog_status.source_revision[:12]}{timing}"
         )
 
     def _recover_owner_queue(

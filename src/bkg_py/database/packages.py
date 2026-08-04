@@ -6,7 +6,7 @@ import sqlite3
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
 
-from . import batch_progress
+from . import batch_progress, catalog
 from .models import PackageInventory, PackageRecord, PackageRef
 from .support import DatabaseError
 from .values import package_values
@@ -96,6 +96,7 @@ def write(
             versions_table,
             package_identity,
         )
+        catalog.upsert_package(connection, record)
         if mark_pending:
             mark_publication_pending(connection, package, record.date)
 
@@ -324,6 +325,7 @@ def retire(
             )
         clear_publication(connection, package)
         batch_progress.retire_package(connection, package)
+        catalog.retire_package(connection, package)
 
 
 def retire_owner_publications(connection: sqlite3.Connection, owner: str) -> None:

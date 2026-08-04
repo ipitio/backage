@@ -1,12 +1,9 @@
-# Contributing To Bkg
+# Contributing To `bkg`
 
 This guide covers the current source layout, engineering policies, and local
-quality gates. See [`docs/runtime-reference.md`](docs/runtime-reference.md) for
-the supported runtime behavior and
-[`docs/migration-roadmap.md`](docs/migration-roadmap.md) for migration history
-and planned work.
+quality gates.
 
-Bkg's Python code targets Python 3.14 and uses a locked project environment.
+`bkg`'s Python code targets Python 3.14 and uses a locked project environment.
 Install [uv](https://docs.astral.sh/uv/), then prepare the checkout:
 
 ```bash
@@ -33,25 +30,25 @@ upgrade remains an explicit, tested change.
 
 ## Python Layout
 
-`src/bkg_py` is an intentional src-layout import package. Keep importable code
+`src/`bkg`_py` is an intentional src-layout import package. Keep importable code
 inside that package rather than moving modules directly under `src`; the extra
 directory prevents the repository root and non-package files from being
-imported accidentally. The `bkg_py` namespace remains an internal
-implementation name behind the installed `bkg` command, so renaming it would
+imported accidentally. The ``bkg`_py` namespace remains an internal
+implementation name behind the installed ``bkg`` command, so renaming it would
 add compatibility churn without changing the service architecture.
 
 The Python package is organized around three cooperating application domains:
 
-- `bkg_py.database` owns the public SQLite repository, settings, persisted
+- ``bkg`_py.database` owns the public SQLite repository, settings, persisted
   values, lazy schema work, package plans, owner scans, and version-stage
   writes. Other domains import repository behavior and shared values from
-  `bkg_py.database`; its internal transaction modules are not cross-domain
+  ``bkg`_py.database`; its internal transaction modules are not cross-domain
   APIs.
-- `bkg_py.owners` owns owner queue selection, page admission, package refresh,
+- ``bkg`_py.owners` owns owner queue selection, page admission, package refresh,
   scan verification, publication, lifecycle composition, and concurrent owner
   batches. Its package root exposes only the operations needed by discovery
   and the outer run coordinator.
-- `bkg_py.run` owns top-level phase ordering and application coordination.
+- ``bkg`_py.run` owns top-level phase ordering and application coordination.
 
 Root modules retain the composition and infrastructure boundaries shared by
 those domains: `application`, `cli`, `commands`, `config`, `discovery`,
@@ -107,14 +104,14 @@ must remain visible, and no-op runs must not create commits.
 
 ## Runtime Dependencies
 
-Bkg is a self-hostable Actions project, so runtime dependencies should stay
+`bkg` is a self-hostable Actions project, so runtime dependencies should stay
 small and deliberate. Prefer Python's standard library and existing project
 helpers unless a dependency clearly buys correctness, protocol coverage,
-performance, or maintainability for behavior that is not specific to Bkg.
+performance, or maintainability for behavior that is not specific to `bkg`.
 
 Before adding a runtime dependency, check that it:
 
-- replaces a commodity hard part rather than Bkg's own state machine;
+- replaces a commodity hard part rather than `bkg`'s own state machine;
 - has a small transitive dependency tree and active maintenance;
 - is compatible with the Python target, Docker image, and locked `uv`
   environment;
@@ -124,7 +121,7 @@ Before adding a runtime dependency, check that it:
 - is covered by focused tests plus the regression suite.
 
 Good candidates are protocol and format edges where the standard library is not
-enough. Poor candidates are wrappers around Bkg's SQLite schema, persisted
+enough. Poor candidates are wrappers around `bkg`'s SQLite schema, persisted
 `.env` state, CLI surface, output layout, or workflow orchestration.
 
 Container version sizing uses GHCR's OCI Distribution API through the existing
@@ -184,7 +181,7 @@ bash src/test/regression.sh
 Print per-test timings while profiling an individual shell suite:
 
 ```bash
-BKG_TEST_TIMINGS=1 bash src/test/runtime.sh
+`bkg`_TEST_TIMINGS=1 bash src/test/runtime.sh
 ```
 
 Changes that retain or modify shell must also pass ShellCheck through the

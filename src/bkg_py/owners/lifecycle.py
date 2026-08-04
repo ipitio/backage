@@ -263,8 +263,8 @@ class OwnerLifecycleService:  # pylint: disable=too-few-public-methods
         completion: OwnerScanResult,
     ) -> None:
         refresh = request.package_refresh
-        for package in completion.removed:
-            repo_directory = refresh.index_dir / refresh.owner / package.repo
+        for package in completion.removed_paths:
+            repo_directory = refresh.index_dir / package.owner / package.repo
             if not repo_directory.is_dir():
                 continue
             prefixes = (

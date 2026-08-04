@@ -170,6 +170,28 @@ SCHEMA_SQL = (
     )
     """,
     """
+    create table if not exists "bkg_package_catalog" (
+        owner_id text not null default '',
+        owner_type text not null default '',
+        package_type text not null default '',
+        owner text not null,
+        repo text not null,
+        package text not null,
+        observed_at text not null default '',
+        primary key (owner, repo, package)
+    )
+    """,
+    """
+    create table if not exists "bkg_package_catalog_state" (
+        singleton integer primary key check (singleton = 1),
+        source_revision text not null,
+        initialized_at text not null,
+        source_owners integer not null,
+        source_repositories integer not null,
+        source_packages integer not null
+    )
+    """,
+    """
     create index if not exists "idx_bkg_owners_date_owner"
     on {owners} (date, owner)
     """,
@@ -214,6 +236,10 @@ SCHEMA_SQL = (
     on "bkg_owner_queue" (
         generation, status, attempt_after, priority, sequence
     )
+    """,
+    """
+    create index if not exists "idx_bkg_package_catalog_identity"
+    on "bkg_package_catalog" (owner_id, package_type, repo, package)
     """,
 )
 

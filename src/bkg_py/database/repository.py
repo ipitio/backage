@@ -12,6 +12,7 @@ from typing import Any
 
 from . import (
     batch_progress,
+    catalog,
     owner_queue,
     owner_scans,
     package_plans,
@@ -21,6 +22,7 @@ from . import (
 from . import (
     packages as package_records,
 )
+from .catalog_repository import PackageCatalogRepositoryMixin
 from .metrics import DatabaseWriteTracker
 from .metrics_repository import DatabaseMetricsRepositoryMixin
 from .models import (
@@ -84,6 +86,7 @@ class _SqlIdentifier(str):
 
 
 class DatabaseRepository(  # pylint: disable=too-many-public-methods
+    PackageCatalogRepositoryMixin,
     DatabaseMetricsRepositoryMixin,
     OwnerIdentityRepositoryMixin,
     OwnerQueueRepositoryMixin,
@@ -307,13 +310,17 @@ class DatabaseRepository(  # pylint: disable=too-many-public-methods
         """Count published package identities, owners, and repositories."""
 
         self.ensure_schema()
-        return self._run_read(
-            lambda connection: package_records.inventory(
+
+        def read(connection: sqlite3.Connection) -> PackageInventory:
+            if catalog.is_ready(connection):
+                return catalog.inventory(connection)
+            return package_records.inventory(
                 connection,
                 self.settings.packages_table,
                 self._check_stop,
             )
-        )
+
+        return self._run_read(read)
 
     def maximum_package_downloads(self, package: PackageRef) -> int:
         """Return the largest previously stored total download count."""

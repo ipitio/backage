@@ -7,7 +7,7 @@ from collections.abc import Generator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 
-from . import batch_progress
+from . import batch_progress, catalog
 from . import packages as package_writes
 from .models import (
     OwnerRecord,
@@ -17,6 +17,7 @@ from .models import (
     OwnerScanPage,
     OwnerScanResult,
     OwnerScanStart,
+    PackageCatalogPath,
     PackageRef,
 )
 from .support import DatabaseError
@@ -645,6 +646,7 @@ def _delete_packages(
             parameters,
         )
         batch_progress.retire_package(connection, package)
+        catalog.retire_package(connection, package)
 
 
 def _scan_outcome(
@@ -762,7 +764,6 @@ def complete(
 ) -> OwnerScanResult:
     """Reconcile one verified complete scan and record its refresh outcome."""
 
-    owners = _identifier(tables.owners)
     packages = _identifier(tables.packages)
 
     with _transaction(connection):
@@ -780,60 +781,84 @@ def complete(
         )
 
         pending = _pending_scan_packages(connection, completion, packages)
-        scan_row = connection.execute(
-            f"select owner, failure_count from {_SCANS} where owner_id = ?",
-            (completion.owner_id,),
-        ).fetchone()
-        if scan_row is None:
-            raise DatabaseError(
-                f"owner scan {completion.owner_id}/{completion.marker} disappeared"
-            )
-        owner = str(scan_row[0])
-        status, failure_count, retry_after, last_error = _scan_outcome(
+        retry_after, catalog_removed = _finish_completed_scan(
+            connection,
+            completion,
+            tables,
             len(pending),
-            int(scan_row[1]),
-            completion.completed_at,
             retry,
         )
 
-        remaining = int(
-            connection.execute(
-                f"select count(*) from {packages} where owner_id = ?",
-                (completion.owner_id,),
-            ).fetchone()[0]
-        )
-        if remaining == 0:
-            connection.execute(
-                f"""
-                insert or replace into {owners} (owner_id, owner, date)
-                values (?, ?, ?)
-                """,
-                (completion.owner_id, owner, completion.scan_date),
-            )
+    return OwnerScanResult(removed, pending, retry_after, catalog_removed)
 
+
+def _finish_completed_scan(
+    connection: sqlite3.Connection,
+    completion: OwnerScanCompletion,
+    tables: OwnerScanTables,
+    pending_count: int,
+    retry: OwnerRetryPolicy,
+) -> tuple[int, tuple[PackageCatalogPath, ...]]:
+    owners = _identifier(tables.owners)
+    packages = _identifier(tables.packages)
+    scan_row = connection.execute(
+        f"select owner, failure_count from {_SCANS} where owner_id = ?",
+        (completion.owner_id,),
+    ).fetchone()
+    if scan_row is None:
+        raise DatabaseError(
+            f"owner scan {completion.owner_id}/{completion.marker} disappeared"
+        )
+    owner = str(scan_row[0])
+    catalog_removed = catalog.reconcile_owner_scan(
+        connection,
+        completion.owner_id,
+        owner,
+        completion.marker,
+        completion.scan_date,
+    )
+    status, failure_count, retry_after, last_error = _scan_outcome(
+        pending_count,
+        int(scan_row[1]),
+        completion.completed_at,
+        retry,
+    )
+    remaining = int(
+        connection.execute(
+            f"select count(*) from {packages} where owner_id = ?",
+            (completion.owner_id,),
+        ).fetchone()[0]
+    )
+    if remaining == 0:
         connection.execute(
             f"""
-            update {_SCANS}
-            set status = ?, updated_at = ?, completed_at = ?,
-                failure_count = ?, retry_after = ?, last_error = ?
-            where owner_id = ?
+            insert or replace into {owners} (owner_id, owner, date)
+            values (?, ?, ?)
             """,
-            (
-                status,
-                completion.completed_at,
-                completion.completed_at,
-                failure_count,
-                retry_after,
-                last_error,
-                completion.owner_id,
-            ),
+            (completion.owner_id, owner, completion.scan_date),
         )
-        connection.execute(
-            f"delete from {_SCAN_PACKAGES} where owner_id = ?",
-            (completion.owner_id,),
-        )
-
-    return OwnerScanResult(removed, pending, retry_after)
+    connection.execute(
+        f"""
+        update {_SCANS}
+        set status = ?, updated_at = ?, completed_at = ?,
+            failure_count = ?, retry_after = ?, last_error = ?
+        where owner_id = ?
+        """,
+        (
+            status,
+            completion.completed_at,
+            completion.completed_at,
+            failure_count,
+            retry_after,
+            last_error,
+            completion.owner_id,
+        ),
+    )
+    connection.execute(
+        f"delete from {_SCAN_PACKAGES} where owner_id = ?",
+        (completion.owner_id,),
+    )
+    return retry_after, catalog_removed
 
 
 def deferred(
@@ -888,6 +913,7 @@ def retire_owner(
             deleted += cursor.rowcount
         package_writes.retire_owner_publications(connection, owner)
         batch_progress.retire_owner(connection, owner)
+        catalog.retire_owner(connection, owner)
         connection.execute(
             f"""
             delete from {_SCAN_PACKAGES}

@@ -95,8 +95,8 @@ class RunApplicationOperations:
         """Prepare persisted state, storage, and the initial package plan."""
 
         config = self.application.config
-        if config.index_db is None:
-            raise ValueError("BKG_INDEX_DB is required")
+        if config.index_db is None or config.index_dir is None:
+            raise ValueError("BKG_INDEX_DB and BKG_INDEX_DIR are required")
         return RunStartupService(
             RunStartupServices(
                 self.application.database,
@@ -116,6 +116,7 @@ class RunApplicationOperations:
                 Path(config.index_db),
                 Path(config.optout_file),
                 config.github_owner,
+                Path(config.index_dir),
             )
         )
 

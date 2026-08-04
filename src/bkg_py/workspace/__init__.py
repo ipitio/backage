@@ -16,16 +16,19 @@ from .publication import (
 )
 from .repository import (
     GitRepository,
+    IndexPackageCatalogTree,
     IndexWorkspacePreparation,
     IndexWorkspacePreparer,
     WorkspaceError,
     clone_repository,
+    read_index_package_catalog,
 )
 
 __all__ = [
     "ForkMergeConfiguration",
     "GitRepository",
     "HandoffSettings",
+    "IndexPackageCatalogTree",
     "IndexWorkspacePreparation",
     "IndexWorkspacePreparer",
     "UpdateWorkspacePublisher",
@@ -37,6 +40,7 @@ __all__ = [
     "configure_fork_merge",
     "import_workflow_payload",
     "published_run_status",
+    "read_index_package_catalog",
     "scheduled_update_skip_reason",
     "workflow_run_freshness",
 ]

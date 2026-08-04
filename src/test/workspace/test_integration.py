@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 
 from bkg_py.cli import main
+from bkg_py.database import PackageCatalogPath
 from bkg_py.result import ExitStatus
 from bkg_py.workspace import (
     GitRepository,
@@ -18,6 +19,7 @@ from bkg_py.workspace import (
     WorkspaceLayout,
     import_workflow_payload,
     published_run_status,
+    read_index_package_catalog,
 )
 from bkg_py.workspace.repository import ensure_pages_root
 
@@ -175,6 +177,35 @@ def test_sparse_repository_keeps_root_and_materializes_selected_owners(
 
     assert (path / "alpha" / "repo-a" / "package.json").is_file()
     assert (path / "beta" / "repo-b" / "package.json").is_file()
+
+
+def test_repository_lists_package_paths_without_aggregate_files(
+    tmp_path: Path,
+) -> None:
+    """Catalog discovery uses Git paths and ignores generated aggregates."""
+
+    path = tmp_path / "index"
+    _create_repository(path)
+    (path / "alpha" / "repo-a" / ".json").write_text("[]\n", encoding="utf-8")
+    (path / "alpha" / "repo-a" / "nested").mkdir()
+    (path / "alpha" / "repo-a" / "nested" / "other.json").write_text(
+        "{}\n",
+        encoding="utf-8",
+    )
+    (path / "alpha" / "repo-a" / "package.xml").write_text(
+        "<package/>\n",
+        encoding="utf-8",
+    )
+    _git(path, "add", "-A")
+    _git(path, "commit", "-qm", "add aggregate fixtures")
+
+    catalog = read_index_package_catalog(path)
+
+    assert catalog.revision == _git(path, "rev-parse", "HEAD").stdout.strip()
+    assert catalog.paths == (
+        PackageCatalogPath("alpha", "repo-a", "package"),
+        PackageCatalogPath("beta", "repo-b", "package"),
+    )
 
 
 def test_sparse_repository_stages_completed_paths_before_replacing_them(

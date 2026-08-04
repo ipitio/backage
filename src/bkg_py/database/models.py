@@ -148,12 +148,29 @@ class OwnerScanResult:
     removed: tuple[PackageRef, ...]
     pending: tuple[OwnerScanPackage, ...]
     retry_after: int
+    catalog_removed: tuple[PackageCatalogPath, ...] = ()
 
     @property
     def pending_count(self) -> int:
         """Return the number of observed packages still awaiting publication."""
 
         return len(self.pending)
+
+    @property
+    def removed_paths(self) -> tuple[PackageCatalogPath, ...]:
+        """Return unique generated package paths removed by reconciliation."""
+
+        return (
+            tuple(
+                dict.fromkeys(
+                    (
+                        PackageCatalogPath(package.owner, package.repo, package.package)
+                        for package in self.removed
+                    ),
+                )
+            )
+            + self.catalog_removed
+        )
 
 
 @dataclass(frozen=True)
@@ -243,6 +260,26 @@ class PackageInventory:
     owners: int
     repositories: int
     packages: int
+
+
+@dataclass(frozen=True)
+class PackageCatalogPath:
+    """One generated package path tracked independently of history rows."""
+
+    owner: str
+    repo: str
+    package: str
+
+
+@dataclass(frozen=True)
+class PackageCatalogStatus:
+    """Committed source and enrichment state for the current package catalog."""
+
+    source_revision: str
+    initialized_at: str
+    source_inventory: PackageInventory
+    inventory: PackageInventory
+    resolved_packages: int
 
 
 def _unique_work_owners(items: tuple[PackageWorkItem, ...]) -> tuple[str, ...]:

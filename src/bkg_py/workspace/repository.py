@@ -9,12 +9,15 @@ import subprocess
 import time
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
+from ..database import PackageCatalogPath
 from ..files import atomic_text_output
 from ..runtime import resolve_executable
 
 _SPARSE_PATH_BATCH_SIZE = 100
+_PACKAGE_PATH_PARTS = 3
+_PACKAGE_FILENAME_INDEX = 2
 _MISSING_REMOTE_REF_STATUS = 2
 _CREDENTIAL_HELPER = "!f() { printf '%s\\n' \"password=$GITHUB_TOKEN\"; }; f"
 _URL_CREDENTIALS = re.compile(r"(https?://)[^/@\s]+@")
@@ -41,6 +44,14 @@ class IndexWorkspacePreparation:
     """Outcome of preparing an index branch and linked worktree."""
 
     first_run: bool
+
+
+@dataclass(frozen=True)
+class IndexPackageCatalogTree:
+    """One exact index revision and its generated package paths."""
+
+    revision: str
+    paths: tuple[PackageCatalogPath, ...]
 
 
 def clone_repository(
@@ -420,6 +431,59 @@ class GitRepository(_GitCommandRunner):
             ("sparse-checkout", "add", "--skip-checks", "--", *paths),
             required=True,
         )
+
+
+def read_index_package_catalog(
+    path: Path,
+    known_revision: str | None = None,
+) -> IndexPackageCatalogTree:
+    """Read one index tree's package paths without hydrating package blobs."""
+
+    reader = _IndexPackageCatalogReader(path)
+    revision = reader.revision()
+    if revision == known_revision:
+        return IndexPackageCatalogTree(revision, ())
+    return IndexPackageCatalogTree(revision, reader.package_paths())
+
+
+class _IndexPackageCatalogReader(_GitCommandRunner):
+    """Read catalog paths through one credential-safe Git command runner."""
+
+    def revision(self) -> str:
+        """Return the current revision after verifying the index worktree."""
+
+        worktree = self._run(("rev-parse", "--is-inside-work-tree"))
+        if worktree.returncode != 0 or worktree.stdout.strip() != "true":
+            raise WorkspaceError(f"index path is not a Git worktree: {self.path}")
+        return self._run(("rev-parse", "HEAD"), required=True).stdout.strip()
+
+    def package_paths(self) -> tuple[PackageCatalogPath, ...]:
+        """Return package paths from tracked tree names only."""
+
+        result = self._run(
+            (
+                "-c",
+                "gc.auto=0",
+                "ls-tree",
+                "-r",
+                "-z",
+                "--name-only",
+                "HEAD",
+            ),
+            required=True,
+        )
+        packages: list[PackageCatalogPath] = []
+        for value in result.stdout.split("\0"):
+            parts = PurePosixPath(value).parts
+            if len(parts) != _PACKAGE_PATH_PARTS:
+                continue
+            filename = parts[_PACKAGE_FILENAME_INDEX]
+            if filename == ".json" or not filename.endswith(".json"):
+                continue
+            package = filename.removesuffix(".json")
+            if package:
+                packages.append(PackageCatalogPath(parts[0], parts[1], package))
+        return tuple(packages)
 
 
 class GitLocalConfiguration(_GitCommandRunner):

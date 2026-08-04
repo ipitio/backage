@@ -9,6 +9,8 @@ from bkg_py.database import (
     DatabaseRepository,
     DatabaseSettings,
     OwnerRecord,
+    PackageCatalogPath,
+    PackageInventory,
     PackageRecord,
     PackageRef,
 )
@@ -103,6 +105,18 @@ def test_retire_owner_aliases_preserves_current_package_paths(
     with sqlite3.connect(database_path) as connection:
         _create_legacy_table(connection, shared_legacy)
         _create_legacy_table(connection, orphan_legacy)
+    repository.initialize_package_catalog(
+        (
+            PackageCatalogPath(current.owner, current.repo, current.package),
+            PackageCatalogPath(
+                old_orphan.owner,
+                old_orphan.repo,
+                old_orphan.package,
+            ),
+        ),
+        "a" * 40,
+        _TODAY,
+    )
 
     assert repository.owner_alias_ids("200", "alpha") == ("100",)
 
@@ -123,6 +137,7 @@ def test_retire_owner_aliases_preserves_current_package_paths(
     assert not marker_ids
     assert shared_legacy in tables
     assert orphan_legacy not in tables
+    assert repository.package_inventory() == PackageInventory(1, 1, 1)
 
 
 def test_retire_owner_aliases_removes_legacy_null_owner_ids(
@@ -146,6 +161,15 @@ def test_retire_owner_aliases_removes_legacy_null_owner_ids(
             """,
             (_YESTERDAY,),
         )
+    unresolved = PackageCatalogPath("Beta", "tree-only", "tree-only")
+    repository.initialize_package_catalog(
+        (
+            PackageCatalogPath(current.owner, current.repo, current.package),
+            unresolved,
+        ),
+        "b" * 40,
+        _TODAY,
+    )
 
     assert len(repository.package_work_plan(_TODAY).pending) == 1
     assert repository.owner_alias_ids("200", "alpha") == ("",)
@@ -155,6 +179,7 @@ def test_retire_owner_aliases_removes_legacy_null_owner_ids(
     assert cleanup.alias_ids == ("",)
     assert not cleanup.orphaned_packages
     assert not repository.package_work_plan(_TODAY).pending
+    assert repository.package_inventory() == PackageInventory(2, 2, 2)
 
 
 def test_retire_owner_aliases_removes_same_id_owner_name_aliases(

@@ -18,6 +18,7 @@ from bkg_py.database import (
     OwnerScanResult,
     OwnerScanStart,
     PackageBatch,
+    PackageCatalogPath,
     PackageRecord,
     PackageRef,
 )
@@ -92,6 +93,7 @@ def _completed_scan(
     *,
     first_page_empty: bool = False,
     removed: tuple[PackageRef, ...] = (),
+    catalog_removed: tuple[PackageCatalogPath, ...] = (),
 ) -> OwnerScanOutcome:
     return OwnerScanOutcome(
         OwnerScanPagesResult(
@@ -102,7 +104,7 @@ def _completed_scan(
         ),
         OwnerScanReconciliation(
             OwnerScanVerificationResult(0, 0, (), (), ()),
-            OwnerScanResult(removed, (), 0),
+            OwnerScanResult(removed, (), 0, catalog_removed),
         ),
     )
 
@@ -281,7 +283,14 @@ def test_unresolved_direct_refresh_falls_back_to_complete_owner_scan(
         (repo_directory / name).write_text("stale", encoding="utf-8")
     unrelated = repo_directory / "other.json"
     unrelated.write_text("current", encoding="utf-8")
-    scanner = _Scanner(_completed_scan(removed=(stale_ref,)))
+    tree_only = PackageCatalogPath("Example", "tree-only", "departed")
+    tree_only_directory = tmp_path / "index" / tree_only.owner / tree_only.repo
+    tree_only_directory.mkdir(parents=True)
+    (tree_only_directory / "departed.json").write_text("stale", encoding="utf-8")
+    (tree_only_directory / "departed.xml").write_text("stale", encoding="utf-8")
+    scanner = _Scanner(
+        _completed_scan(removed=(stale_ref,), catalog_removed=(tree_only,))
+    )
 
     result = _service(
         repository,
@@ -296,6 +305,7 @@ def test_unresolved_direct_refresh_falls_back_to_complete_owner_scan(
     assert scanner.requests[0].start_page == 1
     assert unrelated.read_text(encoding="utf-8") == "current"
     assert not tuple(repo_directory.glob("stale.*"))
+    assert not tree_only_directory.exists()
 
 
 def test_paused_scan_resumes_and_clears_legacy_state_after_completion(
