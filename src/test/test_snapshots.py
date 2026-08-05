@@ -372,15 +372,49 @@ def test_rotate_database_archives_current_snapshot_and_prunes(
     result = store.rotate_database_if_needed(
         prune_database,
         threshold_bytes=1,
-        date_stamp="2026.06.16",
+        rotation_stamp="2026.06.16T12.34.56.000789Z",
     )
 
     assert result.rotated
-    assert result.archive == paths.snapshot_directory / "2026.06.16.index.db.zst"
+    assert result.archive == (
+        paths.snapshot_directory / "2026.06.16T12.34.56.000789Z.index.db.zst"
+    )
     assert result.archive is not None
     assert result.archive.is_file()
+    assert result.source_bytes == paths.current_db_archive.stat().st_size
+    assert result.compressed_bytes == result.archive.stat().st_size
     assert paths.current_db_archive.is_file()
     assert prune_calls == 1
+
+
+def test_first_rotation_archives_live_database_before_pruning(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A deployment without a prior snapshot still retains pre-prune history."""
+
+    paths = SnapshotPaths(tmp_path / "index.db")
+    _create_database(paths.index_db)
+    store = SnapshotStore(paths)
+    sources: list[Path] = []
+
+    def compress(source: Path, destination: Path) -> None:
+        sources.append(source)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes(source.read_bytes())
+
+    monkeypatch.setattr(store, "_compress_zstd_file", compress)
+
+    result = store.rotate_database_if_needed(
+        lambda: None,
+        threshold_bytes=1,
+        rotation_stamp="2026.06.16T12.34.56.000789Z",
+    )
+
+    assert sources == [paths.index_db]
+    assert result.archive is not None
+    assert result.archive.read_bytes() == paths.index_db.read_bytes()
+    assert result.source_bytes == paths.index_db.stat().st_size
 
 
 def test_interrupted_rotation_preserves_existing_archive(tmp_path: Path) -> None:
@@ -389,7 +423,7 @@ def test_interrupted_rotation_preserves_existing_archive(tmp_path: Path) -> None
     paths = SnapshotPaths(tmp_path / "index.db")
     paths.current_db_archive.parent.mkdir()
     _create_database(paths.current_db_archive)
-    archive = paths.snapshot_directory / "2026.06.16.index.db.zst"
+    archive = paths.snapshot_directory / "2026.06.16T12.34.56.000789Z.index.db.zst"
     archive.write_bytes(b"existing archive")
 
     def stop() -> None:
@@ -398,10 +432,43 @@ def test_interrupted_rotation_preserves_existing_archive(tmp_path: Path) -> None
     store = SnapshotStore(paths, check_stop=stop)
 
     with pytest.raises(GracefulStop):
-        store.archive_current_snapshot_for_rotation("2026.06.16")
+        store.archive_current_snapshot_for_rotation("2026.06.16T12.34.56.000789Z")
 
     assert archive.read_bytes() == b"existing archive"
-    assert not list(paths.snapshot_directory.glob(".2026.06.16.index.db.zst.*"))
+    assert not list(
+        paths.snapshot_directory.glob(".2026.06.16T12.34.56.000789Z.*.index.db.zst.*")
+    )
+
+
+def test_rotation_archive_names_do_not_replace_same_timestamp_or_legacy_asset(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Timestamp collisions gain a sequence while dated assets remain untouched."""
+
+    paths = SnapshotPaths(tmp_path / "index.db")
+    paths.current_db_archive.parent.mkdir()
+    paths.current_db_archive.write_bytes(b"current")
+    legacy = paths.snapshot_directory / "2026.06.16.index.db.zst"
+    collision = paths.snapshot_directory / "2026.06.16T12.34.56.000789Z.index.db.zst"
+    legacy.write_bytes(b"legacy")
+    collision.write_bytes(b"first")
+    store = SnapshotStore(paths)
+
+    def compress(source: Path, destination: Path) -> None:
+        destination.write_bytes(source.read_bytes())
+
+    monkeypatch.setattr(store, "_compress_zstd_file", compress)
+
+    archive = store.archive_current_snapshot_for_rotation("2026.06.16T12.34.56.000789Z")
+
+    assert archive is not None
+    assert archive == (
+        paths.snapshot_directory / "2026.06.16T12.34.56.000789Z.2.index.db.zst"
+    )
+    assert archive.read_bytes() == b"current"
+    assert collision.read_bytes() == b"first"
+    assert legacy.read_bytes() == b"legacy"
 
 
 def test_restore_current_database_snapshot_replaces_after_validation(

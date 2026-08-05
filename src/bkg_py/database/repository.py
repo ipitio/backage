@@ -6,7 +6,6 @@ import sqlite3
 import time
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
-from pathlib import Path
 from threading import Lock
 from typing import Any
 
@@ -47,8 +46,9 @@ from .render_sql import (
     PACKAGE_SNAPSHOT_SQL,
     RANKED_PACKAGES_SQL,
 )
+from .rotation_repository import DatabaseRotationRepositoryMixin
 from .settings import DatabaseSettings
-from .support import DatabaseError
+from .support import DatabaseError, file_identity
 from .values import (
     package_sort_key as _package_sort_key,
 )
@@ -88,6 +88,7 @@ class _SqlIdentifier(str):
 class DatabaseRepository(  # pylint: disable=too-many-public-methods
     PackageCatalogRepositoryMixin,
     DatabaseMetricsRepositoryMixin,
+    DatabaseRotationRepositoryMixin,
     OwnerIdentityRepositoryMixin,
     OwnerQueueRepositoryMixin,
     OwnerScanRepositoryMixin,
@@ -111,12 +112,12 @@ class DatabaseRepository(  # pylint: disable=too-many-public-methods
     def ensure_schema(self) -> None:
         """Lazily create normalized tables and their query indexes."""
 
-        identity = _file_identity(self.settings.path)
+        identity = file_identity(self.settings.path)
         if identity is not None and identity == self._schema_identity:
             return
 
         with self._schema_lock:
-            identity = _file_identity(self.settings.path)
+            identity = file_identity(self.settings.path)
             if identity is not None and identity == self._schema_identity:
                 return
 
@@ -130,7 +131,7 @@ class DatabaseRepository(  # pylint: disable=too-many-public-methods
                     )
 
             self._run_write(create)
-            self._schema_identity = _file_identity(self.settings.path)
+            self._schema_identity = file_identity(self.settings.path)
 
     def write_owner(self, record: OwnerRecord) -> None:
         """Insert or replace one owner scan record."""
@@ -973,14 +974,6 @@ def _table_exists(connection: sqlite3.Connection, table_name: str) -> bool:
         ).fetchone()
         is not None
     )
-
-
-def _file_identity(path: Path) -> tuple[int, int] | None:
-    try:
-        status = path.stat()
-    except FileNotFoundError:
-        return None
-    return status.st_dev, status.st_ino
 
 
 @contextmanager

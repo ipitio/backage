@@ -192,6 +192,17 @@ SCHEMA_SQL = (
     )
     """,
     """
+    create table if not exists "bkg_rotation_events" (
+        event_id integer primary key,
+        release_tag text not null,
+        rotated_at text not null,
+        archive_name text not null unique,
+        source_bytes integer not null check (source_bytes >= 0),
+        compressed_bytes integer not null check (compressed_bytes >= 0),
+        retained_since text not null
+    )
+    """,
+    """
     create index if not exists "idx_bkg_owners_date_owner"
     on {owners} (date, owner)
     """,
@@ -240,6 +251,10 @@ SCHEMA_SQL = (
     """
     create index if not exists "idx_bkg_package_catalog_identity"
     on "bkg_package_catalog" (owner_id, package_type, repo, package)
+    """,
+    """
+    create index if not exists "idx_bkg_rotation_events_release"
+    on "bkg_rotation_events" (release_tag, rotated_at, event_id)
     """,
 )
 

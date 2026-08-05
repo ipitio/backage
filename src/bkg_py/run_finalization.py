@@ -5,21 +5,28 @@ from __future__ import annotations
 import json
 from collections.abc import Callable
 from dataclasses import dataclass, replace
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Protocol
 
 from .database import (
     DatabaseMetricSample,
+    DatabaseRotationEvent,
     DatabaseStorageMetrics,
     DatabaseWriteCounts,
     PackageInventory,
 )
+from .release import release_tag as release_tag_for_date
 from .run_publication import RunPublicationRequest
-from .snapshots import SnapshotRotationResult
+from .snapshots import SnapshotError, SnapshotRotationResult
 from .state import StateStore
 
 MessageSink = Callable[[str], None]
 StopCheck = Callable[[], None]
+
+
+def _utc_now() -> datetime:
+    return datetime.now(UTC)
 
 
 class RotationRepository(Protocol):  # pylint: disable=too-few-public-methods
@@ -51,6 +58,19 @@ class RotationRepository(Protocol):  # pylint: disable=too-few-public-methods
 
         raise NotImplementedError
 
+    def record_database_rotation(self, event: DatabaseRotationEvent) -> None:
+        """Persist one completed database rotation."""
+
+        raise NotImplementedError
+
+    def database_rotations_for_release(
+        self,
+        release_tag: str,
+    ) -> tuple[DatabaseRotationEvent, ...]:
+        """Return durable rotation events for one release."""
+
+        raise NotImplementedError
+
 
 class SnapshotFinalizer(Protocol):
     """Snapshot operations required by run finalization."""
@@ -65,7 +85,7 @@ class SnapshotFinalizer(Protocol):
         prune_database: Callable[[], object],
         *,
         threshold_bytes: int,
-        date_stamp: str,
+        rotation_stamp: str,
     ) -> SnapshotRotationResult:
         """Rotate an oversized database and return the result."""
 
@@ -122,6 +142,13 @@ class RunFinalizationExecution:
 
     check_stop: StopCheck
     progress: MessageSink
+    now: Callable[[], datetime] = _utc_now
+
+
+@dataclass(frozen=True)
+class _PreparedSnapshot:
+    rotated: bool
+    path: Path
 
 
 class RunFinalizationService:  # pylint: disable=too-few-public-methods
@@ -141,58 +168,116 @@ class RunFinalizationService:  # pylint: disable=too-few-public-methods
         if request.rotation_threshold_bytes <= 0:
             raise ValueError("snapshot rotation threshold must be positive")
 
-        rotated = False
-        snapshot: Path | None = None
+        run_date = date.fromisoformat(request.publication.today)
+        current_release_tag = release_tag_for_date(run_date)
+        prepared: _PreparedSnapshot | None = None
         if request.prepare_snapshot:
-            self.services.state.set("BKG_OUT", _line_count(request.optout_file))
-            self.execution.progress("Preparing the database snapshot...")
-            self.execution.check_stop()
-            self.services.snapshots.checkpoint_database()
-            writes = self.services.repository.database_write_counts()
-            before = self.services.repository.database_storage_metrics()
-            after = before
-            rotation_archive_bytes = 0
-            if before.pages.physical_bytes >= request.rotation_threshold_bytes:
-                self.execution.progress("Rotating the database...")
-                rotation = self.services.snapshots.rotate_database_if_needed(
-                    lambda: self.services.repository.cleanup_replaced_legacy_tables(
-                        since=request.batch_first_started,
-                        prune_normalized=True,
-                        vacuum=True,
-                    ),
-                    threshold_bytes=request.rotation_threshold_bytes,
-                    date_stamp=request.publication.today.replace("-", "."),
-                )
-                rotated = rotation.rotated
-                rotation_archive_bytes = _path_size(rotation.archive)
-                after = self.services.repository.database_storage_metrics()
-                self.execution.progress("Rotated the database")
-            sample = DatabaseMetricSample(
-                sample_date=request.publication.today,
-                run_count=1,
-                storage=after,
-                writes=writes,
-                maximum_pre_rotation_bytes=before.pages.physical_bytes,
-                rotation_count=int(rotated),
-                rotation_archive_bytes=rotation_archive_bytes,
-                snapshot_bytes=after.pages.physical_bytes,
-            )
-            self.services.repository.record_database_metric_sample(sample)
-            snapshot = self.services.snapshots.prepare_database_snapshot()
-            self._report_database_metrics(
-                sample,
-                snapshot_bytes=(
-                    _path_size(snapshot, fallback=after.pages.physical_bytes)
-                ),
-            )
-            self.execution.progress("Prepared the database snapshot")
+            prepared = self._prepare_snapshot(request, current_release_tag)
 
         self.execution.progress("Hydrating templates and cleaning up...")
+        rotation_events = self.services.repository.database_rotations_for_release(
+            current_release_tag
+        )
         inventory = self.services.publisher.publish(
-            replace(request.publication, rotated=rotated)
+            replace(request.publication, rotation_events=rotation_events)
         )
         self.execution.progress("Done!")
-        return RunFinalizationResult(rotated, snapshot, inventory)
+        return RunFinalizationResult(
+            prepared.rotated if prepared is not None else False,
+            prepared.path if prepared is not None else None,
+            inventory,
+        )
+
+    def _prepare_snapshot(
+        self,
+        request: RunFinalizationRequest,
+        current_release_tag: str,
+    ) -> _PreparedSnapshot:
+        self.services.state.set("BKG_OUT", _line_count(request.optout_file))
+        self.execution.progress("Preparing the database snapshot...")
+        self.execution.check_stop()
+        self.services.snapshots.checkpoint_database()
+        writes = self.services.repository.database_write_counts()
+        before = self.services.repository.database_storage_metrics()
+        rotated, archive_bytes, after = self._rotate_if_needed(
+            request,
+            current_release_tag,
+            before,
+        )
+        sample = DatabaseMetricSample(
+            sample_date=request.publication.today,
+            run_count=1,
+            storage=after,
+            writes=writes,
+            maximum_pre_rotation_bytes=before.pages.physical_bytes,
+            rotation_count=int(rotated),
+            rotation_archive_bytes=archive_bytes,
+            snapshot_bytes=after.pages.physical_bytes,
+        )
+        self.services.repository.record_database_metric_sample(sample)
+        snapshot = self.services.snapshots.prepare_database_snapshot()
+        self._report_database_metrics(
+            sample,
+            snapshot_bytes=_path_size(
+                snapshot,
+                fallback=after.pages.physical_bytes,
+            ),
+        )
+        self.execution.progress("Prepared the database snapshot")
+        return _PreparedSnapshot(rotated, snapshot)
+
+    def _rotate_if_needed(
+        self,
+        request: RunFinalizationRequest,
+        current_release_tag: str,
+        before: DatabaseStorageMetrics,
+    ) -> tuple[bool, int, DatabaseStorageMetrics]:
+        if before.pages.physical_bytes < request.rotation_threshold_bytes:
+            return False, 0, before
+        self.execution.progress("Rotating the database...")
+        rotated_at, rotation_stamp = _rotation_time(self.execution.now())
+        rotation = self.services.snapshots.rotate_database_if_needed(
+            lambda: self.services.repository.cleanup_replaced_legacy_tables(
+                since=request.batch_first_started,
+                prune_normalized=True,
+                vacuum=True,
+            ),
+            threshold_bytes=request.rotation_threshold_bytes,
+            rotation_stamp=rotation_stamp,
+        )
+        archive_bytes = self._record_rotation(
+            request,
+            current_release_tag,
+            rotated_at,
+            rotation,
+        )
+        after = self.services.repository.database_storage_metrics()
+        self.execution.progress("Rotated the database")
+        return rotation.rotated, archive_bytes, after
+
+    def _record_rotation(
+        self,
+        request: RunFinalizationRequest,
+        current_release_tag: str,
+        rotated_at: str,
+        rotation: SnapshotRotationResult,
+    ) -> int:
+        if not rotation.rotated:
+            return 0
+        if rotation.archive is None:
+            raise SnapshotError("database rotation did not produce a retained archive")
+        archive_bytes = rotation.compressed_bytes or _path_size(rotation.archive)
+        self.services.repository.record_database_rotation(
+            DatabaseRotationEvent(
+                release_tag=current_release_tag,
+                rotated_at=rotated_at,
+                archive_name=rotation.archive.name,
+                source_bytes=rotation.source_bytes,
+                compressed_bytes=archive_bytes,
+                retained_since=request.batch_first_started,
+            )
+        )
+        return archive_bytes
 
     def _report_database_metrics(
         self,
@@ -267,3 +352,12 @@ def _path_size(path: Path | None, *, fallback: int = 0) -> int:
 
 def _compact_json(value: object) -> str:
     return json.dumps(value, separators=(",", ":"), sort_keys=True)
+
+
+def _rotation_time(value: datetime) -> tuple[str, str]:
+    if value.tzinfo is None or value.utcoffset() is None:
+        raise ValueError("rotation timestamp must include a timezone")
+    utc_value = value.astimezone(UTC)
+    rotated_at = utc_value.isoformat(timespec="microseconds").replace("+00:00", "Z")
+    archive_stamp = utc_value.strftime("%Y.%m.%dT%H.%M.%S.%fZ")
+    return rotated_at, archive_stamp

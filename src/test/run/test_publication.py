@@ -6,8 +6,11 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
+import pytest
+
 from bkg_py.database import (
     DatabaseRepository,
+    DatabaseRotationEvent,
     DatabaseSettings,
     PackageInventory,
     PackageRecord,
@@ -103,7 +106,16 @@ def test_run_publication_hydrates_outputs_and_prunes_transient_state(
                 github_branch="master",
             ),
             today="2026-07-02",
-            rotated=True,
+            rotation_events=(
+                DatabaseRotationEvent(
+                    release_tag="v2026.7.0",
+                    rotated_at="2026-07-01T03:04:05.000006Z",
+                    archive_name=("2026.07.01T03.04.05.000006Z.index.db.zst"),
+                    source_bytes=200,
+                    compressed_bytes=75,
+                    retained_since="2026-06-12",
+                ),
+            ),
         )
     )
 
@@ -113,6 +125,10 @@ def test_run_publication_hydrates_outputs_and_prunes_transient_state(
         .read_text(encoding="utf-8")
         .startswith("2026-07-02 12 345 1200\nP.S. The database was rotated")
     )
+    changelog = (root / "CHANGELOG.md").read_text(encoding="utf-8")
+    assert "[v2026.7.0 release]" in changelog
+    assert "`2026.07.01T03.04.05.000006Z.index.db.zst`" in changelog
+    assert "source 200 bytes; compressed 75 bytes" in changelog
     source_readme = (root / "README.md").read_text(encoding="utf-8")
     assert source_readme.startswith("example/backage/master 2026-07-02 1200")
     index_readme = (index / "README.md").read_text(encoding="utf-8")
@@ -173,3 +189,31 @@ def test_package_inventory_counts_distinct_published_paths(tmp_path: Path) -> No
     inventory = repository.package_inventory()
 
     assert inventory == PackageInventory(owners=2, repositories=3, packages=4)
+
+
+def test_publication_rejects_rotation_events_from_another_release(
+    tmp_path: Path,
+) -> None:
+    """A stale release event cannot leak into current release notes."""
+
+    event = DatabaseRotationEvent(
+        "v2026.6.1",
+        "2026-06-28T00:00:00.000000Z",
+        "2026.06.28T00.00.00.000000Z.index.db.zst",
+        200,
+        75,
+        "2026-06-12",
+    )
+    request = RunPublicationRequest(
+        paths=RunPublicationPaths(tmp_path, tmp_path / "index", tmp_path),
+        identity=RunPublicationIdentity("owner", "repo", "master"),
+        today="2026-07-02",
+        rotation_events=(event,),
+    )
+
+    with pytest.raises(ValueError, match=r"do not belong to release v2026\.7\.0"):
+        RunPublicationService(
+            _InventoryRepository(PackageInventory(1, 1, 1)),
+            StateStore(tmp_path / "state.env"),
+            lambda: None,
+        ).publish(request)

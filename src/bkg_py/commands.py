@@ -17,11 +17,8 @@ def run_command(
 ) -> ExitStatus:
     """Execute one parsed command and return its process status."""
 
-    if args.command == "config":
-        from .config import RuntimeConfig
-
-        print(json.dumps(RuntimeConfig.from_env().as_dict(), sort_keys=True))
-        return ExitStatus.SUCCESS
+    if args.command in {"config", "release-tag"}:
+        return _run_information_command(args)
     if args.command == "validate":
         from .validation import validate_generated_file
 
@@ -43,6 +40,18 @@ def run_command(
         return _run_workflow_update(args, parser)
     parser.error(f"unknown command: {args.command}")
     raise AssertionError("argparse.error must exit")
+
+
+def _run_information_command(args: argparse.Namespace) -> ExitStatus:
+    if args.command == "config":
+        from .config import RuntimeConfig
+
+        print(json.dumps(RuntimeConfig.from_env().as_dict(), sort_keys=True))
+    else:
+        from .release import release_tag
+
+        print(release_tag(args.run_date))
+    return ExitStatus.SUCCESS
 
 
 def _run_workflow_update(

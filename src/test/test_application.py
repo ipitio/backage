@@ -228,6 +228,27 @@ def test_config_cli_remains_independent_of_runtime_services(
 
 
 @pytest.mark.parametrize(
+    ("run_date", "expected"),
+    [
+        ("2026-07-01", "v2026.7.0"),
+        ("2026-07-14", "v2026.7.0"),
+        ("2026-07-15", "v2026.7.1"),
+        ("2026-07-28", "v2026.7.1"),
+        ("2026-07-29", "v2026.7.2"),
+    ],
+)
+def test_release_tag_cli_owns_the_fortnightly_workflow_policy(
+    run_date: str,
+    expected: str,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Runtime events and release publication share one period calculation."""
+
+    assert main(["release-tag", "-D", run_date]) is ExitStatus.SUCCESS
+    assert capsys.readouterr().out.strip() == expected
+
+
+@pytest.mark.parametrize(
     ("short_arguments", "long_arguments"),
     [
         (

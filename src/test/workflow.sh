@@ -33,6 +33,14 @@ for workflow in manual update; do
         echo "$workflow workflow does not reuse the run date for publication" >&2
         exit 1
     }
+    grep -Fq "python -m bkg_py release-tag -D \"\$RUN_DATE\"" "$workflow_file" || {
+        echo "$workflow workflow does not use the shared release-tag policy" >&2
+        exit 1
+    }
+    grep -Fq "tag: \"\${{ steps.date.outputs.tag }}\"" "$workflow_file" || {
+        echo "$workflow workflow does not publish the complete shared tag" >&2
+        exit 1
+    }
     grep -Fq '/var/run/docker.sock:/var/run/docker.sock' "$workflow_file" || {
         echo "$workflow workflow does not expose its Docker daemon to the fallback" >&2
         exit 1

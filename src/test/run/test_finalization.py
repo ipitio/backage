@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -13,6 +14,7 @@ from bkg_py.database import (
     DatabaseMetricSample,
     DatabaseObjectBytes,
     DatabasePageMetrics,
+    DatabaseRotationEvent,
     DatabaseStorageMetrics,
     DatabaseWriteCounts,
     PackageInventory,
@@ -40,6 +42,9 @@ class _Repository:
     )
     samples: list[DatabaseMetricSample] = field(
         default_factory=list[DatabaseMetricSample]
+    )
+    rotations: list[DatabaseRotationEvent] = field(
+        default_factory=list[DatabaseRotationEvent]
     )
 
     def cleanup_replaced_legacy_tables(
@@ -82,6 +87,21 @@ class _Repository:
 
         self.samples.append(sample)
 
+    def record_database_rotation(self, event: DatabaseRotationEvent) -> None:
+        """Record one completed rotation."""
+
+        self.rotations.append(event)
+
+    def database_rotations_for_release(
+        self,
+        release_tag: str,
+    ) -> tuple[DatabaseRotationEvent, ...]:
+        """Return events belonging to one release."""
+
+        return tuple(
+            event for event in self.rotations if event.release_tag == release_tag
+        )
+
 
 @dataclass
 class _Snapshots:
@@ -98,13 +118,13 @@ class _Snapshots:
         prune_database: Callable[[], object],
         *,
         threshold_bytes: int,
-        date_stamp: str,
+        rotation_stamp: str,
     ) -> SnapshotRotationResult:
         """Run cleanup and record the rotation settings."""
 
-        self.calls.append(f"rotate:{threshold_bytes}:{date_stamp}")
+        self.calls.append(f"rotate:{threshold_bytes}:{rotation_stamp}")
         prune_database()
-        return SnapshotRotationResult(True, Path("archive.zst"))
+        return SnapshotRotationResult(True, Path("archive.zst"), 200, 75)
 
     def prepare_database_snapshot(self) -> Path:
         """Return a snapshot path or simulate a publication failure."""
@@ -138,7 +158,6 @@ def _request(
             paths=RunPublicationPaths(tmp_path, tmp_path / "index", tmp_path),
             identity=RunPublicationIdentity("owner", "repo", "master"),
             today="2026-07-05",
-            rotated=False,
         ),
         optout_file=tmp_path / "optout.txt",
         batch_first_started="2026-06-12",
@@ -159,7 +178,11 @@ def test_finalization_rotates_prepares_and_then_publishes(tmp_path: Path) -> Non
 
     result = RunFinalizationService(
         RunFinalizationServices(repository, snapshots, publisher, state),
-        RunFinalizationExecution(lambda: None, messages.append),
+        RunFinalizationExecution(
+            lambda: None,
+            messages.append,
+            lambda: datetime(2026, 7, 5, 12, 34, 56, 789, tzinfo=UTC),
+        ),
     ).finalize(_request(tmp_path, prepare_snapshot=True))
 
     assert result.rotated
@@ -168,14 +191,24 @@ def test_finalization_rotates_prepares_and_then_publishes(tmp_path: Path) -> Non
     assert state.get("BKG_OUT") == "2"
     assert snapshots.calls == [
         "checkpoint",
-        "rotate:100:2026.07.05",
+        "rotate:100:2026.07.05T12.34.56.000789Z",
         "prepare",
     ]
     assert repository.cleanups == [("2026-06-12", True, True)]
     assert len(repository.samples) == 1
     assert repository.samples[0].writes == DatabaseWriteCounts(2, 5)
     assert repository.samples[0].rotation_count == 1
-    assert publisher.requests[0].rotated
+    assert repository.rotations == [
+        DatabaseRotationEvent(
+            release_tag="v2026.7.0",
+            rotated_at="2026-07-05T12:34:56.000789Z",
+            archive_name="archive.zst",
+            source_bytes=200,
+            compressed_bytes=75,
+            retained_since="2026-06-12",
+        )
+    ]
+    assert publisher.requests[0].rotation_events == tuple(repository.rotations)
     assert messages[:3] == [
         "Preparing the database snapshot...",
         "Rotating the database...",
@@ -192,14 +225,23 @@ def test_finalization_rotates_prepares_and_then_publishes(tmp_path: Path) -> Non
 
 
 def test_finalization_can_publish_without_snapshot_work(tmp_path: Path) -> None:
-    """Mode 2 retains summary publication without touching snapshot state."""
+    """Mode 2 preserves release rotation history without snapshot work."""
 
     state = StateStore(tmp_path / "state.env")
     snapshots = _Snapshots()
     publisher = _Publisher()
+    event = DatabaseRotationEvent(
+        "v2026.7.0",
+        "2026-07-01T00:00:00.000000Z",
+        "archive.zst",
+        200,
+        75,
+        "2026-06-12",
+    )
+    repository = _Repository(rotations=[event])
 
     result = RunFinalizationService(
-        RunFinalizationServices(_Repository(), snapshots, publisher, state),
+        RunFinalizationServices(repository, snapshots, publisher, state),
         RunFinalizationExecution(lambda: None, lambda _message: None),
     ).finalize(_request(tmp_path, prepare_snapshot=False))
 
@@ -207,7 +249,7 @@ def test_finalization_can_publish_without_snapshot_work(tmp_path: Path) -> None:
     assert result.snapshot is None
     assert not snapshots.calls
     assert state.get("BKG_OUT") is None
-    assert not publisher.requests[0].rotated
+    assert publisher.requests[0].rotation_events == (event,)
 
 
 def test_finalization_does_not_publish_after_snapshot_failure(tmp_path: Path) -> None:

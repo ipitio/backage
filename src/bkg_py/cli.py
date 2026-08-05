@@ -27,6 +27,11 @@ def build_parser() -> argparse.ArgumentParser:
         "config",
         help="print the runtime configuration as JSON",
     )
+    release_parser = subparsers.add_parser(
+        "release-tag",
+        help="print the fortnightly release tag for a UTC date",
+    )
+    release_parser.add_argument("-D", "--run-date", type=_iso_date, required=True)
     merge_parser = subparsers.add_parser(
         "configure-fork-merge",
         help="preserve deployment-owned files during upstream merges",

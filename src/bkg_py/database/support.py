@@ -82,3 +82,13 @@ def load_object(path: Path) -> dict[str, Any]:
     if not all(isinstance(key, str) for key in mapping):
         raise DatabaseError(f"stage file {path} must contain an object")
     return cast(dict[str, Any], mapping)
+
+
+def file_identity(path: Path) -> tuple[int, int] | None:
+    """Return the device and inode for an existing database path."""
+
+    try:
+        status = path.stat()
+    except FileNotFoundError:
+        return None
+    return status.st_dev, status.st_ino

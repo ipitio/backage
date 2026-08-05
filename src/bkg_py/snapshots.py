@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import re
 import shutil
 import sqlite3
 import subprocess
@@ -27,6 +28,10 @@ _DATABASE_MODE = 0o666
 _PROCESS_KILL_TIMEOUT_SECONDS = 5
 _PROCESS_POLL_SECONDS = 0.25
 _RELEASE_ASSET_KINDS: tuple[ArchiveKind, ...] = ("db", "db-zst", "sql-zst")
+_ROTATION_STAMP = re.compile(
+    r"[0-9]{4}\.[0-9]{2}\.[0-9]{2}T[0-9]{2}\.[0-9]{2}\.[0-9]{2}"
+    r"\.[0-9]{6}Z"
+)
 _SNAPSHOT_MODE = 0o666
 
 
@@ -67,6 +72,8 @@ class SnapshotRotationResult:
 
     rotated: bool
     archive: Path | None = None
+    source_bytes: int = 0
+    compressed_bytes: int = 0
 
 
 @dataclass(frozen=True)
@@ -420,7 +427,7 @@ class SnapshotStore:
         prune_database: Callable[[], object],
         *,
         threshold_bytes: int,
-        date_stamp: str,
+        rotation_stamp: str,
     ) -> SnapshotRotationResult:
         """Archive the prior snapshot and prune an oversized working database."""
 
@@ -430,22 +437,53 @@ class SnapshotStore:
         if self.paths.index_db.stat().st_size < threshold_bytes:
             return SnapshotRotationResult(rotated=False)
 
-        archive = self.archive_current_snapshot_for_rotation(date_stamp)
+        source = (
+            self.paths.current_db_archive
+            if self.paths.current_db_archive.is_file()
+            else self.paths.index_db
+        )
+        source_bytes = _file_size(source)
+        archive = self._archive_file_for_rotation(source, rotation_stamp)
         prune_database()
         self.checkpoint_database()
-        return SnapshotRotationResult(rotated=True, archive=archive)
+        return SnapshotRotationResult(
+            rotated=True,
+            archive=archive,
+            source_bytes=source_bytes,
+            compressed_bytes=_file_size(archive),
+        )
 
-    def archive_current_snapshot_for_rotation(self, date_stamp: str) -> Path | None:
-        """Compress the current snapshot into the dated rotation archive."""
+    def archive_current_snapshot_for_rotation(
+        self,
+        rotation_stamp: str,
+    ) -> Path | None:
+        """Compress the current snapshot into a collision-safe rotation archive."""
 
         if not self.paths.current_db_archive.is_file():
             return None
-        destination = (
-            self.paths.snapshot_directory
-            / f"{date_stamp}.{self.paths.current_db_archive.name}.zst"
+        return self._archive_file_for_rotation(
+            self.paths.current_db_archive,
+            rotation_stamp,
         )
-        self._compress_zstd_file(self.paths.current_db_archive, destination)
+
+    def _archive_file_for_rotation(self, source: Path, rotation_stamp: str) -> Path:
+        destination = self._next_rotation_archive(rotation_stamp)
+        self._compress_zstd_file(source, destination)
         return destination
+
+    def _next_rotation_archive(self, rotation_stamp: str) -> Path:
+        if _ROTATION_STAMP.fullmatch(rotation_stamp) is None:
+            raise SnapshotError(f"invalid UTC rotation timestamp: {rotation_stamp}")
+        sequence = 1
+        while True:
+            suffix = "" if sequence == 1 else f".{sequence}"
+            destination = self.paths.snapshot_directory / (
+                f"{rotation_stamp}{suffix}.{self.paths.current_db_archive.name}.zst"
+            )
+            if not destination.exists():
+                return destination
+            self._check_stop()
+            sequence += 1
 
     def _restore_archive(self, archive: SnapshotArchive) -> None:
         self.paths.index_db.parent.mkdir(parents=True, exist_ok=True)
@@ -590,6 +628,15 @@ def sha256_file(path: Path, check_stop: StopCheck = lambda: None) -> str:
                 break
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def _file_size(path: Path | None) -> int:
+    if path is None:
+        return 0
+    try:
+        return path.stat().st_size
+    except FileNotFoundError:
+        return 0
 
 
 def _terminate_process(process: subprocess.Popen[bytes]) -> None:

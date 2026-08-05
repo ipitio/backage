@@ -465,7 +465,6 @@ class RunApplicationOperations:
                 github_branch=config.github_branch,
             ),
             today=today,
-            rotated=False,
         )
 
     @contextmanager

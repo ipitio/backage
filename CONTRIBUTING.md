@@ -56,7 +56,8 @@ those domains: `application`, `cli`, `commands`, `config`, `discovery`,
 package/version update modules.
 
 `cli` and `commands` expose only the supported operational boundary:
-`workflow-update`, `run`, `handoff`, `validate`, and diagnostic `config`.
+`workflow-update`, `run`, `handoff`, `release-tag`, `validate`, and diagnostic
+`config`.
 Internal services should be called as typed Python APIs instead of gaining a
 new command merely to make them testable.
 

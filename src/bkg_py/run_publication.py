@@ -13,9 +13,10 @@ from decimal import ROUND_DOWN, Decimal
 from pathlib import Path
 from typing import Protocol
 
-from .database import PackageInventory
+from .database import DatabaseRotationEvent, PackageInventory
 from .files import atomic_binary_output, atomic_text_output
 from .publication import publish_json_file
+from .release import release_tag as release_tag_for_date
 from .state import StateStore
 
 StopCheck = Callable[[], None]
@@ -69,7 +70,7 @@ class RunPublicationRequest:
     paths: RunPublicationPaths
     identity: RunPublicationIdentity
     today: str
-    rotated: bool
+    rotation_events: tuple[DatabaseRotationEvent, ...] = ()
 
 
 class RunPublicationService:  # pylint: disable=too-few-public-methods
@@ -145,6 +146,13 @@ def _validate_request(request: RunPublicationRequest) -> None:
         raise ValueError(f"invalid UTC run date: {request.today}") from error
     if parsed.isoformat() != request.today:
         raise ValueError(f"invalid UTC run date: {request.today}")
+    expected_release_tag = release_tag_for_date(parsed)
+    if any(
+        event.release_tag != expected_release_tag for event in request.rotation_events
+    ):
+        raise ValueError(
+            f"rotation events do not belong to release {expected_release_tag}"
+        )
     for name, value in (
         ("GitHub owner", request.identity.github_owner),
         ("GitHub repository", request.identity.github_repo),
@@ -173,14 +181,33 @@ def _render_changelog(
     inventory: PackageInventory,
 ) -> str:
     result = _replace_summary_values(template, request.today, inventory)
-    if request.rotated:
-        result += (
-            "P.S. The database was rotated, but you can find all previous data "
-            "under the [latest release](https://github.com/"
-            f"{request.identity.github_owner}/{request.identity.github_repo}/"
-            "releases/latest).\n"
-        )
+    if request.rotation_events:
+        result += _render_rotation_events(request)
     return result
+
+
+def _render_rotation_events(request: RunPublicationRequest) -> str:
+    events = request.rotation_events
+    release_tag = events[0].release_tag
+    release_url = (
+        "https://github.com/"
+        f"{request.identity.github_owner}/{request.identity.github_repo}/"
+        f"releases/tag/{release_tag}"
+    )
+    lines = [
+        "P.S. The database was rotated during this release. Earlier database "
+        f"snapshots are retained with the [{release_tag} release]({release_url}).",
+        "",
+        "Rotation archives:",
+    ]
+    lines.extend(
+        f"- `{event.archive_name}`: rotated {event.rotated_at}; "
+        f"source {event.source_bytes} bytes; compressed "
+        f"{event.compressed_bytes} bytes; live history retained from "
+        f"{event.retained_since}."
+        for event in events
+    )
+    return "\n".join((*lines, ""))
 
 
 def _render_readme(

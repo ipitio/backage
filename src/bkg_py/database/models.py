@@ -263,6 +263,18 @@ class PackageInventory:
 
 
 @dataclass(frozen=True)
+class DatabaseRotationEvent:
+    """One completed rotation and its retained release archive."""
+
+    release_tag: str
+    rotated_at: str
+    archive_name: str
+    source_bytes: int
+    compressed_bytes: int
+    retained_since: str
+
+
+@dataclass(frozen=True)
 class PackageCatalogPath:
     """One generated package path tracked independently of history rows."""
 

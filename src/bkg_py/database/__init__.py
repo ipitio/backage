@@ -9,6 +9,7 @@ from .metrics import (
     DatabaseWriteCounts,
 )
 from .models import (
+    DatabaseRotationEvent,
     OwnerIdentityCleanup,
     OwnerRecord,
     OwnerRefreshPlan,
@@ -56,6 +57,7 @@ __all__ = [
     "DatabaseObjectBytes",
     "DatabasePageMetrics",
     "DatabaseRepository",
+    "DatabaseRotationEvent",
     "DatabaseSettings",
     "DatabaseStorageMetrics",
     "DatabaseWriteCounts",
