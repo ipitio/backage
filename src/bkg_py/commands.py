@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -32,10 +33,8 @@ def run_command(
         from .workspace.commands import run_handoff
 
         return run_handoff(args)
-    if args.command == "configure-fork-merge":
-        from .workspace.commands import run_fork_merge_configuration
-
-        return run_fork_merge_configuration(args)
+    if args.command in {"configure-fork-merge", "vacuum-releases"}:
+        return _run_repository_maintenance(args)
     if args.command == "workflow-update":
         return _run_workflow_update(args, parser)
     parser.error(f"unknown command: {args.command}")
@@ -51,6 +50,32 @@ def _run_information_command(args: argparse.Namespace) -> ExitStatus:
         from .release import release_tag
 
         print(release_tag(args.run_date))
+    return ExitStatus.SUCCESS
+
+
+def _run_repository_maintenance(args: argparse.Namespace) -> ExitStatus:
+    if args.command == "configure-fork-merge":
+        from .workspace.commands import run_fork_merge_configuration
+
+        return run_fork_merge_configuration(args)
+
+    from .github import GitHubClient, GitHubError, GitHubSettings
+    from .release_retention import ReleaseRetentionError, apply_release_retention
+
+    owner = args.owner or os.environ.get("GITHUB_OWNER", "")
+    repo = args.repository or os.environ.get("GITHUB_REPO", "")
+    try:
+        with GitHubClient(GitHubSettings.from_env()) as client:
+            apply_release_retention(
+                client,
+                owner=owner,
+                repo=repo,
+                dry_run=args.dry_run,
+                progress=print,
+            )
+    except (GitHubError, OSError, ReleaseRetentionError) as error:
+        print(str(error), file=sys.stderr)
+        return ExitStatus.NON_FATAL
     return ExitStatus.SUCCESS
 
 

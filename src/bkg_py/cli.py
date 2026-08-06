@@ -32,6 +32,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="print the fortnightly release tag for a UTC date",
     )
     release_parser.add_argument("-D", "--run-date", type=_iso_date, required=True)
+    vacuum_parser = subparsers.add_parser(
+        "vacuum-releases",
+        help="retain restore points and database rotation archives",
+    )
+    vacuum_parser.add_argument("-o", "--owner")
+    vacuum_parser.add_argument("-r", "--repository")
+    vacuum_parser.add_argument("-n", "--dry-run", action="store_true")
     merge_parser = subparsers.add_parser(
         "configure-fork-merge",
         help="preserve deployment-owned files during upstream merges",

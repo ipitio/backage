@@ -10,21 +10,31 @@ jobs:
   delete:
     runs-on: ubuntu-latest
 
+    concurrency:
+      group: ${{ github.repository }}-database-publication
+      cancel-in-progress: false
+      queue: max
+
     permissions:
       actions: write
       contents: write
+      packages: read
+
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GITHUB_OWNER: ${{ github.repository_owner }}
+      GITHUB_REPO: ${{ github.event.repository.name }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@main
 
-      - name: Delete old releases
-        uses: Nats-ji/delete-old-releases@v1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          remove-tags: true
-          keep-old-minor-releases: true
-          semver-loose: true
+      - name: Retain database releases
+        run: |
+          docker run --rm \
+            --env-file <(env | grep -E '^(GITHUB_TOKEN|GITHUB_OWNER|GITHUB_REPO)=') \
+            ghcr.io/$GITHUB_OWNER/$GITHUB_REPO:master \
+            bkg vacuum-releases
 
       - name: Delete old runs
         uses: Mattraks/delete-workflow-runs@v2

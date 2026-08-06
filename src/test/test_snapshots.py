@@ -269,6 +269,40 @@ def test_missing_release_snapshot_asset_is_nonfatal(tmp_path: Path) -> None:
     )
 
 
+def test_unhealthy_release_cleanup_preserves_rotation_archives(tmp_path: Path) -> None:
+    """Recovery cannot delete the sole retained copy of historical data."""
+
+    store = SnapshotStore(SnapshotPaths(tmp_path / "index.db"))
+    requests: list[tuple[str, str]] = []
+
+    def respond(request: httpx.Request) -> httpx.Response:
+        requests.append((request.method, request.url.path))
+        return httpx.Response(
+            200,
+            json={
+                "id": 42,
+                "tag_name": "v2026.7.1",
+                "assets": [
+                    {
+                        "name": "2026.07.16T01.02.03.000004Z.index.db.zst",
+                    }
+                ],
+            },
+        )
+
+    with (
+        _github_client(httpx.MockTransport(respond), "token") as client,
+        pytest.raises(SnapshotError, match="historical database rotation archive"),
+    ):
+        store.delete_unhealthy_releases(
+            client,
+            owner="example",
+            repo="bkg",
+        )
+
+    assert requests == [("GET", "/repos/example/bkg/releases/latest")]
+
+
 def test_release_snapshot_asset_requires_download_url(tmp_path: Path) -> None:
     """A matching release asset must include a usable download URL."""
 

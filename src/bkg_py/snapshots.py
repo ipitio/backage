@@ -20,6 +20,7 @@ from urllib.parse import quote
 from .config import RuntimeConfig
 from .files import atomic_binary_output, atomic_path, atomic_text_output
 from .github import GitHubClient, GitHubError
+from .release_retention import release_has_rotation_archive
 
 ArchiveKind = Literal["db", "db-zst", "sql-zst"]
 StopCheck = Callable[[], None]
@@ -375,6 +376,11 @@ class SnapshotStore:
                 raise SnapshotError("latest release metadata has no valid release ID")
             if not isinstance(tag, str) or not tag:
                 raise SnapshotError("latest release metadata has no valid tag")
+            if release_has_rotation_archive(release_metadata):
+                raise SnapshotError(
+                    f"Refusing to delete latest release {tag}; it contains "
+                    "a historical database rotation archive"
+                )
             progress("Deleting the latest release...")
             try:
                 client.rest_delete(f"repos/{owner}/{repo}/releases/{release_id}")

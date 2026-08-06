@@ -85,6 +85,22 @@ if grep -R -Eq 'src/lib/handoff\.sh|source src/lib/handoff\.sh' \
     exit 1
 fi
 
+grep -Fq "\${{ github.repository }}-database-publication" \
+    "$repo_dir/.github/workflows/vacuum.yml" || {
+    echo "vacuum does not serialize with database publication" >&2
+    exit 1
+}
+
+grep -Fq 'bkg vacuum-releases' "$repo_dir/.github/workflows/vacuum.yml" || {
+    echo "vacuum does not use selective database release retention" >&2
+    exit 1
+}
+
+if grep -Fq 'delete-old-releases' "$repo_dir/.github/workflows/vacuum.yml"; then
+    echo "vacuum still uses generic semver release cleanup" >&2
+    exit 1
+fi
+
 grep -Fxq '.venv' "$repo_dir/.dockerignore" || {
     echo "Docker context does not exclude the project virtual environment" >&2
     exit 1
