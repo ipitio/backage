@@ -1,4 +1,3 @@
-3107912/bevhelms1
 3111570/bigonstrong
 3107967/bogybene89
 3115497/bridgetec
@@ -398,16 +397,14 @@
 3129742/JimSmith591
 3129856/MrCMS
 3129888/ekotechnology
-3129857/gglusgold
 3129889/TobiasJonWilson
-3129975/phpbb-fr-com
 3130036/ArenasGame
 3129976/ya-4u
 3130037/belt35army
-3130048/esrille
 3130127/gdgsacramento
-3130049/properlysorted
 3130172/HiloVikingRobotics
 3130128/moodworkshop
 3130202/crowdsupply
 3130173/esilobojit
+3130243/DeltaNet-Production
+3130203/light01knife
