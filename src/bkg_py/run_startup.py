@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .database import DatabaseRepository, PackageCatalogStatus
+from .database.version_history import MIGRATION_BATCH_ROWS
 from .discovery import OwnerIdentityCache
 from .files import atomic_text_output
 from .orchestration import BatchRuntimeService
@@ -21,6 +22,7 @@ from .workspace import WorkspaceError, read_index_package_catalog
 MessageSink = Callable[[str], None]
 StopCheck = Callable[[], None]
 Clock = Callable[[], int]
+_HISTORY_MIGRATION_BUDGET_SECONDS = 60.0
 
 
 @dataclass(frozen=True)
@@ -93,6 +95,7 @@ class RunStartupService:  # pylint: disable=too-few-public-methods
         phase_started_at = self.execution.now()
         self._recover_database_backup(request.database_path)
         self.services.repository.ensure_schema()
+        self._migrate_version_history()
         self._prepare_package_catalog(request)
         self._recover_owner_queue(
             initialized.batch_marker,
@@ -170,6 +173,29 @@ class RunStartupService:  # pylint: disable=too-few-public-methods
         elapsed = max(0.0, time.monotonic() - started_at)
         operation = "initialized" if previous is None else "synchronized"
         self._report_package_catalog(operation, catalog_status, elapsed=elapsed)
+
+    def _migrate_version_history(self) -> None:
+        started_at = time.monotonic()
+        migrated_rows = 0
+        remaining_rows = 0
+        while True:
+            self.execution.check_stop()
+            progress = self.services.repository.migrate_version_history(
+                MIGRATION_BATCH_ROWS
+            )
+            migrated_rows += progress.migrated_rows
+            remaining_rows = progress.remaining_rows
+            elapsed = time.monotonic() - started_at
+            if progress.complete or elapsed >= _HISTORY_MIGRATION_BUDGET_SECONDS:
+                break
+        if migrated_rows == 0 and remaining_rows == 0:
+            return
+        self.execution.progress(
+            "Version history migration: "
+            f"migrated={migrated_rows} remaining={remaining_rows} "
+            f"complete={int(remaining_rows == 0)} elapsed={elapsed:.3f}s "
+            f"peak_rss={peak_resident_memory_mib():.1f}MiB"
+        )
 
     def _report_package_catalog(
         self,

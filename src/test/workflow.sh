@@ -49,6 +49,10 @@ for workflow in manual update; do
         echo "$workflow workflow does not opt in to Docker size inspection" >&2
         exit 1
     }
+    grep -Fq "ghcr.io/\$GITHUB_OWNER/\$GITHUB_REPO:master" "$workflow_file" || {
+        echo "$workflow workflow does not run its repository-owned image" >&2
+        exit 1
+    }
     grep -Fq 'python -m bkg_py handoff' "$workflow_file" || {
         echo "$workflow workflow does not use Python handoff control" >&2
         exit 1

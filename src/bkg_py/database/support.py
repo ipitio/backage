@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import json
 import os
-from collections.abc import Mapping
+import sqlite3
+from collections.abc import Generator, Mapping
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, cast
 
@@ -92,3 +94,28 @@ def file_identity(path: Path) -> tuple[int, int] | None:
     except FileNotFoundError:
         return None
     return status.st_dev, status.st_ino
+
+
+def table_exists(connection: sqlite3.Connection, table_name: str) -> bool:
+    """Return whether one main-schema table exists."""
+
+    return (
+        connection.execute(
+            "select 1 from sqlite_master where type = 'table' and name = ? limit 1",
+            (table_name,),
+        ).fetchone()
+        is not None
+    )
+
+
+@contextmanager
+def transaction(connection: sqlite3.Connection) -> Generator[None]:
+    """Commit one immediate SQLite transaction or roll it back on failure."""
+
+    connection.execute("begin immediate")
+    try:
+        yield
+    except BaseException:
+        connection.rollback()
+        raise
+    connection.commit()

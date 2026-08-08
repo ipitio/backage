@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sqlite3
 from pathlib import Path
 
 import pytest
@@ -15,6 +16,7 @@ from bkg_py.database import (
     PackageRecord,
     PackageRef,
 )
+from bkg_py.database.values import normalized_version_values
 from bkg_py.discovery import OwnerIdentityCache
 from bkg_py.run_startup import (
     RunStartupExecution,
@@ -25,6 +27,16 @@ from bkg_py.run_startup import (
 from bkg_py.snapshots import SnapshotPaths, SnapshotStore
 from bkg_py.state import StateStore
 from bkg_py.workspace import IndexPackageCatalogTree
+
+from ..database.repository_support import (
+    create_normalized_version_table,
+)
+from ..database.repository_support import (
+    package as history_package,
+)
+from ..database.repository_support import (
+    version as history_version,
+)
 
 
 def _package(owner: str, date: str) -> PackageRecord:
@@ -135,6 +147,48 @@ def test_startup_recovers_database_backup_before_planning(tmp_path: Path) -> Non
     assert database_path.is_file()
     assert not backup.exists()
     assert not result.fast_out
+
+
+def test_startup_completes_small_version_history_migration(tmp_path: Path) -> None:
+    """Startup advances lazy history work and reports a completed migration."""
+
+    database_path = tmp_path / "index.db"
+    package_ref = history_package()
+    with sqlite3.connect(database_path) as connection:
+        create_normalized_version_table(connection)
+        connection.executemany(
+            "insert into versions values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                normalized_version_values(package_ref, history_version(version_id))
+                for version_id in ("1", "2", "3")
+            ),
+        )
+    progress: list[str] = []
+
+    _service(
+        database_path,
+        StateStore(tmp_path / "state.env"),
+        OwnerIdentityCache(tmp_path / "owner-id-cache.txt"),
+        progress,
+    ).prepare(
+        RunStartupRequest(
+            "2026-06-29",
+            1_000,
+            tmp_path / "plan",
+            database_path,
+            tmp_path / "optout.txt",
+            "fork-owner",
+        )
+    )
+
+    assert progress[0].startswith(
+        "Version history migration: migrated=3 remaining=0 complete=1 "
+    )
+    with sqlite3.connect(database_path) as connection:
+        legacy = connection.execute(
+            "select 1 from sqlite_master where type = 'table' and name = 'versions'"
+        ).fetchone()
+    assert legacy is None
 
 
 def test_startup_seeds_catalog_once_per_index_revision(

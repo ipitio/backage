@@ -131,7 +131,7 @@ jobs:
           docker run -v $PWD:/app -v /var/run/docker.sock:/var/run/docker.sock \
             -e BKG_DOCKER_SIZE_FALLBACK=true \
             --env-file <(env | grep -E '^(GITHUB|BKG_HANDOFF_)') \
-            ghcr.io/ipitio/backage:master \
+            ghcr.io/$GITHUB_OWNER/$GITHUB_REPO:master \
             bkg workflow-update -C /app -D "$run_date"
           code=$?
           echo "updated=$code" >> "$GITHUB_OUTPUT"

@@ -383,33 +383,20 @@ class TestRendering:
                     for number, package in enumerate(packages)
                 ],
             )
-            connection.executemany(
-                """
-                insert into versions values (
-                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+        for package in packages:
+            repository.flush_version_stage(
+                VersionStage(
+                    package,
+                    _legacy_table(package),
+                    False,
+                    tuple(
+                        _version(
+                            version,
+                            tags="latest" if version == 1 else "",
+                        )
+                        for version in range(1, 21)
+                    ),
                 )
-                """,
-                [
-                    (
-                        package.owner_id,
-                        package.owner_type,
-                        package.package_type,
-                        package.owner,
-                        package.repo,
-                        package.package,
-                        str(version),
-                        f"sha256:{version}",
-                        version * 100,
-                        version * 10,
-                        version,
-                        version,
-                        version,
-                        _TODAY,
-                        "latest" if version == 1 else "",
-                    )
-                    for package in packages
-                    for version in range(1, 21)
-                ],
             )
         monkeypatch.setenv("BKG_OWNER_ARRAY_VERSION_LIMIT", "-1")
         destination = tmp_path / "large-owner.json"

@@ -8,7 +8,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
-from . import catalog
+from . import catalog, version_history
 from .models import OwnerIdentityCleanup, PackageRef
 from .settings import DatabaseSettings
 from .support import DatabaseError
@@ -120,7 +120,11 @@ def _retire_owner_aliases(
 ) -> OwnerIdentityCleanup:
     owners = _SqlIdentifier(settings.owners_table)
     packages = _SqlIdentifier(settings.packages_table)
-    versions = _SqlIdentifier(settings.versions_table)
+    versions = (
+        _SqlIdentifier(settings.versions_table)
+        if _table_exists(connection, settings.versions_table)
+        else None
+    )
     connection.execute("begin immediate")
     try:
         alias_ids = _alias_ids(connection, owner_id, owner, owners, packages)
@@ -147,11 +151,14 @@ def _retire_owner_aliases(
             owner,
             packages,
         )
+        owner_tables = [owners, packages]
+        if versions is not None:
+            owner_tables.append(versions)
         _delete_alias_rows(
             connection,
             _CleanupContext(owner_id, owner, alias_ids, alias_owners, orphaned),
             settings,
-            (owners, packages, versions),
+            tuple(owner_tables),
         )
     except BaseException:
         connection.rollback()
@@ -305,6 +312,11 @@ def _delete_alias_rows(
     settings: DatabaseSettings,
     owner_tables: tuple[_SqlIdentifier, ...],
 ) -> None:
+    version_history.retire_owner_aliases(
+        connection,
+        context.owner_id,
+        context.owner,
+    )
     catalog.retire_owner_aliases(
         connection,
         context.owner_id,
@@ -410,3 +422,13 @@ def _alias_condition(alias: str = "") -> str:
 
 def _sql(statement: str, /, **identifiers: str) -> str:
     return statement.format_map(identifiers)
+
+
+def _table_exists(connection: sqlite3.Connection, table_name: str) -> bool:
+    return (
+        connection.execute(
+            "select 1 from sqlite_master where type = 'table' and name = ? limit 1",
+            (table_name,),
+        ).fetchone()
+        is not None
+    )

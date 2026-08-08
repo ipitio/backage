@@ -7,7 +7,7 @@ from collections.abc import Generator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 
-from . import batch_progress, catalog
+from . import batch_progress, catalog, version_history
 from . import packages as package_writes
 from .models import (
     OwnerRecord,
@@ -604,7 +604,7 @@ def _delete_packages(
     connection: sqlite3.Connection,
     removed: Sequence[PackageRef],
     packages: str,
-    versions: str,
+    versions: str | None,
     versions_table: str,
 ) -> None:
     for package in removed:
@@ -621,14 +621,16 @@ def _delete_packages(
             package.repo,
             package.package,
         )
-        connection.execute(
-            f"""
-            delete from {versions}
-            where owner_id = ? and owner_type = ? and package_type = ?
-              and owner = ? and repo = ? and package = ?
-            """,
-            parameters,
-        )
+        version_history.retire_package(connection, package)
+        if versions is not None:
+            connection.execute(
+                f"""
+                delete from {versions}
+                where owner_id = ? and owner_type = ? and package_type = ?
+                  and owner = ? and repo = ? and package = ?
+                """,
+                parameters,
+            )
         connection.execute(
             f"""
             delete from {packages}
@@ -776,7 +778,11 @@ def complete(
             connection,
             removed,
             packages,
-            _identifier(tables.versions),
+            (
+                _identifier(tables.versions)
+                if _table_exists(connection, tables.versions)
+                else None
+            ),
             tables.versions,
         )
 
@@ -888,7 +894,11 @@ def retire_owner(
 
     owners = _identifier(tables.owners)
     packages = _identifier(tables.packages)
-    versions = _identifier(tables.versions)
+    versions = (
+        _identifier(tables.versions)
+        if _table_exists(connection, tables.versions)
+        else None
+    )
     package_rows = connection.execute(
         f"""
         select distinct owner_type, package_type, owner, repo, package
@@ -905,7 +915,11 @@ def retire_owner(
     with _transaction(connection):
         for table_name in legacy_tables:
             connection.execute(f"drop table if exists {_identifier(table_name)}")
-        for table in (owners, packages, versions):
+        deleted += version_history.retire_owner(connection, owner)
+        tables_to_clean = [owners, packages]
+        if versions is not None:
+            tables_to_clean.append(versions)
+        for table in tables_to_clean:
             cursor = connection.execute(
                 f"delete from {table} where owner = ?",
                 (owner,),
@@ -928,3 +942,13 @@ def retire_owner(
             (owner,),
         )
     return deleted
+
+
+def _table_exists(connection: sqlite3.Connection, table_name: str) -> bool:
+    return (
+        connection.execute(
+            "select 1 from sqlite_master where type = 'table' and name = ? limit 1",
+            (table_name,),
+        ).fetchone()
+        is not None
+    )

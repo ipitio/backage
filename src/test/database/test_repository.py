@@ -136,7 +136,7 @@ class TestDatabaseRepository:
 
             with sqlite3.connect(path) as connection:
                 rows = connection.execute(
-                    "select id, date from versions order by date, id"
+                    "select id, date from bkg_version_history order by date, id"
                 ).fetchall()
             assert rows == [
                 ("paired-old", _YESTERDAY),
@@ -177,7 +177,9 @@ class TestDatabaseRepository:
             assert {
                 'owner " records',
                 "select",
-                "versions; drop table select",
+                "bkg_history_packages",
+                "bkg_history_versions",
+                "bkg_history_version_observations",
             } <= tables
             assert owner_count == 1
             assert package_count == 1
@@ -258,7 +260,10 @@ class TestDatabaseRepository:
             assert {
                 "owners",
                 "packages",
-                "versions",
+                "bkg_history_packages",
+                "bkg_history_versions",
+                "bkg_history_version_observations",
+                "bkg_version_history_state",
                 "bkg_owner_scans",
                 "bkg_owner_scan_packages",
                 "bkg_package_batch_progress",
@@ -268,7 +273,7 @@ class TestDatabaseRepository:
             assert "next_page" in scan_columns
             assert scan == ("batch:42:100", "running", 1)
             assert "idx_bkg_packages_owner_repo_package_date" in indexes
-            assert "idx_bkg_versions_package_date" in indexes
+            assert "idx_bkg_history_version_observations_date" in indexes
             assert "idx_bkg_owner_queue_ready" in indexes
 
     def test_typed_owner_and_package_writes_match_existing_rows(self) -> None:
@@ -372,7 +377,7 @@ class TestDatabaseRepository:
 
             with sqlite3.connect(path) as connection:
                 normalized = connection.execute(
-                    "select id, downloads from versions order by id"
+                    "select id, downloads from bkg_version_history order by id"
                 ).fetchall()
                 legacy = connection.execute(
                     f'select id, downloads from "{legacy_table}" order by id'
@@ -412,9 +417,9 @@ class TestDatabaseRepository:
 
             assert repository.finalize_version_stage(stage) == 1
             with sqlite3.connect(path) as connection:
-                count = connection.execute("select count(*) from versions").fetchone()[
-                    0
-                ]
+                count = connection.execute(
+                    "select count(*) from bkg_version_history"
+                ).fetchone()[0]
             assert count == 1
 
     def test_failed_legacy_mirror_rolls_back_normalized_batch(self) -> None:
@@ -440,9 +445,9 @@ class TestDatabaseRepository:
                 )
 
             with sqlite3.connect(path) as connection:
-                count = connection.execute("select count(*) from versions").fetchone()[
-                    0
-                ]
+                count = connection.execute(
+                    "select count(*) from bkg_version_history"
+                ).fetchone()[0]
             assert count == 0
 
     def test_locked_write_retries_until_database_is_available(self) -> None:
@@ -661,7 +666,7 @@ class TestDatabaseRepository:
                     "select date from packages order by date"
                 ).fetchall()
                 version_dates = connection.execute(
-                    "select date from versions order by date"
+                    "select date from bkg_version_history order by date"
                 ).fetchall()
                 tables = {
                     row[0]
@@ -709,7 +714,7 @@ class TestDatabaseRepository:
 
             assert repository.retire_owner(package.owner) == 3
             with sqlite3.connect(path) as connection:
-                for table in ("owners", "packages", "versions"):
+                for table in ("owners", "packages", "bkg_version_history"):
                     assert (
                         connection.execute(
                             f"select count(*) from {table} where owner = ?",

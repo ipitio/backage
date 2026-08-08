@@ -6,7 +6,7 @@ import sqlite3
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
 
-from . import batch_progress, catalog
+from . import batch_progress, catalog, version_history
 from .models import PackageInventory, PackageRecord, PackageRef
 from .support import DatabaseError
 from .values import package_values
@@ -94,7 +94,7 @@ def write(
             connection,
             packages_table,
             versions_table,
-            package_identity,
+            package,
         )
         catalog.upsert_package(connection, record)
         if mark_pending:
@@ -105,28 +105,31 @@ def _delete_unpaired_versions(
     connection: sqlite3.Connection,
     packages_table: str,
     versions_table: str,
-    package_identity: tuple[str, ...],
+    package: PackageRef,
 ) -> None:
     packages = _SqlIdentifier(packages_table)
-    versions = _SqlIdentifier(versions_table)
-    connection.execute(
-        _sql(
-            """
-            delete from {versions}
-            where owner_id = ? and owner_type = ? and package_type = ?
-              and owner = ? and repo = ? and package = ?
-              and not exists (
-                  select 1 from {packages}
-                  where owner_id = ? and owner_type = ? and package_type = ?
-                    and owner = ? and repo = ? and package = ?
-                    and {packages}.date = {versions}.date
-              )
-            """,
-            packages=packages,
-            versions=versions,
-        ),
-        (*package_identity, *package_identity),
-    )
+    package_identity = package_values(package)
+    if _table_exists(connection, versions_table):
+        versions = _SqlIdentifier(versions_table)
+        connection.execute(
+            _sql(
+                """
+                delete from {versions}
+                where owner_id = ? and owner_type = ? and package_type = ?
+                  and owner = ? and repo = ? and package = ?
+                  and not exists (
+                      select 1 from {packages}
+                      where owner_id = ? and owner_type = ? and package_type = ?
+                        and owner = ? and repo = ? and package = ?
+                        and {packages}.date = {versions}.date
+                  )
+                """,
+                packages=packages,
+                versions=versions,
+            ),
+            (*package_identity, *package_identity),
+        )
+    version_history.delete_unpaired(connection, packages_table, package)
 
 
 def updated_since(
@@ -311,7 +314,11 @@ def retire(
                 legacy=_SqlIdentifier(legacy_table),
             )
         )
-        for table_name in (packages_table, versions_table):
+        version_history.retire_package(connection, package)
+        table_names = [packages_table]
+        if _table_exists(connection, versions_table):
+            table_names.append(versions_table)
+        for table_name in table_names:
             connection.execute(
                 _sql(
                     """
@@ -326,6 +333,16 @@ def retire(
         clear_publication(connection, package)
         batch_progress.retire_package(connection, package)
         catalog.retire_package(connection, package)
+
+
+def _table_exists(connection: sqlite3.Connection, table_name: str) -> bool:
+    return (
+        connection.execute(
+            "select 1 from sqlite_master where type = 'table' and name = ? limit 1",
+            (table_name,),
+        ).fetchone()
+        is not None
+    )
 
 
 def retire_owner_publications(connection: sqlite3.Connection, owner: str) -> None:

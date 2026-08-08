@@ -6,10 +6,10 @@ import sqlite3
 from collections.abc import Generator
 from contextlib import contextmanager
 
-from . import packages
+from . import packages, version_history
 from .models import VersionStage
 from .support import DatabaseError
-from .values import legacy_version_values, normalized_version_values
+from .values import legacy_version_values
 
 
 class _SqlIdentifier(str):
@@ -53,28 +53,13 @@ def _transaction(connection: sqlite3.Connection) -> Generator[None]:
 
 def flush(
     connection: sqlite3.Connection,
-    versions_table: str,
     stage: VersionStage,
     publication_pending_at: str | None,
 ) -> None:
     """Commit a complete version stage and optional publication marker."""
 
-    versions = _SqlIdentifier(versions_table)
-    normalized_sql = _sql(
-        """
-        insert or replace into {versions} (
-            owner_id, owner_type, package_type, owner, repo, package,
-            id, name, size, downloads, downloads_month, downloads_week,
-            downloads_day, date, tags
-        ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-        versions=versions,
-    )
-    normalized_rows = tuple(
-        normalized_version_values(stage.package_ref, row) for row in stage.rows
-    )
     with _transaction(connection):
-        connection.executemany(normalized_sql, normalized_rows)
+        version_history.write_stage(connection, stage)
         if stage.write_legacy and _table_exists(connection, stage.legacy_table):
             legacy = _SqlIdentifier(stage.legacy_table)
             connection.executemany(

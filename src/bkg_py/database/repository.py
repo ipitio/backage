@@ -16,6 +16,7 @@ from . import (
     owner_scans,
     package_plans,
     schema,
+    version_history,
     version_stages,
 )
 from . import (
@@ -48,7 +49,16 @@ from .render_sql import (
 )
 from .rotation_repository import DatabaseRotationRepositoryMixin
 from .settings import DatabaseSettings
-from .support import DatabaseError, file_identity
+from .support import (
+    DatabaseError,
+    file_identity,
+)
+from .support import (
+    table_exists as _table_exists,
+)
+from .support import (
+    transaction as _transaction,
+)
 from .values import (
     package_sort_key as _package_sort_key,
 )
@@ -64,6 +74,7 @@ from .values import (
 from .values import (
     version_records as _version_records,
 )
+from .version_history_migration import migrate as _migrate_version_history
 
 _RETRYABLE_MESSAGES = (
     "database is locked",
@@ -145,6 +156,18 @@ class DatabaseRepository(  # pylint: disable=too-many-public-methods
             )
         )
 
+    def migrate_version_history(
+        self, row_limit: int
+    ) -> version_history.VersionHistoryMigration:
+        """Move one bounded compatibility-table batch into normalized history."""
+
+        self.ensure_schema()
+        return _migrate_version_history(
+            self._run_write,
+            self.settings.versions_table,
+            row_limit,
+        )
+
     def write_package(self, record: PackageRecord) -> None:
         """Insert or replace one normalized package record."""
 
@@ -217,7 +240,6 @@ class DatabaseRepository(  # pylint: disable=too-many-public-methods
         def flush(connection: sqlite3.Connection) -> None:
             version_stages.flush(
                 connection,
-                self.settings.versions_table,
                 stage,
                 publication_pending_at,
             )
@@ -535,7 +557,7 @@ class DatabaseRepository(  # pylint: disable=too-many-public-methods
 
         self.ensure_schema()
         packages = _SqlIdentifier(self.settings.packages_table)
-        versions = _SqlIdentifier(self.settings.versions_table)
+        versions = _SqlIdentifier(version_history.VERSION_HISTORY_VIEW)
         effective_target = max(
             1,
             estimate.target_bytes * estimate.headroom_percent // 100,
@@ -656,15 +678,24 @@ class DatabaseRepository(  # pylint: disable=too-many-public-methods
     def _prune_normalized_rows(self, since: str) -> None:
         def prune_normalized(connection: sqlite3.Connection) -> None:
             packages = _SqlIdentifier(self.settings.packages_table)
-            versions = _SqlIdentifier(self.settings.versions_table)
             with _transaction(connection):
                 connection.execute(
                     _sql("delete from {packages} where date < ?", packages=packages),
                     (since,),
                 )
-                connection.execute(
-                    _sql("delete from {versions} where date < ?", versions=versions),
-                    (since,),
+                if _table_exists(connection, self.settings.versions_table):
+                    versions = _SqlIdentifier(self.settings.versions_table)
+                    connection.execute(
+                        _sql(
+                            "delete from {versions} where date < ?", versions=versions
+                        ),
+                        (since,),
+                    )
+                version_history.prune_before(connection, since)
+                version_history.migrate_remaining(
+                    connection,
+                    self.settings.versions_table,
+                    row_limit=version_history.MIGRATION_BATCH_ROWS,
                 )
                 connection.execute(
                     """
@@ -701,7 +732,7 @@ class DatabaseRepository(  # pylint: disable=too-many-public-methods
         package: PackageRef,
         since: str,
     ) -> tuple[VersionRecord, ...]:
-        versions = _SqlIdentifier(self.settings.versions_table)
+        versions = _SqlIdentifier(version_history.VERSION_HISTORY_VIEW)
         rows = connection.execute(
             _sql(
                 """
@@ -768,7 +799,7 @@ class DatabaseRepository(  # pylint: disable=too-many-public-methods
         repo: str | None,
     ) -> Generator[tuple[tuple[str, ...], tuple[VersionRecord, ...]]]:
         packages = _SqlIdentifier(self.settings.packages_table)
-        versions = _SqlIdentifier(self.settings.versions_table)
+        versions = _SqlIdentifier(version_history.VERSION_HISTORY_VIEW)
         cursor = connection.execute(
             _sql(
                 OWNER_VERSION_ROWS_SQL,
@@ -858,7 +889,7 @@ class DatabaseRepository(  # pylint: disable=too-many-public-methods
             connection.execute(_sql("drop table if exists {legacy}", legacy=legacy))
             return True
 
-        versions = _SqlIdentifier(self.settings.versions_table)
+        versions = _SqlIdentifier(version_history.VERSION_HISTORY_VIEW)
         missing = int(
             connection.execute(
                 _sql(
@@ -959,32 +990,6 @@ def _retire_owner(
     deleted = owner_scans.retire_owner(connection, owner, tables)
     owner_queue.retire_owner(connection, owner)
     return deleted
-
-
-def _table_exists(connection: sqlite3.Connection, table_name: str) -> bool:
-    return (
-        connection.execute(
-            """
-            select 1
-            from sqlite_master
-            where type = 'table' and name = ?
-            limit 1
-            """,
-            (table_name,),
-        ).fetchone()
-        is not None
-    )
-
-
-@contextmanager
-def _transaction(connection: sqlite3.Connection) -> Generator[None]:
-    connection.execute("begin immediate")
-    try:
-        yield
-    except BaseException:
-        connection.rollback()
-        raise
-    connection.commit()
 
 
 def _is_retryable(error: sqlite3.Error) -> bool:

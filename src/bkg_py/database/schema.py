@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import sqlite3
 
+from . import version_history
 from .schema_sql import (
     OWNER_SCAN_SCHEMA_MIGRATIONS,
     PACKAGE_PRIMARY_KEY,
@@ -85,6 +86,7 @@ def ensure(
     for column, statement in OWNER_SCAN_SCHEMA_MIGRATIONS:
         if column not in owner_scan_columns:
             connection.execute(statement)
+    version_history.ensure(connection, versions_table)
 
 
 def _migrate_package_primary_key(

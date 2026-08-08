@@ -79,6 +79,37 @@ def create_legacy_table(connection: sqlite3.Connection, table: str) -> None:
     connection.execute(f'create table "{quoted}" ({columns})')
 
 
+def create_normalized_version_table(
+    connection: sqlite3.Connection,
+    table: str = "versions",
+) -> None:
+    """Create the former wide normalized version-history table."""
+
+    quoted = table.replace('"', '""')
+    connection.execute(
+        f"""
+        create table "{quoted}" (
+            owner_id text not null,
+            owner_type text not null,
+            package_type text not null,
+            owner text not null,
+            repo text not null,
+            package text not null,
+            id text not null,
+            name text not null,
+            size integer not null,
+            downloads integer not null,
+            downloads_month integer not null,
+            downloads_week integer not null,
+            downloads_day integer not null,
+            date text not null,
+            tags text,
+            primary key (owner_id, package_type, repo, package, id, date)
+        )
+        """
+    )
+
+
 def insert_legacy(
     connection: sqlite3.Connection,
     table: str,

@@ -37,26 +37,6 @@ SCHEMA_SQL = (
     """,
     PACKAGES_TABLE_SQL,
     """
-    create table if not exists {versions} (
-        owner_id text not null,
-        owner_type text not null,
-        package_type text not null,
-        owner text not null,
-        repo text not null,
-        package text not null,
-        id text not null,
-        name text not null,
-        size integer not null,
-        downloads integer not null,
-        downloads_month integer not null,
-        downloads_week integer not null,
-        downloads_day integer not null,
-        date text not null,
-        tags text,
-        primary key (owner_id, package_type, repo, package, id, date)
-    )
-    """,
-    """
     create table if not exists "bkg_owner_scans" (
         owner_id text primary key,
         owner text not null,
@@ -221,14 +201,6 @@ SCHEMA_SQL = (
     """
     create index if not exists "idx_bkg_packages_owner_repo_date_downloads"
     on {packages} (owner_id, repo, date, downloads desc, package)
-    """,
-    """
-    create index if not exists "idx_bkg_versions_package_date"
-    on {versions} (owner_id, package_type, repo, package, date)
-    """,
-    """
-    create index if not exists "idx_bkg_versions_date"
-    on {versions} (date)
     """,
     """
     create index if not exists "idx_bkg_owner_scans_retry"

@@ -99,7 +99,7 @@ def test_completed_owner_scan_reconciles_only_unobserved_packages(
             "select repo, package from packages order by repo"
         ).fetchall()
         versions = connection.execute(
-            "select repo, package from versions order by repo"
+            "select repo, package from bkg_version_history order by repo"
         ).fetchall()
         scan = connection.execute(
             """

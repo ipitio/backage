@@ -9,6 +9,7 @@ from pathlib import Path
 from threading import Lock
 from typing import Any, Literal, cast
 
+from . import version_history
 from .support import DatabaseError
 
 DatabaseObjectKind = Literal["table", "index", "internal"]
@@ -172,7 +173,7 @@ def capture(
     page_count = _pragma_int(connection, "page_count")
     freelist_pages = _pragma_int(connection, "freelist_count")
     package_dates = _date_rows(connection, packages_table)
-    version_dates = _date_rows(connection, versions_table)
+    version_dates = _date_rows(connection, version_history.VERSION_HISTORY_VIEW)
     pages = DatabasePageMetrics(
         physical_bytes=_file_size(path),
         logical_bytes=max(0, page_count - freelist_pages) * page_size,

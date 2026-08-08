@@ -535,5 +535,7 @@ def test_refresh_flushes_completed_rows_before_graceful_stop(tmp_path: Path) -> 
         )
 
     with sqlite3.connect(database_path) as connection:
-        rows = connection.execute("select id from versions order by id").fetchall()
+        rows = connection.execute(
+            "select id from bkg_version_history order by id"
+        ).fetchall()
     assert rows == [("1",)]
