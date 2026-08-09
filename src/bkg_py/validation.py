@@ -8,7 +8,7 @@ from pathlib import Path
 
 from .result import ExitStatus
 
-_MISSING = object()
+_MISSING = sentinel("_MISSING")
 
 
 def _reject_json_constant(value: str) -> None:

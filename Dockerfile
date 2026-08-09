@@ -1,10 +1,33 @@
-ARG PYTHON_VERSION=3.14
-ARG UV_VERSION=0.11
+ARG PYTHON_VERSION=3.15.0rc1
+ARG UV_VERSION=0.12
 ARG DOCKER_VERSION=29.1
 FROM python:${PYTHON_VERSION}-slim-bookworm AS python-base
 
 FROM ghcr.io/astral-sh/uv:${UV_VERSION} AS uv
 FROM docker:${DOCKER_VERSION}-cli AS docker-cli
+
+FROM python-base AS test
+
+ARG DEBIAN_FRONTEND=noninteractive
+COPY --from=uv /uv /usr/local/bin/uv
+WORKDIR /app
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        bash \
+        git \
+        libatomic1 \
+        shellcheck \
+        zstd \
+    && rm -rf /var/lib/apt/lists/*
+ENV PATH="/opt/bkg-test/bin:${PATH}"
+ENV PYRIGHT_PYTHON_CACHE_DIR=/opt/pyright-cache
+ENV RUFF_CACHE_DIR=/tmp/bkg-ruff-cache
+ENV UV_CACHE_DIR=/tmp/bkg-uv-cache
+ENV UV_PROJECT_ENVIRONMENT=/opt/bkg-test
+COPY pyproject.toml uv.lock ./
+RUN uv sync --locked --quiet --no-install-project
+COPY . .
+RUN bash src/test/regression.sh
 
 FROM python-base AS build
 

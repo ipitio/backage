@@ -7,7 +7,7 @@ name = "backage"
 dynamic = ["version"]
 description = "Generate self-hosted GitHub Packages metadata indexes."
 readme = "README.md"
-requires-python = ">=3.14,<3.15"
+requires-python = ">=3.15.0rc1,<3.16"
 license = { file = "LICENSE" }
 authors = [
     { name = "ipitio", email = "ipitio@users.noreply.github.com" },
@@ -18,10 +18,10 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-    "pylint==4.0.5",
-    "pyright==1.1.410",
-    "pytest==9.0.3",
-    "ruff==0.15.16",
+    "pylint==4.0.6",
+    "pyright==1.1.411",
+    "pytest==9.1.1",
+    "ruff==0.16.2",
 ]
 
 [project.urls]
@@ -38,11 +38,13 @@ where = ["src"]
 include = ["bkg_py*"]
 
 [tool.uv]
-required-version = "==0.11.*"
+required-version = "==0.12.*"
 
 [tool.pylint.main]
+# Official CPython 3.15 RC images use _pydecimal, whose reexports Astroid misses.
+ignored-modules = ["decimal"]
 persistent = false
-py-version = "3.14"
+py-version = "3.15"
 source-roots = ["src"]
 
 [tool.pylint.format]
@@ -54,9 +56,11 @@ min-similarity-lines = 12
 [tool.ruff]
 line-length = 88
 src = ["src"]
-target-version = "py314"
+target-version = "py315"
 
 [tool.ruff.lint]
+explicit-preview-rules = true
+preview = true
 select = [
     "E4",
     "E7",
@@ -89,7 +93,7 @@ select = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"src/bkg_py/commands.py" = ["PLC0415", "T201"]
+"src/bkg_py/commands.py" = ["T201"]
 "src/bkg_py/database/batch_progress.py" = ["S608"]
 "src/bkg_py/database/catalog.py" = ["S608"]
 "src/bkg_py/database/history_layout.py" = ["S608"]
@@ -112,9 +116,9 @@ select = [
 
 [tool.pyright]
 include = ["src/bkg_py", "src/test"]
-pythonVersion = "3.14"
+pythonVersion = "3.15"
 pythonPlatform = "Linux"
-venvPath = "."
-venv = ".venv"
+venvPath = "/opt"
+venv = "bkg-test"
 typeCheckingMode = "strict"
 reportDeprecated = "error"

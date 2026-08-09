@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 
 import bkg_py.cli
+import bkg_py.commands
 from bkg_py.application import ApplicationContext
 from bkg_py.cli import build_parser, entrypoint, main
 from bkg_py.database import DatabaseError
@@ -353,7 +354,7 @@ def test_workflow_update_root_forms(
         observed.append(request.root)
         return ExitStatus.SUCCESS
 
-    monkeypatch.setattr(workspace_update, "run_update_workflow", capture_request)
+    monkeypatch.setattr(bkg_py.commands, "run_update_workflow", capture_request)
 
     assert main(arguments) is ExitStatus.SUCCESS
     assert observed == [expected_root]

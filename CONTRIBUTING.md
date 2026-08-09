@@ -3,28 +3,27 @@
 This guide covers the current source layout, engineering policies, and local
 quality gates.
 
-`bkg`'s Python code targets Python 3.14 and uses a locked project environment.
-Install [uv](https://docs.astral.sh/uv/), then prepare the checkout:
+`bkg`'s Python code targets Python 3.15. Docker is the only host development
+prerequisite; Python, uv, and every Python package stay inside the test image
+or GitHub Actions. Build the image and run the canonical gate:
 
 ```bash
-uv sync --locked
+docker build --target test --tag bkg-test .
 ```
 
-This creates `.venv` in the repository and installs the locked runtime and
-development dependencies.
-
-The checkout-local uv environment is the canonical development environment;
-working inside Docker is not required. A production-based Docker test target
-is planned as an outer parity gate for the Debian, Git, zstd, Bash, and
-ShellCheck environment. An optional development container may reuse that
-target, but must not carry a separate dependency definition or replace the
-faster local quality loop.
+The production-based Docker test target is the canonical development and
+quality environment. Its virtual environment lives at `/opt/bkg-test`, outside
+the mounted checkout, so the built image can run focused commands against live
+source without creating a host `.venv`. The same target is the Build workflow's
+pre-publication gate for Python, Debian, Git, zstd, Bash, and ShellCheck.
 
 `.python-version` is the shared Actions and uv source for the supported Python
-3.14 feature line. Actions and the production image follow the latest
-maintenance release in that line, while the Debian `bookworm` base remains
-fixed so patch updates do not also change the operating-system generation.
-`pyproject.toml` similarly requires the uv 0.11 compatibility line. Local and
+3.15 feature line. Until Python 3.15 reaches its final release, it selects an
+exact release candidate and Actions explicitly allow prereleases; RC and final
+updates are deliberate lock, quality, image, and workflow changes. The Debian
+`bookworm` base remains fixed so interpreter updates do not also change the
+operating-system generation.
+`pyproject.toml` similarly requires the uv 0.12 compatibility line. Docker and
 Actions tooling may follow its non-breaking patch releases, while a uv minor
 upgrade remains an explicit, tested change.
 
@@ -153,36 +152,49 @@ failure understandable from the log.
 
 ## Commands
 
-Run the Python tests:
+After building `bkg-test`, run focused commands against the checkout with the
+host user's file permissions. Run the Python tests:
 
 ```bash
-bash src/test/python.sh
+docker run --rm --user "$(id -u):$(id -g)" --volume "$PWD:/app" \
+  --workdir /app bkg-test bash src/test/python.sh
 ```
 
 Format Python code with Ruff:
 
 ```bash
-bash src/test/format.sh
+docker run --rm --user "$(id -u):$(id -g)" --volume "$PWD:/app" \
+  --workdir /app bkg-test bash src/test/format.sh
 ```
 
 Run Ruff's formatting and lint checks, Pylint, and strict Pyright without the
 regression suites:
 
 ```bash
-bash src/test/quality.sh
+docker run --rm --user "$(id -u):$(id -g)" --volume "$PWD:/app" \
+  --workdir /app bkg-test bash src/test/quality.sh
 ```
 
 Run the canonical final gate, which starts with those quality checks and then
 runs ShellCheck and the full compatibility and regression suite:
 
 ```bash
-bash src/test/regression.sh
+docker run --rm --user "$(id -u):$(id -g)" --volume "$PWD:/app" \
+  --workdir /app bkg-test bash src/test/regression.sh
+```
+
+Rebuild the image to run the same gate from a clean locked environment:
+
+```bash
+docker build --target test --tag bkg-test .
 ```
 
 Print per-test timings while profiling an individual shell suite:
 
 ```bash
-`bkg`_TEST_TIMINGS=1 bash src/test/runtime.sh
+docker run --rm --user "$(id -u):$(id -g)" --volume "$PWD:/app" \
+  --workdir /app --env BKG_TEST_TIMINGS=1 \
+  bkg-test bash src/test/runtime.sh
 ```
 
 Changes that retain or modify shell must also pass ShellCheck through the

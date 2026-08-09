@@ -1,5 +1,4 @@
 """Execute the supported bkg command adapters."""
-# pylint: disable=import-outside-toplevel
 
 from __future__ import annotations
 
@@ -10,6 +9,19 @@ import sys
 from pathlib import Path
 
 from .result import ExitStatus
+lazy from .application import ApplicationContext
+lazy from .config import RuntimeConfig
+lazy from .github import GitHubClient, GitHubError, GitHubSettings
+lazy from .release import release_tag
+lazy from .release_retention import ReleaseRetentionError, apply_release_retention
+lazy from .run.commands import run_application
+lazy from .validation import validate_generated_file
+lazy from .workspace.commands import run_fork_merge_configuration, run_handoff
+lazy from .workspace.update import (
+    UpdateWorkflowExecution,
+    UpdateWorkflowRequest,
+    run_update_workflow,
+)
 
 
 def run_command(
@@ -21,17 +33,10 @@ def run_command(
     if args.command in {"config", "release-tag"}:
         return _run_information_command(args)
     if args.command == "validate":
-        from .validation import validate_generated_file
-
         return validate_generated_file(args.file)
     if args.command == "run":
-        from .application import ApplicationContext
-        from .run.commands import run_application
-
         return run_application(args, ApplicationContext.from_env())
     if args.command == "handoff":
-        from .workspace.commands import run_handoff
-
         return run_handoff(args)
     if args.command in {"configure-fork-merge", "vacuum-releases"}:
         return _run_repository_maintenance(args)
@@ -43,24 +48,15 @@ def run_command(
 
 def _run_information_command(args: argparse.Namespace) -> ExitStatus:
     if args.command == "config":
-        from .config import RuntimeConfig
-
         print(json.dumps(RuntimeConfig.from_env().as_dict(), sort_keys=True))
     else:
-        from .release import release_tag
-
         print(release_tag(args.run_date))
     return ExitStatus.SUCCESS
 
 
 def _run_repository_maintenance(args: argparse.Namespace) -> ExitStatus:
     if args.command == "configure-fork-merge":
-        from .workspace.commands import run_fork_merge_configuration
-
         return run_fork_merge_configuration(args)
-
-    from .github import GitHubClient, GitHubError, GitHubSettings
-    from .release_retention import ReleaseRetentionError, apply_release_retention
 
     owner = args.owner or os.environ.get("GITHUB_OWNER", "")
     repo = args.repository or os.environ.get("GITHUB_REPO", "")
@@ -83,12 +79,6 @@ def _run_workflow_update(
     args: argparse.Namespace,
     parser: argparse.ArgumentParser,
 ) -> ExitStatus:
-    from .workspace.update import (
-        UpdateWorkflowExecution,
-        UpdateWorkflowRequest,
-        run_update_workflow,
-    )
-
     return run_update_workflow(
         UpdateWorkflowRequest(
             root=_workflow_update_root(args, parser),

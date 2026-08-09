@@ -5,20 +5,73 @@ set -euo pipefail
 test_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 repo_dir=$(cd "$test_dir/../.." && pwd)
 
-for workflow in manual publish stop update; do
+for workflow in manual stop update; do
     workflow_file="$repo_dir/.github/workflows/$workflow.yml"
     grep -Fq 'python-version-file: ".python-version"' "$workflow_file" || {
         echo "$workflow workflow does not use the shared Python version file" >&2
         exit 1
     }
+    grep -Fq 'allow-prereleases: true' "$workflow_file" || {
+        echo "$workflow workflow does not allow the selected Python prerelease" >&2
+        exit 1
+    }
 done
 
-grep -Fq 'required-version = "==0.11.*"' "$repo_dir/pyproject.toml" || {
+if grep -R -Eq 'actions/checkout@(main|v[1-6])' \
+    "$repo_dir/.github/workflows"; then
+    echo "A workflow does not use the supported checkout major" >&2
+    exit 1
+fi
+if grep -R -Eq 'actions/setup-python@v[1-6]' \
+    "$repo_dir/.github/workflows"; then
+    echo "A workflow does not use the supported setup-python major" >&2
+    exit 1
+fi
+
+dockerfile="$repo_dir/Dockerfile"
+build_workflow="$repo_dir/.github/workflows/publish.yml"
+grep -Fq "FROM python-base AS test" "$dockerfile" || {
+    echo "Dockerfile does not define the production-based test target" >&2
+    exit 1
+}
+grep -Fq "UV_PROJECT_ENVIRONMENT=/opt/bkg-test" "$dockerfile" || {
+    echo "Docker test environment is hidden by a mounted checkout" >&2
+    exit 1
+}
+grep -Fq "RUN bash src/test/regression.sh" "$dockerfile" || {
+    echo "Docker test target does not run the canonical regression gate" >&2
+    exit 1
+}
+grep -Fq "target: test" "$build_workflow" || {
+    echo "Build workflow does not execute the Docker test target" >&2
+    exit 1
+}
+awk '
+    /target: test/ { test_line = NR }
+    /push: true/ { push_line = NR }
+    END { exit !(test_line && push_line && test_line < push_line) }
+' "$build_workflow" || {
+    echo "Build workflow does not test before publishing the image" >&2
+    exit 1
+}
+if grep -Fq "run: bash src/test/regression.sh" "$build_workflow"; then
+    echo "Build workflow duplicates the full gate outside its Docker target" >&2
+    exit 1
+fi
+if grep -Eqs 'uv (sync|run)' \
+    "$repo_dir/src/test/format.sh" \
+    "$repo_dir/src/test/python.sh" \
+    "$repo_dir/src/test/quality.sh"; then
+    echo "Test scripts try to manage a host Python environment" >&2
+    exit 1
+fi
+
+grep -Fq 'required-version = "==0.12.*"' "$repo_dir/pyproject.toml" || {
     echo "Project does not declare the supported uv compatibility line" >&2
     exit 1
 }
 if grep -Eq '^[[:space:]]+version:[[:space:]]+"?0\.[0-9]+\.[0-9]+' \
-    "$repo_dir/.github/workflows/publish.yml"; then
+    "$build_workflow"; then
     echo "Build workflow pins uv more narrowly than the project policy" >&2
     exit 1
 fi

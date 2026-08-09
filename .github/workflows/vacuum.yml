@@ -27,7 +27,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@main
+        uses: actions/checkout@v7
 
       - name: Retain database releases
         run: |

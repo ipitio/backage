@@ -6,12 +6,11 @@ test_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 src_dir=$(cd "$test_dir/.." && pwd)
 repo_dir=$(cd "$src_dir/.." && pwd)
 
-if ! command -v python3 >/dev/null 2>&1; then
-	echo "Python tests require python3" >&2
+if ! command -v pytest >/dev/null 2>&1; then
+	echo "Missing pytest; run this command inside the bkg test image" >&2
 	exit 1
 fi
 
 cd "$repo_dir"
-uv sync --locked --quiet --no-install-project
 PYTHONPATH="$src_dir" PYTHONDONTWRITEBYTECODE=1 \
-	uv run --locked --no-sync pytest -q "$test_dir"
+	pytest -q -o cache_dir=/tmp/bkg-pytest-cache "$test_dir"
