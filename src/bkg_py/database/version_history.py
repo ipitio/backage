@@ -5,11 +5,12 @@ from __future__ import annotations
 import sqlite3
 from dataclasses import dataclass
 
+from . import history_packages
 from .models import PackageRef, VersionStage
 from .support import DatabaseError
 from .values import package_values
 
-PACKAGE_IDENTITIES_TABLE = "bkg_history_packages"
+PACKAGE_IDENTITIES_TABLE = history_packages.PACKAGE_IDENTITIES_TABLE
 VERSION_IDENTITIES_TABLE = "bkg_history_versions"
 VERSION_OBSERVATIONS_TABLE = "bkg_history_version_observations"
 VERSION_HISTORY_STATE_TABLE = "bkg_version_history_state"
@@ -17,18 +18,7 @@ VERSION_HISTORY_VIEW = "bkg_version_history"
 MIGRATION_BATCH_ROWS = 50_000
 
 DATA_SCHEMA_SQL = (
-    f"""
-    create table if not exists "{PACKAGE_IDENTITIES_TABLE}" (
-        package_key integer primary key,
-        owner_id text not null,
-        owner_type text not null,
-        package_type text not null,
-        owner text not null,
-        repo text not null,
-        package text not null,
-        unique (owner_id, owner_type, package_type, owner, repo, package)
-    )
-    """,
+    history_packages.PACKAGE_IDENTITIES_SCHEMA_SQL,
     f"""
     create table if not exists "{VERSION_IDENTITIES_TABLE}" (
         version_key integer primary key,
@@ -78,14 +68,7 @@ _STATE_UPSERT_SQL = f"""
         remaining_rows = excluded.remaining_rows,
         updated_at = excluded.updated_at
 """
-_PACKAGE_IDENTITY_COLUMNS = (
-    "owner_id",
-    "owner_type",
-    "package_type",
-    "owner",
-    "repo",
-    "package",
-)
+_PACKAGE_IDENTITY_COLUMNS = history_packages.PACKAGE_IDENTITY_COLUMNS
 _RESERVED_NAMES = frozenset(
     {
         PACKAGE_IDENTITIES_TABLE,
@@ -399,35 +382,14 @@ def prune_before(connection: sqlite3.Connection, since: str) -> None:
 
 
 def _package_key(connection: sqlite3.Connection, package: PackageRef) -> int:
-    identity = package_values(package)
-    connection.execute(
-        f"""
-        insert into "{PACKAGE_IDENTITIES_TABLE}" (
-            {", ".join(_PACKAGE_IDENTITY_COLUMNS)}
-        ) values (?, ?, ?, ?, ?, ?)
-        on conflict({", ".join(_PACKAGE_IDENTITY_COLUMNS)}) do nothing
-        """,
-        identity,
-    )
-    package_key = _existing_package_key(connection, package)
-    if package_key is None:
-        raise DatabaseError("version-history package identity was not persisted")
-    return package_key
+    return history_packages.package_key(connection, package)
 
 
 def _existing_package_key(
     connection: sqlite3.Connection,
     package: PackageRef,
 ) -> int | None:
-    row = connection.execute(
-        f"""
-        select package_key from "{PACKAGE_IDENTITIES_TABLE}"
-        where owner_id = ? and owner_type = ? and package_type = ?
-          and owner = ? and repo = ? and package = ?
-        """,
-        package_values(package),
-    ).fetchone()
-    return None if row is None else int(row[0])
+    return history_packages.existing_package_key(connection, package)
 
 
 def _copy_selected_rows(
@@ -586,18 +548,7 @@ def _prune_package_key(connection: sqlite3.Connection, package_key: int) -> None
         """,
         (package_key,),
     )
-    connection.execute(
-        f"""
-        delete from "{PACKAGE_IDENTITIES_TABLE}"
-        where package_key = ?
-          and not exists (
-              select 1 from "{VERSION_IDENTITIES_TABLE}" versions
-              where versions.package_key =
-                    "{PACKAGE_IDENTITIES_TABLE}".package_key
-          )
-        """,
-        (package_key,),
-    )
+    history_packages.prune_package_key(connection, package_key)
 
 
 def _prune_identities(connection: sqlite3.Connection) -> None:
@@ -611,15 +562,7 @@ def _prune_identities(connection: sqlite3.Connection) -> None:
         )
         """
     )
-    connection.execute(
-        f"""
-        delete from "{PACKAGE_IDENTITIES_TABLE}"
-        where not exists (
-            select 1 from "{VERSION_IDENTITIES_TABLE}" versions
-            where versions.package_key = "{PACKAGE_IDENTITIES_TABLE}".package_key
-        )
-        """
-    )
+    history_packages.prune_identities(connection)
 
 
 def _mark_state(

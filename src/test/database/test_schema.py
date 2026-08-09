@@ -67,10 +67,10 @@ def test_schema_initialization_runs_once_per_database_identity(
     assert calls == 2
 
 
-def test_schema_lazily_rekeys_packages_without_losing_existing_rows(
+def test_schema_lazily_replaces_old_package_key_without_losing_rows(
     tmp_path: Path,
 ) -> None:
-    """Same-name repository identities no longer replace one another."""
+    """Replacement storage accepts identities blocked by the old primary key."""
 
     path = tmp_path / "index.db"
     first = _package("FirstRepo")
@@ -121,7 +121,7 @@ def test_schema_lazily_rekeys_packages_without_losing_existing_rows(
     repository.write_package(PackageRecord(second, 2, 2, 2, 2, 2, _TODAY))
 
     with sqlite3.connect(path) as connection:
-        primary_key = tuple(
+        legacy_primary_key = tuple(
             str(row[1])
             for row in sorted(
                 connection.execute('pragma table_info("packages")'),
@@ -130,7 +130,7 @@ def test_schema_lazily_rekeys_packages_without_losing_existing_rows(
             if int(row[5]) > 0
         )
         rows = connection.execute(
-            "select repo, downloads from packages order by repo"
+            "select repo, downloads from bkg_package_history order by repo"
         ).fetchall()
         indexes = {
             str(row[0])
@@ -146,13 +146,21 @@ def test_schema_lazily_rekeys_packages_without_losing_existing_rows(
             """
         ).fetchone()
 
-    assert primary_key == (
-        "owner_id",
-        "package_type",
-        "repo",
-        "package",
-        "date",
-    )
+    assert legacy_primary_key == ("owner_id", "package", "date")
     assert rows == [("FirstRepo", 1), ("SecondRepo", 2)]
-    assert "idx_bkg_packages_owner_repo_package_date" in indexes
+    assert "idx_bkg_history_package_observations_date" in indexes
     assert temporary_table is None
+
+    progress = repository.migrate_package_history(10)
+
+    assert progress.migrated_rows == 1
+    assert progress.complete
+    with sqlite3.connect(path) as connection:
+        legacy_exists = connection.execute(
+            "select 1 from sqlite_master where type = 'table' and name = 'packages'"
+        ).fetchone()
+        rows = connection.execute(
+            "select repo, downloads from bkg_package_history order by repo"
+        ).fetchall()
+    assert legacy_exists is None
+    assert rows == [("FirstRepo", 1), ("SecondRepo", 2)]

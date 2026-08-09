@@ -7,7 +7,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterable
 from typing import Any
 
-from . import catalog
+from . import catalog, package_history
 from .models import PackageCatalogPath, PackageCatalogStatus
 from .settings import DatabaseSettings
 
@@ -49,7 +49,7 @@ class PackageCatalogRepositoryMixin(ABC):
         return self._run_write(
             lambda connection: catalog.initialize(
                 connection,
-                self.settings.packages_table,
+                package_history.PACKAGE_HISTORY_VIEW,
                 paths,
                 source_revision,
                 initialized_at,

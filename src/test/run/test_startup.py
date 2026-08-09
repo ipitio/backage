@@ -16,7 +16,7 @@ from bkg_py.database import (
     PackageRecord,
     PackageRef,
 )
-from bkg_py.database.values import normalized_version_values
+from bkg_py.database.values import normalized_version_values, package_values
 from bkg_py.discovery import OwnerIdentityCache
 from bkg_py.run_startup import (
     RunStartupExecution,
@@ -29,6 +29,7 @@ from bkg_py.state import StateStore
 from bkg_py.workspace import IndexPackageCatalogTree
 
 from ..database.repository_support import (
+    create_normalized_package_table,
     create_normalized_version_table,
 )
 from ..database.repository_support import (
@@ -149,12 +150,17 @@ def test_startup_recovers_database_backup_before_planning(tmp_path: Path) -> Non
     assert not result.fast_out
 
 
-def test_startup_completes_small_version_history_migration(tmp_path: Path) -> None:
-    """Startup advances lazy history work and reports a completed migration."""
+def test_startup_completes_small_history_migrations(tmp_path: Path) -> None:
+    """Startup fairly advances package and version replacement work."""
 
     database_path = tmp_path / "index.db"
     package_ref = history_package()
     with sqlite3.connect(database_path) as connection:
+        create_normalized_package_table(connection)
+        connection.execute(
+            "insert into packages values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (*package_values(package_ref), 3, 3, 3, 3, 3, "2026-06-29"),
+        )
         create_normalized_version_table(connection)
         connection.executemany(
             "insert into versions values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -184,11 +190,17 @@ def test_startup_completes_small_version_history_migration(tmp_path: Path) -> No
     assert progress[0].startswith(
         "Version history migration: migrated=3 remaining=0 complete=1 "
     )
+    assert progress[1].startswith(
+        "Package history migration: migrated=1 remaining=0 complete=1 "
+    )
     with sqlite3.connect(database_path) as connection:
-        legacy = connection.execute(
-            "select 1 from sqlite_master where type = 'table' and name = 'versions'"
-        ).fetchone()
-    assert legacy is None
+        legacy_tables = connection.execute(
+            """
+            select name from sqlite_master
+            where type = 'table' and name in ('packages', 'versions')
+            """
+        ).fetchall()
+    assert not legacy_tables
 
 
 def test_startup_seeds_catalog_once_per_index_revision(

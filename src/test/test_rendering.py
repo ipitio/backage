@@ -358,30 +358,17 @@ class TestRendering:
         packages = [
             _package(number, repo=f"Repo-{number % 10}") for number in range(150)
         ]
-        with sqlite3.connect(repository.settings.path) as connection:
-            connection.executemany(
-                """
-                insert into packages values (
-                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+        for number, package in enumerate(packages):
+            repository.write_package(
+                PackageRecord(
+                    package,
+                    10_000 - number,
+                    300,
+                    200,
+                    20,
+                    400,
+                    _TODAY,
                 )
-                """,
-                [
-                    (
-                        package.owner_id,
-                        package.owner_type,
-                        package.package_type,
-                        package.owner,
-                        package.repo,
-                        package.package,
-                        10_000 - number,
-                        300,
-                        200,
-                        20,
-                        400,
-                        _TODAY,
-                    )
-                    for number, package in enumerate(packages)
-                ],
             )
         for package in packages:
             repository.flush_version_stage(

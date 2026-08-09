@@ -110,6 +110,34 @@ def create_normalized_version_table(
     )
 
 
+def create_normalized_package_table(
+    connection: sqlite3.Connection,
+    table: str = "packages",
+) -> None:
+    """Create the former wide normalized package-history table."""
+
+    quoted = table.replace('"', '""')
+    connection.execute(
+        f"""
+        create table "{quoted}" (
+            owner_id text,
+            owner_type text not null,
+            package_type text not null,
+            owner text not null,
+            repo text not null,
+            package text not null,
+            downloads integer not null,
+            downloads_month integer not null,
+            downloads_week integer not null,
+            downloads_day integer not null,
+            size integer not null,
+            date text not null,
+            primary key (owner_id, package_type, repo, package, date)
+        )
+        """
+    )
+
+
 def insert_legacy(
     connection: sqlite3.Connection,
     table: str,

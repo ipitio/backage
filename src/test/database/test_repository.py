@@ -171,13 +171,13 @@ class TestDatabaseRepository:
                     'select count(*) from "owner "" records"'
                 ).fetchone()[0]
                 package_count = connection.execute(
-                    'select count(*) from "select"'
+                    "select count(*) from bkg_package_history"
                 ).fetchone()[0]
 
             assert {
                 'owner " records',
-                "select",
                 "bkg_history_packages",
+                "bkg_history_package_observations",
                 "bkg_history_versions",
                 "bkg_history_version_observations",
             } <= tables
@@ -259,8 +259,9 @@ class TestDatabaseRepository:
 
             assert {
                 "owners",
-                "packages",
                 "bkg_history_packages",
+                "bkg_history_package_observations",
+                "bkg_package_history_state",
                 "bkg_history_versions",
                 "bkg_history_version_observations",
                 "bkg_version_history_state",
@@ -272,7 +273,7 @@ class TestDatabaseRepository:
             assert retained == "keep"
             assert "next_page" in scan_columns
             assert scan == ("batch:42:100", "running", 1)
-            assert "idx_bkg_packages_owner_repo_package_date" in indexes
+            assert "idx_bkg_history_package_observations_date" in indexes
             assert "idx_bkg_history_version_observations_date" in indexes
             assert "idx_bkg_owner_queue_ready" in indexes
 
@@ -299,7 +300,9 @@ class TestDatabaseRepository:
 
             with sqlite3.connect(path) as connection:
                 owner_row = connection.execute("select * from owners").fetchone()
-                package_row = connection.execute("select * from packages").fetchone()
+                package_row = connection.execute(
+                    "select * from bkg_package_history"
+                ).fetchone()
 
             assert owner_row == ("69664378", "Lazztech", _TODAY)
             assert package_row == (
@@ -663,7 +666,7 @@ class TestDatabaseRepository:
 
             with sqlite3.connect(path) as connection:
                 package_dates = connection.execute(
-                    "select date from packages order by date"
+                    "select date from bkg_package_history order by date"
                 ).fetchall()
                 version_dates = connection.execute(
                     "select date from bkg_version_history order by date"
@@ -714,7 +717,11 @@ class TestDatabaseRepository:
 
             assert repository.retire_owner(package.owner) == 3
             with sqlite3.connect(path) as connection:
-                for table in ("owners", "packages", "bkg_version_history"):
+                for table in (
+                    "owners",
+                    "bkg_package_history",
+                    "bkg_version_history",
+                ):
                     assert (
                         connection.execute(
                             f"select count(*) from {table} where owner = ?",

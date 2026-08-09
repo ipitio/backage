@@ -6,7 +6,7 @@ import sqlite3
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
 
-from . import batch_progress, catalog, version_history
+from . import batch_progress, catalog, package_history, version_history
 from .models import PackageInventory, PackageRecord, PackageRef
 from .support import DatabaseError
 from .values import package_values
@@ -67,29 +67,8 @@ def write(
     """Write one package row, prune obsolete partial stages, and mark files."""
 
     package = record.package_ref
-    package_identity = package_values(package)
     with _transaction(connection):
-        connection.execute(
-            _sql(
-                """
-                insert or replace into {packages} (
-                    owner_id, owner_type, package_type, owner, repo, package,
-                    downloads, downloads_month, downloads_week, downloads_day,
-                    size, date
-                ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                packages=_SqlIdentifier(packages_table),
-            ),
-            (
-                *package_identity,
-                record.downloads,
-                record.downloads_month,
-                record.downloads_week,
-                record.downloads_day,
-                record.size,
-                record.date,
-            ),
-        )
+        package_history.write_observation(connection, record)
         _delete_unpaired_versions(
             connection,
             packages_table,
@@ -315,7 +294,9 @@ def retire(
             )
         )
         version_history.retire_package(connection, package)
-        table_names = [packages_table]
+        table_names: list[str] = []
+        if _table_exists(connection, packages_table):
+            table_names.append(packages_table)
         if _table_exists(connection, versions_table):
             table_names.append(versions_table)
         for table_name in table_names:

@@ -7,7 +7,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable
 from typing import Any
 
-from . import metrics
+from . import metrics, package_history
 from .metrics import (
     DatabaseMetricSample,
     DatabaseStorageMetrics,
@@ -45,7 +45,7 @@ class DatabaseMetricsRepositoryMixin(ABC):
             lambda connection: metrics.capture(
                 connection,
                 self.settings.path,
-                self.settings.packages_table,
+                package_history.PACKAGE_HISTORY_VIEW,
                 self.settings.versions_table,
             )
         )

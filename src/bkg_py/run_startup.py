@@ -7,8 +7,12 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
-from .database import DatabaseRepository, PackageCatalogStatus
-from .database.version_history import MIGRATION_BATCH_ROWS
+from .database import (
+    DatabaseRepository,
+    PackageCatalogStatus,
+    package_history,
+    version_history,
+)
 from .discovery import OwnerIdentityCache
 from .files import atomic_text_output
 from .orchestration import BatchRuntimeService
@@ -95,7 +99,7 @@ class RunStartupService:  # pylint: disable=too-few-public-methods
         phase_started_at = self.execution.now()
         self._recover_database_backup(request.database_path)
         self.services.repository.ensure_schema()
-        self._migrate_version_history()
+        self._migrate_history()
         self._prepare_package_catalog(request)
         self._recover_owner_queue(
             initialized.batch_marker,
@@ -174,28 +178,53 @@ class RunStartupService:  # pylint: disable=too-few-public-methods
         operation = "initialized" if previous is None else "synchronized"
         self._report_package_catalog(operation, catalog_status, elapsed=elapsed)
 
-    def _migrate_version_history(self) -> None:
+    def _migrate_history(self) -> None:
         started_at = time.monotonic()
-        migrated_rows = 0
-        remaining_rows = 0
-        while True:
-            self.execution.check_stop()
-            progress = self.services.repository.migrate_version_history(
-                MIGRATION_BATCH_ROWS
-            )
-            migrated_rows += progress.migrated_rows
-            remaining_rows = progress.remaining_rows
-            elapsed = time.monotonic() - started_at
-            if progress.complete or elapsed >= _HISTORY_MIGRATION_BUDGET_SECONDS:
-                break
-        if migrated_rows == 0 and remaining_rows == 0:
-            return
-        self.execution.progress(
-            "Version history migration: "
-            f"migrated={migrated_rows} remaining={remaining_rows} "
-            f"complete={int(remaining_rows == 0)} elapsed={elapsed:.3f}s "
-            f"peak_rss={peak_resident_memory_mib():.1f}MiB"
+        totals = {"Version": 0, "Package": 0}
+        remaining = {"Version": 0, "Package": 0}
+        complete = {"Version": False, "Package": False}
+        migrations = (
+            (
+                "Version",
+                self.services.repository.migrate_version_history,
+                version_history.MIGRATION_BATCH_ROWS,
+            ),
+            (
+                "Package",
+                self.services.repository.migrate_package_history,
+                package_history.MIGRATION_BATCH_ROWS,
+            ),
         )
+        while True:
+            moved_rows = 0
+            for name, migrate, row_limit in migrations:
+                if complete[name]:
+                    continue
+                self.execution.check_stop()
+                progress = migrate(row_limit)
+                totals[name] += progress.migrated_rows
+                remaining[name] = progress.remaining_rows
+                complete[name] = progress.complete
+                moved_rows += progress.migrated_rows
+                if time.monotonic() - started_at >= _HISTORY_MIGRATION_BUDGET_SECONDS:
+                    break
+            elapsed = time.monotonic() - started_at
+            if (
+                all(complete.values())
+                or moved_rows == 0
+                or elapsed >= _HISTORY_MIGRATION_BUDGET_SECONDS
+            ):
+                break
+        peak_rss = peak_resident_memory_mib()
+        for name, _, _ in migrations:
+            if totals[name] == 0 and remaining[name] == 0:
+                continue
+            self.execution.progress(
+                f"{name} history migration: "
+                f"migrated={totals[name]} remaining={remaining[name]} "
+                f"complete={int(remaining[name] == 0)} elapsed={elapsed:.3f}s "
+                f"peak_rss={peak_rss:.1f}MiB"
+            )
 
     def _report_package_catalog(
         self,

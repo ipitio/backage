@@ -7,7 +7,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable, Sequence
 from typing import Any
 
-from . import owner_plans, owner_scans
+from . import owner_plans, owner_scans, package_history
 from .models import (
     OwnerRefreshPlan,
     OwnerRefreshSelection,
@@ -149,7 +149,7 @@ class OwnerScanRepositoryMixin(ABC):
         return self._run_read(
             lambda connection: owner_plans.packages_needing_refresh(
                 connection,
-                self.settings.packages_table,
+                package_history.PACKAGE_HISTORY_VIEW,
                 selection,
             )
         )
@@ -167,7 +167,7 @@ class OwnerScanRepositoryMixin(ABC):
         return self._run_read(
             lambda connection: owner_plans.owner_refresh_plan(
                 connection,
-                self.settings.packages_table,
+                package_history.PACKAGE_HISTORY_VIEW,
                 OwnerRefreshSelection(owner_id, owner, since, batch_marker),
             )
         )
@@ -179,7 +179,7 @@ class OwnerScanRepositoryMixin(ABC):
         return self._run_read(
             lambda connection: owner_scans.known_owner_type(
                 connection,
-                self.settings.packages_table,
+                package_history.PACKAGE_HISTORY_VIEW,
                 owner_id,
                 owner,
             )
@@ -215,7 +215,10 @@ class OwnerScanRepositoryMixin(ABC):
         self.ensure_schema()
         return self._run_read(
             lambda connection: owner_scans.missing(
-                connection, owner_id, marker, self.settings.packages_table
+                connection,
+                owner_id,
+                marker,
+                package_history.PACKAGE_HISTORY_VIEW,
             )
         )
 
@@ -270,6 +273,7 @@ class OwnerScanRepositoryMixin(ABC):
                 ),
                 owner_scans.OwnerScanTables(
                     self.settings.owners_table,
+                    package_history.PACKAGE_HISTORY_VIEW,
                     self.settings.packages_table,
                     self.settings.versions_table,
                 ),

@@ -7,7 +7,7 @@ from collections.abc import Generator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 
-from . import batch_progress, catalog, version_history
+from . import batch_progress, catalog, package_history, version_history
 from . import packages as package_writes
 from .models import (
     OwnerRecord,
@@ -42,6 +42,7 @@ class OwnerScanTables:
 
     owners: str
     packages: str
+    legacy_packages: str
     versions: str
 
 
@@ -603,7 +604,7 @@ def clear_backoff(
 def _delete_packages(
     connection: sqlite3.Connection,
     removed: Sequence[PackageRef],
-    packages: str,
+    legacy_packages: str | None,
     versions: str | None,
     versions_table: str,
 ) -> None:
@@ -631,14 +632,15 @@ def _delete_packages(
                 """,
                 parameters,
             )
-        connection.execute(
-            f"""
-            delete from {packages}
-            where owner_id = ? and owner_type = ? and package_type = ?
-              and owner = ? and repo = ? and package = ?
-            """,
-            parameters,
-        )
+        if legacy_packages is not None:
+            connection.execute(
+                f"""
+                delete from {legacy_packages}
+                where owner_id = ? and owner_type = ? and package_type = ?
+                  and owner = ? and repo = ? and package = ?
+                """,
+                parameters,
+            )
         connection.execute(
             f"""
             delete from {_PACKAGE_PUBLICATIONS}
@@ -777,7 +779,11 @@ def complete(
         _delete_packages(
             connection,
             removed,
-            packages,
+            (
+                _identifier(tables.legacy_packages)
+                if _table_exists(connection, tables.legacy_packages)
+                else None
+            ),
             (
                 _identifier(tables.versions)
                 if _table_exists(connection, tables.versions)
@@ -894,6 +900,11 @@ def retire_owner(
 
     owners = _identifier(tables.owners)
     packages = _identifier(tables.packages)
+    legacy_packages = (
+        _identifier(tables.legacy_packages)
+        if _table_exists(connection, tables.legacy_packages)
+        else None
+    )
     versions = (
         _identifier(tables.versions)
         if _table_exists(connection, tables.versions)
@@ -915,8 +926,11 @@ def retire_owner(
     with _transaction(connection):
         for table_name in legacy_tables:
             connection.execute(f"drop table if exists {_identifier(table_name)}")
+        deleted += package_history.owner_observation_count(connection, owner)
         deleted += version_history.retire_owner(connection, owner)
-        tables_to_clean = [owners, packages]
+        tables_to_clean = [owners]
+        if legacy_packages is not None:
+            tables_to_clean.append(legacy_packages)
         if versions is not None:
             tables_to_clean.append(versions)
         for table in tables_to_clean:

@@ -96,7 +96,7 @@ def test_completed_owner_scan_reconciles_only_unobserved_packages(
     assert not repository.owner_scan_active(retained.owner_id, "scan-1")
     with sqlite3.connect(database_path) as connection:
         packages = connection.execute(
-            "select repo, package from packages order by repo"
+            "select repo, package from bkg_package_history order by repo"
         ).fetchall()
         versions = connection.execute(
             "select repo, package from bkg_version_history order by repo"

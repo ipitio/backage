@@ -49,7 +49,9 @@ def _create_legacy_table(connection: sqlite3.Connection, table: str) -> None:
 
 def _owner_ids(connection: sqlite3.Connection, table: str) -> list[tuple[str]]:
     statements = {
-        "packages": "select distinct owner_id from packages order by owner_id",
+        "packages": (
+            "select distinct owner_id from bkg_package_history order by owner_id"
+        ),
         "owners": "select distinct owner_id from owners order by owner_id",
         "bkg_owner_scans": (
             "select distinct owner_id from bkg_owner_scans order by owner_id"
@@ -63,7 +65,7 @@ def _owner_ids(connection: sqlite3.Connection, table: str) -> list[tuple[str]]:
 
 def _owners(connection: sqlite3.Connection, table: str) -> list[tuple[str]]:
     statements = {
-        "packages": "select distinct owner from packages order by owner",
+        "packages": "select distinct owner from bkg_package_history order by owner",
         "owners": "select distinct owner from owners order by owner",
         "bkg_owner_scans": "select distinct owner from bkg_owner_scans order by owner",
         "bkg_package_publications": (
@@ -146,21 +148,29 @@ def test_retire_owner_aliases_removes_legacy_null_owner_ids(
     """Malformed nullable package identities cannot hold a batch open forever."""
 
     database_path = tmp_path / "index.db"
-    repository = DatabaseRepository(DatabaseSettings(database_path))
     current = _package("200", "shared", "same")
-    repository.write_package(PackageRecord(current, 2, 2, 2, 2, 2, _TODAY))
     with sqlite3.connect(database_path) as connection:
         connection.execute(
             """
-            insert into packages (
+            create table packages (
                 owner_id, owner_type, package_type, owner, repo, package,
                 downloads, downloads_month, downloads_week, downloads_day,
-                size, date
-            ) values (null, 'users', 'container', 'Alpha', 'shared', 'same',
-                      1, 1, 1, 1, 1, ?)
+                size, date,
+                primary key (owner_id, package, date)
+            )
+            """
+        )
+        connection.execute(
+            """
+            insert into packages values (
+                null, 'users', 'container', 'Alpha', 'shared', 'same',
+                1, 1, 1, 1, 1, ?
+            )
             """,
             (_YESTERDAY,),
         )
+    repository = DatabaseRepository(DatabaseSettings(database_path))
+    repository.write_package(PackageRecord(current, 2, 2, 2, 2, 2, _TODAY))
     unresolved = PackageCatalogPath("Beta", "tree-only", "tree-only")
     repository.initialize_package_catalog(
         (

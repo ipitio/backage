@@ -8,7 +8,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
-from . import catalog, version_history
+from . import catalog, package_history, version_history
 from .models import OwnerIdentityCleanup, PackageRef
 from .settings import DatabaseSettings
 from .support import DatabaseError
@@ -62,7 +62,7 @@ class OwnerIdentityRepositoryMixin(ABC):
         """Return persisted IDs superseded by one owner login's current ID."""
 
         self.ensure_schema()
-        packages = _SqlIdentifier(self.settings.packages_table)
+        packages = _SqlIdentifier(package_history.PACKAGE_HISTORY_VIEW)
         rows = self._run_read(
             lambda connection: connection.execute(
                 _sql(
@@ -119,7 +119,7 @@ def _retire_owner_aliases(
     settings: DatabaseSettings,
 ) -> OwnerIdentityCleanup:
     owners = _SqlIdentifier(settings.owners_table)
-    packages = _SqlIdentifier(settings.packages_table)
+    packages = _SqlIdentifier(package_history.PACKAGE_HISTORY_VIEW)
     versions = (
         _SqlIdentifier(settings.versions_table)
         if _table_exists(connection, settings.versions_table)
@@ -151,7 +151,9 @@ def _retire_owner_aliases(
             owner,
             packages,
         )
-        owner_tables = [owners, packages]
+        owner_tables = [owners]
+        if _table_exists(connection, settings.packages_table):
+            owner_tables.append(_SqlIdentifier(settings.packages_table))
         if versions is not None:
             owner_tables.append(versions)
         _delete_alias_rows(
@@ -231,7 +233,7 @@ def _has_alias_rows(
     settings: DatabaseSettings,
 ) -> bool:
     owners = _SqlIdentifier(settings.owners_table)
-    packages = _SqlIdentifier(settings.packages_table)
+    packages = _SqlIdentifier(package_history.PACKAGE_HISTORY_VIEW)
     return _has_alias_rows_for_tables(
         connection,
         owner_id,

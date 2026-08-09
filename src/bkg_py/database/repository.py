@@ -14,6 +14,7 @@ from . import (
     catalog,
     owner_queue,
     owner_scans,
+    package_history,
     package_plans,
     schema,
     version_history,
@@ -23,6 +24,7 @@ from . import (
     packages as package_records,
 )
 from .catalog_repository import PackageCatalogRepositoryMixin
+from .history_repository import HistoryRepositoryMixin
 from .metrics import DatabaseWriteTracker
 from .metrics_repository import DatabaseMetricsRepositoryMixin
 from .models import (
@@ -74,7 +76,6 @@ from .values import (
 from .values import (
     version_records as _version_records,
 )
-from .version_history_migration import migrate as _migrate_version_history
 
 _RETRYABLE_MESSAGES = (
     "database is locked",
@@ -96,8 +97,9 @@ class _SqlIdentifier(str):
         return str.__new__(cls, quoted)
 
 
-class DatabaseRepository(  # pylint: disable=too-many-public-methods
+class DatabaseRepository(  # pylint: disable=too-many-ancestors,too-many-public-methods
     PackageCatalogRepositoryMixin,
+    HistoryRepositoryMixin,
     DatabaseMetricsRepositoryMixin,
     DatabaseRotationRepositoryMixin,
     OwnerIdentityRepositoryMixin,
@@ -156,18 +158,6 @@ class DatabaseRepository(  # pylint: disable=too-many-public-methods
             )
         )
 
-    def migrate_version_history(
-        self, row_limit: int
-    ) -> version_history.VersionHistoryMigration:
-        """Move one bounded compatibility-table batch into normalized history."""
-
-        self.ensure_schema()
-        return _migrate_version_history(
-            self._run_write,
-            self.settings.versions_table,
-            row_limit,
-        )
-
     def write_package(self, record: PackageRecord) -> None:
         """Insert or replace one normalized package record."""
 
@@ -190,7 +180,7 @@ class DatabaseRepository(  # pylint: disable=too-many-public-methods
         self._run_write(
             lambda connection: package_records.write(
                 connection,
-                self.settings.packages_table,
+                package_history.PACKAGE_HISTORY_VIEW,
                 self.settings.versions_table,
                 record,
                 mark_pending=publication_pending,
@@ -258,7 +248,7 @@ class DatabaseRepository(  # pylint: disable=too-many-public-methods
         return self._run_read(
             lambda connection: package_records.updated_since(
                 connection,
-                self.settings.packages_table,
+                package_history.PACKAGE_HISTORY_VIEW,
                 package,
                 since,
             )
@@ -271,7 +261,7 @@ class DatabaseRepository(  # pylint: disable=too-many-public-methods
         self._run_write(
             lambda connection: batch_progress.bootstrap(
                 connection,
-                self.settings.packages_table,
+                package_history.PACKAGE_HISTORY_VIEW,
                 batch_marker,
                 since,
             )
@@ -320,7 +310,7 @@ class DatabaseRepository(  # pylint: disable=too-many-public-methods
 
         self.ensure_schema()
         selection = package_plans.PackagePlanSelection(
-            self.settings.packages_table,
+            package_history.PACKAGE_HISTORY_VIEW,
             self.settings.owners_table,
             since,
             batch_marker,
@@ -339,7 +329,7 @@ class DatabaseRepository(  # pylint: disable=too-many-public-methods
                 return catalog.inventory(connection)
             return package_records.inventory(
                 connection,
-                self.settings.packages_table,
+                package_history.PACKAGE_HISTORY_VIEW,
                 self._check_stop,
             )
 
@@ -352,7 +342,7 @@ class DatabaseRepository(  # pylint: disable=too-many-public-methods
         return self._run_read(
             lambda connection: package_records.maximum_downloads(
                 connection,
-                self.settings.packages_table,
+                package_history.PACKAGE_HISTORY_VIEW,
                 package,
             )
         )
@@ -443,7 +433,7 @@ class DatabaseRepository(  # pylint: disable=too-many-public-methods
         self.ensure_schema()
 
         def read(connection: sqlite3.Connection) -> PackageSnapshot | None:
-            packages = _SqlIdentifier(self.settings.packages_table)
+            packages = _SqlIdentifier(package_history.PACKAGE_HISTORY_VIEW)
             row = connection.execute(
                 _sql(PACKAGE_SNAPSHOT_SQL, packages=packages),
                 (
@@ -529,7 +519,7 @@ class DatabaseRepository(  # pylint: disable=too-many-public-methods
         """Return repository names for one owner in deterministic order."""
 
         self.ensure_schema()
-        packages = _SqlIdentifier(self.settings.packages_table)
+        packages = _SqlIdentifier(package_history.PACKAGE_HISTORY_VIEW)
 
         def read(connection: sqlite3.Connection) -> tuple[str, ...]:
             rows = connection.execute(
@@ -556,7 +546,7 @@ class DatabaseRepository(  # pylint: disable=too-many-public-methods
         """Estimate one deterministic per-package version limit for an aggregate."""
 
         self.ensure_schema()
-        packages = _SqlIdentifier(self.settings.packages_table)
+        packages = _SqlIdentifier(package_history.PACKAGE_HISTORY_VIEW)
         versions = _SqlIdentifier(version_history.VERSION_HISTORY_VIEW)
         effective_target = max(
             1,
@@ -677,12 +667,17 @@ class DatabaseRepository(  # pylint: disable=too-many-public-methods
 
     def _prune_normalized_rows(self, since: str) -> None:
         def prune_normalized(connection: sqlite3.Connection) -> None:
-            packages = _SqlIdentifier(self.settings.packages_table)
             with _transaction(connection):
-                connection.execute(
-                    _sql("delete from {packages} where date < ?", packages=packages),
-                    (since,),
-                )
+                if _table_exists(connection, self.settings.packages_table):
+                    legacy_packages = _SqlIdentifier(self.settings.packages_table)
+                    connection.execute(
+                        _sql(
+                            "delete from {packages} where date < ?",
+                            packages=legacy_packages,
+                        ),
+                        (since,),
+                    )
+                package_history.prune_before(connection, since)
                 if _table_exists(connection, self.settings.versions_table):
                     versions = _SqlIdentifier(self.settings.versions_table)
                     connection.execute(
@@ -696,6 +691,11 @@ class DatabaseRepository(  # pylint: disable=too-many-public-methods
                     connection,
                     self.settings.versions_table,
                     row_limit=version_history.MIGRATION_BATCH_ROWS,
+                )
+                package_history.migrate_remaining(
+                    connection,
+                    self.settings.packages_table,
+                    row_limit=package_history.MIGRATION_BATCH_ROWS,
                 )
                 connection.execute(
                     """
@@ -719,6 +719,7 @@ class DatabaseRepository(  # pylint: disable=too-many-public-methods
         self.ensure_schema()
         tables = owner_scans.OwnerScanTables(
             self.settings.owners_table,
+            package_history.PACKAGE_HISTORY_VIEW,
             self.settings.packages_table,
             self.settings.versions_table,
         )
@@ -798,7 +799,7 @@ class DatabaseRepository(  # pylint: disable=too-many-public-methods
         *,
         repo: str | None,
     ) -> Generator[tuple[tuple[str, ...], tuple[VersionRecord, ...]]]:
-        packages = _SqlIdentifier(self.settings.packages_table)
+        packages = _SqlIdentifier(package_history.PACKAGE_HISTORY_VIEW)
         versions = _SqlIdentifier(version_history.VERSION_HISTORY_VIEW)
         cursor = connection.execute(
             _sql(
@@ -827,7 +828,7 @@ class DatabaseRepository(  # pylint: disable=too-many-public-methods
         *,
         repo: str | None,
     ) -> tuple[RankedPackage, ...]:
-        packages = _SqlIdentifier(self.settings.packages_table)
+        packages = _SqlIdentifier(package_history.PACKAGE_HISTORY_VIEW)
         parameters = (owner_id, repo, repo)
         rows = connection.execute(
             _sql(RANKED_PACKAGES_SQL, packages=packages),
@@ -841,7 +842,7 @@ class DatabaseRepository(  # pylint: disable=too-many-public-methods
         table_name: str,
         since: str,
     ) -> PackageRef | None:
-        packages = _SqlIdentifier(self.settings.packages_table)
+        packages = _SqlIdentifier(package_history.PACKAGE_HISTORY_VIEW)
         prefix = f"{self.settings.versions_table}_"
         row = connection.execute(
             _sql(
