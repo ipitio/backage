@@ -3,7 +3,7 @@
 This guide covers the current source layout, engineering policies, and local
 quality gates.
 
-`bkg`'s Python code targets Python 3.15. Docker is the only host development
+`bkg`'s Python code targets Python 3.14. Docker is the only host development
 prerequisite; Python, uv, and every Python package stay inside the test image
 or GitHub Actions. Build the image and run the canonical gate:
 
@@ -18,11 +18,11 @@ source without creating a host `.venv`. The same target is the Build workflow's
 pre-publication gate for Python, Debian, Git, zstd, Bash, and ShellCheck.
 
 `.python-version` is the shared Actions and uv source for the supported Python
-3.15 feature line. Until Python 3.15 reaches its final release, it selects an
-exact release candidate and Actions explicitly allow prereleases; RC and final
-updates are deliberate lock, quality, image, and workflow changes. The Debian
-`bookworm` base remains fixed so interpreter updates do not also change the
-operating-system generation.
+3.14 feature line. Actions select its latest maintenance release, while the
+production image pins that release explicitly. Python patch updates are
+deliberate lock, quality, image, and workflow changes. The Debian `bookworm`
+base remains fixed so interpreter updates do not also change the operating-system
+generation.
 `pyproject.toml` similarly requires the uv 0.12 compatibility line. Docker and
 Actions tooling may follow its non-breaking patch releases, while a uv minor
 upgrade remains an explicit, tested change.

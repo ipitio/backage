@@ -11,11 +11,20 @@ for workflow in manual stop update; do
         echo "$workflow workflow does not use the shared Python version file" >&2
         exit 1
     }
-    grep -Fq 'allow-prereleases: true' "$workflow_file" || {
-        echo "$workflow workflow does not allow the selected Python prerelease" >&2
+    if grep -Fq 'allow-prereleases: true' "$workflow_file"; then
+        echo "$workflow workflow unexpectedly allows Python prereleases" >&2
         exit 1
-    }
+    fi
 done
+
+grep -Fxq '3.14' "$repo_dir/.python-version" || {
+    echo "Shared Python feature line exceeds Dependabot graph support" >&2
+    exit 1
+}
+grep -Fq 'requires-python = ">=3.14,<3.15"' "$repo_dir/pyproject.toml" || {
+    echo "Project Python range exceeds Dependabot graph support" >&2
+    exit 1
+}
 
 if grep -R -Eq 'actions/checkout@(main|v[1-6])' \
     "$repo_dir/.github/workflows"; then

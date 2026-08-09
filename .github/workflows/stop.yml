@@ -21,7 +21,6 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v7
         with:
-          allow-prereleases: true
           python-version-file: ".python-version"
 
       - name: Request graceful stop
