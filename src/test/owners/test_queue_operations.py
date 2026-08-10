@@ -156,11 +156,11 @@ def _no_history(_selector: OwnerQueueSelector) -> list[str]:
     return []
 
 
-def test_queue_selection_prioritizes_pending_work_over_discovery(
+def test_queue_selection_reserves_capacity_for_discovery_before_stale_backlog(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A discovery backlog cannot crowd active package work out of the queue."""
+    """A stale backlog cannot consume the complete daily discovery pass."""
 
     working = tmp_path / "working"
     index = tmp_path / "index"
@@ -184,8 +184,9 @@ def test_queue_selection_prioritizes_pending_work_over_discovery(
 
     selected = selector.select_with_reasons(random.Random(0))  # noqa: S311
 
-    assert {owner for owner, _reason in selected[:2]} == {"partial", "stale"}
-    assert {reason for _owner, reason in selected[:2]} == {
+    assert selected[0] == ("discovered-0", "connection")
+    assert {owner for owner, _reason in selected[1:3]} == {"partial", "stale"}
+    assert {reason for _owner, reason in selected[1:3]} == {
         "partially-updated",
         "stale",
     }
@@ -250,6 +251,51 @@ def test_queue_preparation_reports_and_advances_a_full_chunk(
     assert second.candidates == 1
     assert not second.may_have_more
     assert set(first.attempted_owners).isdisjoint(second.attempted_owners)
+
+
+def test_manual_request_promotes_an_attempted_connection(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Candidate dedupe cannot suppress a later explicit owner request."""
+
+    working = tmp_path / "working"
+    index = tmp_path / "index"
+    working.mkdir()
+    index.mkdir()
+    connections = tmp_path / "connections"
+    owners = tmp_path / "owners.txt"
+    _write_lines(connections, "alpha")
+    _write_lines(owners)
+    monkeypatch.setattr(OwnerQueueSelector, "history_owners", _no_history)
+    repository = _repository(tmp_path)
+    service = OwnerQueuePreparationService(
+        OwnerQueuePreparationServices(
+            repository,
+            _Resolver(),
+            StateStore(tmp_path / "state.env"),
+            lambda _owner: None,
+        ),
+        OwnerQueuePreparationExecution(lambda: None, lambda _message: None),
+    )
+    request = OwnerQueuePreparationRequest(
+        OwnerQueuePreparationPaths(connections, owners, index, working),
+        "0",
+        100,
+        "",
+        True,
+        1_788_652_800,
+        "batch-1",
+    )
+
+    service.prepare(request)
+    _write_lines(owners, "alpha")
+    service.prepare(request)
+
+    entry = repository.owner_queue_entries("batch-1")[0]
+    assert entry.owner == "Alpha"
+    assert entry.reason == "manual"
+    assert entry.priority == 0
 
 
 def test_queue_preparation_owns_normalization_resolution_and_effects(
@@ -344,9 +390,9 @@ def test_queue_preparation_owns_normalization_resolution_and_effects(
         entry.ref for entry in repository.database.owner_queue_entries("batch-1")
     ] == [
         "1/Manual",
-        "2/service",
         "3/Alpha",
         "99/Beta",
+        "2/service",
     ]
     assert state.get_set("BKG_DISCOVERED_CONNECTION_OWNERS") == [
         "3/Alpha",

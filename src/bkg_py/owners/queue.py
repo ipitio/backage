@@ -289,6 +289,18 @@ class OwnerQueueSelector:
             return result
 
         candidates = _requests(manual)
+        discovered = _unique(
+            _requests(manual)
+            + ([self.current_owner] if self.current_owner else [])
+            + connections,
+            discard_empty=True,
+        )
+
+        # Reserve one request-sized lane for newly discovered owners. The
+        # durable queue still claims partially updated owners first, while a
+        # large stale backlog cannot consume the whole daily discovery pass.
+        new_discovered = _not_matching(known_owners, discovered)
+        candidates.extend(new_discovered[: self.request_limit])
         if self.rest_first != "0":
             candidates.extend(remaining(stale))
 
@@ -301,13 +313,7 @@ class OwnerQueueSelector:
                 generator,
             )
         )
-        discovered = _unique(
-            _requests(manual)
-            + ([self.current_owner] if self.current_owner else [])
-            + connections,
-            discard_empty=True,
-        )
-        candidates.extend(_not_matching(known_owners, discovered))
+        candidates.extend(new_discovered[self.request_limit :])
         candidates.extend(
             _not_matching(
                 known_owners,

@@ -18,10 +18,10 @@ _PRIORITIES = {
     "manual": 0,
     "optout": 0,
     "partially-updated": 10,
+    "connection": 15,
     "stale": 20,
     "service-owner": 30,
     "targeted": 30,
-    "connection": 40,
     "discovered": 50,
     "legacy": 50,
     "index-history": 60,
@@ -115,6 +115,7 @@ def prepare_generation(
             'delete from "bkg_owner_queue_candidates" where generation != ?',
             (generation,),
         )
+        _normalize_priorities(connection, generation)
         connection.execute(
             """
             update "bkg_owner_queue"
@@ -134,6 +135,20 @@ def prepare_generation(
             admissions = tuple(_legacy_admission(value) for value in legacy_refs)
             _admit(connection, generation, admissions, now)
     return entries(connection, generation)
+
+
+def _normalize_priorities(connection: sqlite3.Connection, generation: str) -> None:
+    """Apply current reason priorities to rows retained across an upgrade."""
+
+    for reason, priority in _PRIORITIES.items():
+        connection.execute(
+            """
+            update "bkg_owner_queue"
+            set priority = ?
+            where generation = ? and reason = ? and priority != ?
+            """,
+            (priority, generation, reason, priority),
+        )
 
 
 def admit(

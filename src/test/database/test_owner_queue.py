@@ -72,7 +72,7 @@ def test_admission_promotes_without_resequencing_or_demoting(tmp_path: Path) -> 
 
     entries = repository.owner_queue_entries("batch-1")
 
-    assert tuple(entry.owner for entry in entries) == ("Gamma", "Beta", "Alpha")
+    assert tuple(entry.owner for entry in entries) == ("Gamma", "Alpha", "Beta")
     assert {entry.owner: entry.sequence for entry in entries} == {
         "Alpha": 0,
         "Beta": 1,
@@ -83,6 +83,35 @@ def test_admission_promotes_without_resequencing_or_demoting(tmp_path: Path) -> 
         "Beta": "stale",
         "Gamma": "manual",
     }
+
+
+def test_startup_lazily_normalizes_persisted_reason_priorities(
+    tmp_path: Path,
+) -> None:
+    """An upgrade promotes queued connections without rebuilding the queue."""
+
+    repository = _repository(tmp_path)
+    repository.prepare_owner_queue("batch-1", (), 100)
+    repository.admit_owner_queue(
+        "batch-1",
+        (
+            OwnerQueueAdmission("1", "Connected", "connection"),
+            OwnerQueueAdmission("2", "Stale", "stale"),
+        ),
+        101,
+    )
+    with sqlite3.connect(tmp_path / "index.db") as connection:
+        connection.execute(
+            "update bkg_owner_queue set priority = 40 where owner = 'Connected'"
+        )
+
+    repository.prepare_owner_queue("batch-1", (), 102)
+
+    entries = repository.owner_queue_entries("batch-1")
+    assert tuple((entry.owner, entry.priority) for entry in entries) == (
+        ("Connected", 15),
+        ("Stale", 20),
+    )
 
 
 def test_candidate_attempts_bound_continuation_and_reset_with_generation(

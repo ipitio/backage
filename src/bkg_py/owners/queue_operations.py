@@ -240,7 +240,9 @@ class OwnerQueuePreparationService:  # pylint: disable=too-few-public-methods
             known_count += len(known)
             for owner, reason in batch:
                 owner_key = _owner_key(owner)
-                if owner_key in known or owner_key in selected_keys:
+                if (owner_key in known and reason != "manual") or (
+                    owner_key in selected_keys
+                ):
                     continue
                 selected.append((owner, reason))
                 selected_keys.add(owner_key)
