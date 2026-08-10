@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from dataclasses import dataclass
 from pathlib import Path
@@ -28,6 +29,8 @@ from bkg_py.run_publication import (
     RunPublicationService,
 )
 from bkg_py.state import StateStore
+
+_SITE_ENTRYPOINT = ".bkg-site/candidate/index.html"
 
 
 @dataclass(frozen=True)
@@ -96,6 +99,32 @@ def _write_sources(root: Path) -> None:
     (templates / "fxp.min.js").write_bytes(b"javascript")
     (images / "logo-b.webp").write_bytes(b"logo")
     (images / "logo.ico").write_bytes(b"icon")
+    _write_site_shell(root / "site-shell")
+
+
+def _write_site_shell(path: Path) -> None:
+    content = b"candidate shell\n"
+    entrypoint = path / _SITE_ENTRYPOINT
+    entrypoint.parent.mkdir(parents=True)
+    entrypoint.write_bytes(content)
+    (path / ".bkg-site-manifest.json").write_text(
+        json.dumps(
+            {
+                "dashboard_schema_version": 1,
+                "entrypoint": _SITE_ENTRYPOINT,
+                "files": [
+                    {
+                        "bytes": len(content),
+                        "path": _SITE_ENTRYPOINT,
+                        "sha256": hashlib.sha256(content).hexdigest(),
+                    }
+                ],
+                "schema_version": 1,
+                "site_shell_version": 1,
+            }
+        ),
+        encoding="utf-8",
+    )
 
 
 def test_run_publication_hydrates_outputs_and_prunes_transient_state(
@@ -141,6 +170,7 @@ def test_run_publication_hydrates_outputs_and_prunes_transient_state(
                 root=root,
                 index_directory=index,
                 working_directory=working,
+                site_shell_directory=root / "site-shell",
             ),
             identity=RunPublicationIdentity(
                 github_owner="example",
@@ -206,7 +236,12 @@ def test_run_publication_hydrates_outputs_and_prunes_transient_state(
         ][0]["date"]
         == "2026-07-02"
     )
-    assert messages[-1].startswith("Dashboard publication telemetry: ")
+    assert messages[-2].startswith("Dashboard publication telemetry: ")
+    assert messages[-1].startswith("Site shell publication telemetry: ")
+    assert (index / _SITE_ENTRYPOINT).read_bytes() == b"candidate shell\n"
+    assert (index / "index.html").read_text(encoding="utf-8") == (
+        "<title>backage</title>\n"
+    )
     assert (sidecars / "keep.json").is_file()
     assert not any(path.name != "keep.json" for path in sidecars.iterdir())
     assert not any(
@@ -247,7 +282,12 @@ def test_run_publication_retains_dashboard_when_projection_fails(
         messages.append,
     ).publish(
         RunPublicationRequest(
-            paths=RunPublicationPaths(root, index, tmp_path / "working"),
+            paths=RunPublicationPaths(
+                root,
+                index,
+                tmp_path / "working",
+                root / "site-shell",
+            ),
             identity=RunPublicationIdentity("example", "backage", "master"),
             today="2026-07-02",
         )
@@ -259,10 +299,52 @@ def test_run_publication_retains_dashboard_when_projection_fails(
     )
     assert dashboard.read_bytes() == b"prior dashboard\n"
     assert history.read_bytes() == b"prior history\n"
-    assert messages == [
+    assert messages[0] == (
         "Dashboard projection unavailable; keeping previous artifacts: "
         "projection failed"
-    ]
+    )
+    assert messages[1].startswith("Site shell publication telemetry: ")
+
+
+def test_run_publication_retains_shell_when_bundle_verification_fails(
+    tmp_path: Path,
+) -> None:
+    """Optional site-shell failure cannot block generated data publication."""
+
+    root = tmp_path / "repo"
+    index = root / "index"
+    _write_sources(root)
+    index.mkdir()
+    prior_shell = index / _SITE_ENTRYPOINT
+    prior_shell.parent.mkdir(parents=True)
+    prior_shell.write_bytes(b"prior shell\n")
+    (root / "site-shell" / _SITE_ENTRYPOINT).write_bytes(b"corrupt shell\n")
+    messages: list[str] = []
+
+    result = RunPublicationService(
+        _InventoryRepository(PackageInventory(1, 2, 3)),
+        StateStore(tmp_path / "state.env"),
+        lambda: None,
+        messages.append,
+    ).publish(
+        RunPublicationRequest(
+            paths=RunPublicationPaths(
+                root,
+                index,
+                tmp_path / "working",
+                root / "site-shell",
+            ),
+            identity=RunPublicationIdentity("example", "backage", "master"),
+            today="2026-07-02",
+        )
+    )
+
+    assert result == PackageInventory(1, 2, 3)
+    assert (index / "dashboard.json").is_file()
+    assert prior_shell.read_bytes() == b"prior shell\n"
+    assert messages[-1].startswith(
+        "Site shell publication unavailable; retaining current usable shell state: "
+    )
 
 
 def test_package_inventory_counts_distinct_published_paths(tmp_path: Path) -> None:

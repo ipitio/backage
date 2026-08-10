@@ -8,13 +8,13 @@ import tempfile
 import time
 from collections.abc import Callable
 from contextlib import suppress
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 from decimal import ROUND_DOWN, Decimal
 from pathlib import Path
 from typing import Protocol
 
-from .dashboard import publish_dashboard
+from .dashboard import DASHBOARD_SCHEMA_VERSION, publish_dashboard
 from .database import (
     DashboardProjection,
     DatabaseError,
@@ -24,6 +24,11 @@ from .database import (
 from .files import atomic_binary_output, atomic_text_output
 from .publication import publish_json_file
 from .release import release_tag as release_tag_for_date
+from .site_shell import (
+    SiteShellError,
+    default_site_shell_directory,
+    publish_site_shell,
+)
 from .state import StateStore
 
 StopCheck = Callable[[], None]
@@ -65,6 +70,7 @@ class RunPublicationPaths:
     root: Path
     index_directory: Path
     working_directory: Path
+    site_shell_directory: Path = field(default_factory=default_site_shell_directory)
 
 
 @dataclass(frozen=True)
@@ -137,6 +143,7 @@ class RunPublicationService:  # pylint: disable=too-few-public-methods
             self.check_stop,
         )
         self._publish_dashboard(index_directory, request.today, inventory)
+        self._publish_site_shell(index_directory, request.paths.site_shell_directory)
 
         _prune_transient_state(self.state)
         for name in _INTERMEDIATE_FILES:
@@ -191,6 +198,39 @@ class RunPublicationService:  # pylint: disable=too-few-public-methods
                     "history_samples": result.history_samples,
                     "query_seconds": round(query_seconds, 3),
                     "write_seconds": round(write_seconds, 3),
+                },
+                separators=(",", ":"),
+                sort_keys=True,
+            )
+        )
+
+    def _publish_site_shell(
+        self,
+        index_directory: Path,
+        site_shell_directory: Path,
+    ) -> None:
+        try:
+            result = publish_site_shell(
+                site_shell_directory,
+                index_directory,
+                dashboard_schema_version=DASHBOARD_SCHEMA_VERSION,
+                check_stop=self.check_stop,
+            )
+        except (OSError, SiteShellError) as error:
+            self.progress(
+                "Site shell publication unavailable; retaining current usable "
+                f"shell state: {error}"
+            )
+            return
+        self.progress(
+            "Site shell publication telemetry: "
+            + json.dumps(
+                {
+                    "bytes": result.bytes,
+                    "entrypoint": result.entrypoint,
+                    "files": result.files,
+                    "removed_files": result.removed_files,
+                    "site_shell_version": result.site_shell_version,
                 },
                 separators=(",", ":"),
                 sort_keys=True,

@@ -10,3 +10,4 @@ bash "$test_dir/format.sh" --check
 ruff check src/bkg_py src/test
 pylint src/bkg_py src/test
 pyright
+bash "$test_dir/site.sh"

@@ -20,3 +20,9 @@ index-*
 *.egg-info
 build
 dist
+node_modules
+.astro
+**/build
+**/dist
+**/node_modules
+**/.astro

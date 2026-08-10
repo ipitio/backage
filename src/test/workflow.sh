@@ -51,6 +51,32 @@ grep -Fq "RUN bash src/test/regression.sh" "$dockerfile" || {
     echo "Docker test target does not run the canonical regression gate" >&2
     exit 1
 }
+grep -Fq "ARG NODE_VERSION=24" "$dockerfile" || {
+    echo "Dockerfile does not declare the supported Node feature line" >&2
+    exit 1
+}
+grep -Fq 'packageManager": "npm@11.17.0"' \
+    "$repo_dir/site/package.json" || {
+    echo "Site project does not pin the supported npm release" >&2
+    exit 1
+}
+grep -Fq "RUN npm run check && npm run build" "$dockerfile" || {
+    echo "Docker site stage does not check and build the locked Astro source" >&2
+    exit 1
+}
+grep -Fq "COPY --from=site-build /site/dist /opt/bkg/share/backage/site" \
+    "$dockerfile" || {
+    echo "Production environment does not package the built site shell" >&2
+    exit 1
+}
+grep -Fq "&& ! command -v node" "$dockerfile" || {
+    echo "Production image does not verify that Node is absent" >&2
+    exit 1
+}
+grep -Fq "bash \"\$test_dir/site.sh\"" "$repo_dir/src/test/quality.sh" || {
+    echo "Canonical quality checks do not include the Astro site" >&2
+    exit 1
+}
 grep -Fq "target: test" "$build_workflow" || {
     echo "Build workflow does not execute the Docker test target" >&2
     exit 1
@@ -176,6 +202,10 @@ fi
 
 grep -Fxq '.venv' "$repo_dir/.dockerignore" || {
     echo "Docker context does not exclude the project virtual environment" >&2
+    exit 1
+}
+grep -Fxq '**/node_modules' "$repo_dir/.dockerignore" || {
+    echo "Docker context does not exclude nested frontend dependencies" >&2
     exit 1
 }
 
