@@ -9,6 +9,11 @@ from pathlib import Path
 import pytest
 
 from bkg_py.database import (
+    DashboardDistributionItem,
+    DashboardFreshnessBucket,
+    DashboardMetricCoverage,
+    DashboardProjection,
+    DatabaseError,
     DatabaseRepository,
     DatabaseRotationEvent,
     DatabaseSettings,
@@ -28,11 +33,46 @@ from bkg_py.state import StateStore
 @dataclass(frozen=True)
 class _InventoryRepository:
     inventory: PackageInventory
+    dashboard_error: str | None = None
 
     def package_inventory(self) -> PackageInventory:
         """Return the fixed inventory used by a publication test."""
 
         return self.inventory
+
+    def dashboard_projection(self, today: str) -> DashboardProjection:
+        """Return matching bounded analytics or a configured read failure."""
+
+        _ = today
+        if self.dashboard_error is not None:
+            raise DatabaseError(self.dashboard_error)
+        return _dashboard_projection(self.inventory)
+
+
+def _dashboard_projection(inventory: PackageInventory) -> DashboardProjection:
+    return DashboardProjection(
+        inventory=inventory,
+        resolved_packages=inventory.packages,
+        package_types=(DashboardDistributionItem("container", inventory.packages),),
+        other_packages=0,
+        freshness=(
+            DashboardFreshnessBucket("today", inventory.packages),
+            DashboardFreshnessBucket("days_1_7", 0),
+            DashboardFreshnessBucket("days_8_30", 0),
+            DashboardFreshnessBucket("days_31_plus", 0),
+            DashboardFreshnessBucket("unknown", 0),
+        ),
+        metrics=tuple(
+            DashboardMetricCoverage(name, unit, 0, 0)
+            for name, unit in (
+                ("size", "bytes"),
+                ("downloads_total", "downloads"),
+                ("downloads_month", "downloads"),
+                ("downloads_week", "downloads"),
+                ("downloads_day", "downloads"),
+            )
+        ),
+    )
 
 
 def _write_sources(root: Path) -> None:
@@ -88,11 +128,13 @@ def test_run_publication_hydrates_outputs_and_prunes_transient_state(
         }
     )
     inventory = PackageInventory(owners=12, repositories=345, packages=1200)
+    messages: list[str] = []
 
     result = RunPublicationService(
         _InventoryRepository(inventory),
         state,
         lambda: None,
+        messages.append,
     ).publish(
         RunPublicationRequest(
             paths=RunPublicationPaths(
@@ -156,6 +198,15 @@ def test_run_publication_hydrates_outputs_and_prunes_transient_state(
     assert "<raw_packages>1200</raw_packages>" in (index / ".xml").read_text(
         encoding="utf-8"
     )
+    dashboard = json.loads((index / "dashboard.json").read_text(encoding="utf-8"))
+    assert dashboard["inventory"]["packages"] == 1200
+    assert (
+        json.loads((index / "dashboard-history.json").read_text(encoding="utf-8"))[
+            "samples"
+        ][0]["date"]
+        == "2026-07-02"
+    )
+    assert messages[-1].startswith("Dashboard publication telemetry: ")
     assert (sidecars / "keep.json").is_file()
     assert not any(path.name != "keep.json" for path in sidecars.iterdir())
     assert not any(
@@ -171,6 +222,47 @@ def test_run_publication_hydrates_outputs_and_prunes_transient_state(
         "BKG_TIMEOUT": "1",
         "UNKNOWN": "kept",
     }
+
+
+def test_run_publication_retains_dashboard_when_projection_fails(
+    tmp_path: Path,
+) -> None:
+    """Optional analytics cannot block snapshot-compatible summary publication."""
+
+    root = tmp_path / "repo"
+    index = root / "index"
+    _write_sources(root)
+    index.mkdir()
+    dashboard = index / "dashboard.json"
+    history = index / "dashboard-history.json"
+    dashboard.write_bytes(b"prior dashboard\n")
+    history.write_bytes(b"prior history\n")
+    messages: list[str] = []
+    inventory = PackageInventory(1, 2, 3)
+
+    result = RunPublicationService(
+        _InventoryRepository(inventory, "projection failed"),
+        StateStore(tmp_path / "state.env"),
+        lambda: None,
+        messages.append,
+    ).publish(
+        RunPublicationRequest(
+            paths=RunPublicationPaths(root, index, tmp_path / "working"),
+            identity=RunPublicationIdentity("example", "backage", "master"),
+            today="2026-07-02",
+        )
+    )
+
+    assert result == inventory
+    assert (
+        json.loads((index / ".json").read_text(encoding="utf-8"))["raw_packages"] == 3
+    )
+    assert dashboard.read_bytes() == b"prior dashboard\n"
+    assert history.read_bytes() == b"prior history\n"
+    assert messages == [
+        "Dashboard projection unavailable; keeping previous artifacts: "
+        "projection failed"
+    ]
 
 
 def test_package_inventory_counts_distinct_published_paths(tmp_path: Path) -> None:

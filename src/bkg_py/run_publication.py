@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 import tempfile
+import time
 from collections.abc import Callable
 from contextlib import suppress
 from dataclasses import dataclass
@@ -13,13 +14,20 @@ from decimal import ROUND_DOWN, Decimal
 from pathlib import Path
 from typing import Protocol
 
-from .database import DatabaseRotationEvent, PackageInventory
+from .dashboard import publish_dashboard
+from .database import (
+    DashboardProjection,
+    DatabaseError,
+    DatabaseRotationEvent,
+    PackageInventory,
+)
 from .files import atomic_binary_output, atomic_text_output
 from .publication import publish_json_file
 from .release import release_tag as release_tag_for_date
 from .state import StateStore
 
 StopCheck = Callable[[], None]
+MessageSink = Callable[[str], None]
 _NUMBER_SUFFIXES = ("", "k", "M", "B", "T", "P", "E", "Z", "Y")
 _SIDECAR_MARKERS = (".json.tmp", ".json.abs", ".json.rel")
 _TRANSIENT_STATE_PREFIXES = (
@@ -36,11 +44,16 @@ _INTERMEDIATE_FILES = (
 )
 
 
-class PackageInventoryRepository(Protocol):  # pylint: disable=too-few-public-methods
+class RunPublicationRepository(Protocol):  # pylint: disable=too-few-public-methods
     """Database read needed for final run publication."""
 
     def package_inventory(self) -> PackageInventory:
         """Return current package, owner, and repository counts."""
+
+        raise NotImplementedError
+
+    def dashboard_projection(self, today: str) -> DashboardProjection:
+        """Return bounded analytics from the current catalog snapshot."""
 
         raise NotImplementedError
 
@@ -78,13 +91,15 @@ class RunPublicationService:  # pylint: disable=too-few-public-methods
 
     def __init__(
         self,
-        repository: PackageInventoryRepository,
+        repository: RunPublicationRepository,
         state: StateStore,
         check_stop: StopCheck,
+        progress: MessageSink | None = None,
     ) -> None:
         self.repository = repository
         self.state = state
         self.check_stop = check_stop
+        self.progress = progress or _ignore_message
 
     def publish(self, request: RunPublicationRequest) -> PackageInventory:
         """Atomically replace each generated summary and remove transient state."""
@@ -121,12 +136,66 @@ class RunPublicationService:  # pylint: disable=too-few-public-methods
             inventory,
             self.check_stop,
         )
+        self._publish_dashboard(index_directory, request.today, inventory)
 
         _prune_transient_state(self.state)
         for name in _INTERMEDIATE_FILES:
             with suppress(FileNotFoundError):
                 (request.paths.working_directory / name).unlink()
         return inventory
+
+    def _publish_dashboard(
+        self,
+        index_directory: Path,
+        today: str,
+        inventory: PackageInventory,
+    ) -> None:
+        query_started = time.monotonic()
+        try:
+            projection = self.repository.dashboard_projection(today)
+        except DatabaseError as error:
+            self.progress(
+                f"Dashboard projection unavailable; keeping previous artifacts: {error}"
+            )
+            return
+        query_seconds = max(0.0, time.monotonic() - query_started)
+        if projection.inventory != inventory:
+            self.progress(
+                "Dashboard projection inventory changed during finalization; "
+                "keeping previous artifacts"
+            )
+            return
+
+        write_started = time.monotonic()
+        try:
+            result = publish_dashboard(
+                projection,
+                index_directory,
+                today,
+                self.check_stop,
+            )
+        except OSError as error:
+            self.progress(
+                "Dashboard publication unavailable; keeping previous artifacts: "
+                f"{error}"
+            )
+            return
+        write_seconds = max(0.0, time.monotonic() - write_started)
+        self.progress(
+            "Dashboard publication telemetry: "
+            + json.dumps(
+                {
+                    "dashboard_bytes": result.dashboard_bytes,
+                    "history_bytes": result.history_bytes,
+                    "history_reset": result.history_reset,
+                    "history_samples": result.history_samples,
+                    "query_seconds": round(query_seconds, 3),
+                    "write_seconds": round(write_seconds, 3),
+                },
+                separators=(",", ":"),
+                sort_keys=True,
+            )
+        )
 
 
 @dataclass(frozen=True)
@@ -137,6 +206,10 @@ class _PublicationSources:
     logo: bytes
     favicon: bytes
     javascript: bytes
+
+
+def _ignore_message(_message: str) -> None:
+    return
 
 
 def _validate_request(request: RunPublicationRequest) -> None:

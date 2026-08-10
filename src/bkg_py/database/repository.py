@@ -24,6 +24,7 @@ from . import (
     packages as package_records,
 )
 from .catalog_repository import PackageCatalogRepositoryMixin
+from .dashboard_repository import DashboardRepositoryMixin
 from .history_repository import HistoryRepositoryMixin
 from .metrics import DatabaseWriteTracker
 from .metrics_repository import DatabaseMetricsRepositoryMixin
@@ -99,6 +100,7 @@ class _SqlIdentifier(str):
 
 class DatabaseRepository(  # pylint: disable=too-many-ancestors,too-many-public-methods
     PackageCatalogRepositoryMixin,
+    DashboardRepositoryMixin,
     HistoryRepositoryMixin,
     DatabaseMetricsRepositoryMixin,
     DatabaseRotationRepositoryMixin,

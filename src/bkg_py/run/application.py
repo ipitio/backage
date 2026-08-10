@@ -376,6 +376,7 @@ class RunApplicationOperations:
                         self.application.database,
                         self.application.state,
                         self.application.stop.check,
+                        self.execution.progress,
                     ),
                     self.application.state,
                 ),

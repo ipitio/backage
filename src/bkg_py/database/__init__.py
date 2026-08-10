@@ -1,5 +1,11 @@
 """Public SQLite repository and persisted metadata values."""
 
+from .dashboard import (
+    DashboardDistributionItem,
+    DashboardFreshnessBucket,
+    DashboardMetricCoverage,
+    DashboardProjection,
+)
 from .metrics import (
     DatabaseDateRows,
     DatabaseMetricSample,
@@ -51,6 +57,10 @@ from .settings import DatabaseSettings
 from .support import DatabaseError
 
 __all__ = [
+    "DashboardDistributionItem",
+    "DashboardFreshnessBucket",
+    "DashboardMetricCoverage",
+    "DashboardProjection",
     "DatabaseDateRows",
     "DatabaseError",
     "DatabaseMetricSample",
