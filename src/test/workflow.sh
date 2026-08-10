@@ -95,8 +95,9 @@ for workflow in manual update; do
         echo "$workflow workflow does not reuse the run date for publication" >&2
         exit 1
     }
-    grep -Fq "python -m bkg_py release-tag -D \"\$RUN_DATE\"" "$workflow_file" || {
-        echo "$workflow workflow does not use the shared release-tag policy" >&2
+    grep -Fq "release_tag=\$(docker run --rm ghcr.io/\$GITHUB_OWNER/\$GITHUB_REPO:master bkg release-tag -D \"\$RUN_DATE\")" \
+        "$workflow_file" || {
+        echo "$workflow workflow does not run release-tag from its image" >&2
         exit 1
     }
     grep -Fq "tag: \"\${{ steps.date.outputs.tag }}\"" "$workflow_file" || {
@@ -120,6 +121,12 @@ for workflow in manual update; do
         exit 1
     }
 done
+
+if grep -R -Fq 'PYTHONPATH=src python -m bkg_py release-tag' \
+    "$repo_dir/.github/workflows"; then
+    echo "A workflow runs release-tag with the host Python" >&2
+    exit 1
+fi
 
 if grep -Eq '(^|[[:space:]])jq([[:space:]]|$)' \
     "$repo_dir/.github/workflows/update.yml"; then
