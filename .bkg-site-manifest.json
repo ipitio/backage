@@ -1,0 +1,13 @@
+{
+  "dashboard_schema_version": 1,
+  "entrypoint": ".bkg-site/candidate/index.html",
+  "files": [
+    {
+      "bytes": 6102,
+      "path": ".bkg-site/candidate/index.html",
+      "sha256": "7e8371abc6029330b2a01d3fcd8129e256bd48a0013329345c944781ee190b75"
+    }
+  ],
+  "schema_version": 1,
+  "site_shell_version": 1
+}
