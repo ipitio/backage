@@ -230,6 +230,31 @@ def test_sparse_repository_stages_completed_paths_before_replacing_them(
     ]
 
 
+def test_sparse_repository_retains_site_content_across_owner_waves(
+    tmp_path: Path,
+) -> None:
+    """Static-site files remain materialized while owner cones are replaced."""
+
+    path = tmp_path / "index"
+    _create_repository(path)
+    candidate = path / ".bkg-site" / "candidate" / "index.html"
+    candidate.parent.mkdir(parents=True)
+    candidate.write_text("prior shell\n", encoding="utf-8")
+    _git(path, "add", "-A")
+    _git(path, "commit", "-qm", "add site shell")
+    repository = GitRepository(path)
+    repository.set_sparse_root()
+    repository.materialize_sparse_paths(("alpha",), replace=True)
+    candidate.write_text("next shell\n", encoding="utf-8")
+
+    repository.materialize_sparse_paths(("beta",), replace=True)
+
+    assert candidate.read_text(encoding="utf-8") == "next shell\n"
+    assert _git(path, "diff", "--cached", "--name-only").stdout.splitlines() == [
+        ".bkg-site/candidate/index.html"
+    ]
+
+
 def test_sparse_repository_ignores_an_absent_path_when_replacing_it(
     tmp_path: Path,
 ) -> None:

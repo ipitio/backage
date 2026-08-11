@@ -16,6 +16,7 @@ from .files import atomic_binary_output
 SITE_MANIFEST_FILE = ".bkg-site-manifest.json"
 SITE_MANIFEST_SCHEMA_VERSION = 1
 SITE_SHELL_VERSION = 1
+SITE_CONTENT_DIRECTORY = ".bkg-site"
 _SITE_RESOURCE_PARTS = ("share", "backage", "site")
 _MAX_MANIFEST_BYTES = 1_000_000
 _MAX_SITE_FILES = 512
@@ -225,7 +226,7 @@ def _validate_owned_path(value: str, *, label: str) -> None:
         or any(part in {"", ".", ".."} for part in path.parts)
     ):
         raise SiteShellError(f"{label} site manifest path is not shell-owned: {value}")
-    if value != "index.html" and not value.startswith(".bkg-site/"):
+    if value != "index.html" and not value.startswith(f"{SITE_CONTENT_DIRECTORY}/"):
         raise SiteShellError(f"{label} site manifest path is not shell-owned: {value}")
 
 

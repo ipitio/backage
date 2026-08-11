@@ -14,8 +14,10 @@ from pathlib import Path, PurePosixPath
 from ..database import PackageCatalogPath
 from ..files import atomic_text_output
 from ..runtime import resolve_executable
+from ..site_shell import SITE_CONTENT_DIRECTORY
 
 _SPARSE_PATH_BATCH_SIZE = 100
+_PERSISTENT_SPARSE_PATHS = (SITE_CONTENT_DIRECTORY,)
 _PACKAGE_PATH_PARTS = 3
 _PACKAGE_FILENAME_INDEX = 2
 _MISSING_REMOTE_REF_STATUS = 2
@@ -347,12 +349,13 @@ class GitRepository(_GitCommandRunner):
         self._run(("reset", "--hard", revision), required=True)
 
     def set_sparse_root(self) -> None:
-        """Materialize only root files in a cone-mode sparse checkout."""
+        """Materialize root files and persistent generated namespaces."""
 
         if not self.is_worktree():
             return
         self._run(("sparse-checkout", "init", "--cone"), required=True)
         self._run(("sparse-checkout", "set"), required=True)
+        self._add_sparse_batch(_PERSISTENT_SPARSE_PATHS)
 
     def materialize_sparse_paths(
         self,
@@ -390,7 +393,11 @@ class GitRepository(_GitCommandRunner):
         stageable = self._stageable_sparse_paths(current)
         if stageable:
             self._run(("add", "--all", "--", *stageable), required=True)
-        selected = tuple(dict.fromkeys(path for path in paths if path))
+        selected = tuple(
+            dict.fromkeys(
+                (*_PERSISTENT_SPARSE_PATHS, *(path for path in paths if path))
+            )
+        )
         self._run(
             ("sparse-checkout", "set", "--skip-checks", "--stdin"),
             input_text="".join(f"{path}\n" for path in selected),

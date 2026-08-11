@@ -80,6 +80,9 @@ def test_update_workflow_clones_restores_runs_and_publishes(
         application.snapshots.prepare_database_snapshot()
         index_dir = Path(application.config.index_dir or "")
         (index_dir / "generated.json").write_text("{}\n", encoding="utf-8")
+        candidate = index_dir / ".bkg-site" / "candidate" / "index.html"
+        candidate.parent.mkdir(parents=True)
+        candidate.write_text("candidate shell\n", encoding="utf-8")
         (Path(application.config.root) / "README.md").write_text(
             "updated source\n",
             encoding="utf-8",
@@ -103,6 +106,10 @@ def test_update_workflow_clones_restores_runs_and_publishes(
     assert observed_options[0].run_date == date(2026, 7, 28)
     assert os.environ["BKG_INDEX_DB"] == "outer.db"
     assert git(remote, "show", "index:generated.json").stdout == "{}\n"
+    assert (
+        git(remote, "show", "index:.bkg-site/candidate/index.html").stdout
+        == "candidate shell\n"
+    )
     assert git(remote, "show", "master:README.md").stdout == "updated source\n"
     assert (invocation / "checkout/.snapshot/index.db").stat().st_size > 100
 
