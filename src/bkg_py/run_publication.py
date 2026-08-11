@@ -42,6 +42,7 @@ _TRANSIENT_STATE_PREFIXES = (
 )
 _TRANSIENT_OWNER_PREFIX = "BKG_OWNERS_"
 _NUMBERED_PAGE_KEY = re.compile(r"BKG_PAGE_[0-9].*")
+_OBSOLETE_STATE_KEYS = ("BKG_PAGE_ALL",)
 _INTERMEDIATE_FILES = (
     "packages_already_updated",
     "packages_all",
@@ -419,7 +420,7 @@ def _prune_transient_state(state: StateStore) -> None:
         if _NUMBERED_PAGE_KEY.fullmatch(key) or key.startswith(_TRANSIENT_OWNER_PREFIX)
     )
     state.delete_matching(
-        keys=transient_keys,
+        keys=(*_OBSOLETE_STATE_KEYS, *transient_keys),
         prefixes=_TRANSIENT_STATE_PREFIXES,
     )
 

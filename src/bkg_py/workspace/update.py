@@ -49,6 +49,7 @@ ApplicationRun = Callable[
 _MINIMUM_SNAPSHOT_BYTES = 100
 _MINIMUM_MAIN_SNAPSHOT_BYTES = 100_000
 _MAIN_REPOSITORY_OWNER = "ipitio"
+_GH_AUTH_TIMEOUT_SECONDS = 10
 _RUNTIME_ENVIRONMENT_KEYS = (
     "GITHUB_TOKEN",
     "GITHUB_ACTOR",
@@ -428,22 +429,27 @@ def _gh_token() -> str:
         gh = resolve_executable("gh")
     except FileNotFoundError:
         return ""
-    status = subprocess.run(  # noqa: S603
-        (gh, "auth", "status"),
-        check=False,
-        capture_output=True,
-        shell=False,
-        text=True,
-    )
-    if status.returncode != 0:
+    try:
+        status = subprocess.run(  # noqa: S603
+            (gh, "auth", "status"),
+            check=False,
+            capture_output=True,
+            shell=False,
+            text=True,
+            timeout=_GH_AUTH_TIMEOUT_SECONDS,
+        )
+        if status.returncode != 0:
+            return ""
+        token = subprocess.run(  # noqa: S603
+            (gh, "auth", "token"),
+            check=False,
+            capture_output=True,
+            shell=False,
+            text=True,
+            timeout=_GH_AUTH_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired:
         return ""
-    token = subprocess.run(  # noqa: S603
-        (gh, "auth", "token"),
-        check=False,
-        capture_output=True,
-        shell=False,
-        text=True,
-    )
     return token.stdout.strip() if token.returncode == 0 else ""
 
 

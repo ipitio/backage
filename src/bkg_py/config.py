@@ -80,7 +80,6 @@ class RuntimeConfig:  # pylint: disable=too-many-instance-attributes
     mode: int
     max_len: int
     is_first: str
-    page_all: int
     index_name: str | None
     index_db: str | None
     index_sql: str | None
@@ -135,7 +134,6 @@ class RuntimeConfig:  # pylint: disable=too-many-instance-attributes
             mode=_env_int("BKG_MODE", 0),
             max_len=_env_int("BKG_MAX_LEN", 14400),
             is_first=os.environ.get("BKG_IS_FIRST", "false"),
-            page_all=_env_int("BKG_PAGE_ALL", 1),
             index_name=index_name,
             index_db=index_db,
             index_sql=index_sql,

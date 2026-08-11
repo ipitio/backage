@@ -4,8 +4,11 @@
 .env
 .pytest_cache
 .ruff_cache
+.coverage*
+htmlcov
 .venv
 src/env.env
+docs
 
 index
 index-*

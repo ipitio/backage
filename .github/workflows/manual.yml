@@ -6,10 +6,8 @@ on:
   workflow_run:
     workflows: ["build"]
     types: [completed]
-
-  pull_request:
-    types:
-      - closed
+    branches:
+      - master
 
 defaults:
   run:
@@ -28,7 +26,7 @@ env:
 jobs:
   handoff:
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request' }}
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') }}
 
     permissions:
       contents: write
@@ -48,7 +46,7 @@ jobs:
   update:
     needs: handoff
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request' }}
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') }}
 
     concurrency:
       group: ${{ github.repository }}-database-publication
@@ -86,10 +84,20 @@ jobs:
         run: |
           set +e
           run_date=$(date -u +%F)
-          docker run -v $PWD:/app -v /var/run/docker.sock:/var/run/docker.sock \
-            -e BKG_DOCKER_SIZE_FALLBACK=true \
-            --env-file <(env | grep -E '^(GITHUB|BKG_HANDOFF_)') \
-            ghcr.io/$GITHUB_OWNER/$GITHUB_REPO:master \
+          docker run --rm \
+            --volume "$PWD:/app" \
+            --volume /var/run/docker.sock:/var/run/docker.sock \
+            --env BKG_DOCKER_SIZE_FALLBACK=true \
+            --env BKG_HANDOFF_CONTROL_REF \
+            --env BKG_HANDOFF_GIT_TIMEOUT_SECONDS \
+            --env BKG_HANDOFF_POLL_SECONDS \
+            --env GITHUB_ACTOR \
+            --env GITHUB_BRANCH \
+            --env GITHUB_OWNER \
+            --env GITHUB_REPO \
+            --env GITHUB_RUN_ID \
+            --env GITHUB_TOKEN \
+            "ghcr.io/$GITHUB_OWNER/$GITHUB_REPO:master" \
             bkg workflow-update -C /app -D "$run_date"
           code=$?
           echo "updated=$code" >> "$GITHUB_OUTPUT"

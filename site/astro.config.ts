@@ -9,4 +9,7 @@ export default defineConfig({
   },
   outDir: "./build",
   output: "static",
+  vite: {
+    cacheDir: ".astro/vite",
+  },
 });

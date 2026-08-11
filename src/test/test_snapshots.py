@@ -59,7 +59,6 @@ def _config(tmp_path: Path, *, index_db: str | None) -> RuntimeConfig:
         mode=0,
         max_len=14400,
         is_first="false",
-        page_all=1,
         index_name=None,
         index_db=index_db,
         index_sql=None,

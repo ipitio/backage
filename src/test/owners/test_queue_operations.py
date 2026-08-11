@@ -30,6 +30,8 @@ from bkg_py.owners.queue_operations import (
 )
 from bkg_py.state import StateStore
 
+from ..workspace.repository_support import create_repository, git
+
 
 @dataclass
 class _Repository:
@@ -154,6 +156,31 @@ def _no_history(_selector: OwnerQueueSelector) -> list[str]:
     """Keep queue selection independent of the test repository history."""
 
     return []
+
+
+def test_history_owners_ignores_generated_index_directories(tmp_path: Path) -> None:
+    """Static-site roots cannot become owner-discovery candidates."""
+
+    index = tmp_path / "index"
+    create_repository(index)
+    site = index / ".bkg-site" / "candidate" / "index.html"
+    site.parent.mkdir(parents=True)
+    site.write_text("site shell\n", encoding="utf-8")
+    git(index, "add", "-A")
+    git(index, "commit", "-qm", "publish site shell")
+    selector = OwnerQueueSelector(
+        rest_first="0",
+        request_limit=1,
+        current_owner="",
+        paths=OwnerQueuePaths(
+            tmp_path / "connections",
+            tmp_path / "owners.txt",
+            index,
+            tmp_path / "state",
+        ),
+    )
+
+    assert selector.history_owners() == ["alpha", "beta"]
 
 
 def test_queue_selection_reserves_capacity_for_discovery_before_stale_backlog(

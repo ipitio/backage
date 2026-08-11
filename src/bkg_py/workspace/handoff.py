@@ -180,75 +180,90 @@ class WorkflowHandoffControl:
             )
             return None
 
-    def request(self) -> None:  # noqa: C901
+    def request(self) -> None:
         """Advance the control ref with bounded compare-and-swap retries."""
 
         ref = self.settings.validated_ref()
         for attempt in range(1, _REQUEST_ATTEMPTS + 1):
-            try:
-                remote_sha = self.repository.remote_ref_sha(
-                    ref,
-                    timeout=self.settings.git_timeout_seconds,
-                )
-            except WorkspaceError as error:
-                raise WorkspaceError("Failed to read workflow handoff ref") from error
-
-            if remote_sha is None:
-                candidate = self._create_commit()
-                if self.repository.push_ref(candidate, ref):
-                    self._report_requested()
-                    return
-                self._report_race(attempt)
-                continue
-
-            try:
-                base = self.repository.fetch_ref(
-                    ref,
-                    timeout=self.settings.git_timeout_seconds,
-                )
-            except WorkspaceError:
-                self._report_race(attempt)
-                continue
-
-            if self._tip_is_isolated(base):
-                candidate = self._create_commit(parent=base)
-                if self.repository.push_ref(candidate, ref):
-                    self._report_requested()
-                    return
-                self._report_race(attempt)
-                continue
-
-            candidate = self._create_commit()
-            if self.repository.push_ref(
-                candidate,
-                ref,
-                force_with_lease=remote_sha,
-            ):
-                self.progress("Migrated workflow handoff ref to isolated history")
-                self._report_requested()
-                return
-
-            current_sha = self.repository.remote_ref_sha(
-                ref,
-                timeout=self.settings.git_timeout_seconds,
-            )
-            if current_sha != remote_sha:
-                self._report_race(attempt)
-                continue
-
-            candidate = self._create_commit(parent=base, isolated=False)
-            if self.repository.push_ref(candidate, ref):
-                self.diagnostic(
-                    "Workflow handoff ref could not be isolated; "
-                    "preserving its existing history"
-                )
-                self._report_requested()
+            if self._request_once(ref):
                 return
             self._report_race(attempt)
 
         raise WorkspaceError(
             f"Failed to request workflow handoff after {_REQUEST_ATTEMPTS} attempts"
         )
+
+    def _request_once(self, ref: str) -> bool:
+        try:
+            remote_sha = self.repository.remote_ref_sha(
+                ref,
+                timeout=self.settings.git_timeout_seconds,
+            )
+        except WorkspaceError as error:
+            raise WorkspaceError("Failed to read workflow handoff ref") from error
+
+        if remote_sha is None:
+            return self._push_isolated_request(ref, previous_sha=None)
+
+        try:
+            base = self.repository.fetch_ref(
+                ref,
+                timeout=self.settings.git_timeout_seconds,
+            )
+        except WorkspaceError:
+            return False
+
+        if self._tip_is_isolated(base):
+            return self._push_isolated_request(
+                ref,
+                previous_sha=remote_sha,
+                parent=base,
+            )
+        return self._migrate_legacy_request(ref, remote_sha, base)
+
+    def _push_isolated_request(
+        self,
+        ref: str,
+        *,
+        previous_sha: str | None,
+        parent: str | None = None,
+        migrate: bool = False,
+    ) -> bool:
+        candidate = self._create_commit(parent=parent)
+        force_with_lease = previous_sha if migrate else None
+        if self.repository.push_ref(
+            candidate,
+            ref,
+            force_with_lease=force_with_lease,
+        ):
+            if migrate:
+                self.progress("Migrated workflow handoff ref to isolated history")
+            self._report_requested()
+            return True
+        return self._request_completed_concurrently(ref, previous_sha)
+
+    def _migrate_legacy_request(
+        self,
+        ref: str,
+        remote_sha: str,
+        base: str,
+    ) -> bool:
+        if self._push_isolated_request(
+            ref,
+            previous_sha=remote_sha,
+            migrate=True,
+        ):
+            return True
+
+        candidate = self._create_commit(parent=base, isolated=False)
+        if self.repository.push_ref(candidate, ref):
+            self.diagnostic(
+                "Workflow handoff ref could not be isolated; "
+                "preserving its existing history"
+            )
+            self._report_requested()
+            return True
+        return self._request_completed_concurrently(ref, remote_sha)
 
     @contextmanager
     def monitor(
@@ -333,6 +348,23 @@ class WorkflowHandoffControl:
 
     def _report_requested(self) -> None:
         self.progress("Requested graceful handoff from the active update")
+
+    def _request_completed_concurrently(
+        self,
+        ref: str,
+        previous_sha: str | None,
+    ) -> bool:
+        try:
+            current_sha = self.repository.remote_ref_sha(
+                ref,
+                timeout=self.settings.git_timeout_seconds,
+            )
+        except WorkspaceError:
+            return False
+        if current_sha == previous_sha:
+            return False
+        self.progress("Graceful handoff was already requested concurrently")
+        return True
 
     def _report_race(self, attempt: int) -> None:
         self.diagnostic(

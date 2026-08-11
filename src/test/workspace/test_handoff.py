@@ -110,6 +110,38 @@ def test_handoff_request_migrates_legacy_history(tmp_path: Path) -> None:
     ]
 
 
+def test_handoff_request_accepts_a_concurrent_advance(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Another request advancing the ref satisfies the same stop objective."""
+
+    _seed, writer, signaler = _handoff_repositories(tmp_path)
+    _control(writer).request()
+    messages: list[str] = []
+    control = _control(signaler, progress=messages.append)
+    baseline = control.current_baseline()
+
+    def lose_push_race(
+        _commit: str,
+        _ref: str,
+        *,
+        remote: str = "origin",
+        force_with_lease: str | None = None,
+    ) -> bool:
+        assert remote == "origin"
+        assert force_with_lease is None
+        _control(writer).request()
+        return False
+
+    monkeypatch.setattr(control.repository, "push_ref", lose_push_race)
+
+    control.request()
+
+    assert control.current_baseline() != baseline
+    assert messages == ["Graceful handoff was already requested concurrently"]
+
+
 def test_handoff_request_preserves_protected_legacy_history(
     tmp_path: Path,
 ) -> None:

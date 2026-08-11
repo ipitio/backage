@@ -2,9 +2,16 @@ index/
 index.db*
 *.db*
 __pycache__/
+.pytest_cache/
+.ruff_cache/
+.coverage*
+htmlcov/
 .venv/
 *.egg-info/
 build/
 dist/
 node_modules/
 .astro/
+.bkg/
+.snapshot/
+src/env.env

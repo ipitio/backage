@@ -87,7 +87,10 @@ def test_startup_prepares_state_plan_cache_and_optouts(tmp_path: Path) -> None:
     cache = OwnerIdentityCache(tmp_path / "owner-id-cache.txt")
     cache.path.write_text("1/stale\n", encoding="utf-8")
     optouts = tmp_path / "optout.txt"
-    optouts.write_text('"Alpha"\nAlpha\nenterprise\nBeta\n', encoding="utf-8")
+    optouts.write_text(
+        '"Alpha"\nAlpha\nenterprise\nBeta\nOwner/repo/package\n',
+        encoding="utf-8",
+    )
     progress: list[str] = []
 
     result = _service(database_path, state, cache, progress).prepare(
@@ -106,10 +109,10 @@ def test_startup_prepares_state_plan_cache_and_optouts(tmp_path: Path) -> None:
     assert result.package_plan.completed == 1
     assert result.package_plan.pending == 1
     assert result.database_size == database_path.stat().st_size
-    assert result.opted_out == 2
+    assert result.opted_out == 3
     assert result.fast_out
     assert cache.path.read_text(encoding="utf-8") == ""
-    assert optouts.read_text(encoding="utf-8") == "Alpha\nBeta\n"
+    assert optouts.read_text(encoding="utf-8") == "Alpha\nBeta\nOwner/repo/package\n"
     assert state.get("BKG_SCRIPT_START") == "1000"
     assert state.get("BKG_PACKAGE_PROGRESS_MARKER") == state.get("BKG_BATCH_MARKER")
     assert (tmp_path / "plan" / "packages_to_update").is_file()

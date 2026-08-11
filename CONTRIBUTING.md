@@ -29,30 +29,30 @@ upgrade remains an explicit, tested change.
 
 ## Python Layout
 
-`src/`bkg`_py` is an intentional src-layout import package. Keep importable code
+`src/bkg_py` is an intentional src-layout import package. Keep importable code
 inside that package rather than moving modules directly under `src`; the extra
 directory prevents the repository root and non-package files from being
-imported accidentally. The ``bkg`_py` namespace remains an internal
-implementation name behind the installed ``bkg`` command, so renaming it would
+imported accidentally. The `bkg_py` namespace remains an internal
+implementation name behind the installed `bkg` command, so renaming it would
 add compatibility churn without changing the service architecture.
 
 The Python package is organized around three cooperating application domains:
 
-- ``bkg`_py.database` owns the public SQLite repository, settings, persisted
+- `bkg_py.database` owns the public SQLite repository, settings, persisted
   values, lazy schema work, package plans, owner scans, and version-stage
   writes. Other domains import repository behavior and shared values from
-  ``bkg`_py.database`; its internal transaction modules are not cross-domain
+  `bkg_py.database`; its internal transaction modules are not cross-domain
   APIs.
-- ``bkg`_py.owners` owns owner queue selection, page admission, package refresh,
+- `bkg_py.owners` owns owner queue selection, page admission, package refresh,
   scan verification, publication, lifecycle composition, and concurrent owner
   batches. Its package root exposes only the operations needed by discovery
   and the outer run coordinator.
-- ``bkg`_py.run` owns top-level phase ordering and application coordination.
+- `bkg_py.run` owns top-level phase ordering and application coordination.
 
-Root modules retain the composition and infrastructure boundaries shared by
-those domains: `application`, `cli`, `commands`, `config`, `discovery`,
-`github`, `publication`, `rendering`, `runtime`, `snapshots`, `state`, and the
-package/version update modules.
+Root modules currently retain composition, shared infrastructure, and the
+not-yet-packaged discovery, package/version, and publication clusters. Prefer
+an existing domain for new code; the closeout audit owns moving each stable
+cluster as one reviewable change instead of growing the package root further.
 
 `cli` and `commands` expose only the supported operational boundary:
 `workflow-update`, `run`, `handoff`, `release-tag`, `validate`, and diagnostic
@@ -189,12 +189,12 @@ Rebuild the image to run the same gate from a clean locked environment:
 docker build --target test --tag bkg-test .
 ```
 
-Print per-test timings while profiling an individual shell suite:
+Print the slowest pytest durations:
 
 ```bash
 docker run --rm --user "$(id -u):$(id -g)" --volume "$PWD:/app" \
-  --workdir /app --env BKG_TEST_TIMINGS=1 \
-  bkg-test bash src/test/runtime.sh
+  --workdir /app bkg-test \
+  pytest -q --durations=30 -o cache_dir=/tmp/bkg-pytest-cache src/test
 ```
 
 Changes that retain or modify shell must also pass ShellCheck through the

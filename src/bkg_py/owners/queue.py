@@ -14,6 +14,21 @@ from ..runtime import resolve_executable
 _IGNORED_OWNER_PATH = re.compile(
     r"^(?:.*/)*(?:solutions|sponsors|enterprise|premium-support)$"
 )
+_OWNER_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9-]{0,38}")
+
+
+def _owner_name(value: str) -> str:
+    return value.split("/", maxsplit=1)[-1]
+
+
+def _owner_key(value: str) -> str:
+    return _owner_name(value).casefold()
+
+
+def _is_owner_reference(value: str) -> bool:
+    if not value or value.startswith("null/"):
+        return False
+    return _OWNER_PATTERN.fullmatch(_owner_name(value)) is not None
 
 
 def _read_lines(path: Path) -> list[str]:
@@ -72,14 +87,6 @@ def _not_matching(patterns: list[str], lines: list[str]) -> list[str]:
         return []
     pattern_set = set(patterns)
     return [line for line in lines if line not in pattern_set]
-
-
-def _owner_name(value: str) -> str:
-    return value.split("/", maxsplit=1)[-1]
-
-
-def _owner_key(value: str) -> str:
-    return _owner_name(value).casefold()
 
 
 def _queue_reason(
@@ -192,7 +199,11 @@ class OwnerQueueSelector:
 
         if current_result.returncode != 0 or result.returncode != 0:
             return []
-        current_owners = set(current_result.stdout.splitlines())
+        current_owners = {
+            owner
+            for owner in normalize_owner_lines(current_result.stdout.splitlines())
+            if _is_owner_reference(owner)
+        }
         latest_timestamps: dict[str, int] = {}
         timestamp: int | None = None
         for line in result.stdout.splitlines():
@@ -240,6 +251,8 @@ class OwnerQueueSelector:
         batch: list[tuple[str, str]] = []
         batch_keys: set[str] = set()
         for candidate in plan.candidates:
+            if not _is_owner_reference(candidate):
+                continue
             owner_key = _owner_key(candidate)
             if owner_key in batch_keys or (
                 owner_key in plan.deferred and owner_key not in plan.requested_manual

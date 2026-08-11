@@ -17,7 +17,7 @@ FROM node-base AS site-build
 ENV ASTRO_TELEMETRY_DISABLED=1
 WORKDIR /site
 COPY site/package.json site/package-lock.json ./
-RUN npm ci
+RUN npm ci --strict-allow-scripts
 COPY site/ ./
 RUN npm run check && npm run build
 
@@ -36,7 +36,7 @@ RUN apt-get update \
         zstd \
     && rm -rf /var/lib/apt/lists/*
 ENV PATH="/opt/bkg-test/bin:${PATH}"
-ENV PYRIGHT_PYTHON_CACHE_DIR=/opt/pyright-cache
+ENV PYRIGHT_PYTHON_CACHE_DIR=/tmp/bkg-pyright-cache
 ENV RUFF_CACHE_DIR=/tmp/bkg-ruff-cache
 ENV UV_CACHE_DIR=/tmp/bkg-uv-cache
 ENV UV_PROJECT_ENVIRONMENT=/opt/bkg-test
@@ -46,7 +46,12 @@ COPY --from=site-build /site/node_modules /opt/bkg-site-dev/node_modules
 COPY --from=site-build /site/package.json /site/package-lock.json /opt/bkg-site-dev/
 COPY --from=site-build /site/dist /opt/bkg-test/share/backage/site
 COPY . .
-RUN bash src/test/regression.sh
+RUN bash src/test/regression.sh \
+    && rm -rf \
+        /tmp/bkg-pyright-cache \
+        /tmp/bkg-pytest-cache \
+        /tmp/bkg-ruff-cache \
+        /tmp/bkg-uv-cache
 
 FROM python-base AS build
 

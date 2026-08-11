@@ -39,6 +39,7 @@ fi
 
 dockerfile="$repo_dir/Dockerfile"
 build_workflow="$repo_dir/.github/workflows/publish.yml"
+manual_workflow="$repo_dir/.github/workflows/manual.yml"
 grep -Fq "FROM python-base AS test" "$dockerfile" || {
     echo "Dockerfile does not define the production-based test target" >&2
     exit 1
@@ -58,6 +59,10 @@ grep -Fq "ARG NODE_VERSION=24" "$dockerfile" || {
 grep -Fq 'packageManager": "npm@11.17.0"' \
     "$repo_dir/site/package.json" || {
     echo "Site project does not pin the supported npm release" >&2
+    exit 1
+}
+grep -Fq "RUN npm ci --strict-allow-scripts" "$dockerfile" || {
+    echo "Docker site stage does not enforce its install-script allowlist" >&2
     exit 1
 }
 grep -Fq "RUN npm run check && npm run build" "$dockerfile" || {
@@ -138,6 +143,14 @@ for workflow in manual update; do
         echo "$workflow workflow does not opt in to Docker size inspection" >&2
         exit 1
     }
+    grep -Fq "docker run --rm \\" "$workflow_file" || {
+        echo "$workflow workflow does not remove its update container" >&2
+        exit 1
+    }
+    if grep -Fq -- '--env-file <(' "$workflow_file"; then
+        echo "$workflow workflow still forwards a broad environment prefix" >&2
+        exit 1
+    fi
     grep -Fq "ghcr.io/\$GITHUB_OWNER/\$GITHUB_REPO:master" "$workflow_file" || {
         echo "$workflow workflow does not run its repository-owned image" >&2
         exit 1
@@ -147,6 +160,19 @@ for workflow in manual update; do
         exit 1
     }
 done
+
+if grep -Fq 'pull_request:' "$manual_workflow"; then
+    echo "Manual workflow still runs after unrelated pull requests close" >&2
+    exit 1
+fi
+grep -Fq 'branches:' "$manual_workflow" || {
+    echo "Manual workflow does not limit completed builds to a source branch" >&2
+    exit 1
+}
+grep -Fq '      - master' "$manual_workflow" || {
+    echo "Manual workflow can run for a build that did not publish the master image" >&2
+    exit 1
+}
 
 if grep -R -Fq 'PYTHONPATH=src python -m bkg_py release-tag' \
     "$repo_dir/.github/workflows"; then
@@ -214,5 +240,9 @@ grep -Fq 'Edit this template, not README.md.' \
     echo "README template does not identify itself as the generated source" >&2
     exit 1
 }
+if grep -Fq '/pkgs/container/backage' "$repo_dir/src/templates/.README.md"; then
+    echo "README template hard-codes Main's container package name" >&2
+    exit 1
+fi
 
 echo "Workflow regression tests passed"
