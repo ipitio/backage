@@ -3,11 +3,16 @@
   "entrypoint": ".bkg-site/candidate/index.html",
   "files": [
     {
-      "bytes": 6102,
+      "bytes": 16582,
+      "path": ".bkg-site/candidate/_astro/index.astro_astro_type_script_index_0_lang.Da25Qhca.js",
+      "sha256": "024031e3abbec63b88386d0257956d28a79711d8b2fd321960d20b84c3a8613b"
+    },
+    {
+      "bytes": 14261,
       "path": ".bkg-site/candidate/index.html",
-      "sha256": "7e8371abc6029330b2a01d3fcd8129e256bd48a0013329345c944781ee190b75"
+      "sha256": "1c1b330e57384ccfbd85d984fd07b13602b01854da2042d11dd90d1e9a05b94a"
     }
   ],
   "schema_version": 1,
-  "site_shell_version": 1
+  "site_shell_version": 2
 }
