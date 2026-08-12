@@ -11,10 +11,13 @@
   "scripts": {
     "build": "astro build && node scripts/package-shell.ts",
     "check": "astro check",
-    "dev": "astro dev"
+    "dev": "astro dev",
+    "test": "node --test src/lib/*.test.ts",
+    "test:browser": "playwright test"
   },
   "devDependencies": {
     "@astrojs/check": "0.9.10",
+    "@playwright/test": "1.62.1",
     "@types/node": "24.13.3",
     "astro": "7.2.0",
     "typescript": "6.0.3"

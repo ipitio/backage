@@ -230,13 +230,8 @@ def _validated_history_sample(
     if sample is None or frozenset(sample) != _HISTORY_SAMPLE_FIELDS:
         return None
     sample_date = sample.get("date")
-    if not isinstance(sample_date, str):
-        return None
-    try:
-        parsed_date = date.fromisoformat(sample_date)
-    except ValueError:
-        return None
-    if parsed_date > current_date:
+    parsed_date = _history_date(sample_date)
+    if parsed_date is None or parsed_date > current_date:
         return None
     for field in _HISTORY_SAMPLE_FIELDS - {"date"}:
         field_value = sample.get(field)
@@ -246,7 +241,24 @@ def _validated_history_sample(
             or field_value < 0
         ):
             return None
+    packages = cast(int, sample["packages"])
+    if (
+        cast(int, sample["owners"]) > cast(int, sample["repositories"])
+        or cast(int, sample["repositories"]) > packages
+        or cast(int, sample["size_known_packages"]) > packages
+        or cast(int, sample["downloads_known_packages"]) > packages
+    ):
+        return None
     return dict(sample)
+
+
+def _history_date(value: object) -> date | None:
+    if not isinstance(value, str):
+        return None
+    try:
+        return date.fromisoformat(value)
+    except ValueError:
+        return None
 
 
 def _object_mapping(value: object) -> dict[str, object] | None:

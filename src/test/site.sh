@@ -46,6 +46,7 @@ ln -s "$dependency_dir/node_modules" "$workspace/node_modules"
 
 export ASTRO_TELEMETRY_DISABLED=1
 cd "$workspace"
+npm test
 npm run check
 npm run build
 

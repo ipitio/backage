@@ -25,6 +25,7 @@ from .files import atomic_binary_output, atomic_text_output
 from .publication import publish_json_file
 from .release import release_tag as release_tag_for_date
 from .site_shell import (
+    GitHubRepositoryIdentity,
     SiteShellError,
     default_site_shell_directory,
     publish_site_shell,
@@ -144,7 +145,11 @@ class RunPublicationService:  # pylint: disable=too-few-public-methods
             self.check_stop,
         )
         self._publish_dashboard(index_directory, request.today, inventory)
-        self._publish_site_shell(index_directory, request.paths.site_shell_directory)
+        self._publish_site_shell(
+            index_directory,
+            request.paths.site_shell_directory,
+            request.identity,
+        )
 
         _prune_transient_state(self.state)
         for name in _INTERMEDIATE_FILES:
@@ -209,12 +214,17 @@ class RunPublicationService:  # pylint: disable=too-few-public-methods
         self,
         index_directory: Path,
         site_shell_directory: Path,
+        identity: RunPublicationIdentity,
     ) -> None:
         try:
             result = publish_site_shell(
                 site_shell_directory,
                 index_directory,
                 dashboard_schema_version=DASHBOARD_SCHEMA_VERSION,
+                repository=GitHubRepositoryIdentity(
+                    identity.github_owner,
+                    identity.github_repo,
+                ),
                 check_stop=self.check_stop,
             )
         except (OSError, SiteShellError) as error:

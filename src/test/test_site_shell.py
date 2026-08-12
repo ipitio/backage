@@ -10,9 +10,15 @@ import pytest
 
 from bkg_py.site_shell import (
     SITE_MANIFEST_FILE,
+    SITE_SHELL_VERSION,
+    GitHubRepositoryIdentity,
     SiteShellError,
     publish_site_shell,
 )
+
+_LATEST_RELEASE_TOKEN = b"__BKG_LATEST_RELEASE_URL__"
+_LATEST_RELEASE_URL = b"https://github.com/example/backage/releases/latest"
+_REPOSITORY = GitHubRepositoryIdentity("example", "backage")
 
 
 def _write_shell(
@@ -21,6 +27,7 @@ def _write_shell(
     *,
     dashboard_schema_version: int = 1,
     entrypoint: str = ".bkg-site/candidate/index.html",
+    site_shell_version: int = SITE_SHELL_VERSION,
 ) -> bytes:
     entries: list[dict[str, object]] = []
     for path, content in sorted(files.items()):
@@ -41,7 +48,7 @@ def _write_shell(
                 "entrypoint": entrypoint,
                 "files": entries,
                 "schema_version": 1,
-                "site_shell_version": 1,
+                "site_shell_version": site_shell_version,
             },
             indent=2,
         )
@@ -66,17 +73,20 @@ def test_site_shell_publishes_verified_files_and_prunes_only_prior_ownership(
             ".bkg-site/candidate/index.html": prior_index,
             ".bkg-site/old.css": b"old css\n",
         },
+        site_shell_version=1,
     )
     package = destination / "owner/repository/package.json"
     package.parent.mkdir(parents=True)
     package.write_bytes(b"package data\n")
     unmanaged = destination / ".bkg-site/unmanaged.txt"
     unmanaged.write_bytes(b"unmanaged\n")
-    expected_manifest = _write_shell(
+    _write_shell(
         source,
         {
             ".bkg-site/assets/app.css": b"new css\n",
-            ".bkg-site/candidate/index.html": b"new candidate\n",
+            ".bkg-site/candidate/index.html": (
+                b"new candidate " + _LATEST_RELEASE_TOKEN + b"\n"
+            ),
         },
     )
 
@@ -84,18 +94,29 @@ def test_site_shell_publishes_verified_files_and_prunes_only_prior_ownership(
         source,
         destination,
         dashboard_schema_version=1,
+        repository=_REPOSITORY,
         check_stop=lambda: None,
     )
 
     assert result.files == 2
     assert result.removed_files == 1
     assert result.entrypoint == ".bkg-site/candidate/index.html"
-    assert (destination / result.entrypoint).read_bytes() == b"new candidate\n"
+    assert (destination / result.entrypoint).read_bytes() == (
+        b"new candidate " + _LATEST_RELEASE_URL + b"\n"
+    )
     assert (destination / ".bkg-site/assets/app.css").read_bytes() == b"new css\n"
     assert not (destination / ".bkg-site/old.css").exists()
     assert package.read_bytes() == b"package data\n"
     assert unmanaged.read_bytes() == b"unmanaged\n"
-    assert (destination / SITE_MANIFEST_FILE).read_bytes() == expected_manifest
+    manifest = json.loads(
+        (destination / SITE_MANIFEST_FILE).read_text(encoding="utf-8")
+    )
+    published_entrypoint = (destination / result.entrypoint).read_bytes()
+    entry = next(
+        item for item in manifest["files"] if item["path"] == result.entrypoint
+    )
+    assert entry["bytes"] == len(published_entrypoint)
+    assert entry["sha256"] == hashlib.sha256(published_entrypoint).hexdigest()
 
 
 @pytest.mark.parametrize("path", ["../README.md", "owner/repository/package.json"])
@@ -119,7 +140,7 @@ def test_site_shell_rejects_paths_outside_its_namespace(
             }
         ],
         "schema_version": 1,
-        "site_shell_version": 1,
+        "site_shell_version": SITE_SHELL_VERSION,
     }
     (source / SITE_MANIFEST_FILE).write_text(json.dumps(manifest), encoding="utf-8")
 
@@ -128,6 +149,7 @@ def test_site_shell_rejects_paths_outside_its_namespace(
             source,
             tmp_path / "index",
             dashboard_schema_version=1,
+            repository=_REPOSITORY,
             check_stop=lambda: None,
         )
 
@@ -140,7 +162,7 @@ def test_site_shell_verifies_all_content_before_replacing_entrypoint(
     source = tmp_path / "source"
     destination = tmp_path / "index"
     entrypoint = ".bkg-site/candidate/index.html"
-    _write_shell(source, {entrypoint: b"new candidate\n"})
+    _write_shell(source, {entrypoint: b"new " + _LATEST_RELEASE_TOKEN + b"\n"})
     (source / entrypoint).write_bytes(b"corrupt\n")
     prior_manifest = _write_shell(destination, {entrypoint: b"prior candidate\n"})
 
@@ -149,6 +171,7 @@ def test_site_shell_verifies_all_content_before_replacing_entrypoint(
             source,
             destination,
             dashboard_schema_version=1,
+            repository=_REPOSITORY,
             check_stop=lambda: None,
         )
 
@@ -162,7 +185,7 @@ def test_site_shell_checks_for_stop_before_writing(tmp_path: Path) -> None:
     source = tmp_path / "source"
     destination = tmp_path / "index"
     entrypoint = ".bkg-site/candidate/index.html"
-    _write_shell(source, {entrypoint: b"new candidate\n"})
+    _write_shell(source, {entrypoint: b"new " + _LATEST_RELEASE_TOKEN + b"\n"})
     prior_manifest = _write_shell(destination, {entrypoint: b"prior candidate\n"})
 
     def stop() -> None:
@@ -173,6 +196,7 @@ def test_site_shell_checks_for_stop_before_writing(tmp_path: Path) -> None:
             source,
             destination,
             dashboard_schema_version=1,
+            repository=_REPOSITORY,
             check_stop=stop,
         )
 
@@ -188,7 +212,7 @@ def test_site_shell_keeps_prior_files_when_its_manifest_is_invalid(
     source = tmp_path / "source"
     destination = tmp_path / "index"
     entrypoint = ".bkg-site/candidate/index.html"
-    _write_shell(source, {entrypoint: b"new candidate\n"})
+    _write_shell(source, {entrypoint: b"new " + _LATEST_RELEASE_TOKEN + b"\n"})
     old_entrypoint = destination / entrypoint
     old_entrypoint.parent.mkdir(parents=True)
     old_entrypoint.write_bytes(b"prior candidate\n")
@@ -199,6 +223,7 @@ def test_site_shell_keeps_prior_files_when_its_manifest_is_invalid(
             source,
             destination,
             dashboard_schema_version=1,
+            repository=_REPOSITORY,
             check_stop=lambda: None,
         )
 
@@ -215,7 +240,7 @@ def test_site_shell_rejects_symbolic_link_destination_parents(
     destination = tmp_path / "index"
     outside = tmp_path / "outside"
     entrypoint = ".bkg-site/candidate/index.html"
-    _write_shell(source, {entrypoint: b"new candidate\n"})
+    _write_shell(source, {entrypoint: b"new " + _LATEST_RELEASE_TOKEN + b"\n"})
     destination.mkdir()
     outside.mkdir()
     (destination / ".bkg-site").symlink_to(outside, target_is_directory=True)
@@ -225,6 +250,7 @@ def test_site_shell_rejects_symbolic_link_destination_parents(
             source,
             destination,
             dashboard_schema_version=1,
+            repository=_REPOSITORY,
             check_stop=lambda: None,
         )
 

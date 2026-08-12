@@ -48,7 +48,11 @@ grep -Fq "UV_PROJECT_ENVIRONMENT=/opt/bkg-test" "$dockerfile" || {
     echo "Docker test environment is hidden by a mounted checkout" >&2
     exit 1
 }
-grep -Fq "RUN bash src/test/regression.sh" "$dockerfile" || {
+grep -Fq "RUN test -f /tmp/.browser-tests-passed" "$dockerfile" || {
+    echo "Docker test target does not consume the browser-test result" >&2
+    exit 1
+}
+grep -Fq "&& bash src/test/regression.sh" "$dockerfile" || {
     echo "Docker test target does not run the canonical regression gate" >&2
     exit 1
 }
@@ -65,8 +69,36 @@ grep -Fq "RUN npm ci --strict-allow-scripts" "$dockerfile" || {
     echo "Docker site stage does not enforce its install-script allowlist" >&2
     exit 1
 }
-grep -Fq "RUN npm run check && npm run build" "$dockerfile" || {
-    echo "Docker site stage does not check and build the locked Astro source" >&2
+grep -Fq "RUN npm test && npm run check && npm run build" "$dockerfile" || {
+    echo "Docker site stage does not test, check, and build the locked Astro source" >&2
+    exit 1
+}
+grep -Fq "FROM site-dependencies AS site-browser-runtime" "$dockerfile" || {
+    echo "Dockerfile does not cache the browser runtime with site dependencies" >&2
+    exit 1
+}
+grep -Fq "playwright install --with-deps --only-shell chromium" "$dockerfile" || {
+    echo "Docker browser-test stage does not install its locked Chromium runtime" >&2
+    exit 1
+}
+grep -Fq "FROM site-browser-runtime AS site-browser-test" "$dockerfile" || {
+    echo "Dockerfile does not isolate browser tests from their runtime" >&2
+    exit 1
+}
+grep -Fq "COPY src/img/logo-b.webp ./dist/logo-b.webp" "$dockerfile" || {
+    echo "Docker browser-test stage does not include the published brand mark" >&2
+    exit 1
+}
+grep -Fq "COPY src/img/logo.ico ./dist/favicon.ico" "$dockerfile" || {
+    echo "Docker browser-test stage does not include the published favicon" >&2
+    exit 1
+}
+grep -Fq "RUN npm run test:browser && touch /site/.browser-tests-passed" "$dockerfile" || {
+    echo "Docker browser-test stage does not run the browser smoke tests" >&2
+    exit 1
+}
+grep -Fq "COPY --from=site-browser-test /site/.browser-tests-passed /tmp/" "$dockerfile" || {
+    echo "Docker test target does not require the browser-test result" >&2
     exit 1
 }
 grep -Fq "COPY --from=site-build /site/dist /opt/bkg/share/backage/site" \

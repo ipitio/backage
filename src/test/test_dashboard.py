@@ -50,13 +50,14 @@ def _projection(*, packages: int = 5) -> DashboardProjection:
 
 
 def _sample(sample_date: date, packages: int) -> dict[str, object]:
+    known_packages = min(1, packages)
     return {
         "date": sample_date.isoformat(),
-        "owners": 1,
-        "repositories": 2,
+        "owners": min(1, packages),
+        "repositories": min(2, packages),
         "packages": packages,
-        "size_known_packages": 1,
-        "downloads_known_packages": 1,
+        "size_known_packages": known_packages,
+        "downloads_known_packages": known_packages,
     }
 
 
@@ -136,6 +137,31 @@ def test_dashboard_recovers_from_invalid_prior_history(tmp_path: Path) -> None:
 
     (tmp_path / "dashboard-history.json").write_text(
         '{"schema_version":99,"samples":[]}',
+        encoding="utf-8",
+    )
+
+    result = publish_dashboard(_projection(), tmp_path, TODAY, lambda: None)
+
+    history = json.loads(
+        (tmp_path / "dashboard-history.json").read_text(encoding="utf-8")
+    )
+    assert result.history_reset
+    assert [sample["date"] for sample in history["samples"]] == [TODAY]
+
+
+def test_dashboard_recovers_from_inconsistent_prior_history(tmp_path: Path) -> None:
+    """A structurally valid but impossible sample cannot enter the new history."""
+
+    prior = _sample(date.fromisoformat(TODAY) - timedelta(days=1), 1)
+    prior["size_known_packages"] = 2
+    (tmp_path / "dashboard-history.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "retention_days": DASHBOARD_HISTORY_RETENTION_DAYS,
+                "samples": [prior],
+            }
+        ),
         encoding="utf-8",
     )
 

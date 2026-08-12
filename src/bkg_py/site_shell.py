@@ -15,13 +15,16 @@ from .files import atomic_binary_output
 
 SITE_MANIFEST_FILE = ".bkg-site-manifest.json"
 SITE_MANIFEST_SCHEMA_VERSION = 1
-SITE_SHELL_VERSION = 1
+SITE_SHELL_VERSION = 2
 SITE_CONTENT_DIRECTORY = ".bkg-site"
 _SITE_RESOURCE_PARTS = ("share", "backage", "site")
 _MAX_MANIFEST_BYTES = 1_000_000
 _MAX_SITE_FILES = 512
 _MAX_SITE_BYTES = 16_000_000
 _SHA256 = re.compile(r"[0-9a-f]{64}")
+_GITHUB_OWNER = re.compile(r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})")
+_GITHUB_REPOSITORY = re.compile(r"[A-Za-z0-9_.-]{1,100}")
+_LATEST_RELEASE_TOKEN = b"__BKG_LATEST_RELEASE_URL__"
 
 
 class SiteShellError(RuntimeError):
@@ -37,6 +40,14 @@ class SiteShellPublicationResult:
     files: int
     removed_files: int
     site_shell_version: int
+
+
+@dataclass(frozen=True)
+class GitHubRepositoryIdentity:
+    """GitHub owner and repository used to hydrate shell navigation."""
+
+    owner: str
+    repository: str
 
 
 @dataclass(frozen=True)
@@ -66,6 +77,7 @@ def publish_site_shell(
     destination_directory: Path,
     *,
     dashboard_schema_version: int,
+    repository: GitHubRepositoryIdentity,
     check_stop: Callable[[], None],
 ) -> SiteShellPublicationResult:
     """Verify one built shell and atomically publish only its declared files."""
@@ -90,6 +102,12 @@ def publish_site_shell(
             f"{manifest.dashboard_schema_version}, not {dashboard_schema_version}"
         )
     content_by_path = _verified_content(source_directory, manifest)
+    manifest, content_by_path = _hydrate_repository_links(
+        manifest,
+        content_by_path,
+        repository,
+    )
+    manifest_content = _manifest_content(manifest)
 
     destination_directory.mkdir(parents=True, exist_ok=True)
     previous = _read_previous_manifest(destination_directory)
@@ -119,6 +137,67 @@ def publish_site_shell(
         removed_files=removed_files,
         site_shell_version=manifest.site_shell_version,
     )
+
+
+def _hydrate_repository_links(
+    manifest: _SiteManifest,
+    content_by_path: dict[str, bytes],
+    repository: GitHubRepositoryIdentity,
+) -> tuple[_SiteManifest, dict[str, bytes]]:
+    if _GITHUB_OWNER.fullmatch(repository.owner) is None:
+        raise SiteShellError("GitHub owner cannot be used in the site shell")
+    if _GITHUB_REPOSITORY.fullmatch(repository.repository) is None:
+        raise SiteShellError("GitHub repository cannot be used in the site shell")
+    if repository.repository in {".", ".."}:
+        raise SiteShellError("GitHub repository cannot be used in the site shell")
+    release_url = (
+        f"https://github.com/{repository.owner}/{repository.repository}/releases/latest"
+    ).encode()
+    entrypoint = content_by_path[manifest.entrypoint]
+    if entrypoint.count(_LATEST_RELEASE_TOKEN) != 1:
+        raise SiteShellError(
+            "bundled site shell must contain one latest-release link token"
+        )
+    hydrated_content = {
+        path: content.replace(_LATEST_RELEASE_TOKEN, release_url)
+        for path, content in content_by_path.items()
+    }
+    hydrated_files = tuple(
+        _ManifestFile(
+            path=item.path,
+            bytes=len(hydrated_content[item.path]),
+            sha256=hashlib.sha256(hydrated_content[item.path]).hexdigest(),
+        )
+        for item in manifest.files
+    )
+    return (
+        _SiteManifest(
+            dashboard_schema_version=manifest.dashboard_schema_version,
+            entrypoint=manifest.entrypoint,
+            files=hydrated_files,
+            schema_version=manifest.schema_version,
+            site_shell_version=manifest.site_shell_version,
+        ),
+        hydrated_content,
+    )
+
+
+def _manifest_content(manifest: _SiteManifest) -> bytes:
+    value = {
+        "dashboard_schema_version": manifest.dashboard_schema_version,
+        "entrypoint": manifest.entrypoint,
+        "files": [
+            {
+                "bytes": item.bytes,
+                "path": item.path,
+                "sha256": item.sha256,
+            }
+            for item in manifest.files
+        ],
+        "schema_version": manifest.schema_version,
+        "site_shell_version": manifest.site_shell_version,
+    }
+    return (json.dumps(value, indent=2) + "\n").encode()
 
 
 def _read_previous_manifest(destination: Path) -> _SiteManifest | None:

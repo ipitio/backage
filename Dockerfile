@@ -12,14 +12,31 @@ FROM node:${NODE_VERSION}-bookworm-slim AS node-base
 ARG NPM_VERSION
 RUN npm install --global "npm@${NPM_VERSION}"
 
-FROM node-base AS site-build
+FROM node-base AS site-dependencies
 
-ENV ASTRO_TELEMETRY_DISABLED=1
 WORKDIR /site
 COPY site/package.json site/package-lock.json ./
 RUN npm ci --strict-allow-scripts
+
+FROM site-dependencies AS site-build
+
+ENV ASTRO_TELEMETRY_DISABLED=1
 COPY site/ ./
-RUN npm run check && npm run build
+RUN npm test && npm run check && npm run build
+
+FROM site-dependencies AS site-browser-runtime
+
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+RUN ./node_modules/.bin/playwright install --with-deps --only-shell chromium
+
+FROM site-browser-runtime AS site-browser-test
+
+COPY --from=site-build /site/dist ./dist
+COPY --from=site-build /site/playwright.config.ts ./playwright.config.ts
+COPY --from=site-build /site/tests ./tests
+COPY src/img/logo-b.webp ./dist/logo-b.webp
+COPY src/img/logo.ico ./dist/favicon.ico
+RUN npm run test:browser && touch /site/.browser-tests-passed
 
 FROM python-base AS test
 
@@ -42,11 +59,14 @@ ENV UV_CACHE_DIR=/tmp/bkg-uv-cache
 ENV UV_PROJECT_ENVIRONMENT=/opt/bkg-test
 COPY pyproject.toml uv.lock ./
 RUN uv sync --locked --quiet --no-install-project
-COPY --from=site-build /site/node_modules /opt/bkg-site-dev/node_modules
-COPY --from=site-build /site/package.json /site/package-lock.json /opt/bkg-site-dev/
+COPY --from=site-dependencies /site/node_modules /opt/bkg-site-dev/node_modules
+COPY --from=site-dependencies /site/package.json /site/package-lock.json /opt/bkg-site-dev/
 COPY --from=site-build /site/dist /opt/bkg-test/share/backage/site
+COPY --from=site-browser-test /site/.browser-tests-passed /tmp/
 COPY . .
-RUN bash src/test/regression.sh \
+RUN test -f /tmp/.browser-tests-passed \
+    && rm /tmp/.browser-tests-passed \
+    && bash src/test/regression.sh \
     && rm -rf \
         /tmp/bkg-pyright-cache \
         /tmp/bkg-pytest-cache \

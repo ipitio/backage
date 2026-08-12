@@ -3,9 +3,14 @@ import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { dirname, join, posix, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { DASHBOARD_SCHEMA_VERSION } from "../src/lib/dashboard.ts";
+
 const manifestName = ".bkg-site-manifest.json";
 const dataRootToken = "__BKG_DATA_ROOT__";
+const latestReleaseToken = "__BKG_LATEST_RELEASE_URL__";
+const astroAssetRoot = "/_astro/";
 const publishPrefix = ".bkg-site/candidate";
+const maxShellBytes = 512 * 1024;
 const sourceRoot = fileURLToPath(new URL("../build/", import.meta.url));
 const outputRoot = fileURLToPath(new URL("../dist/", import.meta.url));
 const textExtensions = new Set([".css", ".html", ".js", ".json", ".svg"]);
@@ -55,14 +60,26 @@ function dataRootFor(destination: string): string {
   return depth === 0 ? "./" : "../".repeat(depth);
 }
 
+function astroAssetRootFor(destination: string): string {
+  const parent = posix.dirname(destination);
+  const target = posix.join(publishPrefix, "_astro");
+  const path = posix.relative(parent, target);
+  return `${path || "."}/`;
+}
+
 function hydrate(content: Buffer, destination: string): Buffer {
   const extension = posix.extname(destination);
   if (!textExtensions.has(extension)) {
     return content;
   }
-  return Buffer.from(
-    content.toString("utf8").replaceAll(dataRootToken, dataRootFor(destination)),
-  );
+  const hydrated = content
+    .toString("utf8")
+    .replaceAll(dataRootToken, dataRootFor(destination))
+    .replaceAll(astroAssetRoot, astroAssetRootFor(destination));
+  if (hydrated.includes(astroAssetRoot)) {
+    throw new Error(`Astro asset root was not made relative in ${destination}`);
+  }
+  return Buffer.from(hydrated);
 }
 
 function digest(content: Buffer): string {
@@ -108,12 +125,20 @@ async function packageShell(): Promise<void> {
   if (!files.some((file) => file.path === entrypoint)) {
     throw new Error(`Site shell is missing its entrypoint: ${entrypoint}`);
   }
+  const entrypointContent = await readFile(join(outputRoot, entrypoint), "utf8");
+  if (entrypointContent.split(latestReleaseToken).length !== 2) {
+    throw new Error("Site shell must contain one latest-release link token");
+  }
+  const shellBytes = files.reduce((total, file) => total + file.bytes, 0);
+  if (shellBytes > maxShellBytes) {
+    throw new Error(`Site shell exceeds its ${maxShellBytes}-byte build budget`);
+  }
   const manifest = {
-    dashboard_schema_version: 1,
+    dashboard_schema_version: DASHBOARD_SCHEMA_VERSION,
     entrypoint,
     files: files.sort((left, right) => comparePaths(left.path, right.path)),
     schema_version: 1,
-    site_shell_version: 1,
+    site_shell_version: 2,
   };
   await writeFile(
     join(outputRoot, manifestName),

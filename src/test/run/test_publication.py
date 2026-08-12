@@ -28,6 +28,7 @@ from bkg_py.run_publication import (
     RunPublicationRequest,
     RunPublicationService,
 )
+from bkg_py.site_shell import SITE_SHELL_VERSION
 from bkg_py.state import StateStore
 
 _SITE_ENTRYPOINT = ".bkg-site/candidate/index.html"
@@ -103,7 +104,7 @@ def _write_sources(root: Path) -> None:
 
 
 def _write_site_shell(path: Path) -> None:
-    content = b"candidate shell\n"
+    content = b'candidate <a href="__BKG_LATEST_RELEASE_URL__">release</a>\n'
     entrypoint = path / _SITE_ENTRYPOINT
     entrypoint.parent.mkdir(parents=True)
     entrypoint.write_bytes(content)
@@ -120,7 +121,7 @@ def _write_site_shell(path: Path) -> None:
                     }
                 ],
                 "schema_version": 1,
-                "site_shell_version": 1,
+                "site_shell_version": SITE_SHELL_VERSION,
             }
         ),
         encoding="utf-8",
@@ -214,6 +215,10 @@ def test_run_publication_hydrates_outputs_and_prunes_transient_state(
     assert (index / "index.html").read_text(encoding="utf-8") == (
         "<title>backage</title>\n"
     )
+    assert (index / _SITE_ENTRYPOINT).read_text(encoding="utf-8") == (
+        'candidate <a href="https://github.com/example/backage/releases/latest">'
+        "release</a>\n"
+    )
 
     summary = json.loads((index / ".json").read_text(encoding="utf-8"))
     assert summary == {
@@ -238,10 +243,6 @@ def test_run_publication_hydrates_outputs_and_prunes_transient_state(
     )
     assert messages[-2].startswith("Dashboard publication telemetry: ")
     assert messages[-1].startswith("Site shell publication telemetry: ")
-    assert (index / _SITE_ENTRYPOINT).read_bytes() == b"candidate shell\n"
-    assert (index / "index.html").read_text(encoding="utf-8") == (
-        "<title>backage</title>\n"
-    )
     assert (sidecars / "keep.json").is_file()
     assert not any(path.name != "keep.json" for path in sidecars.iterdir())
     assert not any(

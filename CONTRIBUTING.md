@@ -16,6 +16,19 @@ quality environment. Its virtual environment lives at `/opt/bkg-test`, outside
 the mounted checkout, so the built image can run focused commands against live
 source without creating a host `.venv`. The same target is the Build workflow's
 pre-publication gate for Python, Debian, Git, zstd, Bash, and ShellCheck.
+It also requires the locked Chromium smoke-test stage to pass before the
+ordinary regression suite can run.
+
+Build only the browser gate while developing the static site:
+
+```bash
+docker build --target site-browser-test --tag bkg-site-browser-test .
+```
+
+The browser runtime is isolated from the production image. Its comparatively
+large Playwright system-dependency and Chromium layers depend only on the
+frontend lockfile, so ordinary source edits reuse them while still rebuilding
+the fixture server and browser tests.
 
 `.python-version` is the shared Actions and uv source for the supported Python
 3.14 feature line. Actions select its latest maintenance release, while the
