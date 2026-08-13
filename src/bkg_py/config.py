@@ -9,6 +9,9 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from types import MappingProxyType
 
+DEFAULT_GITHUB_OWNER = "ipitio"
+DEFAULT_GITHUB_REPOSITORY = "backage"
+
 
 class ConfigError(ValueError):
     """An explicitly supplied configuration value is invalid."""
@@ -164,6 +167,45 @@ def _default_parallel_jobs() -> int:
 
 
 @dataclass(frozen=True)
+class RepositoryIdentity:
+    """GitHub repository coordinates captured for one operation."""
+
+    owner: str
+    name: str
+    branch: str | None
+
+    @classmethod
+    def from_mapping(cls, values: Mapping[str, str]) -> RepositoryIdentity:
+        """Read repository coordinates from one captured mapping."""
+
+        return cls(
+            owner=read_text(values, "GITHUB_OWNER", DEFAULT_GITHUB_OWNER),
+            name=read_text(values, "GITHUB_REPO", DEFAULT_GITHUB_REPOSITORY),
+            branch=read_optional_text(values, "GITHUB_BRANCH"),
+        )
+
+
+@dataclass(frozen=True)
+class RepositoryMaintenanceSettings:
+    """Optional repository coordinates for an explicit maintenance command."""
+
+    owner: str | None
+    name: str | None
+
+    @classmethod
+    def from_mapping(
+        cls,
+        values: Mapping[str, str],
+    ) -> RepositoryMaintenanceSettings:
+        """Read maintenance coordinates without selecting a default target."""
+
+        return cls(
+            owner=read_optional_text(values, "GITHUB_OWNER"),
+            name=read_optional_text(values, "GITHUB_REPO"),
+        )
+
+
+@dataclass(frozen=True)
 class RuntimeConfig:  # pylint: disable=too-many-instance-attributes
     """Runtime settings read from the process environment."""
 
@@ -208,7 +250,8 @@ class RuntimeConfig:  # pylint: disable=too-many-instance-attributes
         """Build runtime configuration from one captured mapping."""
 
         root = Path(read_text(values, "BKG_ROOT", str(_repo_root()))).resolve()
-        branch = read_optional_text(values, "GITHUB_BRANCH")
+        repository = RepositoryIdentity.from_mapping(values)
+        branch = repository.branch
         index_name = read_optional_text(values, "BKG_INDEX")
         if index_name is None and branch:
             index_name = "index" if branch == "master" else f"index-{branch}"
@@ -224,8 +267,8 @@ class RuntimeConfig:  # pylint: disable=too-many-instance-attributes
         env_file = read_text(values, "BKG_ENV", str(root / "src" / "env.env"))
 
         return cls(
-            github_owner=read_text(values, "GITHUB_OWNER", "ipitio"),
-            github_repo=read_text(values, "GITHUB_REPO", "backage"),
+            github_owner=repository.owner,
+            github_repo=repository.name,
             github_branch=branch,
             root=str(root),
             env_file=env_file,

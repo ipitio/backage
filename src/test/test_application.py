@@ -15,6 +15,8 @@ from bkg_py.database import DatabaseError
 from bkg_py.result import ExitStatus
 from bkg_py.workspace import update as workspace_update
 
+_ENVIRONMENT_CREDENTIAL_SOURCE = "environment"
+
 
 def test_context_constructs_services_lazily_and_reuses_them(
     tmp_path: Path,
@@ -265,6 +267,11 @@ def test_config_cli_remains_independent_of_runtime_services(
     assert output["database"]["path"] is None
     assert output["aggregate"]["target_bytes"] == 35_000_000
     assert output["publication"]["maximum_bytes"] == 50_000_000
+    assert output["workspace"]["repository"]["owner"] == "ipitio"
+    assert output["workspace"]["git_identity"]["name"] == "ipitio"
+    assert output["workspace"]["handoff"]["run_id"] == "manual"
+    assert output["workspace"]["token_configured"] is True
+    assert output["workspace"]["token_source"] == _ENVIRONMENT_CREDENTIAL_SOURCE
     assert "must-not-appear" not in captured.out
     assert not Path(output["env_file"]).exists()
 

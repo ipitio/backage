@@ -58,11 +58,18 @@ def test_handoff_request_creates_and_advances_isolated_history(
 
     _seed, writer, signaler = _handoff_repositories(tmp_path)
     messages: list[str] = []
-    monkeypatch.setenv("GITHUB_ACTOR", "test")
-    monkeypatch.setenv("GITHUB_RUN_ID", "123")
+    settings = HandoffSettings.from_mapping(
+        {
+            "GITHUB_ACTOR": "test",
+            "GITHUB_RUN_ID": "123",
+            "BKG_HANDOFF_CONTROL_REF": _CONTROL_REF,
+        }
+    )
+    monkeypatch.setenv("GITHUB_ACTOR", "changed-after-capture")
+    monkeypatch.setenv("GITHUB_RUN_ID", "999")
     control = WorkflowHandoffControl(
         signaler,
-        HandoffSettings(_CONTROL_REF),
+        settings,
         progress=messages.append,
     )
 
@@ -78,6 +85,12 @@ def test_handoff_request_creates_and_advances_isolated_history(
         empty_tree
     )
     assert _MARKER in git(signaler, "show", "-s", "--format=%B", first).stdout
+    assert git(signaler, "show", "-s", "--format=%s", first).stdout.strip() == (
+        "Request workflow handoff (123)"
+    )
+    assert git(signaler, "show", "-s", "--format=%an <%ae>", first).stdout.strip() == (
+        "test <test@users.noreply.github.com>"
+    )
 
     control.request()
     second = _control(writer).current_baseline()

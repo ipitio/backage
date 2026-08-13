@@ -2,12 +2,21 @@
 
 from __future__ import annotations
 
+import secrets
 from pathlib import Path
 
 import pytest
 
 from bkg_py.application import ApplicationSettings
-from bkg_py.config import ConfigError, RuntimeConfig, SettingsSnapshot
+from bkg_py.config import (
+    ConfigError,
+    RepositoryMaintenanceSettings,
+    RuntimeConfig,
+    SettingsSnapshot,
+)
+from bkg_py.workspace.settings import WorkspaceSettings
+
+TEST_GITHUB_TOKEN = secrets.token_urlsafe(12)
 
 
 def test_runtime_config_discovers_checkout_from_working_directory(
@@ -68,6 +77,14 @@ def test_settings_snapshot_copies_its_source(tmp_path: Path) -> None:
     values["BKG_MAX_LEN"] = "99"
 
     assert RuntimeConfig.from_mapping(snapshot).max_len == 17
+
+
+def test_repository_maintenance_does_not_infer_a_default_target() -> None:
+    """Argument-free maintenance cannot silently select the Main repository."""
+
+    assert RepositoryMaintenanceSettings.from_mapping({}) == (
+        RepositoryMaintenanceSettings(owner=None, name=None)
+    )
 
 
 @pytest.mark.parametrize("value", ["0", "-1"])
@@ -138,3 +155,52 @@ def test_application_settings_reject_invalid_explicit_values(
                 **overrides,
             }
         )
+
+
+@pytest.mark.parametrize(
+    ("name", "value", "message"),
+    [
+        (
+            "BKG_HANDOFF_POLL_SECONDS",
+            "0",
+            "BKG_HANDOFF_POLL_SECONDS must be greater than 0",
+        ),
+        (
+            "BKG_HANDOFF_GIT_TIMEOUT_SECONDS",
+            "invalid",
+            "BKG_HANDOFF_GIT_TIMEOUT_SECONDS must be a number",
+        ),
+    ],
+)
+def test_workspace_settings_reject_invalid_handoff_values(
+    name: str,
+    value: str,
+    message: str,
+) -> None:
+    """Handoff controls use the same strict settings diagnostics."""
+
+    with pytest.raises(ConfigError, match=message):
+        WorkspaceSettings.from_mapping({name: value})
+
+
+def test_workspace_settings_capture_credentials_without_exposing_them() -> None:
+    """Resolved Git environments retain secrets while diagnostics redact them."""
+
+    settings = WorkspaceSettings.from_mapping(
+        {
+            "GITHUB_OWNER": "example",
+            "GITHUB_REPO": "packages",
+            "GITHUB_BRANCH": "development",
+            "GITHUB_ACTOR": "builder",
+            "GITHUB_TOKEN": TEST_GITHUB_TOKEN,
+            "GH_TOKEN": "gh-secret",
+            "GITHUB_RUN_ID": "123",
+            "BKG_HANDOFF_CONTROL_REF": "refs/heads/bkg-control",
+        }
+    )
+
+    assert settings.resolved_mapping()["GITHUB_TOKEN"] == TEST_GITHUB_TOKEN
+    assert settings.handoff.identity is settings.identity
+    assert settings.handoff.run_id == "123"
+    assert settings.redacted_values() == (TEST_GITHUB_TOKEN, "gh-secret")
+    assert TEST_GITHUB_TOKEN not in str(settings.as_dict())

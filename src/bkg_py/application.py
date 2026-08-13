@@ -118,7 +118,18 @@ class ApplicationContext:
     def from_env(cls) -> ApplicationContext:
         """Build the application context from the shell-compatible environment."""
 
-        settings = ApplicationSettings.from_env()
+        return cls.from_settings(ApplicationSettings.from_env())
+
+    @classmethod
+    def from_mapping(cls, values: Mapping[str, str]) -> ApplicationContext:
+        """Build the application context from one supplied settings mapping."""
+
+        return cls.from_settings(ApplicationSettings.from_mapping(values))
+
+    @classmethod
+    def from_settings(cls, settings: ApplicationSettings) -> ApplicationContext:
+        """Build the application context from composed immutable settings."""
+
         config = settings.runtime
         state = StateStore(Path(config.env_file))
         return cls(

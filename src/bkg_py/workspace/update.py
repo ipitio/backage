@@ -2,18 +2,17 @@
 
 from __future__ import annotations
 
-import os
 import shutil
 import subprocess
 import time
-from collections.abc import Callable, Generator
-from contextlib import contextmanager
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
 from ..application import ApplicationContext
+from ..config import DEFAULT_GITHUB_OWNER, SettingsSnapshot
 from ..github import GitHubClient, GitHubError
 from ..result import ExitStatus
 from ..run.commands import (
@@ -24,17 +23,19 @@ from ..run.commands import (
 from ..runtime import GracefulStop, resolve_executable
 from ..snapshots import SnapshotArchive, SnapshotError
 from ..state import StateStore, StateValueError
-from .handoff import HandoffSettings, WorkflowHandoffControl
+from .handoff import WorkflowHandoffControl
 from .layout import WorkspaceLayout
 from .payload import import_workflow_payload
 from .publication import UpdateWorkspacePublisher, published_run_status
 from .repository import (
+    GitControlRefRepository,
     GitRepository,
     IndexWorkspacePreparer,
     WorkspaceError,
     clone_repository,
     ensure_pages_root,
 )
+from .settings import WorkspaceSettings
 
 MessageSink = Callable[[str], None]
 ApplicationRun = Callable[
@@ -48,23 +49,7 @@ ApplicationRun = Callable[
 ]
 _MINIMUM_SNAPSHOT_BYTES = 100
 _MINIMUM_MAIN_SNAPSHOT_BYTES = 100_000
-_MAIN_REPOSITORY_OWNER = "ipitio"
 _GH_AUTH_TIMEOUT_SECONDS = 10
-_RUNTIME_ENVIRONMENT_KEYS = (
-    "GITHUB_TOKEN",
-    "GITHUB_ACTOR",
-    "GITHUB_BRANCH",
-    "BKG_ROOT",
-    "BKG_ENV",
-    "BKG_OWNERS",
-    "BKG_OPTOUT",
-    "BKG_BRANCH",
-    "BKG_INDEX",
-    "BKG_INDEX_DB",
-    "BKG_INDEX_SQL",
-    "BKG_INDEX_DIR",
-    "BKG_IS_FIRST",
-)
 
 
 def _discard_message(_message: str) -> None:
@@ -128,11 +113,15 @@ class UpdateWorkflowService:  # pylint: disable=too-few-public-methods
     def run(self, request: UpdateWorkflowRequest) -> ExitStatus:
         """Prepare, run, validate, and publish one repository update."""
 
-        with _scoped_runtime_environment():
-            return self._run(request)
+        settings = WorkspaceSettings.from_mapping(SettingsSnapshot.from_env())
+        return self._run(request, settings)
 
-    def _run(self, request: UpdateWorkflowRequest) -> ExitStatus:
-        prepared = self._prepare_update(request)
+    def _run(
+        self,
+        request: UpdateWorkflowRequest,
+        settings: WorkspaceSettings,
+    ) -> ExitStatus:
+        prepared = self._prepare_update(request, settings)
         source_published_today = self._source_published_today(prepared.repository)
         status = self.execution.run_application(
             RunCommandOptions(
@@ -160,7 +149,7 @@ class UpdateWorkflowService:  # pylint: disable=too-few-public-methods
             )
             return publication_status
         UpdateWorkspacePublisher(
-            prepared.root,
+            prepared.repository,
             progress=self.execution.progress,
         ).publish(
             prepared.layout.index_name,
@@ -172,31 +161,34 @@ class UpdateWorkflowService:  # pylint: disable=too-few-public-methods
     def _prepare_update(
         self,
         request: UpdateWorkflowRequest,
+        settings: WorkspaceSettings,
     ) -> PreparedUpdateWorkspace:
         root = self._root_path(request)
         started_at = self.execution.clock()
-        repository = self._ensure_repository(root, request)
+        repository, settings = self._ensure_repository(root, request, settings)
         self._log_phase("ensure-root-repo", started_at)
 
         payload = request.payload_directory or request.invocation_directory / ".bkg"
         import_workflow_payload(payload.resolve(), root)
-        self._configure_credentials(repository)
 
         started_at = self.execution.clock()
-        repository.configure_for_updates(os.environ["GITHUB_ACTOR"])
+        repository.configure_for_updates(settings.identity)
         self._log_phase("configure-source-repository", started_at)
 
         handoff = WorkflowHandoffControl(
-            repository.path,
-            HandoffSettings.from_env(),
+            GitControlRefRepository(
+                repository.path,
+                environment=settings.resolved_mapping(),
+                redacted_values=settings.redacted_values(),
+            ),
+            settings.handoff,
             progress=self.execution.progress,
             diagnostic=self.execution.diagnostic,
         )
         baseline = handoff.capture_baseline()
         self._make_shared_workspace(root)
 
-        requested_branch = os.environ.get("GITHUB_BRANCH") or None
-        layout = WorkspaceLayout.discover(root, requested_branch)
+        layout = WorkspaceLayout.discover(root, settings.repository.branch)
         started_at = self.execution.clock()
         preparation = IndexWorkspacePreparer(
             repository,
@@ -206,18 +198,23 @@ class UpdateWorkflowService:  # pylint: disable=too-few-public-methods
         ensure_pages_root(layout.index_dir)
         state_file = root / "src" / "env.env"
         self._prepare_state_file(layout.index_dir / ".env", state_file)
-        self._configure_runtime_environment(layout, state_file, preparation.first_run)
         self._log_phase("prepare-index-workspace", started_at)
 
         started_at_epoch = int(time.time())
-        state = StateStore(state_file)
-        state.set_many(
+        StateStore(state_file).set_many(
             {
                 "BKG_SCRIPT_START": started_at_epoch,
                 "BKG_TIMEOUT": 0,
             }
         )
-        application = ApplicationContext.from_env()
+        application = ApplicationContext.from_mapping(
+            self._application_mapping(
+                settings,
+                layout,
+                state_file,
+                preparation.first_run,
+            )
+        )
         application.ensure_state_file()
         self._restore_initial_snapshot(application, layout)
         return PreparedUpdateWorkspace(
@@ -240,35 +237,53 @@ class UpdateWorkflowService:  # pylint: disable=too-few-public-methods
         self,
         root: Path,
         request: UpdateWorkflowRequest,
-    ) -> GitRepository:
-        repository = GitRepository(root)
+        settings: WorkspaceSettings,
+    ) -> tuple[GitRepository, WorkspaceSettings]:
+        repository = self._repository(root, settings)
         if repository.is_worktree():
-            return repository
-        branch = os.environ.get("GITHUB_BRANCH")
+            resolved = self._resolve_credentials(settings, repository.remote_url())
+            return self._repository(root, resolved), resolved
+        branch = settings.repository.branch
         if not branch:
             raise WorkspaceError("GITHUB_BRANCH is required to clone the source")
-        if not os.environ.get("GITHUB_TOKEN"):
-            token = _gh_token()
-            if token:
-                os.environ["GITHUB_TOKEN"] = token
-        owner = os.environ.get("GITHUB_OWNER", _MAIN_REPOSITORY_OWNER)
-        repo = os.environ.get("GITHUB_REPO", "backage")
-        source = request.clone_url or f"https://github.com/{owner}/{repo}.git"
-        root.parent.mkdir(parents=True, exist_ok=True)
-        return clone_repository(source, root, branch)
-
-    def _configure_credentials(self, repository: GitRepository) -> None:
-        token = os.environ.get("GITHUB_TOKEN", "")
-        if not token:
-            token = _remote_url_token(repository.remote_url())
-        if not token:
-            token = _gh_token()
-        actor = os.environ.get("GITHUB_ACTOR") or os.environ.get(
-            "GITHUB_OWNER",
-            _MAIN_REPOSITORY_OWNER,
+        identity = settings.repository
+        source = request.clone_url or (
+            f"https://github.com/{identity.owner}/{identity.name}.git"
         )
-        os.environ["GITHUB_TOKEN"] = token
-        os.environ["GITHUB_ACTOR"] = actor
+        resolved = self._resolve_credentials(settings, source)
+        root.parent.mkdir(parents=True, exist_ok=True)
+        return (
+            clone_repository(
+                source,
+                root,
+                branch,
+                environment=resolved.resolved_mapping(),
+                redacted_values=resolved.redacted_values(),
+            ),
+            resolved,
+        )
+
+    @staticmethod
+    def _repository(path: Path, settings: WorkspaceSettings) -> GitRepository:
+        return GitRepository(
+            path,
+            environment=settings.resolved_mapping(),
+            redacted_values=settings.redacted_values(),
+        )
+
+    @staticmethod
+    def _resolve_credentials(
+        settings: WorkspaceSettings,
+        remote_url: str | None = None,
+    ) -> WorkspaceSettings:
+        if settings.token:
+            return settings
+        if remote_url:
+            token = _remote_url_token(remote_url)
+            if token:
+                return settings.with_token(token, "remote-url")
+        token = _gh_token(settings.resolved_mapping())
+        return settings.with_token(token, "gh" if token else "none")
 
     def _restore_initial_snapshot(
         self,
@@ -324,9 +339,13 @@ class UpdateWorkflowService:  # pylint: disable=too-few-public-methods
     ) -> None:
         snapshot_size = _snapshot_or_database_size(archive, layout.index_db)
         owner_count = application.database.package_inventory().owners
-        index_owner_count = GitRepository(layout.index_dir).top_level_directory_count()
+        index_owner_count = GitRepository(
+            layout.index_dir,
+            environment=application.settings.source,
+            redacted_values=(application.github_settings.token,),
+        ).top_level_directory_count()
         if (
-            application.config.github_owner == _MAIN_REPOSITORY_OWNER
+            application.config.github_owner == DEFAULT_GITHUB_OWNER
             and owner_count < index_owner_count // 2
             and snapshot_size < _MINIMUM_MAIN_SNAPSHOT_BYTES
         ):
@@ -337,7 +356,7 @@ class UpdateWorkflowService:  # pylint: disable=too-few-public-methods
             raise SnapshotError("Failed to download the latest database")
 
     def _recover_unhealthy_release(self, application: ApplicationContext) -> None:
-        if application.config.github_owner != _MAIN_REPOSITORY_OWNER:
+        if application.config.github_owner != DEFAULT_GITHUB_OWNER:
             return
         try:
             with GitHubClient(application.github_settings) as client:
@@ -359,13 +378,14 @@ class UpdateWorkflowService:  # pylint: disable=too-few-public-methods
             destination.touch(exist_ok=True)
 
     @staticmethod
-    def _configure_runtime_environment(
+    def _application_mapping(
+        settings: WorkspaceSettings,
         layout: WorkspaceLayout,
         state_file: Path,
         first_run: bool,
-    ) -> None:
+    ) -> SettingsSnapshot:
         root = layout.root
-        os.environ.update(
+        return settings.resolved_mapping(
             {
                 "BKG_ROOT": str(root),
                 "BKG_ENV": str(state_file),
@@ -402,19 +422,6 @@ class UpdateWorkflowService:  # pylint: disable=too-few-public-methods
         self.execution.progress(f"Update setup phase '{phase}' completed in {elapsed}s")
 
 
-@contextmanager
-def _scoped_runtime_environment() -> Generator[None]:
-    previous = {name: os.environ.get(name) for name in _RUNTIME_ENVIRONMENT_KEYS}
-    try:
-        yield
-    finally:
-        for name, value in previous.items():
-            if value is None:
-                os.environ.pop(name, None)
-            else:
-                os.environ[name] = value
-
-
 def _remote_url_token(url: str) -> str:
     parsed = urlsplit(url)
     if parsed.password:
@@ -424,7 +431,7 @@ def _remote_url_token(url: str) -> str:
     return ""
 
 
-def _gh_token() -> str:
+def _gh_token(environment: Mapping[str, str]) -> str:
     try:
         gh = resolve_executable("gh")
     except FileNotFoundError:
@@ -434,6 +441,7 @@ def _gh_token() -> str:
             (gh, "auth", "status"),
             check=False,
             capture_output=True,
+            env=dict(environment),
             shell=False,
             text=True,
             timeout=_GH_AUTH_TIMEOUT_SECONDS,
@@ -444,6 +452,7 @@ def _gh_token() -> str:
             (gh, "auth", "token"),
             check=False,
             capture_output=True,
+            env=dict(environment),
             shell=False,
             text=True,
             timeout=_GH_AUTH_TIMEOUT_SECONDS,

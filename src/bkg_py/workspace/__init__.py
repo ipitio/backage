@@ -1,7 +1,6 @@
 """Repository workspace preparation and sparse-worktree operations."""
 
 from .handoff import (
-    HandoffSettings,
     WorkflowHandoffControl,
     scheduled_update_skip_reason,
     workflow_run_freshness,
@@ -23,9 +22,11 @@ from .repository import (
     clone_repository,
     read_index_package_catalog,
 )
+from .settings import GitIdentity, HandoffSettings, WorkspaceSettings
 
 __all__ = [
     "ForkMergeConfiguration",
+    "GitIdentity",
     "GitRepository",
     "HandoffSettings",
     "IndexPackageCatalogTree",
@@ -36,6 +37,7 @@ __all__ = [
     "WorkspaceError",
     "WorkspaceLayout",
     "WorkspacePublication",
+    "WorkspaceSettings",
     "clone_repository",
     "configure_fork_merge",
     "import_workflow_payload",

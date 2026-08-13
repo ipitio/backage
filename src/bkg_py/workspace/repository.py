@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 import re
 import shutil
 import subprocess
@@ -11,10 +10,12 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 
+from ..config import SettingsSnapshot
 from ..database import PackageCatalogPath
 from ..files import atomic_text_output
 from ..runtime import resolve_executable
 from ..site_shell import SITE_CONTENT_DIRECTORY
+from .settings import GitIdentity
 
 _SPARSE_PATH_BATCH_SIZE = 100
 _PERSISTENT_SPARSE_PATHS = (SITE_CONTENT_DIRECTORY,)
@@ -30,10 +31,10 @@ def _discard_message(_message: str) -> None:
     return
 
 
-def _redact_git_detail(detail: str) -> str:
-    token = os.environ.get("GITHUB_TOKEN", "")
-    if token:
-        detail = detail.replace(token, "***")
+def _redact_git_detail(detail: str, values: Iterable[str] = ()) -> str:
+    for value in values:
+        if value:
+            detail = detail.replace(value, "***")
     return _URL_CREDENTIALS.sub(r"\1***@", detail)
 
 
@@ -60,6 +61,9 @@ def clone_repository(
     source: str,
     destination: Path,
     branch: str,
+    *,
+    environment: Mapping[str, str] | None = None,
+    redacted_values: Iterable[str] = (),
 ) -> GitRepository:
     """Create a shallow single-branch source checkout."""
 
@@ -82,26 +86,58 @@ def clone_repository(
             ),
             check=False,
             capture_output=True,
+            env=None if environment is None else dict(environment),
             shell=False,
             text=True,
         )
     except OSError as error:
         raise WorkspaceError(f"could not start git clone: {error}") from error
     if result.returncode != 0:
-        detail = _redact_git_detail(result.stderr.strip() or result.stdout.strip())
+        detail = _redact_git_detail(
+            result.stderr.strip() or result.stdout.strip(),
+            redacted_values,
+        )
         message = f"git clone failed with status {result.returncode}"
         if detail:
             message = f"{message}: {detail}"
         raise WorkspaceError(message)
-    return GitRepository(destination)
+    return GitRepository(
+        destination,
+        environment=environment,
+        redacted_values=redacted_values,
+    )
 
 
 class _GitCommandRunner:  # pylint: disable=too-few-public-methods
     """Execute credential-safe Git commands for one worktree."""
 
-    def __init__(self, path: Path) -> None:
+    def __init__(
+        self,
+        path: Path,
+        *,
+        environment: Mapping[str, str] | None = None,
+        redacted_values: Iterable[str] = (),
+    ) -> None:
         self.path = path
         self._git = resolve_executable("git")
+        self._environment = (
+            None if environment is None else SettingsSnapshot(environment)
+        )
+        self._redacted_values = tuple(
+            dict.fromkeys(value for value in redacted_values if value)
+        )
+
+    @property
+    def command_environment(self) -> Mapping[str, str] | None:
+        """Return the captured base environment for related Git adapters."""
+
+        return self._environment
+
+    @property
+    def redacted_values(self) -> tuple[str, ...]:
+        """Return values omitted from command diagnostics."""
+
+        return self._redacted_values
 
     def _run(  # pylint: disable=too-many-arguments
         self,
@@ -113,6 +149,14 @@ class _GitCommandRunner:  # pylint: disable=too-few-public-methods
         timeout: float | None = None,
     ) -> subprocess.CompletedProcess[str]:
         try:
+            command_environment = (
+                None
+                if self._environment is None and environment is None
+                else {
+                    **(self._environment or {}),
+                    **(environment or {}),
+                }
+            )
             result = subprocess.run(  # noqa: S603
                 (
                     self._git,
@@ -124,7 +168,7 @@ class _GitCommandRunner:  # pylint: disable=too-few-public-methods
                 ),
                 check=False,
                 capture_output=True,
-                env=(None if environment is None else {**os.environ, **environment}),
+                env=command_environment,
                 input=input_text,
                 shell=False,
                 text=True,
@@ -144,7 +188,10 @@ class _GitCommandRunner:  # pylint: disable=too-few-public-methods
         arguments: Sequence[str],
         result: subprocess.CompletedProcess[str],
     ) -> None:
-        detail = _redact_git_detail(result.stderr.strip() or result.stdout.strip())
+        detail = _redact_git_detail(
+            result.stderr.strip() or result.stdout.strip(),
+            self._redacted_values,
+        )
         message = (
             f"git {arguments[0]} failed with status {result.returncode} in {self.path}"
         )
@@ -185,15 +232,15 @@ class GitRepository(_GitCommandRunner):
             return None
         return int(value)
 
-    def configure_for_updates(self, actor: str) -> None:
+    def configure_for_updates(self, identity: GitIdentity) -> None:
         """Configure commit identity, credentials, and large-worktree settings."""
 
-        if not actor:
+        if not identity.name:
             raise WorkspaceError("GITHUB_ACTOR is required for Git configuration")
         settings = (
-            ("user.name", actor),
-            ("user.email", f"{actor}@users.noreply.github.com"),
-            ("credential.username", actor),
+            ("user.name", identity.name),
+            ("user.email", identity.email),
+            ("credential.username", identity.name),
             ("core.sharedRepository", "all"),
             ("remote.origin.promisor", "true"),
             ("remote.origin.partialclonefilter", "blob:none"),
@@ -727,7 +774,11 @@ class IndexWorkspacePreparer:  # pylint: disable=too-few-public-methods
         self._log_phase("attach-index-worktree", started_at)
 
         started_at = self.clock()
-        index_repository = GitRepository(index_dir)
+        index_repository = GitRepository(
+            index_dir,
+            environment=self.repository.command_environment,
+            redacted_values=self.repository.redacted_values,
+        )
         index_repository.set_sparse_root()
         index_repository.reset_hard(f"refs/remotes/origin/{index_branch}")
         self._log_phase("prepare-index-worktree", started_at)
@@ -751,7 +802,11 @@ class IndexWorkspacePreparer:  # pylint: disable=too-few-public-methods
         self._remove_backup(backup, registered)
         if index_dir in registered:
             self.repository.move_worktree(index_dir, backup)
-            GitRepository(backup).detach()
+            GitRepository(
+                backup,
+                environment=self.repository.command_environment,
+                redacted_values=self.repository.redacted_values,
+            ).detach()
             return
         backup.parent.mkdir(parents=True, exist_ok=True)
         shutil.move(str(index_dir), str(backup))

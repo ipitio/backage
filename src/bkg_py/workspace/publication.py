@@ -32,13 +32,15 @@ class UpdateWorkspacePublisher:  # pylint: disable=too-few-public-methods
 
     def __init__(
         self,
-        root: Path,
+        root: Path | GitRepository,
         *,
         progress: MessageSink | None = None,
         commit_message: str | None = None,
     ) -> None:
-        self.root = root.resolve()
-        self.repository = GitRepository(self.root)
+        self.repository = (
+            root if isinstance(root, GitRepository) else GitRepository(root)
+        )
+        self.root = self.repository.path.resolve()
         self.progress = progress or _discard_message
         self.commit_message = commit_message or datetime.now(UTC).date().isoformat()
 
@@ -63,7 +65,11 @@ class UpdateWorkspacePublisher:  # pylint: disable=too-few-public-methods
         if not state_file.is_file():
             raise WorkspaceError(f"runtime state file is missing: {state_file}")
 
-        index_repository = GitRepository(index_dir)
+        index_repository = GitRepository(
+            index_dir,
+            environment=self.repository.command_environment,
+            redacted_values=self.repository.redacted_values,
+        )
         if not index_repository.is_worktree():
             raise WorkspaceError(f"index repository is not a Git worktree: {index_dir}")
         if index_repository.current_branch() != index_branch:
@@ -72,7 +78,11 @@ class UpdateWorkspacePublisher:  # pylint: disable=too-few-public-methods
             )
 
         self._copy_state(state_file, index_dir / ".env")
-        index_committed = GitBranchPublisher(index_dir).publish(
+        index_committed = GitBranchPublisher(
+            index_dir,
+            environment=self.repository.command_environment,
+            redacted_values=self.repository.redacted_values,
+        ).publish(
             index_branch,
             self.commit_message,
         )
@@ -83,7 +93,11 @@ class UpdateWorkspacePublisher:  # pylint: disable=too-few-public-methods
         source_branch = self.repository.current_branch()
         if not source_branch:
             raise WorkspaceError("source worktree is detached during publication")
-        source_committed = GitBranchPublisher(self.root).publish(
+        source_committed = GitBranchPublisher(
+            self.root,
+            environment=self.repository.command_environment,
+            redacted_values=self.repository.redacted_values,
+        ).publish(
             source_branch,
             self.commit_message,
             pathspecs=_SOURCE_PATHS,

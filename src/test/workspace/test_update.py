@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import os
+import secrets
 import sqlite3
+from collections.abc import Iterable, Mapping
 from datetime import date
 from pathlib import Path
 
@@ -12,7 +14,8 @@ import pytest
 from bkg_py.application import ApplicationContext
 from bkg_py.result import ExitStatus
 from bkg_py.run.commands import RunCommandOptions
-from bkg_py.workspace import WorkflowHandoffControl
+from bkg_py.workspace import GitRepository, WorkflowHandoffControl
+from bkg_py.workspace import update as workspace_update
 from bkg_py.workspace.update import (
     UpdateWorkflowExecution,
     UpdateWorkflowRequest,
@@ -20,6 +23,8 @@ from bkg_py.workspace.update import (
 )
 
 from .repository_support import create_repository_with_remote, git
+
+TEST_GITHUB_TOKEN = secrets.token_urlsafe(12)
 
 
 def _workflow_source(tmp_path: Path) -> tuple[Path, Path]:
@@ -45,12 +50,80 @@ def _snapshot_payload(invocation: Path) -> None:
 
 
 def _set_workflow_environment(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("GITHUB_TOKEN", "test-token")
+    monkeypatch.setenv("GITHUB_TOKEN", TEST_GITHUB_TOKEN)
     monkeypatch.setenv("GITHUB_ACTOR", "test-actor")
     monkeypatch.setenv("GITHUB_OWNER", "example")
     monkeypatch.setenv("GITHUB_REPO", "backage")
     monkeypatch.setenv("GITHUB_BRANCH", "master")
     monkeypatch.delenv("BKG_HANDOFF_CONTROL_REF", raising=False)
+
+
+def test_clone_url_credentials_are_captured_without_process_mutation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Embedded clone credentials remain available to later workspace services."""
+
+    captured_source: str | None = None
+    captured_environment: dict[str, str] = {}
+    captured_redacted_values: tuple[str, ...] = ()
+    embedded_token = secrets.token_urlsafe(12)
+    source = f"https://x-access-token:{embedded_token}@example.invalid/repository.git"
+    _repository, remote = _workflow_source(tmp_path)
+    invocation = tmp_path / "invocation"
+    invocation.mkdir()
+    _snapshot_payload(invocation)
+    _set_workflow_environment(monkeypatch)
+    monkeypatch.delenv("GITHUB_TOKEN")
+    clone_repository = workspace_update.clone_repository
+
+    def capture_clone(
+        clone_source: str,
+        destination: Path,
+        branch: str,
+        *,
+        environment: Mapping[str, str] | None = None,
+        redacted_values: Iterable[str] = (),
+    ) -> GitRepository:
+        nonlocal captured_source, captured_environment, captured_redacted_values
+        captured_source = clone_source
+        captured_environment = dict(environment or {})
+        captured_redacted_values = tuple(redacted_values)
+        return clone_repository(
+            remote.as_uri(),
+            destination,
+            branch,
+            environment=environment,
+            redacted_values=redacted_values,
+        )
+
+    def run_application(
+        _options: RunCommandOptions,
+        application: ApplicationContext,
+        _handoff: WorkflowHandoffControl,
+        _baseline: str | None,
+    ) -> ExitStatus:
+        assert application.github_settings.token == embedded_token
+        assert application.settings.source["GITHUB_TOKEN"] == embedded_token
+        assert "GITHUB_TOKEN" not in os.environ
+        application.snapshots.prepare_database_snapshot()
+        return ExitStatus.NON_FATAL
+
+    monkeypatch.setattr(workspace_update, "clone_repository", capture_clone)
+    status = run_update_workflow(
+        UpdateWorkflowRequest(
+            root=Path("checkout"),
+            invocation_directory=invocation,
+            clone_url=source,
+        ),
+        UpdateWorkflowExecution(run_application=run_application),
+    )
+
+    assert status is ExitStatus.NON_FATAL
+    assert captured_source == source
+    assert captured_environment["GITHUB_TOKEN"] == embedded_token
+    assert embedded_token in captured_redacted_values
+    assert "GITHUB_TOKEN" not in os.environ
 
 
 def test_update_workflow_clones_restores_runs_and_publishes(
@@ -77,6 +150,10 @@ def test_update_workflow_clones_restores_runs_and_publishes(
         assert baseline is None
         assert application.config.root == str(invocation / "checkout")
         assert application.config.index_name == "index"
+        assert application.github_settings.token == TEST_GITHUB_TOKEN
+        assert application.settings.source["GITHUB_ACTOR"] == "test-actor"
+        assert application.settings.source["GITHUB_BRANCH"] == "master"
+        assert os.environ["BKG_INDEX_DB"] == "outer.db"
         application.snapshots.prepare_database_snapshot()
         index_dir = Path(application.config.index_dir or "")
         (index_dir / "generated.json").write_text("{}\n", encoding="utf-8")

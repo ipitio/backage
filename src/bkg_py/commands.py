@@ -8,7 +8,7 @@ import json
 import sys
 from pathlib import Path
 
-from .config import ConfigError, SettingsSnapshot, read_optional_text
+from .config import ConfigError, RepositoryMaintenanceSettings, SettingsSnapshot
 from .result import ExitStatus
 
 
@@ -57,8 +57,12 @@ def _dispatch_command(
 def _run_information_command(args: argparse.Namespace) -> ExitStatus:
     if args.command == "config":
         from .application import ApplicationSettings
+        from .workspace.settings import WorkspaceSettings
 
-        print(json.dumps(ApplicationSettings.from_env().as_dict(), sort_keys=True))
+        values = SettingsSnapshot.from_env()
+        output = ApplicationSettings.from_mapping(values).as_dict()
+        output["workspace"] = WorkspaceSettings.from_mapping(values).as_dict()
+        print(json.dumps(output, sort_keys=True))
     else:
         from .release import release_tag
 
@@ -76,8 +80,9 @@ def _run_repository_maintenance(args: argparse.Namespace) -> ExitStatus:
     from .release_retention import ReleaseRetentionError, apply_release_retention
 
     settings = SettingsSnapshot.from_env()
-    owner = args.owner or read_optional_text(settings, "GITHUB_OWNER") or ""
-    repo = args.repository or read_optional_text(settings, "GITHUB_REPO") or ""
+    repository = RepositoryMaintenanceSettings.from_mapping(settings)
+    owner = args.owner or repository.owner or ""
+    repo = args.repository or repository.name or ""
     try:
         with GitHubClient(GitHubSettings.from_mapping(settings)) as client:
             apply_release_retention(

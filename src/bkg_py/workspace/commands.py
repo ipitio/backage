@@ -7,15 +7,16 @@ import json
 import sys
 from pathlib import Path
 
+from ..config import SettingsSnapshot
 from ..result import ExitStatus
 from .handoff import (
-    HandoffSettings,
     WorkflowHandoffControl,
     scheduled_update_skip_reason,
     workflow_run_freshness,
 )
 from .merge_configuration import configure_fork_merge
-from .repository import WorkspaceError
+from .repository import GitControlRefRepository, WorkspaceError
+from .settings import HandoffSettings
 
 
 def _write_progress(message: str) -> None:
@@ -52,9 +53,17 @@ def run_handoff(args: argparse.Namespace) -> ExitStatus:
         _write_stdout(f"{latest_scheduled}|{active_manual}")
         return ExitStatus.SUCCESS
 
+    values = SettingsSnapshot.from_env()
+    redacted_values = tuple(
+        value for name in ("GITHUB_TOKEN", "GH_TOKEN") if (value := values.get(name))
+    )
     control = WorkflowHandoffControl(
-        Path(args.repository),
-        HandoffSettings.from_env(),
+        GitControlRefRepository(
+            Path(args.repository),
+            environment=values,
+            redacted_values=redacted_values,
+        ),
+        HandoffSettings.from_mapping(values),
         progress=_write_stdout,
         diagnostic=_write_progress,
     )

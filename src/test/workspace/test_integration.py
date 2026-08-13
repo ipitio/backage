@@ -12,6 +12,7 @@ from bkg_py.cli import main
 from bkg_py.database import PackageCatalogPath
 from bkg_py.result import ExitStatus
 from bkg_py.workspace import (
+    GitIdentity,
     GitRepository,
     IndexWorkspacePreparer,
     UpdateWorkspacePublisher,
@@ -312,7 +313,9 @@ def test_repository_configuration_keeps_token_out_of_git_config(
     _create_repository(repository)
     monkeypatch.setenv("GITHUB_TOKEN", "workflow-secret")
 
-    GitRepository(repository).configure_for_updates("workflow-actor")
+    GitRepository(repository).configure_for_updates(
+        GitIdentity.for_actor("workflow-actor")
+    )
 
     config = (repository / ".git" / "config").read_text(encoding="utf-8")
     assert "workflow-secret" not in config
