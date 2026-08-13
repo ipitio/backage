@@ -26,7 +26,7 @@ def _write_shell(
     files: dict[str, bytes],
     *,
     dashboard_schema_version: int = 1,
-    entrypoint: str = ".bkg-site/candidate/index.html",
+    entrypoint: str = "index.html",
     site_shell_version: int = SITE_SHELL_VERSION,
 ) -> bytes:
     entries: list[dict[str, object]] = []
@@ -71,10 +71,12 @@ def test_site_shell_publishes_verified_files_and_prunes_only_prior_ownership(
         destination,
         {
             ".bkg-site/candidate/index.html": prior_index,
-            ".bkg-site/old.css": b"old css\n",
+            ".bkg-site/candidate/_astro/app.js": b"old javascript\n",
         },
-        site_shell_version=1,
+        entrypoint=".bkg-site/candidate/index.html",
+        site_shell_version=2,
     )
+    (destination / "fxp.min.js").write_bytes(b"retired converter\n")
     package = destination / "owner/repository/package.json"
     package.parent.mkdir(parents=True)
     package.write_bytes(b"package data\n")
@@ -84,9 +86,7 @@ def test_site_shell_publishes_verified_files_and_prunes_only_prior_ownership(
         source,
         {
             ".bkg-site/assets/app.css": b"new css\n",
-            ".bkg-site/candidate/index.html": (
-                b"new candidate " + _LATEST_RELEASE_TOKEN + b"\n"
-            ),
+            "index.html": b"new dashboard " + _LATEST_RELEASE_TOKEN + b"\n",
         },
     )
 
@@ -99,13 +99,15 @@ def test_site_shell_publishes_verified_files_and_prunes_only_prior_ownership(
     )
 
     assert result.files == 2
-    assert result.removed_files == 1
-    assert result.entrypoint == ".bkg-site/candidate/index.html"
+    assert result.removed_files == 3
+    assert result.entrypoint == "index.html"
     assert (destination / result.entrypoint).read_bytes() == (
-        b"new candidate " + _LATEST_RELEASE_URL + b"\n"
+        b"new dashboard " + _LATEST_RELEASE_URL + b"\n"
     )
     assert (destination / ".bkg-site/assets/app.css").read_bytes() == b"new css\n"
-    assert not (destination / ".bkg-site/old.css").exists()
+    assert not (destination / ".bkg-site/candidate/index.html").exists()
+    assert not (destination / ".bkg-site/candidate/_astro/app.js").exists()
+    assert not (destination / "fxp.min.js").exists()
     assert package.read_bytes() == b"package data\n"
     assert unmanaged.read_bytes() == b"unmanaged\n"
     manifest = json.loads(
@@ -161,10 +163,12 @@ def test_site_shell_verifies_all_content_before_replacing_entrypoint(
 
     source = tmp_path / "source"
     destination = tmp_path / "index"
-    entrypoint = ".bkg-site/candidate/index.html"
+    entrypoint = "index.html"
     _write_shell(source, {entrypoint: b"new " + _LATEST_RELEASE_TOKEN + b"\n"})
     (source / entrypoint).write_bytes(b"corrupt\n")
     prior_manifest = _write_shell(destination, {entrypoint: b"prior candidate\n"})
+    retired = destination / "fxp.min.js"
+    retired.write_bytes(b"still in use\n")
 
     with pytest.raises(SiteShellError, match="size mismatch"):
         publish_site_shell(
@@ -177,6 +181,7 @@ def test_site_shell_verifies_all_content_before_replacing_entrypoint(
 
     assert (destination / entrypoint).read_bytes() == b"prior candidate\n"
     assert (destination / SITE_MANIFEST_FILE).read_bytes() == prior_manifest
+    assert retired.read_bytes() == b"still in use\n"
 
 
 def test_site_shell_checks_for_stop_before_writing(tmp_path: Path) -> None:
@@ -184,7 +189,7 @@ def test_site_shell_checks_for_stop_before_writing(tmp_path: Path) -> None:
 
     source = tmp_path / "source"
     destination = tmp_path / "index"
-    entrypoint = ".bkg-site/candidate/index.html"
+    entrypoint = "index.html"
     _write_shell(source, {entrypoint: b"new " + _LATEST_RELEASE_TOKEN + b"\n"})
     prior_manifest = _write_shell(destination, {entrypoint: b"prior candidate\n"})
 
@@ -211,7 +216,7 @@ def test_site_shell_keeps_prior_files_when_its_manifest_is_invalid(
 
     source = tmp_path / "source"
     destination = tmp_path / "index"
-    entrypoint = ".bkg-site/candidate/index.html"
+    entrypoint = "index.html"
     _write_shell(source, {entrypoint: b"new " + _LATEST_RELEASE_TOKEN + b"\n"})
     old_entrypoint = destination / entrypoint
     old_entrypoint.parent.mkdir(parents=True)
@@ -239,8 +244,14 @@ def test_site_shell_rejects_symbolic_link_destination_parents(
     source = tmp_path / "source"
     destination = tmp_path / "index"
     outside = tmp_path / "outside"
-    entrypoint = ".bkg-site/candidate/index.html"
-    _write_shell(source, {entrypoint: b"new " + _LATEST_RELEASE_TOKEN + b"\n"})
+    entrypoint = "index.html"
+    _write_shell(
+        source,
+        {
+            entrypoint: b"new " + _LATEST_RELEASE_TOKEN + b"\n",
+            ".bkg-site/assets/app.js": b"javascript\n",
+        },
+    )
     destination.mkdir()
     outside.mkdir()
     (destination / ".bkg-site").symlink_to(outside, target_is_directory=True)
@@ -254,4 +265,4 @@ def test_site_shell_rejects_symbolic_link_destination_parents(
             check_stop=lambda: None,
         )
 
-    assert not (outside / "candidate/index.html").exists()
+    assert not (outside / "assets/app.js").exists()

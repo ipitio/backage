@@ -15,7 +15,7 @@ from .files import atomic_binary_output
 
 SITE_MANIFEST_FILE = ".bkg-site-manifest.json"
 SITE_MANIFEST_SCHEMA_VERSION = 1
-SITE_SHELL_VERSION = 2
+SITE_SHELL_VERSION = 3
 SITE_CONTENT_DIRECTORY = ".bkg-site"
 _SITE_RESOURCE_PARTS = ("share", "backage", "site")
 _MAX_MANIFEST_BYTES = 1_000_000
@@ -25,6 +25,7 @@ _SHA256 = re.compile(r"[0-9a-f]{64}")
 _GITHUB_OWNER = re.compile(r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})")
 _GITHUB_REPOSITORY = re.compile(r"[A-Za-z0-9_.-]{1,100}")
 _LATEST_RELEASE_TOKEN = b"__BKG_LATEST_RELEASE_URL__"
+_RETIRED_SITE_FILES = ("fxp.min.js",)
 
 
 class SiteShellError(RuntimeError):
@@ -129,6 +130,7 @@ def publish_site_shell(
         previous,
         manifest,
     )
+    removed_files += _remove_retired_files(destination_directory)
     _write_file(destination_directory / SITE_MANIFEST_FILE, manifest_content)
     return SiteShellPublicationResult(
         bytes=sum(item.bytes for item in manifest.files),
@@ -411,6 +413,20 @@ def _remove_stale_files(
             continue
         removed += 1
         _remove_empty_shell_directories(path.parent, destination)
+    return removed
+
+
+def _remove_retired_files(destination: Path) -> int:
+    removed = 0
+    for name in _RETIRED_SITE_FILES:
+        path = destination / name
+        if path.is_dir() and not path.is_symlink():
+            continue
+        try:
+            path.unlink()
+        except FileNotFoundError:
+            continue
+        removed += 1
     return removed
 
 

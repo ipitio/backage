@@ -6,7 +6,7 @@ import {
   utcDate,
 } from "../dashboard-fixtures.ts";
 
-const candidate = "/.bkg-site/candidate/index.html";
+const dashboard = "/";
 const releaseUrl = "https://github.com/example/backage/releases/latest";
 
 test("shows a useful loading state before current data arrives", async ({ page }) => {
@@ -22,11 +22,15 @@ test("shows a useful loading state before current data arrives", async ({ page }
     route.fulfill({ json: historyFixture() }),
   );
 
-  await page.goto(candidate);
+  await page.goto(dashboard);
   await expect(page.locator("#status-title")).toHaveText("Loading index snapshot");
   await expect(page.getByRole("link", { name: "Latest release" })).toHaveAttribute(
     "href",
     releaseUrl,
+  );
+  await expect(page.getByRole("link", { name: "Index summary" })).toHaveAttribute(
+    "href",
+    "./.json",
   );
 
   releaseDashboard();
@@ -44,7 +48,7 @@ test("renders current inventory, accessible history, and repository navigation",
   });
   await routeSuccess(page);
 
-  await page.goto(candidate);
+  await page.goto(dashboard);
 
   await expect(page.locator("#status-title")).toHaveText("Index snapshot current");
   await expect(page.locator("#inventory-packages")).toHaveText("1,200");
@@ -79,7 +83,7 @@ test("renders current inventory, accessible history, and repository navigation",
 test("keeps navigation and retry available for incompatible data", async ({ page }) => {
   await page.route("**/dashboard.json", (route) => route.fulfill({ json: {} }));
 
-  await page.goto(candidate);
+  await page.goto(dashboard);
 
   await expect(page.locator("#status-title")).toHaveText(
     "Published data is incompatible",
@@ -96,7 +100,7 @@ test("labels an old but valid projection as stale", async ({ page }) => {
   const staleDate = utcDate(-2);
   await routeSuccess(page, staleDate);
 
-  await page.goto(candidate);
+  await page.goto(dashboard);
 
   await expect(page.locator("#status-title")).toHaveText(
     "Index snapshot may be stale",
@@ -118,7 +122,7 @@ test("recovers from a network failure through retry", async ({ page }) => {
     route.fulfill({ json: historyFixture() }),
   );
 
-  await page.goto(candidate);
+  await page.goto(dashboard);
   await expect(page.locator("#status-title")).toHaveText(
     "Index snapshot unavailable",
   );
@@ -133,7 +137,7 @@ test("keeps current totals when optional history fails", async ({ page }) => {
   );
   await page.route("**/dashboard-history.json", (route) => route.abort("failed"));
 
-  await page.goto(candidate);
+  await page.goto(dashboard);
 
   await expect(page.locator("#status-title")).toHaveText("Index snapshot current");
   await expect(page.locator("#inventory-packages")).toHaveText("1,200");
@@ -145,7 +149,7 @@ test("provides raw data and release navigation without JavaScript", async ({ bro
   const context = await browser.newContext({ javaScriptEnabled: false });
   const page = await context.newPage();
 
-  await page.goto(candidate);
+  await page.goto(dashboard);
 
   await expect(page.locator("#publication-status")).toBeHidden();
   await expect(page.getByRole("heading", { name: "Dashboard data requires JavaScript" })).toBeVisible();
@@ -154,6 +158,9 @@ test("provides raw data and release navigation without JavaScript", async ({ bro
     releaseUrl,
   );
   await expect(page.getByRole("link", { name: "dashboard.json" })).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "the compact index summary" }),
+  ).toHaveAttribute("href", "./.json");
   await context.close();
 });
 
@@ -164,7 +171,7 @@ for (const viewport of [
   test(`keeps the ${viewport.name} layout contained and readable`, async ({ page }) => {
     await page.setViewportSize({ width: viewport.width, height: viewport.height });
     await routeSuccess(page);
-    await page.goto(candidate);
+    await page.goto(dashboard);
     await expect(page.locator("#status-title")).toHaveText("Index snapshot current");
 
     const bodyContained = await page.locator("body").evaluate(
@@ -193,7 +200,7 @@ test.describe("dark mode", () => {
 
   test("uses the dark palette without changing dashboard behavior", async ({ page }) => {
     await routeSuccess(page);
-    await page.goto(candidate);
+    await page.goto(dashboard);
 
     await expect(page.locator("#status-title")).toHaveText("Index snapshot current");
     await expect(page.locator("body")).toHaveCSS("background-color", "rgb(23, 27, 24)");

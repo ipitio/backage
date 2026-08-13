@@ -74,10 +74,5 @@ def _write_publication_sources(root: Path) -> None:
         "[DATE] [OWNERS] [REPOS] [PACKAGES]\n",
         encoding="utf-8",
     )
-    (templates / ".index.html").write_text(
-        "<title>GITHUB_REPO</title>\n",
-        encoding="utf-8",
-    )
-    (templates / "fxp.min.js").write_bytes(b"javascript")
     (images / "logo-b.webp").write_bytes(b"logo")
     (images / "logo.ico").write_bytes(b"icon")

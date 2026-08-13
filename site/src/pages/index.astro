@@ -10,7 +10,6 @@ const dataRoot = "__BKG_DATA_ROOT__";
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width" />
     <meta name="color-scheme" content="light dark" />
-    <meta name="robots" content="noindex" />
     <meta
       name="description"
       content="Current package inventory, freshness, and metric coverage for Backage."
@@ -25,7 +24,7 @@ const dataRoot = "__BKG_DATA_ROOT__";
         <span>Backage</span>
       </a>
       <nav aria-label="Index resources">
-        <a href={dataRoot}>Browse packages</a>
+        <a href={`${dataRoot}.json`}>Index summary</a>
         <a href="__BKG_LATEST_RELEASE_URL__">Latest release</a>
         <a href={`${dataRoot}README.md`}>Documentation</a>
         <a href={`${dataRoot}dashboard.json`}>Raw data</a>
@@ -260,7 +259,7 @@ const dataRoot = "__BKG_DATA_ROOT__";
           <h2 id="no-script-heading">Dashboard data requires JavaScript</h2>
           <p>
             The package index remains available through
-            <a href={dataRoot}>the raw index</a> and
+            <a href={`${dataRoot}.json`}>the compact index summary</a> and
             <a href={`${dataRoot}dashboard.json`}>dashboard.json</a>.
           </p>
         </section>

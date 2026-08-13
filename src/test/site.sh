@@ -54,6 +54,18 @@ test -f "dist/.bkg-site-manifest.json" || {
 	echo "Astro build did not produce the site-shell manifest" >&2
 	exit 1
 }
+test -f "dist/index.html" || {
+	echo "Astro build did not produce the root dashboard entrypoint" >&2
+	exit 1
+}
+grep -Fq '"entrypoint": "index.html"' dist/.bkg-site-manifest.json || {
+	echo "Site-shell manifest does not declare the root entrypoint" >&2
+	exit 1
+}
+test ! -e "dist/.bkg-site/candidate/index.html" || {
+	echo "Astro build retained the retired dashboard candidate" >&2
+	exit 1
+}
 if grep -R -Fq '__BKG_DATA_ROOT__' dist; then
 	echo "Astro build retained an unhydrated data-root token" >&2
 	exit 1

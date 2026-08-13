@@ -21,7 +21,7 @@ export default defineConfig({
     command: "node tests/server.ts",
     reuseExistingServer: false,
     timeout: 10_000,
-    url: `${baseURL}/.bkg-site/candidate/index.html`,
+    url: `${baseURL}/index.html`,
   },
   workers: 2,
 });

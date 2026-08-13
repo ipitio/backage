@@ -31,7 +31,7 @@ from bkg_py.run_publication import (
 from bkg_py.site_shell import SITE_SHELL_VERSION
 from bkg_py.state import StateStore
 
-_SITE_ENTRYPOINT = ".bkg-site/candidate/index.html"
+_SITE_ENTRYPOINT = "index.html"
 
 
 @dataclass(frozen=True)
@@ -93,18 +93,13 @@ def _write_sources(root: Path) -> None:
         "src/img/logo-b.webp\n```py\n```js\n",
         encoding="utf-8",
     )
-    (templates / ".index.html").write_text(
-        "<title>GITHUB_REPO</title>\n",
-        encoding="utf-8",
-    )
-    (templates / "fxp.min.js").write_bytes(b"javascript")
     (images / "logo-b.webp").write_bytes(b"logo")
     (images / "logo.ico").write_bytes(b"icon")
     _write_site_shell(root / "site-shell")
 
 
 def _write_site_shell(path: Path) -> None:
-    content = b'candidate <a href="__BKG_LATEST_RELEASE_URL__">release</a>\n'
+    content = b'dashboard <a href="__BKG_LATEST_RELEASE_URL__">release</a>\n'
     entrypoint = path / _SITE_ENTRYPOINT
     entrypoint.parent.mkdir(parents=True)
     entrypoint.write_bytes(content)
@@ -211,14 +206,11 @@ def test_run_publication_hydrates_outputs_and_prunes_transient_state(
     assert "```jboss-cli" in index_readme
     assert (index / "logo-b.webp").read_bytes() == b"logo"
     assert (index / "favicon.ico").read_bytes() == b"icon"
-    assert (index / "fxp.min.js").read_bytes() == b"javascript"
     assert (index / "index.html").read_text(encoding="utf-8") == (
-        "<title>backage</title>\n"
-    )
-    assert (index / _SITE_ENTRYPOINT).read_text(encoding="utf-8") == (
-        'candidate <a href="https://github.com/example/backage/releases/latest">'
+        'dashboard <a href="https://github.com/example/backage/releases/latest">'
         "release</a>\n"
     )
+    assert not (index / "fxp.min.js").exists()
 
     summary = json.loads((index / ".json").read_text(encoding="utf-8"))
     assert summary == {
@@ -316,7 +308,6 @@ def test_run_publication_retains_shell_when_bundle_verification_fails(
     _write_sources(root)
     index.mkdir()
     prior_shell = index / _SITE_ENTRYPOINT
-    prior_shell.parent.mkdir(parents=True)
     prior_shell.write_bytes(b"prior shell\n")
     (root / "site-shell" / _SITE_ENTRYPOINT).write_bytes(b"corrupt shell\n")
     messages: list[str] = []

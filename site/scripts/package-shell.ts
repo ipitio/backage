@@ -9,7 +9,8 @@ const manifestName = ".bkg-site-manifest.json";
 const dataRootToken = "__BKG_DATA_ROOT__";
 const latestReleaseToken = "__BKG_LATEST_RELEASE_URL__";
 const astroAssetRoot = "/_astro/";
-const publishPrefix = ".bkg-site/candidate";
+const siteContentRoot = ".bkg-site";
+const siteAssetRoot = `${siteContentRoot}/assets`;
 const maxShellBytes = 512 * 1024;
 const sourceRoot = fileURLToPath(new URL("../build/", import.meta.url));
 const outputRoot = fileURLToPath(new URL("../dist/", import.meta.url));
@@ -60,10 +61,19 @@ function dataRootFor(destination: string): string {
   return depth === 0 ? "./" : "../".repeat(depth);
 }
 
+function destinationFor(sourcePath: string): string {
+  if (sourcePath === "index.html") {
+    return sourcePath;
+  }
+  if (sourcePath.startsWith("_astro/")) {
+    return posix.join(siteAssetRoot, sourcePath.slice("_astro/".length));
+  }
+  return posix.join(siteContentRoot, sourcePath);
+}
+
 function astroAssetRootFor(destination: string): string {
   const parent = posix.dirname(destination);
-  const target = posix.join(publishPrefix, "_astro");
-  const path = posix.relative(parent, target);
+  const path = posix.relative(parent, siteAssetRoot);
   return `${path || "."}/`;
 }
 
@@ -96,14 +106,14 @@ async function packageShell(): Promise<void> {
 
   await rm(outputRoot, { force: true, recursive: true });
   const files: ManifestFile[] = [];
-  let hydrated = false;
+  let foundDataRootToken = false;
 
   for (const source of sourceFiles) {
     const sourcePath = toPosixPath(relative(sourceRoot, source));
-    const destination = posix.join(publishPrefix, sourcePath);
+    const destination = destinationFor(sourcePath);
     const original = await readFile(source);
+    foundDataRootToken ||= original.includes(dataRootToken);
     const content = hydrate(original, destination);
-    hydrated ||= !content.equals(original);
     const output = resolve(outputRoot, ...destination.split("/"));
     if (!output.startsWith(`${resolve(outputRoot)}${sep}`)) {
       throw new Error(`Site-shell destination escapes output root: ${destination}`);
@@ -117,11 +127,11 @@ async function packageShell(): Promise<void> {
     });
   }
 
-  if (!hydrated) {
+  if (!foundDataRootToken) {
     throw new Error(`Astro output did not contain ${dataRootToken}`);
   }
 
-  const entrypoint = posix.join(publishPrefix, "index.html");
+  const entrypoint = "index.html";
   if (!files.some((file) => file.path === entrypoint)) {
     throw new Error(`Site shell is missing its entrypoint: ${entrypoint}`);
   }
@@ -138,7 +148,7 @@ async function packageShell(): Promise<void> {
     entrypoint,
     files: files.sort((left, right) => comparePaths(left.path, right.path)),
     schema_version: 1,
-    site_shell_version: 2,
+    site_shell_version: 3,
   };
   await writeFile(
     join(outputRoot, manifestName),

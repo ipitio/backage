@@ -5,7 +5,6 @@ import { extname, resolve, sep } from "node:path";
 const host = process.env.BKG_SITE_TEST_HOST ?? "127.0.0.1";
 const port = 4_173;
 const root = resolve("dist");
-const candidate = "/.bkg-site/candidate/index.html";
 const releaseToken = "__BKG_LATEST_RELEASE_URL__";
 const releaseUrl = "https://github.com/example/backage/releases/latest";
 const contentTypes: Record<string, string> = {
@@ -20,7 +19,7 @@ const contentTypes: Record<string, string> = {
 const server = createServer(async (request, response) => {
   try {
     const url = new URL(request.url ?? "/", `http://${host}:${port}`);
-    const pathname = url.pathname === "/" ? candidate : url.pathname;
+    const pathname = url.pathname === "/" ? "/index.html" : url.pathname;
     const decoded = decodeURIComponent(pathname).replace(/^\/+/, "");
     const path = resolve(root, decoded);
     if (path !== root && !path.startsWith(`${root}${sep}`)) {

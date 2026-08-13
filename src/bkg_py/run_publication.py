@@ -124,9 +124,6 @@ class RunPublicationService:  # pylint: disable=too-few-public-methods
         )
         readme = _render_readme(sources.readme, request, inventory)
         index_readme = _index_readme(readme)
-        index_html = sources.index_html.replace(
-            "GITHUB_REPO", request.identity.github_repo
-        )
 
         index_directory = request.paths.index_directory
         index_directory.mkdir(parents=True, exist_ok=True)
@@ -136,8 +133,6 @@ class RunPublicationService:  # pylint: disable=too-few-public-methods
         _write_text(index_directory / "README.md", index_readme)
         _write_bytes(index_directory / "logo-b.webp", sources.logo)
         _write_bytes(index_directory / "favicon.ico", sources.favicon)
-        _write_text(index_directory / "index.html", index_html)
-        _write_bytes(index_directory / "fxp.min.js", sources.javascript)
         _publish_index_summary(
             index_directory,
             request.today,
@@ -253,10 +248,8 @@ class RunPublicationService:  # pylint: disable=too-few-public-methods
 class _PublicationSources:
     changelog: str
     readme: str
-    index_html: str
     logo: bytes
     favicon: bytes
-    javascript: bytes
 
 
 def _ignore_message(_message: str) -> None:
@@ -292,10 +285,8 @@ def _read_sources(root: Path) -> _PublicationSources:
     return _PublicationSources(
         changelog=(templates / ".CHANGELOG.md").read_text(encoding="utf-8"),
         readme=(templates / ".README.md").read_text(encoding="utf-8"),
-        index_html=(templates / ".index.html").read_text(encoding="utf-8"),
         logo=(images / "logo-b.webp").read_bytes(),
         favicon=(images / "logo.ico").read_bytes(),
-        javascript=(templates / "fxp.min.js").read_bytes(),
     )
 
 
