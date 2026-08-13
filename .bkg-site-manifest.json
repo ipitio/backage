@@ -1,18 +1,18 @@
 {
   "dashboard_schema_version": 1,
-  "entrypoint": ".bkg-site/candidate/index.html",
+  "entrypoint": "index.html",
   "files": [
     {
       "bytes": 16582,
-      "path": ".bkg-site/candidate/_astro/index.astro_astro_type_script_index_0_lang.Da25Qhca.js",
+      "path": ".bkg-site/assets/index.astro_astro_type_script_index_0_lang.Da25Qhca.js",
       "sha256": "024031e3abbec63b88386d0257956d28a79711d8b2fd321960d20b84c3a8613b"
     },
     {
-      "bytes": 14261,
-      "path": ".bkg-site/candidate/index.html",
-      "sha256": "1c1b330e57384ccfbd85d984fd07b13602b01854da2042d11dd90d1e9a05b94a"
+      "bytes": 14205,
+      "path": "index.html",
+      "sha256": "3db48559947613657399da9daca7509486f022ca63351a4ad9446736ee4bc189"
     }
   ],
   "schema_version": 1,
-  "site_shell_version": 2
+  "site_shell_version": 3
 }
