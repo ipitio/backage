@@ -14,7 +14,7 @@ from bkg_py.concurrency import (
     WorkerEvent,
     run_bounded,
 )
-from bkg_py.config import RuntimeConfig
+from bkg_py.config import ConfigError, RuntimeConfig
 from bkg_py.runtime import GracefulStop
 
 
@@ -48,19 +48,33 @@ def test_concurrency_settings_honor_explicit_env_overrides(
     assert settings.stop_grace_seconds == 12.5
 
 
-def test_concurrency_settings_ignore_invalid_env_values(
+@pytest.mark.parametrize(
+    ("name", "value", "message"),
+    [
+        (
+            "BKG_PARALLEL_ASYNC_MAX_JOBS",
+            "0",
+            "BKG_PARALLEL_ASYNC_MAX_JOBS must be at least 1",
+        ),
+        (
+            "BKG_OWNER_UPDATE_STOP_GRACE",
+            "nope",
+            "BKG_OWNER_UPDATE_STOP_GRACE must be a number",
+        ),
+    ],
+)
+def test_runtime_config_rejects_invalid_concurrency_values(
     monkeypatch: pytest.MonkeyPatch,
+    name: str,
+    value: str,
+    message: str,
 ) -> None:
-    """Invalid tuning values fall back to safe defaults."""
+    """Malformed concurrency overrides fail before worker construction."""
 
-    monkeypatch.setenv("BKG_PARALLEL_ASYNC_MAX_JOBS", "0")
-    monkeypatch.setenv("BKG_OWNER_UPDATE_STOP_GRACE", "nope")
-    monkeypatch.setattr("os.process_cpu_count", lambda: None)
+    monkeypatch.setenv(name, value)
 
-    settings = ConcurrencySettings.from_config(RuntimeConfig.from_env())
-
-    assert settings.max_workers == 2
-    assert settings.stop_grace_seconds == 180.0
+    with pytest.raises(ConfigError, match=message):
+        RuntimeConfig.from_env()
 
 
 def test_run_bounded_preserves_result_order() -> None:

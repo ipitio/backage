@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
 import re
 import time
 from collections.abc import Callable, Iterator, Mapping
@@ -17,6 +16,7 @@ from typing import Any, cast
 
 import httpx
 
+from .config import ConfigError, read_float, read_int, read_text
 from .files import atomic_binary_output
 from .registry_transport import (
     PackageRegistryTransport,
@@ -40,6 +40,22 @@ _RATE_LIMIT_SELECTION = "rateLimit { cost remaining resetAt }"
 _DEFAULT_REST_RESERVE = 50
 _RATE_RESET_BUFFER_SECONDS = 1.0
 _ACCOUNTING_FLUSH_RESPONSES = 32
+
+
+def _positive_setting(
+    values: Mapping[str, str],
+    name: str,
+    default: float,
+) -> float:
+    """Read one positive GitHub timing setting."""
+
+    return read_float(
+        values,
+        name,
+        default,
+        minimum=0,
+        minimum_exclusive=True,
+    )
 
 
 class _HtmlTitleParser(HTMLParser):
@@ -96,45 +112,6 @@ class GitHubDecodeError(GitHubError):
     """GitHub returned a response that was not valid JSON."""
 
 
-def _env_float(name: str, default: float) -> float:
-    value = os.environ.get(name)
-    if value is None:
-        return default
-    try:
-        parsed = float(value)
-    except ValueError as error:
-        raise GitHubError(f"{name} must be a number") from error
-    if parsed <= 0:
-        raise GitHubError(f"{name} must be greater than zero")
-    return parsed
-
-
-def _env_int(name: str, default: int) -> int:
-    value = os.environ.get(name)
-    if value is None:
-        return default
-    try:
-        parsed = int(value)
-    except ValueError as error:
-        raise GitHubError(f"{name} must be an integer") from error
-    if parsed <= 0:
-        raise GitHubError(f"{name} must be greater than zero")
-    return parsed
-
-
-def _env_nonnegative_int(name: str, default: int) -> int:
-    value = os.environ.get(name)
-    if value is None:
-        return default
-    try:
-        parsed = int(value)
-    except ValueError as error:
-        raise GitHubError(f"{name} must be an integer") from error
-    if parsed < 0:
-        raise GitHubError(f"{name} must be zero or greater")
-    return parsed
-
-
 @dataclass(frozen=True)
 class GitHubSettings:  # pylint: disable=too-many-instance-attributes
     """Configuration for GitHub HTTP requests."""
@@ -153,26 +130,42 @@ class GitHubSettings:  # pylint: disable=too-many-instance-attributes
     user_agent: str = "backage"
 
     @classmethod
-    def from_env(cls) -> GitHubSettings:
-        """Load settings from the shell-compatible runtime environment."""
+    def from_mapping(cls, values: Mapping[str, str]) -> GitHubSettings:
+        """Load settings from one captured configuration mapping."""
 
-        return cls(
-            token=os.environ.get("GITHUB_TOKEN", ""),
-            api_url=os.environ.get("BKG_GITHUB_API_URL", "https://api.github.com"),
-            connect_timeout=_env_float("BKG_HTTP_CONNECT_TIMEOUT", 10.0),
-            read_timeout=_env_float("BKG_HTTP_READ_TIMEOUT", 60.0),
-            write_timeout=_env_float("BKG_HTTP_WRITE_TIMEOUT", 60.0),
-            pool_timeout=_env_float("BKG_HTTP_POOL_TIMEOUT", 10.0),
-            total_timeout=_env_float("BKG_HTTP_TOTAL_TIMEOUT", 120.0),
-            max_attempts=_env_int("BKG_HTTP_MAX_ATTEMPTS", 5),
-            initial_backoff=_env_float("BKG_HTTP_INITIAL_BACKOFF", 1.0),
-            max_backoff=_env_float("BKG_HTTP_MAX_BACKOFF", 30.0),
-            rest_reserve=_env_nonnegative_int(
+        settings = cls(
+            token=read_text(values, "GITHUB_TOKEN", "", allow_empty=True),
+            api_url=read_text(
+                values,
+                "BKG_GITHUB_API_URL",
+                "https://api.github.com",
+            ),
+            connect_timeout=_positive_setting(values, "BKG_HTTP_CONNECT_TIMEOUT", 10.0),
+            read_timeout=_positive_setting(values, "BKG_HTTP_READ_TIMEOUT", 60.0),
+            write_timeout=_positive_setting(values, "BKG_HTTP_WRITE_TIMEOUT", 60.0),
+            pool_timeout=_positive_setting(values, "BKG_HTTP_POOL_TIMEOUT", 10.0),
+            total_timeout=_positive_setting(values, "BKG_HTTP_TOTAL_TIMEOUT", 120.0),
+            max_attempts=read_int(
+                values,
+                "BKG_HTTP_MAX_ATTEMPTS",
+                5,
+                minimum=1,
+            ),
+            initial_backoff=_positive_setting(values, "BKG_HTTP_INITIAL_BACKOFF", 1.0),
+            max_backoff=_positive_setting(values, "BKG_HTTP_MAX_BACKOFF", 30.0),
+            rest_reserve=read_int(
+                values,
                 "BKG_GITHUB_REST_RESERVE",
                 _DEFAULT_REST_RESERVE,
+                minimum=0,
             ),
-            user_agent=os.environ.get("BKG_HTTP_USER_AGENT", "backage"),
+            user_agent=read_text(values, "BKG_HTTP_USER_AGENT", "backage"),
         )
+        if settings.max_backoff < settings.initial_backoff:
+            raise ConfigError(
+                "BKG_HTTP_MAX_BACKOFF must be at least BKG_HTTP_INITIAL_BACKOFF"
+            )
+        return settings
 
 
 @dataclass(frozen=True)

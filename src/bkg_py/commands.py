@@ -5,10 +5,10 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import sys
 from pathlib import Path
 
+from .config import ConfigError, SettingsSnapshot, read_optional_text
 from .result import ExitStatus
 
 
@@ -17,6 +17,19 @@ def run_command(
     parser: argparse.ArgumentParser,
 ) -> ExitStatus:
     """Execute one parsed command and return its process status."""
+
+    try:
+        return _dispatch_command(args, parser)
+    except ConfigError as error:
+        print(str(error), file=sys.stderr)
+        return ExitStatus.NON_FATAL
+
+
+def _dispatch_command(
+    args: argparse.Namespace,
+    parser: argparse.ArgumentParser,
+) -> ExitStatus:
+    """Dispatch one parsed command after process-boundary error handling."""
 
     if args.command in {"config", "release-tag"}:
         return _run_information_command(args)
@@ -43,9 +56,9 @@ def run_command(
 
 def _run_information_command(args: argparse.Namespace) -> ExitStatus:
     if args.command == "config":
-        from .config import RuntimeConfig
+        from .application import ApplicationSettings
 
-        print(json.dumps(RuntimeConfig.from_env().as_dict(), sort_keys=True))
+        print(json.dumps(ApplicationSettings.from_env().as_dict(), sort_keys=True))
     else:
         from .release import release_tag
 
@@ -62,10 +75,11 @@ def _run_repository_maintenance(args: argparse.Namespace) -> ExitStatus:
     from .github import GitHubClient, GitHubError, GitHubSettings
     from .release_retention import ReleaseRetentionError, apply_release_retention
 
-    owner = args.owner or os.environ.get("GITHUB_OWNER", "")
-    repo = args.repository or os.environ.get("GITHUB_REPO", "")
+    settings = SettingsSnapshot.from_env()
+    owner = args.owner or read_optional_text(settings, "GITHUB_OWNER") or ""
+    repo = args.repository or read_optional_text(settings, "GITHUB_REPO") or ""
     try:
-        with GitHubClient(GitHubSettings.from_env()) as client:
+        with GitHubClient(GitHubSettings.from_mapping(settings)) as client:
             apply_release_retention(
                 client,
                 owner=owner,

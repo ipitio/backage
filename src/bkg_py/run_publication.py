@@ -22,7 +22,7 @@ from .database import (
     PackageInventory,
 )
 from .files import atomic_binary_output, atomic_text_output
-from .publication import publish_json_file
+from .publication import PublicationLimits, publish_json_file
 from .release import release_tag as release_tag_for_date
 from .site_shell import (
     GitHubRepositoryIdentity,
@@ -103,11 +103,14 @@ class RunPublicationService:  # pylint: disable=too-few-public-methods
         state: StateStore,
         check_stop: StopCheck,
         progress: MessageSink | None = None,
+        *,
+        publication_limits: PublicationLimits | None = None,
     ) -> None:
         self.repository = repository
         self.state = state
         self.check_stop = check_stop
         self.progress = progress or _ignore_message
+        self.publication_limits = publication_limits or PublicationLimits()
 
     def publish(self, request: RunPublicationRequest) -> PackageInventory:
         """Atomically replace each generated summary and remove transient state."""
@@ -138,6 +141,7 @@ class RunPublicationService:  # pylint: disable=too-few-public-methods
             request.today,
             inventory,
             self.check_stop,
+            self.publication_limits,
         )
         self._publish_dashboard(index_directory, request.today, inventory)
         self._publish_site_shell(
@@ -364,6 +368,7 @@ def _publish_index_summary(
     today: str,
     inventory: PackageInventory,
     check_stop: StopCheck,
+    limits: PublicationLimits,
 ) -> None:
     value = {
         "owners": _compact_number(inventory.owners),
@@ -386,6 +391,7 @@ def _publish_index_summary(
         publish_json_file(
             source,
             check_stop,
+            limits,
             destination=index_directory / ".json",
         )
 

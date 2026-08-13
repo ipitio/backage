@@ -88,6 +88,40 @@ def test_database_settings_use_captured_runtime_config(
     assert settings.versions_table == "captured_versions"
 
 
+def test_all_core_settings_share_one_environment_snapshot(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Later process mutations cannot alter lazily accessed domain settings."""
+
+    monkeypatch.setenv("BKG_ROOT", str(tmp_path))
+    monkeypatch.setenv("BKG_INDEX_DB", str(tmp_path / "index.db"))
+    monkeypatch.setenv("BKG_HTTP_READ_TIMEOUT", "17")
+    monkeypatch.setenv("BKG_SQLITE_MAX_ATTEMPTS", "4")
+    monkeypatch.setenv("BKG_OWNER_ARRAY_MAX_BYTES", "12345")
+    monkeypatch.setenv("BKG_OWNER_ARRAY_VERSION_LIMIT", "7")
+    monkeypatch.setenv("BKG_JSON_XML_MAX_BYTES", "20000")
+    monkeypatch.setenv("BKG_JSON_XML_HARD_MAX_BYTES", "30000")
+    application = ApplicationContext.from_env()
+
+    for name in (
+        "BKG_HTTP_READ_TIMEOUT",
+        "BKG_SQLITE_MAX_ATTEMPTS",
+        "BKG_OWNER_ARRAY_MAX_BYTES",
+        "BKG_OWNER_ARRAY_VERSION_LIMIT",
+        "BKG_JSON_XML_MAX_BYTES",
+        "BKG_JSON_XML_HARD_MAX_BYTES",
+    ):
+        monkeypatch.setenv(name, "99999")
+
+    assert application.github_settings.read_timeout == 17
+    assert application.database.settings.max_attempts == 4
+    assert application.aggregate_settings.target_bytes == 12_345
+    assert application.aggregate_settings.version_limit == 7
+    assert application.publication_limits.maximum_bytes == 20_000
+    assert application.publication_limits.hard_maximum_bytes == 30_000
+
+
 def test_version_selection_settings_use_captured_runtime_config(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -216,15 +250,35 @@ def test_config_cli_remains_independent_of_runtime_services(
 
     monkeypatch.setenv("BKG_ROOT", str(tmp_path))
     monkeypatch.setenv("BKG_ENV", str(tmp_path / "missing" / "env.env"))
+    monkeypatch.setenv("GITHUB_TOKEN", "must-not-appear")
     monkeypatch.delenv("BKG_INDEX_DB", raising=False)
 
     status = main(["config"])
-    output = json.loads(capsys.readouterr().out)
+    captured = capsys.readouterr()
+    output = json.loads(captured.out)
 
     assert status == ExitStatus.SUCCESS
     assert output["root"] == str(tmp_path)
     assert output["index_db"] is None
+    assert output["github"]["token_configured"] is True
+    assert "token" not in output["github"]
+    assert output["database"]["path"] is None
+    assert output["aggregate"]["target_bytes"] == 35_000_000
+    assert output["publication"]["maximum_bytes"] == 50_000_000
+    assert "must-not-appear" not in captured.out
     assert not Path(output["env_file"]).exists()
+
+
+def test_config_cli_reports_invalid_setting_without_traceback(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Configuration diagnostics identify malformed explicit input cleanly."""
+
+    monkeypatch.setenv("BKG_HTTP_MAX_ATTEMPTS", "zero")
+
+    assert main(["config"]) is ExitStatus.NON_FATAL
+    assert capsys.readouterr().err.strip() == "BKG_HTTP_MAX_ATTEMPTS must be an integer"
 
 
 @pytest.mark.parametrize(

@@ -377,6 +377,7 @@ class RunApplicationOperations:
                         self.application.state,
                         self.application.stop.check,
                         self.execution.progress,
+                        publication_limits=self.application.publication_limits,
                     ),
                     self.application.state,
                 ),

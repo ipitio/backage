@@ -105,7 +105,7 @@ COPY --from=build /opt/bkg /opt/bkg
 COPY --from=docker-cli /usr/local/bin/docker /usr/local/bin/docker
 COPY . .
 RUN BKG_INDEX_DB=/tmp/index.db python -c \
-        "from bkg_py.database import DatabaseRepository, DatabaseSettings; DatabaseRepository(DatabaseSettings.from_env()).ensure_schema()" \
+        "from bkg_py.application import ApplicationContext; ApplicationContext.from_env().database.ensure_schema()" \
     && python -c "import bkg_py, compression.zstd, httpx" \
     && docker --version \
     && ! command -v node \

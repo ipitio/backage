@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import json
 import math
-import os
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
+from .config import ConfigError, read_int
 from .files import atomic_path
 
 _XML_PREFIX = '<?xml version="1.0" encoding="UTF-8"?><xml>'
@@ -34,18 +34,28 @@ class PublicationLimits:
     hard_maximum_bytes: int = 100_000_000
 
     @classmethod
-    def from_env(cls) -> PublicationLimits:
-        """Read positive byte limits from the current environment."""
+    def from_mapping(cls, values: Mapping[str, str]) -> PublicationLimits:
+        """Read positive byte limits from captured configuration."""
 
+        maximum_bytes = read_int(
+            values,
+            "BKG_JSON_XML_MAX_BYTES",
+            cls.maximum_bytes,
+            minimum=1,
+        )
+        hard_maximum_bytes = read_int(
+            values,
+            "BKG_JSON_XML_HARD_MAX_BYTES",
+            cls.hard_maximum_bytes,
+            minimum=1,
+        )
+        if hard_maximum_bytes < maximum_bytes:
+            raise ConfigError(
+                "BKG_JSON_XML_HARD_MAX_BYTES must be at least BKG_JSON_XML_MAX_BYTES",
+            )
         return cls(
-            maximum_bytes=_positive_env_int(
-                "BKG_JSON_XML_MAX_BYTES",
-                cls.maximum_bytes,
-            ),
-            hard_maximum_bytes=_positive_env_int(
-                "BKG_JSON_XML_HARD_MAX_BYTES",
-                cls.hard_maximum_bytes,
-            ),
+            maximum_bytes=maximum_bytes,
+            hard_maximum_bytes=hard_maximum_bytes,
         )
 
 
@@ -76,15 +86,6 @@ class _PreparedPublication:
     xml_is_empty: bool
     xml_size: int
     trimmed: bool
-
-
-def _positive_env_int(name: str, default: int) -> int:
-    value = os.environ.get(name, "")
-    try:
-        parsed = int(value)
-    except ValueError:
-        return default
-    return parsed if parsed > 0 else default
 
 
 def _reject_json_constant(value: str) -> None:
@@ -485,7 +486,7 @@ def publish_json_file(
 
     if not source.is_file():
         raise PublicationError(f"missing JSON file: {source}")
-    publication_limits = limits or PublicationLimits.from_env()
+    publication_limits = limits or PublicationLimits()
     prepared = _prepare_publication(
         source.read_bytes(),
         publication_limits,

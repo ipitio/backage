@@ -2,15 +2,16 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Generator
+from collections.abc import Callable, Generator, Mapping
 from contextlib import contextmanager
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from functools import cached_property
 from pathlib import Path
 
 from .concurrency import BoundedWorkerRunner, ConcurrencySettings
-from .config import RuntimeConfig
-from .database import DatabaseRepository, DatabaseSettings
+from .config import RuntimeConfig, SettingsSnapshot
+from .database import DatabaseRepository
+from .database.settings import DatabaseSettings, DatabaseTuning
 from .discovery import OwnerIdentityCache
 from .enrichment import RequestCircuit, RequestCircuitSettings
 from .github import (
@@ -35,11 +36,66 @@ _STOP_BOUND_SERVICES = (
 )
 
 
+@dataclass(frozen=True)
+class ApplicationSettings:
+    """All core settings derived from one immutable process snapshot."""
+
+    source: SettingsSnapshot = field(repr=False)
+    runtime: RuntimeConfig
+    github: GitHubSettings
+    database_tuning: DatabaseTuning
+    aggregate: AggregateSettings
+    publication: PublicationLimits
+
+    @classmethod
+    def from_env(cls) -> ApplicationSettings:
+        """Capture and compose settings at the process boundary."""
+
+        return cls.from_mapping(SettingsSnapshot.from_env())
+
+    @classmethod
+    def from_mapping(cls, values: Mapping[str, str]) -> ApplicationSettings:
+        """Compose core settings from one supplied mapping."""
+
+        source = (
+            values if isinstance(values, SettingsSnapshot) else SettingsSnapshot(values)
+        )
+        return cls(
+            source=source,
+            runtime=RuntimeConfig.from_mapping(source),
+            github=GitHubSettings.from_mapping(source),
+            database_tuning=DatabaseTuning.from_mapping(source),
+            aggregate=AggregateSettings.from_mapping(source),
+            publication=PublicationLimits.from_mapping(source),
+        )
+
+    def as_dict(self) -> dict[str, object]:
+        """Return effective non-secret settings for diagnostics."""
+
+        github = asdict(self.github)
+        github.pop("token")
+        github["token_configured"] = bool(self.github.token)
+        database = {
+            "path": self.runtime.index_db,
+            "owners_table": self.runtime.owners_table,
+            "packages_table": self.runtime.packages_table,
+            "versions_table": self.runtime.versions_table,
+            **asdict(self.database_tuning),
+        }
+        return {
+            **self.runtime.as_dict(),
+            "github": github,
+            "database": database,
+            "aggregate": asdict(self.aggregate),
+            "publication": asdict(self.publication),
+        }
+
+
 @dataclass
 class ApplicationContext:
     """Shared configuration and services for one bkg process."""
 
-    config: RuntimeConfig
+    settings: ApplicationSettings
     state: StateStore
     stop: StopController
     metric_enrichment: RequestCircuit = field(init=False, repr=False)
@@ -62,13 +118,20 @@ class ApplicationContext:
     def from_env(cls) -> ApplicationContext:
         """Build the application context from the shell-compatible environment."""
 
-        config = RuntimeConfig.from_env()
+        settings = ApplicationSettings.from_env()
+        config = settings.runtime
         state = StateStore(Path(config.env_file))
         return cls(
-            config=config,
+            settings=settings,
             state=state,
             stop=StopController(state, max_duration=config.max_len),
         )
+
+    @property
+    def config(self) -> RuntimeConfig:
+        """Return the current run's runtime settings."""
+
+        return self.settings.runtime
 
     def ensure_state_file(self) -> None:
         """Create the state file when an operation needs to persist values."""
@@ -84,7 +147,7 @@ class ApplicationContext:
     ) -> None:
         """Rebind stop-aware services to one run's final timing configuration."""
 
-        self.config = config
+        self.settings = replace(self.settings, runtime=config)
         self.stop = StopController(
             self.state,
             max_duration=config.max_len,
@@ -133,22 +196,25 @@ class ApplicationContext:
         """Return one repository configured for this process."""
 
         return DatabaseRepository(
-            DatabaseSettings.from_config(self.config),
+            DatabaseSettings.from_config(
+                self.config,
+                self.settings.database_tuning,
+            ),
             check_stop=self.stop.check,
             sleep=self.stop.sleep,
         )
 
-    @cached_property
+    @property
     def aggregate_settings(self) -> AggregateSettings:
         """Return aggregate settings captured for this process."""
 
-        return AggregateSettings.from_env()
+        return self.settings.aggregate
 
-    @cached_property
+    @property
     def publication_limits(self) -> PublicationLimits:
         """Return publication limits captured for this process."""
 
-        return PublicationLimits.from_env()
+        return self.settings.publication
 
     @cached_property
     def snapshots(self) -> SnapshotStore:
@@ -159,11 +225,11 @@ class ApplicationContext:
             check_stop=self.stop.check,
         )
 
-    @cached_property
+    @property
     def github_settings(self) -> GitHubSettings:
         """Return GitHub settings captured for this process."""
 
-        return GitHubSettings.from_env()
+        return self.settings.github
 
     @cached_property
     def github_rate_accounting(self) -> GitHubRateAccounting:

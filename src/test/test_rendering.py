@@ -149,7 +149,6 @@ class TestRendering:
     def test_database_aggregate_ignores_files_and_filters_repository(
         self,
         tmp_path: Path,
-        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """Database aggregates ignore stale files and support repository views."""
 
@@ -169,14 +168,12 @@ class TestRendering:
             '{"package":"stale"}',
             encoding="utf-8",
         )
-        monkeypatch.setenv("BKG_OWNER_ARRAY_VERSION_LIMIT", "-1")
-
         owner_output = tmp_path / "owner.json"
         repo_output = tmp_path / "repo.json"
         options = DatabaseAggregateOptions(
             repo=None,
             size_hint_directory=hints,
-            settings=AggregateSettings(),
+            settings=AggregateSettings(version_limit=-1),
         )
         assert (
             render_database_aggregate(
@@ -195,7 +192,7 @@ class TestRendering:
             DatabaseAggregateOptions(
                 repo="RepoOne",
                 size_hint_directory=hints,
-                settings=AggregateSettings(),
+                settings=AggregateSettings(version_limit=-1),
             ),
             lambda: None,
         )
@@ -209,7 +206,6 @@ class TestRendering:
     def test_legacy_aggregate_uses_conservative_fallback_limit(
         self,
         tmp_path: Path,
-        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """Legacy-backed packages retain the configured conservative slice."""
 
@@ -245,8 +241,6 @@ class TestRendering:
                     for number in range(1, 6)
                 ],
             )
-        monkeypatch.delenv("BKG_OWNER_ARRAY_VERSION_LIMIT", raising=False)
-        monkeypatch.delenv("BKG_OWNER_ARRAY_DB_VERSION_LIMIT", raising=False)
         output = tmp_path / "legacy.json"
 
         render_database_aggregate(
@@ -267,7 +261,6 @@ class TestRendering:
     def test_file_aggregate_adapts_to_exact_byte_budget(
         self,
         tmp_path: Path,
-        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """File aggregates choose the largest exact slice within their budget."""
 
@@ -287,14 +280,12 @@ class TestRendering:
         }
         (source / "demo.json").write_text(json.dumps(package), encoding="utf-8")
         two = tmp_path / "two.json"
-        monkeypatch.setenv("BKG_OWNER_ARRAY_VERSION_LIMIT", "2")
         render_file_aggregate(
             source.parent,
             two,
-            settings=AggregateSettings(),
+            settings=AggregateSettings(version_limit=2),
             check_stop=lambda: None,
         )
-        monkeypatch.delenv("BKG_OWNER_ARRAY_VERSION_LIMIT")
         adaptive = tmp_path / "adaptive.json"
         target = two.stat().st_size
 
@@ -312,14 +303,12 @@ class TestRendering:
     def test_interrupted_database_aggregate_preserves_destination(
         self,
         tmp_path: Path,
-        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """A graceful stop cannot replace the previous complete aggregate."""
 
         repository = DatabaseRepository(DatabaseSettings(tmp_path / "index.db"))
         for number in range(1, 4):
             _write_package(repository, _package(number), (_version(number),))
-        monkeypatch.setenv("BKG_OWNER_ARRAY_VERSION_LIMIT", "-1")
         destination = tmp_path / "owner.json"
         destination.write_text('{"old":true}\n', encoding="utf-8")
         checks = 0
@@ -338,7 +327,7 @@ class TestRendering:
                 DatabaseAggregateOptions(
                     repo=None,
                     size_hint_directory=None,
-                    settings=AggregateSettings(),
+                    settings=AggregateSettings(version_limit=-1),
                 ),
                 stop,
             )
@@ -349,7 +338,6 @@ class TestRendering:
     def test_large_owner_stays_within_time_and_memory_budget(
         self,
         tmp_path: Path,
-        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """A representative large owner stays within its regression budget."""
 
@@ -385,7 +373,6 @@ class TestRendering:
                     ),
                 )
             )
-        monkeypatch.setenv("BKG_OWNER_ARRAY_VERSION_LIMIT", "-1")
         destination = tmp_path / "large-owner.json"
         started = time.monotonic()
 
@@ -396,7 +383,10 @@ class TestRendering:
             DatabaseAggregateOptions(
                 repo=None,
                 size_hint_directory=None,
-                settings=AggregateSettings(target_bytes=100_000_000),
+                settings=AggregateSettings(
+                    target_bytes=100_000_000,
+                    version_limit=-1,
+                ),
             ),
             lambda: None,
         )
@@ -414,7 +404,10 @@ class TestRendering:
             DatabaseAggregateOptions(
                 repo=None,
                 size_hint_directory=None,
-                settings=AggregateSettings(target_bytes=100_000_000),
+                settings=AggregateSettings(
+                    target_bytes=100_000_000,
+                    version_limit=-1,
+                ),
             ),
             lambda: None,
         )

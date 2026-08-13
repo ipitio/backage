@@ -6,11 +6,12 @@ import json
 import math
 import os
 import tempfile
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TextIO, cast
 
+from .config import read_int, read_optional_int
 from .database import (
     DatabaseRepository,
     PackageRecord,
@@ -41,30 +42,45 @@ class AggregateSettings:
     maximum_probe: int = 65_536
     estimate_headroom_percent: int = 75
     database_fallback_version_limit: int = 2
+    version_limit: int | None = None
+    database_version_limit: int | None = None
 
     @classmethod
-    def from_env(cls) -> AggregateSettings:
-        """Read aggregate controls from the existing environment variables."""
+    def from_mapping(cls, values: Mapping[str, str]) -> AggregateSettings:
+        """Read aggregate controls from captured configuration."""
 
         return cls(
-            target_bytes=_positive_env_int(
+            target_bytes=read_int(
+                values,
                 "BKG_OWNER_ARRAY_MAX_BYTES",
                 cls.target_bytes,
+                minimum=1,
             ),
-            maximum_probe=_positive_env_int(
+            maximum_probe=read_int(
+                values,
                 "BKG_OWNER_ARRAY_ADAPTIVE_MAX_PROBE",
                 cls.maximum_probe,
+                minimum=1,
             ),
-            estimate_headroom_percent=min(
-                100,
-                _positive_env_int(
-                    "BKG_OWNER_ARRAY_DB_ESTIMATE_HEADROOM_PERCENT",
-                    cls.estimate_headroom_percent,
-                ),
+            estimate_headroom_percent=read_int(
+                values,
+                "BKG_OWNER_ARRAY_DB_ESTIMATE_HEADROOM_PERCENT",
+                cls.estimate_headroom_percent,
+                minimum=1,
+                maximum=100,
             ),
-            database_fallback_version_limit=_signed_env_int(
+            database_fallback_version_limit=read_int(
+                values,
                 "BKG_OWNER_ARRAY_DB_FALLBACK_VERSION_LIMIT",
                 cls.database_fallback_version_limit,
+            ),
+            version_limit=read_optional_int(
+                values,
+                "BKG_OWNER_ARRAY_VERSION_LIMIT",
+            ),
+            database_version_limit=read_optional_int(
+                values,
+                "BKG_OWNER_ARRAY_DB_VERSION_LIMIT",
             ),
         )
 
@@ -259,7 +275,7 @@ def render_file_aggregate(
     """Render an adaptive aggregate from existing package JSON files."""
 
     paths = _package_json_paths(source_directory)
-    explicit_limit = _optional_env_int("BKG_OWNER_ARRAY_VERSION_LIMIT")
+    explicit_limit = settings.version_limit
     with atomic_path(destination) as staged:
         if explicit_limit is not None:
             return _write_file_aggregate(paths, staged, explicit_limit, check_stop)
@@ -371,7 +387,7 @@ def _database_version_limit(
     size_hint_directory: Path | None,
     settings: AggregateSettings,
 ) -> int:
-    explicit_limit = _optional_env_int("BKG_OWNER_ARRAY_VERSION_LIMIT")
+    explicit_limit = settings.version_limit
     if explicit_limit is not None:
         return explicit_limit
 
@@ -380,7 +396,7 @@ def _database_version_limit(
         if paths and _source_size(paths) <= settings.target_bytes:
             return -1
 
-    database_limit = _optional_env_int("BKG_OWNER_ARRAY_DB_VERSION_LIMIT")
+    database_limit = settings.database_version_limit
     if database_limit is not None:
         return database_limit
 
@@ -592,24 +608,3 @@ def _dump_json(value: JsonValue, output: TextIO) -> None:
         allow_nan=False,
         separators=(",", ":"),
     )
-
-
-def _positive_env_int(name: str, default: int) -> int:
-    try:
-        value = int(os.environ.get(name, ""))
-    except ValueError:
-        return default
-    return value if value > 0 else default
-
-
-def _signed_env_int(name: str, default: int) -> int:
-    try:
-        return int(os.environ.get(name, ""))
-    except ValueError:
-        return default
-
-
-def _optional_env_int(name: str) -> int | None:
-    if name not in os.environ:
-        return None
-    return _signed_env_int(name, -1)

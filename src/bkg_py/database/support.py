@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
 import sqlite3
 from collections.abc import Generator, Mapping
 from contextlib import contextmanager
@@ -13,26 +12,6 @@ from typing import Any, cast
 
 class DatabaseError(RuntimeError):
     """A database operation or staged record is invalid."""
-
-
-def positive_env_int(name: str, default: int) -> int:
-    """Return a positive environment integer or its default."""
-
-    try:
-        value = int(os.environ.get(name, ""))
-    except ValueError:
-        return default
-    return value if value > 0 else default
-
-
-def nonnegative_env_float(name: str, default: float) -> float:
-    """Return a nonnegative environment float or its default."""
-
-    try:
-        value = float(os.environ.get(name, ""))
-    except ValueError:
-        return default
-    return value if value >= 0 else default
 
 
 def required_text(value: Mapping[str, Any], key: str) -> str:
