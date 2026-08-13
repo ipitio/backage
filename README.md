@@ -101,7 +101,7 @@ sudo systemctl enable --now bkg
 https://ipitio.github.io/backage/OWNER/[REPO/[PACKAGE]].FORMAT
 ```
 
-Once the packages you're interested in have been added, replace the parameters with their respective values, scoping to your parsing needs, then access the latest data however you want. The format can be either `json` or `xml`.
+Once the packages you're interested in have been added, replace the parameters with their respective values, scoping to your parsing needs, then access the latest data however you want. The format can be either `json` or `xml`; request the corresponding `.xml` path directly rather than converting the JSON endpoint in the Pages dashboard.
 
 > [!NOTE]
 > Package endpoints keep detailed version data. Owner and repo aggregate endpoints bound their version detail so large self-hosted indexes can still finish JSON/XML publication. `BKG_OWNER_ARRAY_MAX_BYTES` defaults to `35000000`; `BKG_OWNER_ARRAY_VERSION_LIMIT` can force a fixed per-package aggregate version limit, and negative values keep full version arrays. DB-backed aggregates estimate a safe per-package version limit from the database before rendering once; `BKG_OWNER_ARRAY_DB_VERSION_LIMIT` can force a fixed DB-backed aggregate limit, and `BKG_OWNER_ARRAY_DB_FALLBACK_VERSION_LIMIT` defaults to `2` if estimation is unavailable. JSON/XML trimming uses `BKG_JSON_XML_MAX_BYTES` (`50000000`) and `BKG_JSON_XML_HARD_MAX_BYTES` (`100000000`).
@@ -248,13 +248,3 @@ The endpoint is also available here! This will change to your fork once it updat
 ## Documentation
 
 - [Contributing](https://github.com/ipitio/backage/blob/master/CONTRIBUTING.md)
-
-## Bring Your Own JSON
-
-```py
-https://ipitio.github.io/backage?json=https://URL/ENCODED/JSON
-```
-
-While this doesn't directly work with Shields, you can BYOJ to convert into XML.  Try it out in your browser:
-
-**<https://ipitio.github.io/backage?json=https://raw.githubusercontent.com/ipitio/backage/index/.json>**
