@@ -13,10 +13,10 @@ import pytest
 
 from bkg_py.application import ApplicationContext
 from bkg_py.result import ExitStatus
-from bkg_py.run.commands import RunCommandOptions
 from bkg_py.workspace import GitRepository, WorkflowHandoffControl
 from bkg_py.workspace import update as workspace_update
 from bkg_py.workspace.update import (
+    UpdateApplicationRequest,
     UpdateWorkflowExecution,
     UpdateWorkflowRequest,
     run_update_workflow,
@@ -98,7 +98,7 @@ def test_clone_url_credentials_are_captured_without_process_mutation(
         )
 
     def run_application(
-        _options: RunCommandOptions,
+        _options: UpdateApplicationRequest,
         application: ApplicationContext,
         _handoff: WorkflowHandoffControl,
         _baseline: str | None,
@@ -138,10 +138,10 @@ def test_update_workflow_clones_restores_runs_and_publishes(
     _snapshot_payload(invocation)
     _set_workflow_environment(monkeypatch)
     monkeypatch.setenv("BKG_INDEX_DB", "outer.db")
-    observed_options: list[RunCommandOptions] = []
+    observed_options: list[UpdateApplicationRequest] = []
 
     def run_application(
-        options: RunCommandOptions,
+        options: UpdateApplicationRequest,
         application: ApplicationContext,
         _handoff: WorkflowHandoffControl,
         baseline: str | None,
@@ -211,7 +211,7 @@ def test_update_workflow_resets_published_stop_state_before_restoring(
     ran = False
 
     def run_application(
-        _options: RunCommandOptions,
+        _options: UpdateApplicationRequest,
         application: ApplicationContext,
         _handoff: WorkflowHandoffControl,
         _baseline: str | None,
@@ -250,7 +250,7 @@ def test_update_workflow_does_not_publish_nonfatal_application_run(
     _set_workflow_environment(monkeypatch)
 
     def run_application(
-        _options: RunCommandOptions,
+        _options: UpdateApplicationRequest,
         application: ApplicationContext,
         _handoff: WorkflowHandoffControl,
         _baseline: str | None,
@@ -291,7 +291,7 @@ def test_update_workflow_rejects_invalid_final_snapshot(
     diagnostics: list[str] = []
 
     def run_application(
-        _options: RunCommandOptions,
+        _options: UpdateApplicationRequest,
         application: ApplicationContext,
         _handoff: WorkflowHandoffControl,
         _baseline: str | None,

@@ -36,7 +36,6 @@ from ..owners import (
     OwnerQueuePreparationResult,
     OwnerQueuePreparationService,
     OwnerQueuePreparationServices,
-    OwnerUpdateOperation,
     TargetedOwnerQueueService,
     TargetedOwnerQueueServices,
     admit_owner_page,
@@ -331,8 +330,7 @@ class RunApplicationOperations:
         with self._github_client() as client:
             service = OwnerBatchService(
                 lambda concurrency: (
-                    OwnerUpdateOperation(
-                        self.application,
+                    self.application.owner_update_operation(
                         client,
                         OwnerOperationExecution(
                             concurrency,

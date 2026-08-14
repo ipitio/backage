@@ -15,11 +15,6 @@ from ..application import ApplicationContext
 from ..config import DEFAULT_GITHUB_OWNER, SettingsSnapshot
 from ..github import GitHubClient, GitHubError
 from ..result import ExitStatus
-from ..run.commands import (
-    RunCommandOptions,
-    execute_prepared_application,
-    prepare_application_run,
-)
 from ..runtime import GracefulStop, resolve_executable
 from ..runtime_names import EnvironmentVariable as Env
 from ..runtime_names import StateKey
@@ -40,15 +35,6 @@ from .repository import (
 from .settings import WorkspaceSettings
 
 MessageSink = Callable[[str], None]
-ApplicationRun = Callable[
-    [
-        RunCommandOptions,
-        ApplicationContext,
-        WorkflowHandoffControl,
-        str | None,
-    ],
-    ExitStatus,
-]
 _MINIMUM_SNAPSHOT_BYTES = 100
 _MINIMUM_MAIN_SNAPSHOT_BYTES = 100_000
 _GH_AUTH_TIMEOUT_SECONDS = 10
@@ -56,17 +42,6 @@ _GH_AUTH_TIMEOUT_SECONDS = 10
 
 def _discard_message(_message: str) -> None:
     return
-
-
-def _run_monitored_application(
-    options: RunCommandOptions,
-    application: ApplicationContext,
-    handoff: WorkflowHandoffControl,
-    baseline: str | None,
-) -> ExitStatus:
-    prepared = prepare_application_run(options, application)
-    with handoff.monitor(baseline, application.stop):
-        return execute_prepared_application(prepared, application)
 
 
 @dataclass(frozen=True)
@@ -84,12 +59,35 @@ class UpdateWorkflowRequest:  # pylint: disable=too-many-instance-attributes
 
 
 @dataclass(frozen=True)
+class UpdateApplicationRequest:
+    """Run inputs passed from the workspace boundary to application composition."""
+
+    duration: int | None
+    mode: int | None
+    source_published_today: bool
+    working_directory: Path
+    owner_request_limit: int
+    run_date: date | None
+
+
+ApplicationRun = Callable[
+    [
+        UpdateApplicationRequest,
+        ApplicationContext,
+        WorkflowHandoffControl,
+        str | None,
+    ],
+    ExitStatus,
+]
+
+
+@dataclass(frozen=True)
 class UpdateWorkflowExecution:
     """Observable and replaceable effects around one workflow update."""
 
+    run_application: ApplicationRun
     progress: MessageSink = _discard_message
     diagnostic: MessageSink = _discard_message
-    run_application: ApplicationRun = _run_monitored_application
     clock: Callable[[], float] = time.monotonic
 
 
@@ -109,8 +107,8 @@ class PreparedUpdateWorkspace:
 class UpdateWorkflowService:  # pylint: disable=too-few-public-methods
     """Own the complete update lifecycle outside the application coordinator."""
 
-    def __init__(self, execution: UpdateWorkflowExecution | None = None) -> None:
-        self.execution = execution or UpdateWorkflowExecution()
+    def __init__(self, execution: UpdateWorkflowExecution) -> None:
+        self.execution = execution
 
     def run(self, request: UpdateWorkflowRequest) -> ExitStatus:
         """Prepare, run, validate, and publish one repository update."""
@@ -126,7 +124,7 @@ class UpdateWorkflowService:  # pylint: disable=too-few-public-methods
         prepared = self._prepare_update(request, settings)
         source_published_today = self._source_published_today(prepared.repository)
         status = self.execution.run_application(
-            RunCommandOptions(
+            UpdateApplicationRequest(
                 duration=request.duration,
                 mode=request.mode,
                 source_published_today=source_published_today,
@@ -492,7 +490,7 @@ def _snapshot_or_database_size(
 
 def run_update_workflow(
     request: UpdateWorkflowRequest,
-    execution: UpdateWorkflowExecution | None = None,
+    execution: UpdateWorkflowExecution,
 ) -> ExitStatus:
     """Run the update service with shell-facing error translation."""
 
@@ -508,5 +506,5 @@ def run_update_workflow(
         ValueError,
         WorkspaceError,
     ) as error:
-        (execution or service.execution).diagnostic(str(error))
+        execution.diagnostic(str(error))
         return ExitStatus.NON_FATAL

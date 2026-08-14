@@ -8,11 +8,13 @@ from dataclasses import asdict, dataclass, field, replace
 from functools import cached_property
 from pathlib import Path
 
+from .artifact_sizes import ArtifactSizeResolver, ContainerArtifactSizeAdapter
 from .concurrency import BoundedWorkerRunner, ConcurrencySettings
 from .config import RuntimeConfig, SettingsSnapshot
 from .database import DatabaseRepository
 from .database.settings import DatabaseSettings, DatabaseTuning
-from .discovery import OwnerIdentityCache
+from .discovery import OwnerIdentityCache, OwnerIdentityResolver
+from .docker_sizes import DockerSizeInspector, DockerSizeSettings
 from .enrichment import RequestCircuit, RequestCircuitSettings
 from .github import (
     GitHubClient,
@@ -20,12 +22,42 @@ from .github import (
     GitHubRuntime,
     GitHubSettings,
 )
+from .graphql_sizes import MavenArtifactSizeAdapter
+from .owners.lifecycle import (
+    OwnerLifecycleExecution,
+    OwnerLifecycleService,
+    OwnerLifecycleServices,
+)
+from .owners.operations import (
+    OwnerOperationExecution,
+    OwnerUpdateOperation,
+    OwnerUpdatePolicy,
+    OwnerUpdateServices,
+)
+from .owners.package_updates import (
+    OwnerPackageRefreshExecution,
+    OwnerPackageRefreshService,
+)
+from .owners.publication import OwnerPublicationService
+from .owners.scan_pages import (
+    OwnerScanPageExecution,
+    OwnerScanPageService,
+)
+from .owners.updates import OwnerScanService
+from .package_updates import PackageRefreshExecution
 from .publication import PublicationLimits
+from .registry import GHCRBadgeSizeInspector, GHCRManifestInspector
+from .registry_sizes import (
+    NpmArtifactSizeAdapter,
+    NuGetArtifactSizeAdapter,
+    RubyGemsArtifactSizeAdapter,
+)
 from .rendering import AggregateSettings
 from .runtime import ProcessRunner, StopController
 from .snapshots import SnapshotStore
 from .state import StateStore
 from .version_selection import VersionSelectionSettings
+from .version_updates import VersionRefreshExecution
 
 _STOP_BOUND_SERVICES = (
     "database",
@@ -292,6 +324,15 @@ class ApplicationContext:
             lock_diagnostic=self._lock_diagnostic,
         )
 
+    def owner_update_operation(
+        self,
+        client: GitHubClient,
+        execution: OwnerOperationExecution,
+    ) -> OwnerUpdateOperation:
+        """Compose one owner updater from application-owned concrete services."""
+
+        return _owner_update_operation(self, client, execution)
+
     @contextmanager
     def github_client(
         self,
@@ -313,3 +354,176 @@ class ApplicationContext:
             ),
         ) as client:
             yield client
+
+
+def _owner_update_operation(
+    application: ApplicationContext,
+    client: GitHubClient,
+    execution: OwnerOperationExecution,
+) -> OwnerUpdateOperation:
+    index_dir = application.config.index_dir
+    if index_dir is None:
+        raise ValueError("BKG_INDEX_DIR is required")
+    identity = OwnerIdentityResolver(application.owner_identity_cache, client)
+    artifact_sizes = _artifact_size_resolver(
+        application,
+        client,
+        execution.diagnostic,
+    )
+    return OwnerUpdateOperation(
+        OwnerUpdateServices(
+            application.database,
+            application.state,
+            identity,
+            lambda today: _owner_lifecycle(
+                application,
+                client,
+                execution,
+                artifact_sizes,
+                today,
+            ),
+        ),
+        OwnerUpdatePolicy(
+            mode=application.config.mode,
+            versions_table=application.config.versions_table,
+            index_dir=Path(index_dir),
+            use_rest_api=bool(application.github_settings.token),
+        ),
+        execution,
+    )
+
+
+def _owner_lifecycle(
+    application: ApplicationContext,
+    client: GitHubClient,
+    execution: OwnerOperationExecution,
+    artifact_sizes: ArtifactSizeResolver,
+    today: str,
+) -> OwnerLifecycleService:
+    package_refresh = _package_refresh_service(
+        application,
+        client,
+        execution,
+        artifact_sizes,
+        today,
+    )
+    pages = OwnerScanPageService(
+        application.database,
+        client,
+        package_refresh,
+        OwnerScanPageExecution(
+            application.stop.check,
+            execution.progress,
+        ),
+    )
+    return OwnerLifecycleService(
+        application.database,
+        OwnerLifecycleServices(
+            package_refresh,
+            OwnerScanService(
+                application.database,
+                client,
+                pages,
+                package_refresh,
+            ),
+            OwnerPublicationService(
+                application.database,
+                application.aggregate_settings,
+                application.publication_limits,
+                application.stop.check,
+            ),
+        ),
+        OwnerLifecycleExecution(
+            application.state,
+            execution.progress,
+        ),
+    )
+
+
+def _package_refresh_service(
+    application: ApplicationContext,
+    client: GitHubClient,
+    execution: OwnerOperationExecution,
+    artifact_sizes: ArtifactSizeResolver,
+    today: str,
+) -> OwnerPackageRefreshService:
+    return OwnerPackageRefreshService(
+        application.database,
+        client,
+        OwnerPackageRefreshExecution(
+            PackageRefreshExecution(
+                VersionRefreshExecution(
+                    BoundedWorkerRunner(
+                        execution.concurrency,
+                        check_stop=application.stop.check,
+                    ),
+                    artifact_sizes,
+                    diagnostic=execution.diagnostic,
+                    today=lambda: today,
+                    metric_enrichment=application.metric_enrichment,
+                    listing_recovery=application.version_listing_recovery,
+                ),
+                application.version_selection_settings,
+                application.publication_limits,
+                Path(application.config.optout_file),
+                application.stop.check,
+            ),
+            execution.concurrency,
+            execution.progress,
+            execution.diagnostic,
+        ),
+    )
+
+
+def _artifact_size_resolver(
+    application: ApplicationContext,
+    client: GitHubClient,
+    diagnostic: Callable[[str], None],
+) -> ArtifactSizeResolver:
+    return ArtifactSizeResolver(
+        {
+            "container": ContainerArtifactSizeAdapter(
+                manifest_inspector=GHCRManifestInspector(
+                    client,
+                    diagnostic=diagnostic,
+                ),
+                hosted_inspector=GHCRBadgeSizeInspector(
+                    client,
+                    application.metric_enrichment,
+                    diagnostic=diagnostic,
+                ),
+                diagnostic=diagnostic,
+                local_inspector=DockerSizeInspector(
+                    application.process_runner,
+                    application.artifact_size_enrichment["docker"],
+                    DockerSizeSettings(
+                        enabled=application.config.docker_size_fallback,
+                        platform=application.config.docker_platform,
+                        pull_timeout=application.config.docker_pull_timeout,
+                        command_timeout=application.config.docker_command_timeout,
+                    ),
+                    diagnostic=diagnostic,
+                ),
+            ),
+            "maven": MavenArtifactSizeAdapter(
+                client,
+                application.artifact_size_enrichment["maven"],
+                diagnostic=diagnostic,
+            ),
+            "npm": NpmArtifactSizeAdapter(
+                client.package_registry,
+                application.artifact_size_enrichment["npm"],
+                diagnostic=diagnostic,
+            ),
+            "nuget": NuGetArtifactSizeAdapter(
+                client.package_registry,
+                application.artifact_size_enrichment["nuget"],
+                diagnostic=diagnostic,
+            ),
+            "rubygems": RubyGemsArtifactSizeAdapter(
+                client.package_registry,
+                application.artifact_size_enrichment["rubygems"],
+                diagnostic=diagnostic,
+            ),
+        }
+    )

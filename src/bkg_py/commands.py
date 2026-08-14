@@ -7,9 +7,15 @@ import argparse
 import json
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from .config import ConfigError, RepositoryMaintenanceSettings, SettingsSnapshot
 from .result import ExitStatus
+
+if TYPE_CHECKING:
+    from .application import ApplicationContext
+    from .workspace.handoff import WorkflowHandoffControl
+    from .workspace.update import UpdateApplicationRequest
 
 
 def run_command(
@@ -130,8 +136,38 @@ def _run_workflow_update(
         UpdateWorkflowExecution(
             progress=print,
             diagnostic=lambda message: print(message, file=sys.stderr),
+            run_application=_run_monitored_workflow_application,
         ),
     )
+
+
+def _run_monitored_workflow_application(
+    request: UpdateApplicationRequest,
+    application: ApplicationContext,
+    handoff: WorkflowHandoffControl,
+    baseline: str | None,
+) -> ExitStatus:
+    """Adapt workspace-owned inputs to one monitored application run."""
+
+    from .run.commands import (
+        RunCommandOptions,
+        execute_prepared_application,
+        prepare_application_run,
+    )
+
+    prepared = prepare_application_run(
+        RunCommandOptions(
+            duration=request.duration,
+            mode=request.mode,
+            source_published_today=request.source_published_today,
+            working_directory=request.working_directory,
+            owner_request_limit=request.owner_request_limit,
+            run_date=request.run_date,
+        ),
+        application,
+    )
+    with handoff.monitor(baseline, application.stop):
+        return execute_prepared_application(prepared, application)
 
 
 def _workflow_update_root(

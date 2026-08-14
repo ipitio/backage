@@ -1,62 +1,120 @@
-"""Reusable construction and execution of one complete owner update."""
+"""Execute one complete owner update through caller-composed services."""
 
 from __future__ import annotations
 
 import shutil
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Protocol
 
-from ..application import ApplicationContext
-from ..artifact_sizes import ArtifactSizeResolver, ContainerArtifactSizeAdapter
-from ..concurrency import BoundedWorkerRunner, ConcurrencySettings
+from ..concurrency import ConcurrencySettings
 from ..database import (
     DatabaseError,
-    DatabaseRepository,
+    OwnerIdentityCleanup,
+    OwnerScanCursor,
     OwnerScanFailure,
     OwnerScanPackage,
     PackageBatch,
     PackageRef,
 )
-from ..discovery import OwnerIdentityResolver
-from ..docker_sizes import DockerSizeInspector, DockerSizeSettings
-from ..github import GitHubClient, GitHubError
-from ..graphql_sizes import MavenArtifactSizeAdapter
+from ..discovery import OwnerLookupResult
+from ..github import GitHubError
 from ..package_discovery import PackageDiscoveryError
-from ..package_updates import PackageRefreshExecution, PackageRefreshPolicy
+from ..package_updates import PackageRefreshPolicy
 from ..publication import PublicationError
-from ..registry import GHCRBadgeSizeInspector, GHCRManifestInspector
-from ..registry_sizes import (
-    NpmArtifactSizeAdapter,
-    NuGetArtifactSizeAdapter,
-    RubyGemsArtifactSizeAdapter,
-)
 from ..rendering import RenderingError
 from ..runtime_names import legacy_owner_page_key, legacy_owner_scan_key
-from ..version_updates import VersionRefreshExecution
 from .lifecycle import (
-    OwnerLifecycleExecution,
     OwnerLifecycleRequest,
     OwnerLifecycleResult,
-    OwnerLifecycleService,
-    OwnerLifecycleServices,
 )
 from .package_updates import (
     OwnerPackageRefreshError,
-    OwnerPackageRefreshExecution,
     OwnerPackageRefreshRequest,
-    OwnerPackageRefreshService,
 )
-from .publication import OwnerPublicationService
-from .scan_pages import (
-    OwnerScanPageError,
-    OwnerScanPageExecution,
-    OwnerScanPageService,
-)
-from .updates import OwnerScanService, OwnerUpdateError
+from .scan_pages import OwnerScanPageError
+from .updates import OwnerUpdateError
 
 MessageSink = Callable[[str], None]
+
+
+class OwnerUpdateRepository(Protocol):
+    """Persistence operations required by one outer owner update."""
+
+    def owner_has_aliases(self, owner_id: str, owner: str) -> bool:
+        """Return whether an owner has superseded persisted identities."""
+
+        raise NotImplementedError
+
+    def retire_owner_aliases(
+        self,
+        owner_id: str,
+        owner: str,
+    ) -> OwnerIdentityCleanup:
+        """Reconcile rows for one freshly verified owner identity."""
+
+        raise NotImplementedError
+
+    def known_owner_type(self, owner_id: str, owner: str) -> str | None:
+        """Return an already persisted GitHub owner type."""
+
+        raise NotImplementedError
+
+    def current_owner_scan(
+        self,
+        owner_id: str,
+        batch_marker: str,
+    ) -> OwnerScanCursor | None:
+        """Return the active owner scan cursor, when present."""
+
+        raise NotImplementedError
+
+    def fail_owner_scan(self, failure: OwnerScanFailure) -> int:
+        """Persist a retryable failure and return its retry epoch."""
+
+        raise NotImplementedError
+
+
+class OwnerUpdateState(Protocol):  # pylint: disable=too-few-public-methods
+    """Legacy state cleanup required by one owner update."""
+
+    def delete_matching(
+        self,
+        *,
+        keys: Iterable[str] = (),
+        prefixes: Iterable[str] = (),
+    ) -> set[str]:
+        """Delete matching legacy state keys."""
+
+        raise NotImplementedError
+
+
+class OwnerIdentityLookup(Protocol):
+    """Fresh owner identity behavior required by owner operations."""
+
+    def owner_type(self, value: str) -> str | None:
+        """Return GitHub's owner type when it exists."""
+
+        raise NotImplementedError
+
+    def resolve_owner_fresh(self, value: str) -> OwnerLookupResult:
+        """Resolve an owner without trusting a persisted identity."""
+
+        raise NotImplementedError
+
+
+class OwnerLifecycle(Protocol):  # pylint: disable=too-few-public-methods
+    """One fully composed owner lifecycle."""
+
+    def update(self, request: OwnerLifecycleRequest) -> OwnerLifecycleResult:
+        """Run one owner lifecycle."""
+
+        raise NotImplementedError
+
+
+OwnerLifecycleFactory = Callable[[str], OwnerLifecycle]
 
 
 @dataclass(frozen=True)
@@ -80,27 +138,38 @@ class OwnerOperationExecution:
     diagnostic: MessageSink
 
 
+@dataclass(frozen=True)
+class OwnerUpdateServices:
+    """Narrow collaborators supplied by the application composition root."""
+
+    repository: OwnerUpdateRepository
+    state: OwnerUpdateState
+    identity: OwnerIdentityLookup
+    lifecycle_for_date: OwnerLifecycleFactory
+
+
+@dataclass(frozen=True)
+class OwnerUpdatePolicy:
+    """Immutable runtime policy needed to build owner package requests."""
+
+    mode: int
+    versions_table: str
+    index_dir: Path
+    use_rest_api: bool
+
+
 class OwnerUpdateOperation:  # pylint: disable=too-few-public-methods
-    """Build and execute one owner lifecycle with shared process services."""
+    """Execute one owner lifecycle using caller-composed services."""
 
     def __init__(
         self,
-        application: ApplicationContext,
-        client: GitHubClient,
+        services: OwnerUpdateServices,
+        policy: OwnerUpdatePolicy,
         execution: OwnerOperationExecution,
     ) -> None:
-        self.application = application
-        self.client = client
+        self.services = services
+        self.policy = policy
         self.execution = execution
-        self.identity = OwnerIdentityResolver(
-            application.owner_identity_cache,
-            client,
-        )
-        self.artifact_size_resolver = _artifact_size_resolver(
-            application,
-            client,
-            execution.diagnostic,
-        )
 
     def update(self, request: OwnerUpdateRequest) -> OwnerLifecycleResult:
         """Run one owner and persist retry backoff for expected failures."""
@@ -110,52 +179,15 @@ class OwnerUpdateOperation:  # pylint: disable=too-few-public-methods
             owner_type = _resolve_owner_api_type(
                 request.owner_id,
                 request.owner,
-                self.application.database,
-                self.identity,
+                self.services.repository,
+                self.services.identity,
                 self.execution.progress,
             )
-            package_refresh = build_package_refresh_service(
-                self.application,
-                self.client,
-                self.execution,
-                self.artifact_size_resolver,
-                today=request.today,
-            )
-            pages = OwnerScanPageService(
-                self.application.database,
-                self.client,
-                package_refresh,
-                OwnerScanPageExecution(
-                    self.application.stop.check,
-                    self.execution.progress,
-                ),
-            )
-            return OwnerLifecycleService(
-                self.application.database,
-                OwnerLifecycleServices(
-                    package_refresh,
-                    OwnerScanService(
-                        self.application.database,
-                        self.client,
-                        pages,
-                        package_refresh,
-                    ),
-                    OwnerPublicationService(
-                        self.application.database,
-                        self.application.aggregate_settings,
-                        self.application.publication_limits,
-                        self.application.stop.check,
-                    ),
-                ),
-                OwnerLifecycleExecution(
-                    self.application.state,
-                    self.execution.progress,
-                ),
-            ).update(
+            return self.services.lifecycle_for_date(request.today).update(
                 OwnerLifecycleRequest(
                     owner_type,
-                    self.application.config.mode,
-                    build_package_refresh_request(request, self.application, ()),
+                    self.policy.mode,
+                    _build_package_refresh_request(request, self.policy, ()),
                 )
             )
         except (
@@ -171,7 +203,8 @@ class OwnerUpdateOperation:  # pylint: disable=too-few-public-methods
         ) as error:
             return _defer_owner_update(
                 request,
-                self.application,
+                self.services.repository,
+                self.services.state,
                 error,
                 self.execution.progress,
             )
@@ -180,14 +213,14 @@ class OwnerUpdateOperation:  # pylint: disable=too-few-public-methods
         self,
         request: OwnerUpdateRequest,
     ) -> OwnerUpdateRequest:
-        has_aliases = self.application.database.owner_has_aliases(
+        has_aliases = self.services.repository.owner_has_aliases(
             request.owner_id,
             request.owner,
         )
         if not has_aliases:
             return request
 
-        resolved = self.identity.resolve_owner_fresh(request.owner)
+        resolved = self.services.identity.resolve_owner_fresh(request.owner)
         if resolved.owner_ref is None:
             raise OwnerUpdateError(
                 f"could not verify current owner identity for {request.owner}"
@@ -198,10 +231,10 @@ class OwnerUpdateOperation:  # pylint: disable=too-few-public-methods
                 f"GitHub returned an invalid owner identity for {request.owner}"
             )
 
-        cleanup = self.application.database.retire_owner_aliases(
+        cleanup = self.services.repository.retire_owner_aliases(
             verified_id, verified_owner
         )
-        self.application.state.delete_matching(
+        self.services.state.delete_matching(
             keys=(
                 key
                 for alias_id in cleanup.alias_ids
@@ -212,7 +245,7 @@ class OwnerUpdateOperation:  # pylint: disable=too-few-public-methods
             )
         )
         _remove_orphaned_package_files(
-            self.application.config.index_dir,
+            self.policy.index_dir,
             cleanup.orphaned_packages,
         )
         self.execution.progress(
@@ -224,107 +257,12 @@ class OwnerUpdateOperation:  # pylint: disable=too-few-public-methods
         return replace(request, owner_id=verified_id, owner=verified_owner)
 
 
-def build_package_refresh_service(
-    application: ApplicationContext,
-    client: GitHubClient,
-    execution: OwnerOperationExecution,
-    artifact_size_resolver: ArtifactSizeResolver,
-    *,
-    today: str,
-) -> OwnerPackageRefreshService:
-    """Build package refresh behavior using a caller-provided worker budget."""
-
-    return OwnerPackageRefreshService(
-        application.database,
-        client,
-        OwnerPackageRefreshExecution(
-            PackageRefreshExecution(
-                VersionRefreshExecution(
-                    BoundedWorkerRunner(
-                        execution.concurrency,
-                        check_stop=application.stop.check,
-                    ),
-                    artifact_size_resolver,
-                    diagnostic=execution.diagnostic,
-                    today=lambda: today,
-                    metric_enrichment=application.metric_enrichment,
-                    listing_recovery=application.version_listing_recovery,
-                ),
-                application.version_selection_settings,
-                application.publication_limits,
-                Path(application.config.optout_file),
-                application.stop.check,
-            ),
-            execution.concurrency,
-            execution.progress,
-            execution.diagnostic,
-        ),
-    )
-
-
-def _artifact_size_resolver(
-    application: ApplicationContext,
-    client: GitHubClient,
-    diagnostic: MessageSink,
-) -> ArtifactSizeResolver:
-    return ArtifactSizeResolver(
-        {
-            "container": ContainerArtifactSizeAdapter(
-                manifest_inspector=GHCRManifestInspector(
-                    client,
-                    diagnostic=diagnostic,
-                ),
-                hosted_inspector=GHCRBadgeSizeInspector(
-                    client,
-                    application.metric_enrichment,
-                    diagnostic=diagnostic,
-                ),
-                diagnostic=diagnostic,
-                local_inspector=DockerSizeInspector(
-                    application.process_runner,
-                    application.artifact_size_enrichment["docker"],
-                    DockerSizeSettings(
-                        enabled=application.config.docker_size_fallback,
-                        platform=application.config.docker_platform,
-                        pull_timeout=application.config.docker_pull_timeout,
-                        command_timeout=application.config.docker_command_timeout,
-                    ),
-                    diagnostic=diagnostic,
-                ),
-            ),
-            "maven": MavenArtifactSizeAdapter(
-                client,
-                application.artifact_size_enrichment["maven"],
-                diagnostic=diagnostic,
-            ),
-            "npm": NpmArtifactSizeAdapter(
-                client.package_registry,
-                application.artifact_size_enrichment["npm"],
-                diagnostic=diagnostic,
-            ),
-            "nuget": NuGetArtifactSizeAdapter(
-                client.package_registry,
-                application.artifact_size_enrichment["nuget"],
-                diagnostic=diagnostic,
-            ),
-            "rubygems": RubyGemsArtifactSizeAdapter(
-                client.package_registry,
-                application.artifact_size_enrichment["rubygems"],
-                diagnostic=diagnostic,
-            ),
-        }
-    )
-
-
 def _remove_orphaned_package_files(
-    index_dir: str | None,
+    index_dir: Path,
     packages: tuple[PackageRef, ...],
 ) -> None:
-    if index_dir is None:
-        raise OwnerUpdateError("BKG_INDEX_DIR is required")
-    root = Path(index_dir)
     for package in packages:
-        repo_directory = root / package.owner / package.repo
+        repo_directory = index_dir / package.owner / package.repo
         if not repo_directory.is_dir():
             continue
         prefixes = (f"{package.package}.json", f"{package.package}.xml")
@@ -338,28 +276,25 @@ def _remove_orphaned_package_files(
             shutil.rmtree(repo_directory)
 
 
-def build_package_refresh_request(
+def _build_package_refresh_request(
     request: OwnerUpdateRequest,
-    application: ApplicationContext,
+    policy: OwnerUpdatePolicy,
     packages: tuple[OwnerScanPackage, ...],
 ) -> OwnerPackageRefreshRequest:
     """Build one owner package request from typed runtime inputs."""
 
-    index_dir = application.config.index_dir
-    if index_dir is None:
-        raise OwnerUpdateError("BKG_INDEX_DIR is required")
     return OwnerPackageRefreshRequest(
         request.owner_id,
         request.owner,
         packages,
         PackageBatch(request.since, request.batch_marker),
-        application.config.versions_table,
-        Path(index_dir),
+        policy.versions_table,
+        policy.index_dir,
         PackageRefreshPolicy(
             write_legacy=True,
-            use_rest_api=bool(application.github_settings.token),
+            use_rest_api=policy.use_rest_api,
             fast_out=request.fast_out,
-            mode=application.config.mode,
+            mode=policy.mode,
         ),
     )
 
@@ -367,8 +302,8 @@ def build_package_refresh_request(
 def _resolve_owner_api_type(
     owner_id: str,
     owner: str,
-    repository: DatabaseRepository,
-    resolver: OwnerIdentityResolver,
+    repository: OwnerUpdateRepository,
+    resolver: OwnerIdentityLookup,
     progress: MessageSink,
 ) -> str:
     known_type = repository.known_owner_type(owner_id, owner)
@@ -387,17 +322,18 @@ def _resolve_owner_api_type(
 
 def _defer_owner_update(
     request: OwnerUpdateRequest,
-    application: ApplicationContext,
+    repository: OwnerUpdateRepository,
+    state: OwnerUpdateState,
     error: Exception,
     progress: MessageSink,
 ) -> OwnerLifecycleResult:
-    cursor = application.database.current_owner_scan(
+    cursor = repository.current_owner_scan(
         request.owner_id,
         request.batch_marker,
     )
     message = str(error) or type(error).__name__
     failed_at = int(datetime.now(tz=UTC).timestamp())
-    retry_after = application.database.fail_owner_scan(
+    retry_after = repository.fail_owner_scan(
         OwnerScanFailure(
             request.owner_id,
             request.owner,
@@ -406,7 +342,7 @@ def _defer_owner_update(
             failed_at,
         )
     )
-    application.state.delete_matching(
+    state.delete_matching(
         keys=(
             legacy_owner_scan_key(request.owner_id),
             legacy_owner_page_key(request.owner_id),

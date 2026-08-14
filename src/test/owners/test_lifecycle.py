@@ -33,7 +33,6 @@ from bkg_py.owners.lifecycle import (
 )
 from bkg_py.owners.operations import (
     OwnerOperationExecution,
-    OwnerUpdateOperation,
     OwnerUpdateRequest,
 )
 from bkg_py.owners.package_updates import (
@@ -433,8 +432,7 @@ def test_owner_update_operation_persists_backoff_and_reports_a_deferred_result(
 
     progress: list[str] = []
     application = ApplicationContext.from_env()
-    result = OwnerUpdateOperation(
-        application,
+    result = application.owner_update_operation(
         cast(GitHubClient, FakeGitHubClient()),
         OwnerOperationExecution(
             ConcurrencySettings(max_workers=1),
