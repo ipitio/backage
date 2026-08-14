@@ -16,6 +16,11 @@ from ..database import (
     OwnerScanResult,
     OwnerScanStart,
 )
+from ..runtime_names import (
+    StateKey,
+    legacy_owner_page_key,
+    legacy_owner_scan_key,
+)
 from ..state import StateStore
 from .package_updates import (
     OwnerPackageRefreshRequest,
@@ -244,7 +249,7 @@ class OwnerLifecycleService:  # pylint: disable=too-few-public-methods
             publication.package_count == 0
             and refresh.since != "0000-00-00"
             and f"{refresh.owner_id}/{refresh.owner}"
-            in self.execution.state.get_set("BKG_DISCOVERED_CONNECTION_OWNERS")
+            in self.execution.state.get_set(StateKey.DISCOVERED_CONNECTION_OWNERS)
         ):
             self.repository.write_owner(
                 OwnerRecord(refresh.owner_id, refresh.owner, refresh.since)
@@ -304,4 +309,4 @@ class OwnerLifecycleService:  # pylint: disable=too-few-public-methods
 
 
 def _legacy_scan_keys(owner_id: str) -> tuple[str, str]:
-    return f"BKG_OWNER_SCAN_{owner_id}", f"BKG_PAGE_{owner_id}"
+    return legacy_owner_scan_key(owner_id), legacy_owner_page_key(owner_id)

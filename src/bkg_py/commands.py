@@ -31,8 +31,8 @@ def _dispatch_command(
 ) -> ExitStatus:
     """Dispatch one parsed command after process-boundary error handling."""
 
-    if args.command in {"config", "release-tag"}:
-        return _run_information_command(args)
+    if args.command in {"config", "reference", "release-tag"}:
+        return _run_information_command(args, parser)
     if args.command == "validate":
         from .validation import validate_generated_file
 
@@ -54,7 +54,10 @@ def _dispatch_command(
     raise AssertionError("argparse.error must exit")
 
 
-def _run_information_command(args: argparse.Namespace) -> ExitStatus:
+def _run_information_command(
+    args: argparse.Namespace,
+    parser: argparse.ArgumentParser,
+) -> ExitStatus:
     if args.command == "config":
         from .application import ApplicationSettings
         from .workspace.settings import WorkspaceSettings
@@ -63,6 +66,10 @@ def _run_information_command(args: argparse.Namespace) -> ExitStatus:
         output = ApplicationSettings.from_mapping(values).as_dict()
         output["workspace"] = WorkspaceSettings.from_mapping(values).as_dict()
         print(json.dumps(output, sort_keys=True))
+    elif args.command == "reference":
+        from .reference import build_runtime_reference
+
+        print(json.dumps(build_runtime_reference(parser), sort_keys=True))
     else:
         from .release import release_tag
 

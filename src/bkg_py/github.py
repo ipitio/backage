@@ -24,6 +24,8 @@ from .registry_transport import (
     PackageRegistryTransportSettings,
 )
 from .runtime import GracefulStop
+from .runtime_names import EnvironmentVariable as Env
+from .runtime_names import StateKey
 from .state import StateStore
 
 _RETRYABLE_STATUS_CODES = frozenset({408, 429, 500, 502, 503, 504})
@@ -134,36 +136,41 @@ class GitHubSettings:  # pylint: disable=too-many-instance-attributes
         """Load settings from one captured configuration mapping."""
 
         settings = cls(
-            token=read_text(values, "GITHUB_TOKEN", "", allow_empty=True),
+            token=read_text(values, Env.GITHUB_TOKEN, "", allow_empty=True),
             api_url=read_text(
                 values,
-                "BKG_GITHUB_API_URL",
+                Env.BKG_GITHUB_API_URL,
                 "https://api.github.com",
             ),
-            connect_timeout=_positive_setting(values, "BKG_HTTP_CONNECT_TIMEOUT", 10.0),
-            read_timeout=_positive_setting(values, "BKG_HTTP_READ_TIMEOUT", 60.0),
-            write_timeout=_positive_setting(values, "BKG_HTTP_WRITE_TIMEOUT", 60.0),
-            pool_timeout=_positive_setting(values, "BKG_HTTP_POOL_TIMEOUT", 10.0),
-            total_timeout=_positive_setting(values, "BKG_HTTP_TOTAL_TIMEOUT", 120.0),
+            connect_timeout=_positive_setting(
+                values, Env.BKG_HTTP_CONNECT_TIMEOUT, 10.0
+            ),
+            read_timeout=_positive_setting(values, Env.BKG_HTTP_READ_TIMEOUT, 60.0),
+            write_timeout=_positive_setting(values, Env.BKG_HTTP_WRITE_TIMEOUT, 60.0),
+            pool_timeout=_positive_setting(values, Env.BKG_HTTP_POOL_TIMEOUT, 10.0),
+            total_timeout=_positive_setting(values, Env.BKG_HTTP_TOTAL_TIMEOUT, 120.0),
             max_attempts=read_int(
                 values,
-                "BKG_HTTP_MAX_ATTEMPTS",
+                Env.BKG_HTTP_MAX_ATTEMPTS,
                 5,
                 minimum=1,
             ),
-            initial_backoff=_positive_setting(values, "BKG_HTTP_INITIAL_BACKOFF", 1.0),
-            max_backoff=_positive_setting(values, "BKG_HTTP_MAX_BACKOFF", 30.0),
+            initial_backoff=_positive_setting(
+                values, Env.BKG_HTTP_INITIAL_BACKOFF, 1.0
+            ),
+            max_backoff=_positive_setting(values, Env.BKG_HTTP_MAX_BACKOFF, 30.0),
             rest_reserve=read_int(
                 values,
-                "BKG_GITHUB_REST_RESERVE",
+                Env.BKG_GITHUB_REST_RESERVE,
                 _DEFAULT_REST_RESERVE,
                 minimum=0,
             ),
-            user_agent=read_text(values, "BKG_HTTP_USER_AGENT", "backage"),
+            user_agent=read_text(values, Env.BKG_HTTP_USER_AGENT, "backage"),
         )
         if settings.max_backoff < settings.initial_backoff:
             raise ConfigError(
-                "BKG_HTTP_MAX_BACKOFF must be at least BKG_HTTP_INITIAL_BACKOFF"
+                f"{Env.BKG_HTTP_MAX_BACKOFF} must be at least "
+                f"{Env.BKG_HTTP_INITIAL_BACKOFF}"
             )
         return settings
 
@@ -260,8 +267,8 @@ class GitHubRateAccounting:
         self.flush_responses = flush_responses
         self._lock = Lock()
         self._rate = _GitHubRateWindow(
-            remaining=_nonnegative_int(state.get("BKG_REST_REMAINING")),
-            reset_at=_nonnegative_int(state.get("BKG_REST_RESET_AT")),
+            remaining=_nonnegative_int(state.get(StateKey.REST_REMAINING)),
+            reset_at=_nonnegative_int(state.get(StateKey.REST_RESET_AT)),
         )
         self._pending = _GitHubPendingUsage()
 
@@ -326,13 +333,13 @@ class GitHubRateAccounting:
 
         rate_limit = _graphql_rate_limit(value)
         cost = _positive_int(rate_limit.get("cost"), default=1)
-        values: dict[str, str | int] = {"BKG_GRAPHQL_LAST_COST": cost}
+        values: dict[str, str | int] = {StateKey.GRAPHQL_LAST_COST: cost}
         remaining = _nonnegative_int(rate_limit.get("remaining"))
         if remaining is not None:
-            values["BKG_GRAPHQL_REMAINING"] = remaining
+            values[StateKey.GRAPHQL_REMAINING] = remaining
         reset_at = rate_limit.get("resetAt")
         if isinstance(reset_at, str) and reset_at:
-            values["BKG_GRAPHQL_RESET_AT"] = reset_at
+            values[StateKey.GRAPHQL_RESET_AT] = reset_at
         self._record_usage(values, calls=cost, minute_calls=cost)
 
     def flush(self) -> None:
@@ -347,8 +354,8 @@ class GitHubRateAccounting:
             self.state.update_many(
                 pending.values,
                 increments={
-                    "BKG_CALLS_TO_API": pending.calls,
-                    "BKG_MIN_CALLS_TO_API": pending.minute_calls,
+                    StateKey.CALLS_TO_API: pending.calls,
+                    StateKey.MIN_CALLS_TO_API: pending.minute_calls,
                 },
             )
         except BaseException:
@@ -408,11 +415,11 @@ class GitHubRateAccounting:
 
             values: dict[str, int] = {}
             if self._rate.remaining is not None:
-                values["BKG_REST_REMAINING"] = self._rate.remaining
+                values[StateKey.REST_REMAINING] = self._rate.remaining
             if self._rate.reset_at is not None:
-                values["BKG_REST_RESET_AT"] = self._rate.reset_at
+                values[StateKey.REST_RESET_AT] = self._rate.reset_at
             if limit is not None:
-                values["BKG_REST_LIMIT"] = limit
+                values[StateKey.REST_LIMIT] = limit
             return values
 
 

@@ -23,6 +23,7 @@ from .database import (
 )
 from .files import atomic_path, atomic_text_output
 from .publication import JsonValue
+from .runtime_names import EnvironmentVariable as Env
 
 StopCheck = Callable[[], None]
 _METRIC_UNITS = ("", "k", "M", "B", "T", "P", "E", "Z", "Y")
@@ -52,35 +53,35 @@ class AggregateSettings:
         return cls(
             target_bytes=read_int(
                 values,
-                "BKG_OWNER_ARRAY_MAX_BYTES",
+                Env.BKG_OWNER_ARRAY_MAX_BYTES,
                 cls.target_bytes,
                 minimum=1,
             ),
             maximum_probe=read_int(
                 values,
-                "BKG_OWNER_ARRAY_ADAPTIVE_MAX_PROBE",
+                Env.BKG_OWNER_ARRAY_ADAPTIVE_MAX_PROBE,
                 cls.maximum_probe,
                 minimum=1,
             ),
             estimate_headroom_percent=read_int(
                 values,
-                "BKG_OWNER_ARRAY_DB_ESTIMATE_HEADROOM_PERCENT",
+                Env.BKG_OWNER_ARRAY_DB_ESTIMATE_HEADROOM_PERCENT,
                 cls.estimate_headroom_percent,
                 minimum=1,
                 maximum=100,
             ),
             database_fallback_version_limit=read_int(
                 values,
-                "BKG_OWNER_ARRAY_DB_FALLBACK_VERSION_LIMIT",
+                Env.BKG_OWNER_ARRAY_DB_FALLBACK_VERSION_LIMIT,
                 cls.database_fallback_version_limit,
             ),
             version_limit=read_optional_int(
                 values,
-                "BKG_OWNER_ARRAY_VERSION_LIMIT",
+                Env.BKG_OWNER_ARRAY_VERSION_LIMIT,
             ),
             database_version_limit=read_optional_int(
                 values,
-                "BKG_OWNER_ARRAY_DB_VERSION_LIMIT",
+                Env.BKG_OWNER_ARRAY_DB_VERSION_LIMIT,
             ),
         )
 

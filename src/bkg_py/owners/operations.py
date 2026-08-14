@@ -33,6 +33,7 @@ from ..registry_sizes import (
     RubyGemsArtifactSizeAdapter,
 )
 from ..rendering import RenderingError
+from ..runtime_names import legacy_owner_page_key, legacy_owner_scan_key
 from ..version_updates import VersionRefreshExecution
 from .lifecycle import (
     OwnerLifecycleExecution,
@@ -205,8 +206,8 @@ class OwnerUpdateOperation:  # pylint: disable=too-few-public-methods
                 key
                 for alias_id in cleanup.alias_ids
                 for key in (
-                    f"BKG_OWNER_SCAN_{alias_id}",
-                    f"BKG_PAGE_{alias_id}",
+                    legacy_owner_scan_key(alias_id),
+                    legacy_owner_page_key(alias_id),
                 )
             )
         )
@@ -407,8 +408,8 @@ def _defer_owner_update(
     )
     application.state.delete_matching(
         keys=(
-            f"BKG_OWNER_SCAN_{request.owner_id}",
-            f"BKG_PAGE_{request.owner_id}",
+            legacy_owner_scan_key(request.owner_id),
+            legacy_owner_page_key(request.owner_id),
         )
     )
     retry_time = datetime.fromtimestamp(retry_after, UTC).strftime("%Y-%m-%dT%H:%M:%SZ")

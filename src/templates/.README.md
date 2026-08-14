@@ -66,7 +66,7 @@ This is an example for `systemd`; adapt it to your needs. Please note:
 
 ```bash
 echo "[Unit]
-Description=Run Backage
+Description=Run backage
 After=network.target
 StartLimitIntervalSec=0
 

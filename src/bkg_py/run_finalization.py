@@ -18,6 +18,7 @@ from .database import (
 )
 from .release import release_tag as release_tag_for_date
 from .run_publication import RunPublicationRequest
+from .runtime_names import StateKey
 from .snapshots import SnapshotError, SnapshotRotationResult
 from .state import StateStore
 
@@ -193,7 +194,7 @@ class RunFinalizationService:  # pylint: disable=too-few-public-methods
         request: RunFinalizationRequest,
         current_release_tag: str,
     ) -> _PreparedSnapshot:
-        self.services.state.set("BKG_OUT", _line_count(request.optout_file))
+        self.services.state.set(StateKey.OUT, _line_count(request.optout_file))
         self.execution.progress("Preparing the database snapshot...")
         self.execution.check_stop()
         self.services.snapshots.checkpoint_database()

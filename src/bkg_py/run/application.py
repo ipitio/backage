@@ -62,6 +62,7 @@ from ..run_startup import (
     RunStartupService,
     RunStartupServices,
 )
+from ..runtime_names import StateKey
 from .coordinator import OwnerQueuePhaseRequest, RunCoordinatorRequest
 
 MessageSink = Callable[[str], None]
@@ -219,7 +220,7 @@ class RunApplicationOperations:
         return PackageWorkPlanService(self.application.database).prepare(
             since,
             working_directory,
-            batch_marker=self.application.state.get("BKG_BATCH_MARKER") or "",
+            batch_marker=self.application.state.get(StateKey.BATCH_MARKER) or "",
             reset=reset,
         )
 
@@ -390,7 +391,8 @@ class RunApplicationOperations:
                     publication=self._publication_request(today, working_directory),
                     optout_file=Path(config.optout_file),
                     batch_first_started=(
-                        self.application.state.get("BKG_BATCH_FIRST_STARTED") or today
+                        self.application.state.get(StateKey.BATCH_FIRST_STARTED)
+                        or today
                     ),
                     prepare_snapshot=prepare_snapshot,
                     rotation_threshold_bytes=(config.snapshot_rotation_threshold_bytes),
@@ -424,7 +426,7 @@ class RunApplicationOperations:
 
     def _complete_explore_gate(self, today: str) -> None:
         BatchRuntimeService(self.application.state).complete_daily_gate(
-            "BKG_LAST_EXPLORE_DATE",
+            StateKey.LAST_EXPLORE_DATE,
             today,
         )
 

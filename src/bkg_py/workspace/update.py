@@ -21,6 +21,8 @@ from ..run.commands import (
     prepare_application_run,
 )
 from ..runtime import GracefulStop, resolve_executable
+from ..runtime_names import EnvironmentVariable as Env
+from ..runtime_names import StateKey
 from ..snapshots import SnapshotArchive, SnapshotError
 from ..state import StateStore, StateValueError
 from .handoff import WorkflowHandoffControl
@@ -203,8 +205,8 @@ class UpdateWorkflowService:  # pylint: disable=too-few-public-methods
         started_at_epoch = int(time.time())
         StateStore(state_file).set_many(
             {
-                "BKG_SCRIPT_START": started_at_epoch,
-                "BKG_TIMEOUT": 0,
+                StateKey.SCRIPT_START: started_at_epoch,
+                StateKey.TIMEOUT: 0,
             }
         )
         application = ApplicationContext.from_mapping(
@@ -387,17 +389,16 @@ class UpdateWorkflowService:  # pylint: disable=too-few-public-methods
         root = layout.root
         return settings.resolved_mapping(
             {
-                "BKG_ROOT": str(root),
-                "BKG_ENV": str(state_file),
-                "BKG_OWNERS": str(root / "owners.txt"),
-                "BKG_OPTOUT": str(root / "optout.txt"),
-                "BKG_BRANCH": layout.source_branch,
-                "GITHUB_BRANCH": layout.github_branch,
-                "BKG_INDEX": layout.index_name,
-                "BKG_INDEX_DB": str(layout.index_db),
-                "BKG_INDEX_SQL": str(layout.index_sql),
-                "BKG_INDEX_DIR": str(layout.index_dir),
-                "BKG_IS_FIRST": str(first_run).lower(),
+                Env.BKG_ROOT: str(root),
+                Env.BKG_ENV: str(state_file),
+                Env.BKG_OWNERS: str(root / "owners.txt"),
+                Env.BKG_OPTOUT: str(root / "optout.txt"),
+                Env.GITHUB_BRANCH: layout.github_branch,
+                Env.BKG_INDEX: layout.index_name,
+                Env.BKG_INDEX_DB: str(layout.index_db),
+                Env.BKG_INDEX_SQL: str(layout.index_sql),
+                Env.BKG_INDEX_DIR: str(layout.index_dir),
+                Env.BKG_IS_FIRST: str(first_run).lower(),
             }
         )
 

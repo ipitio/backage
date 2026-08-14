@@ -178,6 +178,7 @@ def test_history_owners_ignores_generated_index_directories(tmp_path: Path) -> N
             index,
             tmp_path / "state",
         ),
+        deferred_owners=(),
     )
 
     assert selector.history_owners() == ["alpha", "beta"]
@@ -207,6 +208,7 @@ def test_queue_selection_reserves_capacity_for_discovery_before_stale_backlog(
         request_limit=1,
         current_owner="",
         paths=OwnerQueuePaths(connections, owners, index, working),
+        deferred_owners=(),
     )
 
     selected = selector.select_with_reasons(random.Random(0))  # noqa: S311

@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from ..config import ConfigError, RuntimeConfig, read_float, read_int
+from ..runtime_names import EnvironmentVariable as Env
 from .support import DatabaseError
 
 
@@ -27,39 +28,39 @@ class DatabaseTuning:
         settings = cls(
             busy_timeout_ms=read_int(
                 values,
-                "BKG_SQLITE_BUSY_TIMEOUT_MS",
+                Env.BKG_SQLITE_BUSY_TIMEOUT_MS,
                 300_000,
                 minimum=1,
             ),
             max_attempts=read_int(
                 values,
-                "BKG_SQLITE_MAX_ATTEMPTS",
+                Env.BKG_SQLITE_MAX_ATTEMPTS,
                 3,
                 minimum=1,
             ),
             retry_delay_seconds=read_float(
                 values,
-                "BKG_SQLITE_RETRY_DELAY_SECS",
+                Env.BKG_SQLITE_RETRY_DELAY_SECS,
                 1.0,
                 minimum=0,
             ),
             owner_retry_initial_seconds=read_int(
                 values,
-                "BKG_OWNER_RETRY_INITIAL_SECONDS",
+                Env.BKG_OWNER_RETRY_INITIAL_SECONDS,
                 3_600,
                 minimum=1,
             ),
             owner_retry_max_seconds=read_int(
                 values,
-                "BKG_OWNER_RETRY_MAX_SECONDS",
+                Env.BKG_OWNER_RETRY_MAX_SECONDS,
                 86_400,
                 minimum=1,
             ),
         )
         if settings.owner_retry_max_seconds < settings.owner_retry_initial_seconds:
             raise ConfigError(
-                "BKG_OWNER_RETRY_MAX_SECONDS must be at least "
-                "BKG_OWNER_RETRY_INITIAL_SECONDS"
+                f"{Env.BKG_OWNER_RETRY_MAX_SECONDS} must be at least "
+                f"{Env.BKG_OWNER_RETRY_INITIAL_SECONDS}"
             )
         return settings
 

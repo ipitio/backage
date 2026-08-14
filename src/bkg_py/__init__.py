@@ -1,4 +1,4 @@
-"""Bkg's application, service, and command-line implementation."""
+"""bkg's application, service, and command-line implementation."""
 
 from .result import ExitStatus
 

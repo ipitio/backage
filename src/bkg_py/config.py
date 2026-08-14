@@ -9,6 +9,8 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from types import MappingProxyType
 
+from .runtime_names import EnvironmentVariable as Env
+
 DEFAULT_GITHUB_OWNER = "ipitio"
 DEFAULT_GITHUB_REPOSITORY = "backage"
 
@@ -179,9 +181,9 @@ class RepositoryIdentity:
         """Read repository coordinates from one captured mapping."""
 
         return cls(
-            owner=read_text(values, "GITHUB_OWNER", DEFAULT_GITHUB_OWNER),
-            name=read_text(values, "GITHUB_REPO", DEFAULT_GITHUB_REPOSITORY),
-            branch=read_optional_text(values, "GITHUB_BRANCH"),
+            owner=read_text(values, Env.GITHUB_OWNER, DEFAULT_GITHUB_OWNER),
+            name=read_text(values, Env.GITHUB_REPO, DEFAULT_GITHUB_REPOSITORY),
+            branch=read_optional_text(values, Env.GITHUB_BRANCH),
         )
 
 
@@ -200,8 +202,8 @@ class RepositoryMaintenanceSettings:
         """Read maintenance coordinates without selecting a default target."""
 
         return cls(
-            owner=read_optional_text(values, "GITHUB_OWNER"),
-            name=read_optional_text(values, "GITHUB_REPO"),
+            owner=read_optional_text(values, Env.GITHUB_OWNER),
+            name=read_optional_text(values, Env.GITHUB_REPO),
         )
 
 
@@ -249,22 +251,22 @@ class RuntimeConfig:  # pylint: disable=too-many-instance-attributes
     def from_mapping(cls, values: Mapping[str, str]) -> RuntimeConfig:
         """Build runtime configuration from one captured mapping."""
 
-        root = Path(read_text(values, "BKG_ROOT", str(_repo_root()))).resolve()
+        root = Path(read_text(values, Env.BKG_ROOT, str(_repo_root()))).resolve()
         repository = RepositoryIdentity.from_mapping(values)
         branch = repository.branch
-        index_name = read_optional_text(values, "BKG_INDEX")
+        index_name = read_optional_text(values, Env.BKG_INDEX)
         if index_name is None and branch:
             index_name = "index" if branch == "master" else f"index-{branch}"
 
-        index_db = read_optional_text(values, "BKG_INDEX_DB")
-        index_sql = read_optional_text(values, "BKG_INDEX_SQL")
-        index_dir = read_optional_text(values, "BKG_INDEX_DIR")
+        index_db = read_optional_text(values, Env.BKG_INDEX_DB)
+        index_sql = read_optional_text(values, Env.BKG_INDEX_SQL)
+        index_dir = read_optional_text(values, Env.BKG_INDEX_DIR)
         if index_name:
             index_db = index_db or str(root / f"{index_name}.db")
             index_sql = index_sql or str(root / f"{index_name}.sql")
             index_dir = index_dir or str(root / index_name)
 
-        env_file = read_text(values, "BKG_ENV", str(root / "src" / "env.env"))
+        env_file = read_text(values, Env.BKG_ENV, str(root / "src" / "env.env"))
 
         return cls(
             github_owner=repository.owner,
@@ -272,86 +274,86 @@ class RuntimeConfig:  # pylint: disable=too-many-instance-attributes
             github_branch=branch,
             root=str(root),
             env_file=env_file,
-            owners_file=read_text(values, "BKG_OWNERS", str(root / "owners.txt")),
-            optout_file=read_text(values, "BKG_OPTOUT", str(root / "optout.txt")),
+            owners_file=read_text(values, Env.BKG_OWNERS, str(root / "owners.txt")),
+            optout_file=read_text(values, Env.BKG_OPTOUT, str(root / "optout.txt")),
             owner_id_cache_file=read_text(
                 values,
-                "BKG_OWNER_ID_CACHE",
+                Env.BKG_OWNER_ID_CACHE,
                 str(Path(env_file).parent / "owner-id-cache.txt"),
             ),
-            owners_table=read_text(values, "BKG_INDEX_TBL_OWN", "owners"),
-            packages_table=read_text(values, "BKG_INDEX_TBL_PKG", "packages"),
-            versions_table=read_text(values, "BKG_INDEX_TBL_VER", "versions"),
-            mode=read_int(values, "BKG_MODE", 0, minimum=0, maximum=5),
-            max_len=read_int(values, "BKG_MAX_LEN", 14400),
-            is_first=str(read_bool(values, "BKG_IS_FIRST", False)).lower(),
+            owners_table=read_text(values, Env.BKG_INDEX_TBL_OWN, "owners"),
+            packages_table=read_text(values, Env.BKG_INDEX_TBL_PKG, "packages"),
+            versions_table=read_text(values, Env.BKG_INDEX_TBL_VER, "versions"),
+            mode=read_int(values, Env.BKG_MODE, 0, minimum=0, maximum=5),
+            max_len=read_int(values, Env.BKG_MAX_LEN, 14400),
+            is_first=str(read_bool(values, Env.BKG_IS_FIRST, False)).lower(),
             index_name=index_name,
             index_db=index_db,
             index_sql=index_sql,
             index_dir=index_dir,
             max_version_pages=read_int(
                 values,
-                "BKG_MAX_VERSION_PAGES",
+                Env.BKG_MAX_VERSION_PAGES,
                 3,
                 minimum=0,
             ),
             tag_cache_pages=read_int(
                 values,
-                "BKG_TAG_CACHE_PAGES",
+                Env.BKG_TAG_CACHE_PAGES,
                 3,
                 minimum=0,
             ),
             append_tagged_versions_limit=read_int(
                 values,
-                "BKG_APPEND_TAGGED_VERSIONS_LIMIT",
+                Env.BKG_APPEND_TAGGED_VERSIONS_LIMIT,
                 30,
                 minimum=0,
             ),
             owner_discovery_max_pages=read_int(
                 values,
-                "BKG_OWNER_DISCOVERY_MAX_PAGES",
+                Env.BKG_OWNER_DISCOVERY_MAX_PAGES,
                 1,
                 minimum=0,
             ),
             snapshot_rotation_threshold_bytes=read_int(
                 values,
-                "BKG_SNAPSHOT_ROTATION_THRESHOLD_BYTES",
+                Env.BKG_SNAPSHOT_ROTATION_THRESHOLD_BYTES,
                 2_000_000_000,
                 minimum=1,
             ),
             parallel_async_max_jobs=read_int(
                 values,
-                "BKG_PARALLEL_ASYNC_MAX_JOBS",
+                Env.BKG_PARALLEL_ASYNC_MAX_JOBS,
                 _default_parallel_jobs(),
                 minimum=1,
             ),
             owner_update_stop_grace=read_float(
                 values,
-                "BKG_OWNER_UPDATE_STOP_GRACE",
+                Env.BKG_OWNER_UPDATE_STOP_GRACE,
                 180.0,
                 minimum=0,
                 minimum_exclusive=True,
             ),
             docker_size_fallback=read_bool(
                 values,
-                "BKG_DOCKER_SIZE_FALLBACK",
+                Env.BKG_DOCKER_SIZE_FALLBACK,
                 False,
             ),
             docker_platform=read_text(
                 values,
-                "BKG_DOCKER_PLATFORM",
+                Env.BKG_DOCKER_PLATFORM,
                 "linux/amd64",
             ),
             docker_pull_timeout=read_float(
                 values,
-                "BKG_DOCKER_PULL_TIMEOUT",
+                Env.BKG_DOCKER_PULL_TIMEOUT,
                 300.0,
                 minimum=0,
                 minimum_exclusive=True,
             ),
             docker_command_timeout=read_float(
                 values,
-                "BKG_DOCKER_COMMAND_TIMEOUT",
+                Env.BKG_DOCKER_COMMAND_TIMEOUT,
                 30.0,
                 minimum=0,
                 minimum_exclusive=True,

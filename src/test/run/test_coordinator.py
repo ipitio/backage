@@ -21,6 +21,7 @@ from bkg_py.run import (
 from bkg_py.run_planning import PackageWorkPlanSummary
 from bkg_py.run_startup import RunStartupResult
 from bkg_py.runtime import GracefulStop
+from bkg_py.runtime_names import StateKey
 from bkg_py.state import StateStore
 
 
@@ -442,8 +443,8 @@ def test_global_daily_gates_skip_completed_main_repo_work(tmp_path: Path) -> Non
     state = StateStore(tmp_path / "state.env")
     state.set_many({"BKG_BATCH_MARKER": "batch-1", "BKG_REST_TO_TOP": 0})
     runtime = BatchRuntimeService(state)
-    runtime.complete_daily_gate("BKG_LAST_EXPLORE_DATE", "2026-07-13")
-    runtime.complete_daily_gate("BKG_LAST_OWNERS_QUEUE_DATE", "2026-07-13")
+    runtime.complete_daily_gate(StateKey.LAST_EXPLORE_DATE, "2026-07-13")
+    runtime.complete_daily_gate(StateKey.LAST_OWNERS_QUEUE_DATE, "2026-07-13")
     phases = FakeRunPhases(state)
 
     status, _, phases, progress, _ = _run(

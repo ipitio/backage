@@ -72,7 +72,7 @@ class _DockerResponseError(RuntimeError):
 
 
 class DockerSizeInspector:  # pylint: disable=too-few-public-methods
-    """Pull absent images, inspect cumulative size, and remove Bkg-only pulls."""
+    """Pull absent images, inspect cumulative size, and remove bkg-only pulls."""
 
     def __init__(
         self,

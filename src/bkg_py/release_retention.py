@@ -37,7 +37,7 @@ class ReleaseAsset:
 
 @dataclass(frozen=True)
 class ManagedRelease:
-    """A published Bkg database release with its parsed period."""
+    """A published bkg database release with its parsed period."""
 
     release_id: int
     tag: str

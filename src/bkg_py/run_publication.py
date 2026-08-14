@@ -24,6 +24,7 @@ from .database import (
 from .files import atomic_binary_output, atomic_text_output
 from .publication import PublicationLimits, publish_json_file
 from .release import release_tag as release_tag_for_date
+from .runtime_names import RunFile, StateKey, StatePrefix
 from .site_shell import (
     GitHubRepositoryIdentity,
     SiteShellError,
@@ -37,17 +38,27 @@ MessageSink = Callable[[str], None]
 _NUMBER_SUFFIXES = ("", "k", "M", "B", "T", "P", "E", "Z", "Y")
 _SIDECAR_MARKERS = (".json.tmp", ".json.abs", ".json.rel")
 _TRANSIENT_STATE_PREFIXES = (
-    "BKG_VERSIONS_",
-    "BKG_PACKAGES_",
-    "BKG_OWNER_SCAN_",
+    StatePrefix.LEGACY_VERSIONS,
+    StatePrefix.LEGACY_PACKAGES,
+    StatePrefix.LEGACY_OWNER_SCAN,
 )
-_TRANSIENT_OWNER_PREFIX = "BKG_OWNERS_"
-_NUMBERED_PAGE_KEY = re.compile(r"BKG_PAGE_[0-9].*")
-_OBSOLETE_STATE_KEYS = ("BKG_PAGE_ALL",)
+_TRANSIENT_OWNER_PREFIX = StatePrefix.LEGACY_OWNER_SCRATCH
+_NUMBERED_PAGE_KEY = re.compile(rf"{re.escape(StatePrefix.LEGACY_OWNER_PAGE)}[0-9].*")
+_OBSOLETE_STATE_KEYS = (
+    StateKey.OBSOLETE_PAGE_ALL,
+    StateKey.OBSOLETE_INDEX_CLEANUP_DONE,
+)
 _INTERMEDIATE_FILES = (
-    "packages_already_updated",
-    "packages_all",
-    "packages_to_update",
+    RunFile.PACKAGES_ALL,
+    RunFile.ALL_OWNERS_IN_DB,
+    RunFile.OWNERS_PARTIALLY_UPDATED,
+    RunFile.OWNERS_STALE,
+    RunFile.OWNERS_SCANNED_WITHOUT_PACKAGES,
+    RunFile.LEGACY_PACKAGES_ALREADY_UPDATED,
+    RunFile.LEGACY_PACKAGES_TO_UPDATE,
+    RunFile.LEGACY_ALL_OWNERS_TO_UPDATE,
+    RunFile.LEGACY_OWNERS_UPDATED,
+    RunFile.LEGACY_OWNERS_DEFERRED,
 )
 
 

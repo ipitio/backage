@@ -9,6 +9,7 @@ from pathlib import Path
 
 from ..config import SettingsSnapshot
 from ..result import ExitStatus
+from ..runtime_names import EnvironmentVariable as Env
 from .handoff import (
     WorkflowHandoffControl,
     scheduled_update_skip_reason,
@@ -55,7 +56,9 @@ def run_handoff(args: argparse.Namespace) -> ExitStatus:
 
     values = SettingsSnapshot.from_env()
     redacted_values = tuple(
-        value for name in ("GITHUB_TOKEN", "GH_TOKEN") if (value := values.get(name))
+        value
+        for name in (Env.GITHUB_TOKEN, Env.GH_TOKEN)
+        if (value := values.get(name))
     )
     control = WorkflowHandoffControl(
         GitControlRefRepository(

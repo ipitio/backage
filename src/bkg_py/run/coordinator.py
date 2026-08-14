@@ -1,4 +1,4 @@
-"""Top-level mode and phase ordering for one Bkg run."""
+"""Top-level mode and phase ordering for one bkg run."""
 
 from __future__ import annotations
 
@@ -24,20 +24,22 @@ from ..result import ExitStatus
 from ..run_planning import PackageWorkPlanSummary
 from ..run_startup import RunStartupResult
 from ..runtime import GracefulStop
+from ..runtime_names import RunFile, StateKey
 from ..state import StateStore
 
 MessageSink = Callable[[str], None]
 Clock = Callable[[], int]
 _PLANNING_FILES = (
-    "all_owners_in_db",
-    "all_owners_tu",
-    "owners_updated",
-    "owners_partially_updated",
-    "owners_stale",
-    "owners_scanned_without_packages",
+    RunFile.ALL_OWNERS_IN_DB,
+    RunFile.OWNERS_PARTIALLY_UPDATED,
+    RunFile.OWNERS_STALE,
+    RunFile.OWNERS_SCANNED_WITHOUT_PACKAGES,
+    RunFile.LEGACY_ALL_OWNERS_TO_UPDATE,
+    RunFile.LEGACY_OWNERS_UPDATED,
+    RunFile.LEGACY_OWNERS_DEFERRED,
 )
-_EXPLORE_GATE = "BKG_LAST_EXPLORE_DATE"
-_OWNER_QUEUE_GATE = "BKG_LAST_OWNERS_QUEUE_DATE"
+_EXPLORE_GATE = StateKey.LAST_EXPLORE_DATE
+_OWNER_QUEUE_GATE = StateKey.LAST_OWNERS_QUEUE_DATE
 
 
 @unique
@@ -209,7 +211,7 @@ class RunPhaseOperations(Protocol):
 
 
 class RunCoordinator:  # pylint: disable=too-few-public-methods
-    """Sequence one complete Bkg run around durable phase operations."""
+    """Sequence one complete bkg run around durable phase operations."""
 
     def __init__(
         self,
@@ -268,7 +270,7 @@ class RunCoordinator:  # pylint: disable=too-few-public-methods
             mode.prepares_snapshot,
             request.working_directory,
         )
-        self.state.delete("BKG_TIMEOUT")
+        self.state.delete(StateKey.TIMEOUT)
         return run_status
 
     def _prepare_owner_work(
@@ -321,7 +323,7 @@ class RunCoordinator:  # pylint: disable=too-few-public-methods
                 request.today,
                 skip_explore,
                 connections_file,
-                request.working_directory / "packages_all",
+                request.working_directory / RunFile.PACKAGES_ALL,
             )
         )
         if status == ExitStatus.GRACEFUL_STOP:
@@ -345,7 +347,7 @@ class RunCoordinator:  # pylint: disable=too-few-public-methods
                 request.working_directory,
             )
 
-        rest_first = self.state.get("BKG_REST_TO_TOP") or "0"
+        rest_first = self.state.get(StateKey.REST_TO_TOP) or "0"
         self._log_prequeue_elapsed_once()
         phase_started_at = self.execution.now()
         include_manual = not self.runtime.should_skip_daily_gate(
@@ -369,8 +371,8 @@ class RunCoordinator:  # pylint: disable=too-few-public-methods
             self.runtime.complete_daily_gate(_OWNER_QUEUE_GATE, request.today)
         self.state.set_many(
             {
-                "BKG_DIFF": startup.database_size,
-                "BKG_REST_TO_TOP": 1 - int(rest_first),
+                StateKey.DIFF: startup.database_size,
+                StateKey.REST_TO_TOP: 1 - int(rest_first),
             }
         )
         self._log_phase("queue-discovered-owners", phase_started_at)
@@ -391,7 +393,7 @@ class RunCoordinator:  # pylint: disable=too-few-public-methods
                 request.today,
                 False,
                 connections_file,
-                request.working_directory / "packages_all",
+                request.working_directory / RunFile.PACKAGES_ALL,
             )
         )
         if status != ExitStatus.GRACEFUL_STOP:
@@ -417,7 +419,7 @@ class RunCoordinator:  # pylint: disable=too-few-public-methods
             phase_status = ExitStatus.SUCCESS
         else:
             batch_first_started = (
-                self.state.get("BKG_BATCH_FIRST_STARTED") or "0000-00-00"
+                self.state.get(StateKey.BATCH_FIRST_STARTED) or "0000-00-00"
             )
             phase_status = self._interruptible_status(
                 lambda: self.phases.update_owners(
@@ -498,7 +500,7 @@ class RunCoordinator:  # pylint: disable=too-few-public-methods
         return decision
 
     def _batch_marker(self) -> str:
-        marker = self.state.get("BKG_BATCH_MARKER")
+        marker = self.state.get(StateKey.BATCH_MARKER)
         if not marker:
             raise ValueError("BKG_BATCH_MARKER is required for owner updates")
         return marker

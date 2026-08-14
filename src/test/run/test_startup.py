@@ -24,6 +24,7 @@ from bkg_py.run_startup import (
     RunStartupService,
     RunStartupServices,
 )
+from bkg_py.runtime_names import RunFile
 from bkg_py.snapshots import SnapshotPaths, SnapshotStore
 from bkg_py.state import StateStore
 from bkg_py.workspace import IndexPackageCatalogTree
@@ -115,7 +116,8 @@ def test_startup_prepares_state_plan_cache_and_optouts(tmp_path: Path) -> None:
     assert optouts.read_text(encoding="utf-8") == "Alpha\nBeta\nOwner/repo/package\n"
     assert state.get("BKG_SCRIPT_START") == "1000"
     assert state.get("BKG_PACKAGE_PROGRESS_MARKER") == state.get("BKG_BATCH_MARKER")
-    assert (tmp_path / "plan" / "packages_to_update").is_file()
+    assert (tmp_path / "plan" / RunFile.PACKAGES_ALL).is_file()
+    assert not (tmp_path / "plan" / RunFile.LEGACY_PACKAGES_TO_UPDATE).exists()
     assert progress[0].startswith(
         "Owner queue recovery: active=0 ready=0 claimed=0 paused=0 completed=0 "
         "candidates=0 imported=0 legacy_removed=0 recovered_claims=0 "

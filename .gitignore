@@ -15,3 +15,4 @@ node_modules/
 .bkg/
 .snapshot/
 src/env.env
+docs/

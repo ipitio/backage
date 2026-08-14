@@ -14,6 +14,7 @@ from typing import Protocol
 from ..database import OwnerQueueAdmission, OwnerQueueCandidate, OwnerQueueEntry
 from ..files import atomic_text_output
 from ..runtime import peak_resident_memory_mib
+from ..runtime_names import RunFile, StateKey
 from ..state import StateStore
 from .queue import OwnerQueuePaths, OwnerQueueSelector, normalize_owner_lines
 
@@ -267,7 +268,7 @@ class OwnerQueuePreparationService:  # pylint: disable=too-few-public-methods
         for _owner_ref in discovered:
             self.execution.check_stop()
         self.services.state.add_many_to_set(
-            "BKG_DISCOVERED_CONNECTION_OWNERS",
+            StateKey.DISCOVERED_CONNECTION_OWNERS,
             discovered,
         )
 
@@ -412,7 +413,7 @@ def _prepare_connections(paths: OwnerQueuePreparationPaths) -> tuple[str, ...]:
     counts = Counter(lines)
     ordered = sorted(counts, key=lambda value: (counts[value], value), reverse=True)
     scanned_without_packages = set(
-        _read_lines(paths.working_directory / "owners_scanned_without_packages")
+        _read_lines(paths.working_directory / RunFile.OWNERS_SCANNED_WITHOUT_PACKAGES)
     )
     connections = normalize_owner_lines(
         line for line in ordered if line not in scanned_without_packages
@@ -422,7 +423,7 @@ def _prepare_connections(paths: OwnerQueuePreparationPaths) -> tuple[str, ...]:
 
 
 def _prepare_manual_owners(paths: OwnerQueuePreparationPaths) -> tuple[str, ...]:
-    known = set(_read_lines(paths.working_directory / "all_owners_in_db"))
+    known = set(_read_lines(paths.working_directory / RunFile.ALL_OWNERS_IN_DB))
     owners = tuple(
         owner
         for owner in normalize_owner_lines(_read_lines(paths.manual_owners))

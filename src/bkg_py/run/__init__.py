@@ -1,4 +1,4 @@
-"""Top-level Bkg run coordination."""
+"""Top-level bkg run coordination."""
 
 from .coordinator import (
     OwnerQueuePhaseRequest,

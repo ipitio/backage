@@ -19,10 +19,9 @@ from types import FrameType
 
 from .files import atomic_path
 from .result import ExitStatus
+from .runtime_names import StateKey
 from .state import StateStore
 
-_TIMEOUT_KEY = "BKG_TIMEOUT"
-_SCRIPT_START_KEY = "BKG_SCRIPT_START"
 SignalHandler = Callable[[int, FrameType | None], object] | int | signal.Handlers | None
 
 
@@ -139,7 +138,7 @@ class StopController:
         self._reason: str | None = None
         self._started_at = self.timing.clock()
 
-        persisted_start = self.state.get(_SCRIPT_START_KEY)
+        persisted_start = self.state.get(StateKey.SCRIPT_START)
         if started_at_epoch is None and persisted_start:
             try:
                 started_at_epoch = float(persisted_start)
@@ -172,15 +171,15 @@ class StopController:
         if self._reason is None:
             self._reason = reason
         self._event.set()
-        if self.state.get(_TIMEOUT_KEY) != "1":
-            self.state.set(_TIMEOUT_KEY, "1", interruptible=False)
+        if self.state.get(StateKey.TIMEOUT) != "1":
+            self.state.set(StateKey.TIMEOUT, "1", interruptible=False)
 
     def check_lock_wait(self, path: Path, elapsed_wait: float) -> None:
         """Raise for a stop during lock contention without reentering the lock."""
 
         if self._event.is_set():
             reason = self._reason or "requested"
-        elif self.state.get(_TIMEOUT_KEY) == "1":
+        elif self.state.get(StateKey.TIMEOUT) == "1":
             reason = "persisted"
             self._event.set()
             if self._reason is None:
@@ -204,7 +203,7 @@ class StopController:
         if self._event.is_set():
             self.request_stop(self._reason or "requested")
             return True
-        if self.state.get(_TIMEOUT_KEY) == "1":
+        if self.state.get(StateKey.TIMEOUT) == "1":
             self._event.set()
             if self._reason is None:
                 self._reason = "persisted"
@@ -235,7 +234,7 @@ class StopController:
     def finalization_scope(self) -> Generator[None]:
         """Defer an existing stop while allowing a new stop to interrupt cleanup."""
 
-        previous_timeout = self.state.get(_TIMEOUT_KEY)
+        previous_timeout = self.state.get(StateKey.TIMEOUT)
         previous_requested = self._event.is_set() or previous_timeout == "1"
         previous_reason = self._reason
         previous_max_duration = self.max_duration
@@ -244,13 +243,13 @@ class StopController:
         self._event.clear()
         self._reason = None
         self.max_duration = -1
-        self.state.set(_TIMEOUT_KEY, 0)
+        self.state.set(StateKey.TIMEOUT, 0)
         try:
             yield
             completed_normally = True
         finally:
             newly_requested = (
-                self._event.is_set() or self.state.get(_TIMEOUT_KEY) == "1"
+                self._event.is_set() or self.state.get(StateKey.TIMEOUT) == "1"
             )
             new_reason = self._reason
             self.max_duration = previous_max_duration
@@ -259,7 +258,7 @@ class StopController:
             if newly_requested:
                 self._event.set()
                 self._reason = new_reason or "requested"
-                self.state.set(_TIMEOUT_KEY, 1)
+                self.state.set(StateKey.TIMEOUT, 1)
                 if completed_normally:
                     raise GracefulStop(self._reason)
             else:
@@ -267,9 +266,9 @@ class StopController:
                 if previous_requested:
                     self._event.set()
                 if previous_timeout is None:
-                    self.state.delete(_TIMEOUT_KEY)
+                    self.state.delete(StateKey.TIMEOUT)
                 else:
-                    self.state.set(_TIMEOUT_KEY, previous_timeout)
+                    self.state.set(StateKey.TIMEOUT, previous_timeout)
 
     @contextmanager
     def signal_handlers(

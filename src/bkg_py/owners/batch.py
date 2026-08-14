@@ -24,6 +24,7 @@ from ..database import OwnerQueueCompletion, OwnerQueueEntry, OwnerQueueOutcome
 from ..files import atomic_text_output
 from ..result import ExitStatus
 from ..runtime import GracefulStop, peak_resident_memory_mib
+from ..runtime_names import legacy_owner_page_key, legacy_owner_scan_key
 from ..state import StateStore
 from .lifecycle import OwnerLifecycleResult
 from .operations import OwnerUpdateRequest
@@ -165,8 +166,8 @@ class OwnerBatchEffects:
         self._retire_storage(owner.owner)
         self.state.delete_matching(
             keys=(
-                f"BKG_OWNER_SCAN_{owner.owner_id}",
-                f"BKG_PAGE_{owner.owner_id}",
+                legacy_owner_scan_key(owner.owner_id),
+                legacy_owner_page_key(owner.owner_id),
             )
         )
         if remove_manual:

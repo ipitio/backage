@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import cast
 
 import pytest
 
 from bkg_py.orchestration import BatchRuntimeService, RunOutcomePolicy
+from bkg_py.runtime_names import StateKey
 from bkg_py.state import StateStore
 
 
@@ -172,7 +174,7 @@ def test_daily_gate_tracks_date_batch_directions_and_source_publish(
         }
     )
     service = BatchRuntimeService(state)
-    key = "BKG_LAST_EXPLORE_DATE"
+    key = StateKey.LAST_EXPLORE_DATE
     service.complete_daily_gate(key, "2026-06-29")
 
     assert not service.should_skip_daily_gate(
@@ -220,7 +222,7 @@ def test_daily_gate_tracks_date_batch_directions_and_source_publish(
     )
 
     with pytest.raises(ValueError, match="unsupported daily gate"):
-        service.complete_daily_gate("BKG_UNRELATED", "2026-06-29")
+        service.complete_daily_gate(cast(StateKey, "BKG_UNRELATED"), "2026-06-29")
 
 
 @pytest.mark.parametrize(

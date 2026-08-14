@@ -8,6 +8,7 @@ from typing import Protocol
 
 from .database import PackageWorkItem, PackageWorkPlan
 from .files import atomic_text_output
+from .runtime_names import RunFile
 
 
 class PackageWorkPlanRepository(Protocol):  # pylint: disable=too-few-public-methods
@@ -33,7 +34,7 @@ class PackageWorkPlanSummary:
 
 
 class PackageWorkPlanService:  # pylint: disable=too-few-public-methods
-    """Build typed package work and publish legacy intermediate files."""
+    """Build typed package work and publish live run intermediates."""
 
     def __init__(self, repository: PackageWorkPlanRepository) -> None:
         self.repository = repository
@@ -46,25 +47,21 @@ class PackageWorkPlanService:  # pylint: disable=too-few-public-methods
         batch_marker: str = "",
         reset: bool = False,
     ) -> PackageWorkPlanSummary:
-        """Write one package plan while preserving current file formats."""
+        """Write the bounded planning inputs consumed by this run."""
 
         plan = self.repository.package_work_plan(since, batch_marker)
         if reset:
             plan = replace(plan, completed=(), pending=plan.packages)
         directory.mkdir(parents=True, exist_ok=True)
-        _write_items(directory / "packages_all", plan.packages)
-        _write_items(directory / "packages_already_updated", plan.completed)
-        _write_items(directory / "packages_to_update", plan.pending)
-        _write_lines(directory / "all_owners_in_db", plan.owners)
-        _write_lines(directory / "owners_updated", plan.updated_owners)
-        _write_lines(directory / "all_owners_tu", plan.pending_owners)
+        _write_items(directory / RunFile.PACKAGES_ALL, plan.packages)
+        _write_lines(directory / RunFile.ALL_OWNERS_IN_DB, plan.owners)
         _write_lines(
-            directory / "owners_partially_updated",
+            directory / RunFile.OWNERS_PARTIALLY_UPDATED,
             plan.partially_updated_owners,
         )
-        _write_lines(directory / "owners_stale", plan.stale_owners)
+        _write_lines(directory / RunFile.OWNERS_STALE, plan.stale_owners)
         _write_lines(
-            directory / "owners_scanned_without_packages",
+            directory / RunFile.OWNERS_SCANNED_WITHOUT_PACKAGES,
             plan.scanned_without_packages,
         )
         return PackageWorkPlanSummary(

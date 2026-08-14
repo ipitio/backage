@@ -10,6 +10,7 @@ from pathlib import Path
 
 from .config import ConfigError, read_int
 from .files import atomic_path
+from .runtime_names import EnvironmentVariable as Env
 
 _XML_PREFIX = '<?xml version="1.0" encoding="UTF-8"?><xml>'
 _XML_SUFFIX = "</xml>"
@@ -39,19 +40,20 @@ class PublicationLimits:
 
         maximum_bytes = read_int(
             values,
-            "BKG_JSON_XML_MAX_BYTES",
+            Env.BKG_JSON_XML_MAX_BYTES,
             cls.maximum_bytes,
             minimum=1,
         )
         hard_maximum_bytes = read_int(
             values,
-            "BKG_JSON_XML_HARD_MAX_BYTES",
+            Env.BKG_JSON_XML_HARD_MAX_BYTES,
             cls.hard_maximum_bytes,
             minimum=1,
         )
         if hard_maximum_bytes < maximum_bytes:
             raise ConfigError(
-                "BKG_JSON_XML_HARD_MAX_BYTES must be at least BKG_JSON_XML_MAX_BYTES",
+                f"{Env.BKG_JSON_XML_HARD_MAX_BYTES} must be at least "
+                f"{Env.BKG_JSON_XML_MAX_BYTES}",
             )
         return cls(
             maximum_bytes=maximum_bytes,

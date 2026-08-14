@@ -19,6 +19,7 @@ from .orchestration import BatchRuntimeService
 from .owners import normalize_owner_lines
 from .run_planning import PackageWorkPlanService, PackageWorkPlanSummary
 from .runtime import peak_resident_memory_mib
+from .runtime_names import StateKey
 from .snapshots import SnapshotError, SnapshotStore
 from .state import StateStore
 from .workspace import WorkspaceError, read_index_package_catalog
@@ -88,7 +89,9 @@ class RunStartupService:  # pylint: disable=too-few-public-methods
 
         self.services.state.path.parent.mkdir(parents=True, exist_ok=True)
         self.services.state.path.touch(exist_ok=True)
-        legacy_owner_queue = tuple(self.services.state.get_set("BKG_OWNERS_QUEUE"))
+        legacy_owner_queue = tuple(
+            self.services.state.get_set(StateKey.LEGACY_OWNERS_QUEUE)
+        )
         initialized = BatchRuntimeService(self.services.state).begin_run(
             request.today,
             request.started_at,
@@ -106,7 +109,7 @@ class RunStartupService:  # pylint: disable=too-few-public-methods
             legacy_owner_queue,
             request.started_at,
         )
-        progress_marker = self.services.state.get("BKG_PACKAGE_PROGRESS_MARKER")
+        progress_marker = self.services.state.get(StateKey.PACKAGE_PROGRESS_MARKER)
         if progress_marker != initialized.batch_marker:
             if progress_marker is None:
                 self.services.repository.bootstrap_package_batch(
@@ -114,7 +117,7 @@ class RunStartupService:  # pylint: disable=too-few-public-methods
                     initialized.batch_first_started,
                 )
             self.services.state.set(
-                "BKG_PACKAGE_PROGRESS_MARKER",
+                StateKey.PACKAGE_PROGRESS_MARKER,
                 initialized.batch_marker,
             )
         summary = PackageWorkPlanService(self.services.repository).prepare(
@@ -123,11 +126,11 @@ class RunStartupService:  # pylint: disable=too-few-public-methods
             batch_marker=initialized.batch_marker,
         )
         opted_out = _normalize_owner_file(request.optout_file)
-        previous_opted_out = self.services.state.get("BKG_OUT")
+        previous_opted_out = self.services.state.get(StateKey.OUT)
         fast_out = bool(
             request.github_owner == "ipitio"
             and previous_opted_out is not None
-            and self.services.state.get_int("BKG_OUT") < opted_out
+            and self.services.state.get_int(StateKey.OUT) < opted_out
         )
         database_size = request.database_path.stat().st_size
         self._log_phase("prepare-package-state", phase_started_at)
@@ -256,7 +259,7 @@ class RunStartupService:  # pylint: disable=too-few-public-methods
             legacy_owner_queue,
             started_at,
         )
-        legacy_removed = self.services.state.delete("BKG_OWNERS_QUEUE")
+        legacy_removed = self.services.state.delete(StateKey.LEGACY_OWNERS_QUEUE)
         recovery_elapsed = max(0.0, time.monotonic() - recovery_started_at)
         queue_after = self.services.repository.owner_queue_stats(batch_marker)
         self.execution.progress(

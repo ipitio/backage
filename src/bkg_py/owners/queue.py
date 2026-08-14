@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from ..runtime import resolve_executable
+from ..runtime_names import RunFile
 
 _IGNORED_OWNER_PATH = re.compile(
     r"^(?:.*/)*(?:solutions|sponsors|enterprise|premium-support)$"
@@ -148,8 +149,8 @@ class OwnerQueueSelector:
     request_limit: int
     current_owner: str
     paths: OwnerQueuePaths
+    deferred_owners: tuple[str, ...]
     include_manual: bool = True
-    deferred_owners: tuple[str, ...] | None = None
 
     @property
     def capacity(self) -> int:
@@ -270,18 +271,14 @@ class OwnerQueueSelector:
     def _candidate_plan(self, generator: random.Random) -> _OwnerCandidatePlan:
         connections = _read_lines(self.paths.connections_file)
         manual = _read_lines(self.paths.manual_file) if self.include_manual else []
-        known_owners = _read_lines(self.paths.state_dir / "all_owners_in_db")
-        stale = _read_lines(self.paths.state_dir / "owners_stale")
+        known_owners = _read_lines(self.paths.state_dir / RunFile.ALL_OWNERS_IN_DB)
+        stale = _read_lines(self.paths.state_dir / RunFile.OWNERS_STALE)
         partially_updated = _read_lines(
-            self.paths.state_dir / "owners_partially_updated"
+            self.paths.state_dir / RunFile.OWNERS_PARTIALLY_UPDATED
         )
         deferred = {
             _owner_key(line.split("\t", maxsplit=1)[0])
-            for line in (
-                self.deferred_owners
-                if self.deferred_owners is not None
-                else tuple(_read_lines(self.paths.state_dir / "owners_deferred"))
-            )
+            for line in self.deferred_owners
             if line
         }
         history = self.history_owners()

@@ -8,6 +8,7 @@ from pathlib import Path
 
 from ..discovery import OwnerIdentity, OwnerIdentityResolver
 from ..locking import FileLockOptions, advisory_file_lock
+from ..runtime_names import StateKey
 from ..state import StateStore
 
 _OWNER_FILE_MAX_BYTES = 100_000_000
@@ -42,7 +43,7 @@ def admit_owner_page(
 ) -> OwnerPageAdmissionResult:
     """Fetch and admit one REST owner discovery page."""
 
-    last_id = config.state.get_int("BKG_LAST_SCANNED_ID", 0)
+    last_id = config.state.get_int(StateKey.LAST_SCANNED_ID, 0)
     page = resolver.owner_page(page_number, last_id=last_id, per_page=per_page)
     package_owners = _package_owners(config.packages_all_path)
     identities = tuple(
@@ -66,7 +67,7 @@ def admit_owner_page(
         )
 
     if advanced_id > last_id:
-        config.state.set("BKG_LAST_SCANNED_ID", advanced_id)
+        config.state.set(StateKey.LAST_SCANNED_ID, advanced_id)
 
     return OwnerPageAdmissionResult(
         admitted_count=admitted_count,

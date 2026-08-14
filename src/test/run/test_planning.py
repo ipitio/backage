@@ -1,4 +1,4 @@
-"""Tests for typed package-work planning and compatibility output files."""
+"""Tests for typed package-work planning and live run intermediates."""
 
 from __future__ import annotations
 
@@ -7,6 +7,7 @@ from pathlib import Path
 
 from bkg_py.database import PackageWorkItem, PackageWorkPlan
 from bkg_py.run_planning import PackageWorkPlanService
+from bkg_py.runtime_names import RunFile
 
 
 @dataclass
@@ -26,10 +27,10 @@ class _Repository:
         return self.plan
 
 
-def test_package_work_plan_writes_existing_intermediate_formats(
+def test_package_work_plan_writes_consumed_intermediate_formats(
     tmp_path: Path,
 ) -> None:
-    """The Python planner remains compatible with downstream shell readers."""
+    """The planner publishes only inputs consumed by the current runtime."""
 
     first = PackageWorkItem("1", "Alpha", "repo-a", "pkg-a", "2026-06-28")
     second = PackageWorkItem("2", "Beta", "repo-b", "pkg-b", "2026-06-29")
@@ -50,25 +51,25 @@ def test_package_work_plan_writes_existing_intermediate_formats(
     assert summary.completed == 1
     assert summary.pending == 1
     assert repository.requested_since == ["2026-06-29"]
-    assert (output / "packages_all").read_text(encoding="utf-8") == (
+    assert (output / RunFile.PACKAGES_ALL).read_text(encoding="utf-8") == (
         "1|Alpha|repo-a|pkg-a|2026-06-28\n2|Beta|repo-b|pkg-b|2026-06-29\n"
     )
-    assert (output / "packages_already_updated").read_text(
-        encoding="utf-8"
-    ) == "2|Beta|repo-b|pkg-b|2026-06-29\n"
-    assert (output / "packages_to_update").read_text(
-        encoding="utf-8"
-    ) == "1|Alpha|repo-a|pkg-a|2026-06-28\n"
-    assert (output / "all_owners_in_db").read_text(encoding="utf-8") == (
+    assert (output / RunFile.ALL_OWNERS_IN_DB).read_text(encoding="utf-8") == (
         "Alpha\nBeta\nEmpty\n"
     )
-    assert (output / "owners_updated").read_text(encoding="utf-8") == "Beta\n"
-    assert (output / "all_owners_tu").read_text(encoding="utf-8") == "Alpha\n"
-    assert (output / "owners_partially_updated").read_text(encoding="utf-8") == ""
-    assert (output / "owners_stale").read_text(encoding="utf-8") == "Alpha\n"
-    assert (output / "owners_scanned_without_packages").read_text(
+    assert (output / RunFile.OWNERS_PARTIALLY_UPDATED).read_text(encoding="utf-8") == ""
+    assert (output / RunFile.OWNERS_STALE).read_text(encoding="utf-8") == "Alpha\n"
+    assert (output / RunFile.OWNERS_SCANNED_WITHOUT_PACKAGES).read_text(
         encoding="utf-8"
     ) == "Empty\n"
+    for legacy in (
+        RunFile.LEGACY_PACKAGES_ALREADY_UPDATED,
+        RunFile.LEGACY_PACKAGES_TO_UPDATE,
+        RunFile.LEGACY_ALL_OWNERS_TO_UPDATE,
+        RunFile.LEGACY_OWNERS_UPDATED,
+        RunFile.LEGACY_OWNERS_DEFERRED,
+    ):
+        assert not (output / legacy).exists()
 
 
 def test_reset_plan_marks_every_package_pending(tmp_path: Path) -> None:
@@ -93,11 +94,10 @@ def test_reset_plan_marks_every_package_pending(tmp_path: Path) -> None:
 
     assert summary.completed == 0
     assert summary.pending == 1
-    assert (tmp_path / "packages_already_updated").read_text(encoding="utf-8") == ""
-    assert (tmp_path / "packages_to_update").read_text(encoding="utf-8") == (
+    assert (tmp_path / RunFile.PACKAGES_ALL).read_text(encoding="utf-8") == (
         "1|Alpha|repo|pkg|2026-07-01\n"
     )
-    assert (tmp_path / "owners_stale").read_text(encoding="utf-8") == "Alpha\n"
+    assert (tmp_path / RunFile.OWNERS_STALE).read_text(encoding="utf-8") == "Alpha\n"
 
 
 def test_package_plan_classifies_partial_owners_in_pending_order() -> None:

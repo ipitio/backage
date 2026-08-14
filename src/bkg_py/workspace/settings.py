@@ -12,6 +12,7 @@ from ..config import (
     read_optional_text,
     read_text,
 )
+from ..runtime_names import EnvironmentVariable as Env
 
 _DEFAULT_HANDOFF_ACTOR = "github-actions[bot]"
 _DEFAULT_HANDOFF_EMAIL_ACTOR = "41898282+github-actions[bot]"
@@ -71,24 +72,24 @@ class HandoffSettings:
     ) -> HandoffSettings:
         """Read handoff controls from one captured mapping."""
 
-        actor = read_optional_text(values, "GITHUB_ACTOR")
+        actor = read_optional_text(values, Env.GITHUB_ACTOR)
         return cls(
             control_ref=read_text(
                 values,
-                "BKG_HANDOFF_CONTROL_REF",
+                Env.BKG_HANDOFF_CONTROL_REF,
                 "",
                 allow_empty=True,
             ),
             poll_seconds=read_float(
                 values,
-                "BKG_HANDOFF_POLL_SECONDS",
+                Env.BKG_HANDOFF_POLL_SECONDS,
                 60,
                 minimum=0,
                 minimum_exclusive=True,
             ),
             git_timeout_seconds=read_float(
                 values,
-                "BKG_HANDOFF_GIT_TIMEOUT_SECONDS",
+                Env.BKG_HANDOFF_GIT_TIMEOUT_SECONDS,
                 20,
                 minimum=0,
                 minimum_exclusive=True,
@@ -97,7 +98,7 @@ class HandoffSettings:
             or (
                 GitIdentity.for_actor(actor) if actor else GitIdentity.github_actions()
             ),
-            run_id=read_optional_text(values, "GITHUB_RUN_ID") or "manual",
+            run_id=read_optional_text(values, Env.GITHUB_RUN_ID) or "manual",
         )
 
     def as_dict(self) -> dict[str, object]:
@@ -125,9 +126,9 @@ class WorkspaceSettings:
             values if isinstance(values, SettingsSnapshot) else SettingsSnapshot(values)
         )
         repository = RepositoryIdentity.from_mapping(source)
-        actor = read_optional_text(source, "GITHUB_ACTOR") or repository.owner
+        actor = read_optional_text(source, Env.GITHUB_ACTOR) or repository.owner
         identity = GitIdentity.for_actor(actor)
-        token = read_text(source, "GITHUB_TOKEN", "", allow_empty=True)
+        token = read_text(source, Env.GITHUB_TOKEN, "", allow_empty=True)
         return cls(
             source=source,
             repository=repository,
@@ -155,16 +156,16 @@ class WorkspaceSettings:
         values = dict(self.source)
         values.update(
             {
-                "GITHUB_TOKEN": self.token,
-                "GITHUB_ACTOR": self.identity.name,
-                "GITHUB_OWNER": self.repository.owner,
-                "GITHUB_REPO": self.repository.name,
+                Env.GITHUB_TOKEN: self.token,
+                Env.GITHUB_ACTOR: self.identity.name,
+                Env.GITHUB_OWNER: self.repository.owner,
+                Env.GITHUB_REPO: self.repository.name,
             }
         )
         if self.repository.branch is None:
-            values.pop("GITHUB_BRANCH", None)
+            values.pop(Env.GITHUB_BRANCH, None)
         else:
-            values["GITHUB_BRANCH"] = self.repository.branch
+            values[Env.GITHUB_BRANCH] = self.repository.branch
         if overrides is not None:
             values.update(overrides)
         return SettingsSnapshot(values)
@@ -174,8 +175,8 @@ class WorkspaceSettings:
 
         candidates = (
             self.token,
-            self.source.get("GITHUB_TOKEN", ""),
-            self.source.get("GH_TOKEN", ""),
+            self.source.get(Env.GITHUB_TOKEN, ""),
+            self.source.get(Env.GH_TOKEN, ""),
         )
         return tuple(dict.fromkeys(value for value in candidates if value))
 

@@ -27,6 +27,10 @@ def build_parser() -> argparse.ArgumentParser:
         "config",
         help="print the runtime configuration as JSON",
     )
+    subparsers.add_parser(
+        "reference",
+        help="print the supported runtime surface as JSON",
+    )
     release_parser = subparsers.add_parser(
         "release-tag",
         help="print the fortnightly release tag for a UTC date",
@@ -63,6 +67,7 @@ def _add_run_parser(subparsers: Any) -> None:
     run_parser.add_argument("-d", "--duration", type=int)
     run_parser.add_argument("-m", "--mode", type=int, choices=range(6))
     run_parser.add_argument(
+        "-s",
         "--source-published-today",
         choices=("true", "false"),
         default="false",

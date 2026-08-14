@@ -1,1 +1,1 @@
-"""Bkg regression and unit tests."""
+"""bkg regression and unit tests."""

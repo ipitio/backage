@@ -28,6 +28,7 @@ from bkg_py.run_publication import (
     RunPublicationRequest,
     RunPublicationService,
 )
+from bkg_py.runtime_names import RunFile
 from bkg_py.site_shell import SITE_SHELL_VERSION
 from bkg_py.state import StateStore
 
@@ -140,7 +141,7 @@ def test_run_publication_hydrates_outputs_and_prunes_transient_state(
     for name in ("a.json.tmp", "b.json.abs.2", "c.json.rel.worker"):
         (sidecars / name).write_text("temporary", encoding="utf-8")
     (sidecars / "keep.json").write_text("published", encoding="utf-8")
-    for name in ("packages_all", "packages_to_update", "packages_already_updated"):
+    for name in RunFile:
         (working / name).write_text("compatibility", encoding="utf-8")
     state.set_many(
         {
@@ -148,6 +149,7 @@ def test_run_publication_hydrates_outputs_and_prunes_transient_state(
             "BKG_OWNERS_QUEUE": "owner",
             "BKG_PAGE_2": "marker",
             "BKG_PAGE_ALL": "1",
+            "BKG_INDEX_CLEANUP_DONE": "1",
             "BKG_TIMEOUT": "1",
             "UNKNOWN": "kept",
         }
@@ -237,14 +239,7 @@ def test_run_publication_hydrates_outputs_and_prunes_transient_state(
     assert messages[-1].startswith("Site shell publication telemetry: ")
     assert (sidecars / "keep.json").is_file()
     assert not any(path.name != "keep.json" for path in sidecars.iterdir())
-    assert not any(
-        (working / name).exists()
-        for name in (
-            "packages_all",
-            "packages_to_update",
-            "packages_already_updated",
-        )
-    )
+    assert not any((working / name).exists() for name in RunFile)
     assert state.snapshot() == {
         "BKG_TIMEOUT": "1",
         "UNKNOWN": "kept",

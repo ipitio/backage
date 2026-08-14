@@ -9,6 +9,7 @@ from datetime import UTC, date, datetime
 from typing import Literal
 
 from .result import ExitStatus
+from .runtime_names import StateKey
 from .state import StateStore
 
 MarkerFactory = Callable[[], str]
@@ -19,8 +20,8 @@ _SECONDARY_RATE_WINDOW_SECONDS = 60
 _MAX_PROCESS_STATUS = 255
 _DAILY_GATE_KEYS = frozenset(
     {
-        "BKG_LAST_EXPLORE_DATE",
-        "BKG_LAST_OWNERS_QUEUE_DATE",
+        StateKey.LAST_EXPLORE_DATE,
+        StateKey.LAST_OWNERS_QUEUE_DATE,
     }
 )
 
@@ -92,42 +93,42 @@ class BatchRuntimeService:
 
         _validate_run_start(today, started_at)
         snapshot = self.state.snapshot()
-        batch_first_started = snapshot.get("BKG_BATCH_FIRST_STARTED") or today
+        batch_first_started = snapshot.get(StateKey.BATCH_FIRST_STARTED) or today
         batch_marker = (
-            snapshot.get("BKG_BATCH_MARKER")
+            snapshot.get(StateKey.BATCH_MARKER)
             or (marker_factory or (lambda: _batch_marker(started_at)))()
         )
         rate_started_at, calls = _rate_window(
             snapshot,
-            "BKG_RATE_LIMIT_START",
-            "BKG_CALLS_TO_API",
+            StateKey.RATE_LIMIT_START,
+            StateKey.CALLS_TO_API,
             started_at,
             _PRIMARY_RATE_WINDOW_SECONDS,
         )
         minute_started_at, minute_calls = _rate_window(
             snapshot,
-            "BKG_MIN_RATE_LIMIT_START",
-            "BKG_MIN_CALLS_TO_API",
+            StateKey.MIN_RATE_LIMIT_START,
+            StateKey.MIN_CALLS_TO_API,
             started_at,
             _SECONDARY_RATE_WINDOW_SECONDS,
         )
         self.state.set_many(
             {
-                "BKG_BATCH_FIRST_STARTED": batch_first_started,
-                "BKG_BATCH_MARKER": batch_marker,
-                "BKG_RATE_LIMIT_START": rate_started_at,
-                "BKG_CALLS_TO_API": calls,
-                "BKG_MIN_RATE_LIMIT_START": minute_started_at,
-                "BKG_MIN_CALLS_TO_API": minute_calls,
-                "BKG_LAST_SCANNED_ID": _state_int(
+                StateKey.BATCH_FIRST_STARTED: batch_first_started,
+                StateKey.BATCH_MARKER: batch_marker,
+                StateKey.RATE_LIMIT_START: rate_started_at,
+                StateKey.CALLS_TO_API: calls,
+                StateKey.MIN_RATE_LIMIT_START: minute_started_at,
+                StateKey.MIN_CALLS_TO_API: minute_calls,
+                StateKey.LAST_SCANNED_ID: _state_int(
                     snapshot,
-                    "BKG_LAST_SCANNED_ID",
+                    StateKey.LAST_SCANNED_ID,
                 ),
-                "BKG_DIFF": _state_int(snapshot, "BKG_DIFF"),
-                "BKG_REST_TO_TOP": _state_int(snapshot, "BKG_REST_TO_TOP"),
-                "BKG_DISCOVERED_CONNECTION_OWNERS": "",
-                "BKG_TIMEOUT": 0,
-                "BKG_SCRIPT_START": started_at,
+                StateKey.DIFF: _state_int(snapshot, StateKey.DIFF),
+                StateKey.REST_TO_TOP: _state_int(snapshot, StateKey.REST_TO_TOP),
+                StateKey.DISCOVERED_CONNECTION_OWNERS: "",
+                StateKey.TIMEOUT: 0,
+                StateKey.SCRIPT_START: started_at,
             }
         )
         return RunInitialization(batch_first_started, batch_marker)
@@ -148,23 +149,23 @@ class BatchRuntimeService:
             return BatchTransition(
                 reset=False,
                 batch_first_started=(
-                    self.state.get("BKG_BATCH_FIRST_STARTED") or today
+                    self.state.get(StateKey.BATCH_FIRST_STARTED) or today
                 ),
             )
 
         batch_marker = (marker_factory or _new_batch_marker)()
         self.state.set_many(
             {
-                "BKG_BATCH_FIRST_STARTED": today,
-                "BKG_BATCH_MARKER": batch_marker,
-                "BKG_PACKAGE_PROGRESS_MARKER": batch_marker,
+                StateKey.BATCH_FIRST_STARTED: today,
+                StateKey.BATCH_MARKER: batch_marker,
+                StateKey.PACKAGE_PROGRESS_MARKER: batch_marker,
             }
         )
         return BatchTransition(reset=True, batch_first_started=today)
 
     def should_skip_daily_gate(
         self,
-        key: str,
+        key: StateKey,
         today: str,
         *,
         source_published_today: bool,
@@ -180,7 +181,7 @@ class BatchRuntimeService:
         completed = _completed_daily_gate_directions(snapshot.get(key), context)
         return direction in completed
 
-    def complete_daily_gate(self, key: str, today: str) -> None:
+    def complete_daily_gate(self, key: StateKey, today: str) -> None:
         """Persist completion for the current date, batch, and queue direction."""
 
         _validate_date(today)
@@ -209,7 +210,7 @@ def _validate_date(today: str) -> None:
         raise ValueError(f"invalid UTC run date: {today}")
 
 
-def _validate_daily_gate_key(key: str) -> None:
+def _validate_daily_gate_key(key: StateKey) -> None:
     if key not in _DAILY_GATE_KEYS:
         raise ValueError(f"unsupported daily gate: {key}")
 
@@ -230,11 +231,11 @@ def _validate_package_counts(total: int, completed: int) -> None:
 
 def _daily_gate_context(snapshot: Mapping[str, str], today: str) -> tuple[str, str]:
     batch_marker = (
-        snapshot.get("BKG_BATCH_MARKER")
-        or snapshot.get("BKG_BATCH_FIRST_STARTED")
+        snapshot.get(StateKey.BATCH_MARKER)
+        or snapshot.get(StateKey.BATCH_FIRST_STARTED)
         or "default"
     )
-    rest_to_top = snapshot.get("BKG_REST_TO_TOP") or "0"
+    rest_to_top = snapshot.get(StateKey.REST_TO_TOP) or "0"
     return f"{today}|{batch_marker}", rest_to_top
 
 
@@ -247,7 +248,11 @@ def _completed_daily_gate_directions(value: str | None, context: str) -> set[str
     return {direction for direction in directions.split(",") if direction}
 
 
-def _state_int(snapshot: Mapping[str, str], key: str, default: int = 0) -> int:
+def _state_int(
+    snapshot: Mapping[str, str],
+    key: StateKey,
+    default: int = 0,
+) -> int:
     try:
         return int(snapshot.get(key, str(default)))
     except ValueError:
@@ -256,8 +261,8 @@ def _state_int(snapshot: Mapping[str, str], key: str, default: int = 0) -> int:
 
 def _rate_window(
     snapshot: Mapping[str, str],
-    start_key: str,
-    calls_key: str,
+    start_key: StateKey,
+    calls_key: StateKey,
     started_at: int,
     duration: int,
 ) -> tuple[int, int]:
