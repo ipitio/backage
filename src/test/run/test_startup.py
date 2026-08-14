@@ -7,7 +7,6 @@ from pathlib import Path
 
 import pytest
 
-from bkg_py import run_startup
 from bkg_py.database import (
     DatabaseRepository,
     DatabaseSettings,
@@ -18,7 +17,8 @@ from bkg_py.database import (
 )
 from bkg_py.database.values import normalized_version_values, package_values
 from bkg_py.discovery import OwnerIdentityCache
-from bkg_py.run_startup import (
+from bkg_py.run import startup as run_startup
+from bkg_py.run.startup import (
     RunStartupExecution,
     RunStartupRequest,
     RunStartupService,

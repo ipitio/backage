@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from bkg_py.database import PackageWorkItem, PackageWorkPlan
-from bkg_py.run_planning import PackageWorkPlanService
+from bkg_py.run.planning import PackageWorkPlanService
 from bkg_py.runtime_names import RunFile
 
 

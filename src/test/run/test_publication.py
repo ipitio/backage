@@ -22,7 +22,7 @@ from bkg_py.database import (
     PackageRecord,
     PackageRef,
 )
-from bkg_py.run_publication import (
+from bkg_py.run.publication import (
     RunPublicationIdentity,
     RunPublicationPaths,
     RunPublicationRequest,

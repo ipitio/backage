@@ -19,13 +19,13 @@ from bkg_py.database import (
     DatabaseWriteCounts,
     PackageInventory,
 )
-from bkg_py.run_finalization import (
+from bkg_py.run.finalization import (
     RunFinalizationExecution,
     RunFinalizationRequest,
     RunFinalizationService,
     RunFinalizationServices,
 )
-from bkg_py.run_publication import (
+from bkg_py.run.publication import (
     RunPublicationIdentity,
     RunPublicationPaths,
     RunPublicationRequest,
