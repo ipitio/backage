@@ -15,7 +15,7 @@ from ..database import (
     PackageRef,
 )
 from ..github import GitHubError
-from ..package_updates import (
+from ..packages.updates import (
     PackageRefreshError,
     PackageRefreshExecution,
     PackageRefreshPolicy,
@@ -23,8 +23,8 @@ from ..package_updates import (
     PackageRefreshResult,
     PackageRefreshService,
 )
+from ..packages.versions.ingestion import VersionPageClient
 from ..publication import PublicationError
-from ..version_ingestion import VersionPageClient
 
 MessageSink = Callable[[str], None]
 

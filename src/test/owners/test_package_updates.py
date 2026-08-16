@@ -6,7 +6,6 @@ from pathlib import Path
 
 import pytest
 
-from bkg_py.artifact_sizes import ArtifactSizeResolver
 from bkg_py.concurrency import BoundedWorkerRunner, ConcurrencySettings
 from bkg_py.database import (
     DatabaseRepository,
@@ -29,7 +28,8 @@ from bkg_py.owners.scan_pages import (
     OwnerScanPagesResult,
 )
 from bkg_py.owners.updates import OwnerScanService
-from bkg_py.package_updates import (
+from bkg_py.packages.registry.artifacts import ArtifactSizeResolver
+from bkg_py.packages.updates import (
     PackageRefreshError,
     PackageRefreshExecution,
     PackageRefreshPolicy,
@@ -37,10 +37,10 @@ from bkg_py.package_updates import (
     PackageRefreshResult,
     PackageRefreshService,
 )
+from bkg_py.packages.versions.selection import VersionSelectionSettings
+from bkg_py.packages.versions.updates import VersionRefreshExecution
 from bkg_py.publication import PublicationLimits
 from bkg_py.runtime import GracefulStop
-from bkg_py.version_selection import VersionSelectionSettings
-from bkg_py.version_updates import VersionRefreshExecution
 
 from ..github_client_fake import FakeGitHubClient
 

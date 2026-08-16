@@ -7,21 +7,21 @@ from collections.abc import Mapping
 import httpx
 import pytest
 
-from bkg_py.enrichment import RequestCircuit, RequestCircuitSettings
 from bkg_py.github import (
     GitHubError,
     GitHubJsonResponse,
     GitHubTextRequestPolicy,
     GitHubTransportError,
 )
-from bkg_py.version_ingestion import (
+from bkg_py.packages.enrichment import RequestCircuit, RequestCircuitSettings
+from bkg_py.packages.versions.ingestion import (
     VersionCandidateLoader,
     VersionCandidateLoaderSettings,
     VersionIngestionError,
     VersionListingUnavailable,
 )
-from bkg_py.version_selection import VersionSelectionSettings
-from bkg_py.versions import VersionListingContext
+from bkg_py.packages.versions.metadata import VersionListingContext
+from bkg_py.packages.versions.selection import VersionSelectionSettings
 
 
 class _FakePageClient:

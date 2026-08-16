@@ -51,7 +51,7 @@ from bkg_py.owners.updates import (
     OwnerScanVerificationResult,
     OwnerUpdateError,
 )
-from bkg_py.package_updates import PackageRefreshPolicy
+from bkg_py.packages.updates import PackageRefreshPolicy
 from bkg_py.state import StateStore
 
 from ..github_client_fake import FakeGitHubClient

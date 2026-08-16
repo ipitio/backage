@@ -6,8 +6,8 @@ from collections.abc import Iterable, Sequence
 
 import pytest
 
-from bkg_py.docker_sizes import DockerSizeInspector, DockerSizeSettings
-from bkg_py.enrichment import RequestCircuit, RequestCircuitSettings
+from bkg_py.packages.enrichment import RequestCircuit, RequestCircuitSettings
+from bkg_py.packages.registry.docker import DockerSizeInspector, DockerSizeSettings
 from bkg_py.runtime import CommandOptions, CommandResult, GracefulStop
 
 

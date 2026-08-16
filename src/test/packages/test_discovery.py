@@ -6,7 +6,7 @@ import pytest
 
 from bkg_py.database import OwnerScanPackage
 from bkg_py.github import GitHubNotFoundError
-from bkg_py.package_discovery import (
+from bkg_py.packages.discovery import (
     PackageListingPage,
     PackageListingRequest,
     PackageListingService,
@@ -14,7 +14,7 @@ from bkg_py.package_discovery import (
     parse_package_listing_html,
 )
 
-from .github_client_fake import FakeGitHubClient
+from ..github_client_fake import FakeGitHubClient
 
 
 def test_listing_parser_associates_repositories_and_deduplicates_packages() -> None:

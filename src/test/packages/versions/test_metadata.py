@@ -5,8 +5,7 @@ from __future__ import annotations
 import base64
 import json
 
-from bkg_py.version_selection import VersionCandidate
-from bkg_py.versions import (
+from bkg_py.packages.versions.metadata import (
     DownloadMetrics,
     VersionListEntry,
     VersionListingContext,
@@ -21,6 +20,7 @@ from bkg_py.versions import (
     version_cache_records,
     version_candidates,
 )
+from bkg_py.packages.versions.selection import VersionCandidate
 
 
 def test_parse_metric_value_matches_shell_metric_units() -> None:

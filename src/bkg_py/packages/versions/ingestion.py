@@ -6,24 +6,24 @@ from collections.abc import Callable, Collection, Iterator
 from dataclasses import dataclass
 from typing import Protocol
 
-from .enrichment import (
+from ...github import GitHubError, GitHubJsonResponse, GitHubTextRequestPolicy
+from ..enrichment import (
     RequestCircuit,
     RequestCircuitLease,
     transient_request_error,
 )
-from .github import GitHubError, GitHubJsonResponse, GitHubTextRequestPolicy
-from .version_selection import (
+from .metadata import (
+    VersionListingContext,
+    package_versions_html_url,
+    parse_version_listing_html,
+    version_candidates_from_value,
+)
+from .selection import (
     VersionCandidate,
     VersionCandidatePage,
     VersionSelectionResult,
     VersionSelectionSettings,
     select_version_candidates,
-)
-from .versions import (
-    VersionListingContext,
-    package_versions_html_url,
-    parse_version_listing_html,
-    version_candidates_from_value,
 )
 
 _PAGE_SIZE = 30

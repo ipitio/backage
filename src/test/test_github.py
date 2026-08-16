@@ -20,7 +20,7 @@ from bkg_py.github import (
     GitHubTextRequestPolicy,
     GitHubTransportError,
 )
-from bkg_py.registry_transport import (
+from bkg_py.packages.registry.transport import (
     PackageRegistryDecodeError,
     PackageRegistryError,
     PackageRegistryResource,

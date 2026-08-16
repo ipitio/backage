@@ -4,14 +4,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from bkg_py.artifact_sizes import (
+from bkg_py.packages.registry.artifacts import (
     ArtifactSizeRequest,
     ArtifactSizeResolver,
     ArtifactSizeResult,
     ArtifactSizeSemantics,
     ContainerArtifactSizeAdapter,
 )
-from bkg_py.versions import VersionListingContext
+from bkg_py.packages.versions.metadata import VersionListingContext
 
 
 def _request(

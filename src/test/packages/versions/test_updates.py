@@ -8,10 +8,6 @@ from pathlib import Path
 
 import pytest
 
-from bkg_py.artifact_sizes import (
-    ArtifactSizeResolver,
-    ContainerArtifactSizeAdapter,
-)
 from bkg_py.concurrency import BoundedWorkerRunner, ConcurrencySettings
 from bkg_py.database import (
     DatabaseRepository,
@@ -21,15 +17,22 @@ from bkg_py.database import (
     VersionRecord,
     VersionStage,
 )
-from bkg_py.enrichment import (
+from bkg_py.github import GitHubTransportError
+from bkg_py.packages.enrichment import (
     METRIC_TEXT_REQUEST_POLICY,
     RequestCircuit,
     RequestCircuitSettings,
 )
-from bkg_py.github import GitHubTransportError
-from bkg_py.runtime import GracefulStop
-from bkg_py.version_selection import VersionCandidate, VersionSelectionSettings
-from bkg_py.version_updates import (
+from bkg_py.packages.registry.artifacts import (
+    ArtifactSizeResolver,
+    ContainerArtifactSizeAdapter,
+)
+from bkg_py.packages.versions.metadata import VersionListingContext
+from bkg_py.packages.versions.selection import (
+    VersionCandidate,
+    VersionSelectionSettings,
+)
+from bkg_py.packages.versions.updates import (
     VersionDetailExecution,
     VersionDetailInspector,
     VersionRefreshExecution,
@@ -37,9 +40,9 @@ from bkg_py.version_updates import (
     VersionRefreshRequest,
     VersionRefreshService,
 )
-from bkg_py.versions import VersionListingContext
+from bkg_py.runtime import GracefulStop
 
-from .github_client_fake import FakeGitHubClient as _FakeClient
+from ...github_client_fake import FakeGitHubClient as _FakeClient
 
 _TODAY = "2026-06-20"
 

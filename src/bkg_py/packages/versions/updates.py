@@ -7,38 +7,38 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from threading import Lock
 
-from .artifact_sizes import ArtifactSizeRequest, ArtifactSizeResolver
-from .concurrency import BoundedWorkerRunner
-from .database import (
+from ...concurrency import BoundedWorkerRunner
+from ...database import (
     DatabaseRepository,
     PackageRef,
     VersionMetrics,
     VersionRecord,
     VersionStage,
 )
-from .enrichment import (
+from ...github import GitHubError
+from ..enrichment import (
     METRIC_TEXT_REQUEST_POLICY,
     VERSION_METRIC_SCOPE,
     RequestCircuit,
     transient_request_error,
 )
-from .github import GitHubError
-from .version_ingestion import (
+from ..registry.artifacts import ArtifactSizeRequest, ArtifactSizeResolver
+from .ingestion import (
     VersionCandidateLoader,
     VersionCandidateLoaderSettings,
     VersionPageClient,
 )
-from .version_selection import (
-    VersionCandidate,
-    VersionSelectionResult,
-    VersionSelectionSettings,
-)
-from .versions import (
+from .metadata import (
     VersionListingContext,
     extract_oci_version_labels,
     extract_version_page_data,
     package_detail_html_url,
     package_version_detail_html_url,
+)
+from .selection import (
+    VersionCandidate,
+    VersionSelectionResult,
+    VersionSelectionSettings,
 )
 
 DiagnosticSink = Callable[[str], None]

@@ -8,21 +8,17 @@ from dataclasses import asdict, dataclass, field, replace
 from functools import cached_property
 from pathlib import Path
 
-from .artifact_sizes import ArtifactSizeResolver, ContainerArtifactSizeAdapter
 from .concurrency import BoundedWorkerRunner, ConcurrencySettings
 from .config import RuntimeConfig, SettingsSnapshot
 from .database import DatabaseRepository
 from .database.settings import DatabaseSettings, DatabaseTuning
 from .discovery import OwnerIdentityCache, OwnerIdentityResolver
-from .docker_sizes import DockerSizeInspector, DockerSizeSettings
-from .enrichment import RequestCircuit, RequestCircuitSettings
 from .github import (
     GitHubClient,
     GitHubRateAccounting,
     GitHubRuntime,
     GitHubSettings,
 )
-from .graphql_sizes import MavenArtifactSizeAdapter
 from .owners.lifecycle import (
     OwnerLifecycleExecution,
     OwnerLifecycleService,
@@ -44,20 +40,27 @@ from .owners.scan_pages import (
     OwnerScanPageService,
 )
 from .owners.updates import OwnerScanService
-from .package_updates import PackageRefreshExecution
-from .publication import PublicationLimits
-from .registry import GHCRBadgeSizeInspector, GHCRManifestInspector
-from .registry_sizes import (
+from .packages.enrichment import RequestCircuit, RequestCircuitSettings
+from .packages.registry.artifacts import (
+    ArtifactSizeResolver,
+    ContainerArtifactSizeAdapter,
+)
+from .packages.registry.docker import DockerSizeInspector, DockerSizeSettings
+from .packages.registry.ghcr import GHCRBadgeSizeInspector, GHCRManifestInspector
+from .packages.registry.graphql import MavenArtifactSizeAdapter
+from .packages.registry.sizes import (
     NpmArtifactSizeAdapter,
     NuGetArtifactSizeAdapter,
     RubyGemsArtifactSizeAdapter,
 )
+from .packages.updates import PackageRefreshExecution
+from .packages.versions.selection import VersionSelectionSettings
+from .packages.versions.updates import VersionRefreshExecution
+from .publication import PublicationLimits
 from .rendering import AggregateSettings
 from .runtime import ProcessRunner, StopController
 from .snapshots import SnapshotStore
 from .state import StateStore
-from .version_selection import VersionSelectionSettings
-from .version_updates import VersionRefreshExecution
 
 _STOP_BOUND_SERVICES = (
     "database",

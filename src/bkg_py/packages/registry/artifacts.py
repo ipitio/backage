@@ -10,7 +10,11 @@ from threading import Lock
 from typing import Protocol
 from urllib.parse import unquote
 
-from .versions import ManifestSizeResult, VersionListingContext, manifest_size
+from ..versions.metadata import (
+    ManifestSizeResult,
+    VersionListingContext,
+    manifest_size,
+)
 
 DiagnosticSink = Callable[[str], None]
 ManifestInspector = Callable[[str], str]

@@ -7,12 +7,15 @@ from collections.abc import Iterable
 import httpx
 import pytest
 
-import bkg_py.graphql_sizes
-from bkg_py.artifact_sizes import ArtifactSizeRequest, ArtifactSizeSemantics
-from bkg_py.enrichment import RequestCircuit, RequestCircuitSettings
+import bkg_py.packages.registry.graphql
 from bkg_py.github import GitHubGraphQLError, GitHubJsonResponse
-from bkg_py.graphql_sizes import MavenArtifactSizeAdapter
-from bkg_py.versions import VersionListingContext
+from bkg_py.packages.enrichment import RequestCircuit, RequestCircuitSettings
+from bkg_py.packages.registry.artifacts import (
+    ArtifactSizeRequest,
+    ArtifactSizeSemantics,
+)
+from bkg_py.packages.registry.graphql import MavenArtifactSizeAdapter
+from bkg_py.packages.versions.metadata import VersionListingContext
 
 
 class _FakeGraphQLClient:  # pylint: disable=too-few-public-methods
@@ -202,7 +205,7 @@ def test_maven_adapter_refuses_partial_result_at_file_page_limit(
 ) -> None:
     """More files than the bounded traversal can inspect remain unknown."""
 
-    monkeypatch.setattr(bkg_py.graphql_sizes, "_MAX_FILE_PAGES", 2)
+    monkeypatch.setattr(bkg_py.packages.registry.graphql, "_MAX_FILE_PAGES", 2)
     client = _FakeGraphQLClient(
         [
             _package_response(),

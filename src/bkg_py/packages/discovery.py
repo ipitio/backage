@@ -7,8 +7,8 @@ from html.parser import HTMLParser
 from typing import Protocol
 from urllib.parse import parse_qs, quote, urlencode, urlsplit
 
-from .database import OwnerScanPackage
-from .github import GitHubJsonResponse, GitHubNotFoundError
+from ..database import OwnerScanPackage
+from ..github import GitHubJsonResponse, GitHubNotFoundError
 
 _PAGE_SIZE = 100
 _OWNER_TYPES = frozenset({"orgs", "users"})

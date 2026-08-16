@@ -8,7 +8,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from threading import BoundedSemaphore, Lock
 
-from .github import (
+from ..github import (
     GitHubError,
     GitHubResponseError,
     GitHubTextRequestPolicy,

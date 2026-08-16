@@ -21,8 +21,8 @@ from ..database import (
 )
 from ..discovery import OwnerLookupResult
 from ..github import GitHubError
-from ..package_discovery import PackageDiscoveryError
-from ..package_updates import PackageRefreshPolicy
+from ..packages.discovery import PackageDiscoveryError
+from ..packages.updates import PackageRefreshPolicy
 from ..publication import PublicationError
 from ..rendering import RenderingError
 from ..runtime_names import legacy_owner_page_key, legacy_owner_scan_key

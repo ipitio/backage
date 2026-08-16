@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from bkg_py.enrichment import RequestCircuit, RequestCircuitSettings
+from bkg_py.packages.enrichment import RequestCircuit, RequestCircuitSettings
 
 _VERSION_SCOPE = "version"
 

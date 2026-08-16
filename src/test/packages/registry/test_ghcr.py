@@ -7,18 +7,18 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from threading import Event
 
-from bkg_py.enrichment import RequestCircuit, RequestCircuitSettings
 from bkg_py.github import (
     GitHubResponseError,
     GitHubTextRequestPolicy,
 )
-from bkg_py.registry import (
+from bkg_py.packages.enrichment import RequestCircuit, RequestCircuitSettings
+from bkg_py.packages.registry.ghcr import (
     GHCRBadgeSizeInspector,
     GHCRManifestInspector,
     parse_badge_size,
     parse_size_value,
 )
-from bkg_py.versions import manifest_size
+from bkg_py.packages.versions.metadata import manifest_size
 
 
 @dataclass(frozen=True)

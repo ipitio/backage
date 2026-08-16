@@ -7,7 +7,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, replace
 
 from ..database import DatabaseRepository, OwnerScanPage, OwnerScanWorkSelection
-from ..package_discovery import (
+from ..packages.discovery import (
     OwnerListingClient,
     PackageListingRequest,
     fetch_package_listing_page,

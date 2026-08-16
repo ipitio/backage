@@ -13,7 +13,7 @@ from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from typing import cast
 from urllib.parse import unquote_plus
 
-from .version_selection import VersionCandidate
+from .selection import VersionCandidate
 
 _DOWNLOAD_LABELS = {
     "total": "Total downloads",

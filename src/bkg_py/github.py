@@ -18,7 +18,7 @@ import httpx
 
 from .config import ConfigError, read_float, read_int, read_text
 from .files import atomic_binary_output
-from .registry_transport import (
+from .packages.registry.transport import (
     PackageRegistryTransport,
     PackageRegistryTransportRuntime,
     PackageRegistryTransportSettings,

@@ -4,20 +4,20 @@ from __future__ import annotations
 
 import json
 
-from bkg_py.artifact_sizes import ArtifactSizeRequest
-from bkg_py.enrichment import RequestCircuit, RequestCircuitSettings
-from bkg_py.registry_sizes import (
+from bkg_py.packages.enrichment import RequestCircuit, RequestCircuitSettings
+from bkg_py.packages.registry.artifacts import ArtifactSizeRequest
+from bkg_py.packages.registry.sizes import (
     NpmArtifactSizeAdapter,
     NuGetArtifactSizeAdapter,
     RubyGemsArtifactSizeAdapter,
 )
-from bkg_py.registry_transport import (
+from bkg_py.packages.registry.transport import (
     PackageRegistryResource,
     PackageRegistryResponseError,
     PackageRegistrySizeProbe,
     PackageRegistryTransportError,
 )
-from bkg_py.versions import VersionListingContext
+from bkg_py.packages.versions.metadata import VersionListingContext
 
 
 class _FakeRegistryClient:

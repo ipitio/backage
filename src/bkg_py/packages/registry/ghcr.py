@@ -13,15 +13,15 @@ from decimal import Decimal, InvalidOperation
 from typing import Protocol, cast
 from urllib.parse import quote, unquote, urlencode
 
-from .enrichment import (
-    RequestCircuit,
-    RequestCircuitLease,
-    transient_request_error,
-)
-from .github import (
+from ...github import (
     GitHubError,
     GitHubResponseError,
     GitHubTextRequestPolicy,
+)
+from ..enrichment import (
+    RequestCircuit,
+    RequestCircuitLease,
+    transient_request_error,
 )
 
 _REGISTRY_PREFIX = "ghcr.io/"

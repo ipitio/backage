@@ -8,22 +8,22 @@ from dataclasses import dataclass
 from typing import Protocol, cast
 from urllib.parse import unquote
 
-from .artifact_sizes import (
-    ArtifactSizeRequest,
-    ArtifactSizeResult,
-    ArtifactSizeSemantics,
-    SingleFlightCache,
-)
-from .enrichment import (
-    DeduplicatedDiagnostics,
-    RequestCircuit,
-    transient_request_error,
-)
-from .github import (
+from ...github import (
     GitHubError,
     GitHubGraphQLError,
     GitHubJsonResponse,
     GitHubResponseError,
+)
+from ..enrichment import (
+    DeduplicatedDiagnostics,
+    RequestCircuit,
+    transient_request_error,
+)
+from .artifacts import (
+    ArtifactSizeRequest,
+    ArtifactSizeResult,
+    ArtifactSizeSemantics,
+    SingleFlightCache,
 )
 
 DiagnosticSink = Callable[[str], None]

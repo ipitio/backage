@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from bkg_py.version_selection import (
+from bkg_py.packages.versions.selection import (
     VersionCandidate,
     VersionCandidatePage,
     VersionSelectionSettings,

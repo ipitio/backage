@@ -6,13 +6,13 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import Protocol
 
-from .artifact_sizes import SingleFlightCache
-from .enrichment import (
+from ...runtime import CommandOptions, CommandResult
+from ..enrichment import (
     DeduplicatedDiagnostics,
     RequestCircuit,
     RequestCircuitLease,
 )
-from .runtime import CommandOptions, CommandResult
+from .artifacts import SingleFlightCache
 
 DiagnosticSink = Callable[[str], None]
 

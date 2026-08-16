@@ -8,14 +8,14 @@ from json import JSONDecodeError
 from typing import Protocol, cast
 from urllib.parse import quote, unquote
 
-from .artifact_sizes import (
+from ..enrichment import DeduplicatedDiagnostics, RequestCircuit
+from .artifacts import (
     ArtifactSizeRequest,
     ArtifactSizeResult,
     ArtifactSizeSemantics,
     SingleFlightCache,
 )
-from .enrichment import DeduplicatedDiagnostics, RequestCircuit
-from .registry_transport import (
+from .transport import (
     PackageRegistryError,
     PackageRegistryResource,
     PackageRegistryResponseError,

@@ -8,13 +8,7 @@ from pathlib import Path
 
 import pytest
 
-import bkg_py.package_updates
-from bkg_py.artifact_sizes import (
-    ArtifactSizeRequest,
-    ArtifactSizeResolver,
-    ArtifactSizeResult,
-    ArtifactSizeSemantics,
-)
+import bkg_py.packages.updates
 from bkg_py.concurrency import BoundedWorkerRunner, ConcurrencySettings
 from bkg_py.database import (
     DatabaseRepository,
@@ -25,9 +19,15 @@ from bkg_py.database import (
     VersionRecord,
     VersionStage,
 )
-from bkg_py.enrichment import METRIC_TEXT_REQUEST_POLICY
 from bkg_py.github import GitHubNotFoundError, GitHubTransportError
-from bkg_py.package_updates import (
+from bkg_py.packages.enrichment import METRIC_TEXT_REQUEST_POLICY
+from bkg_py.packages.registry.artifacts import (
+    ArtifactSizeRequest,
+    ArtifactSizeResolver,
+    ArtifactSizeResult,
+    ArtifactSizeSemantics,
+)
+from bkg_py.packages.updates import (
     PackageOptOuts,
     PackageRefreshError,
     PackageRefreshExecution,
@@ -35,12 +35,12 @@ from bkg_py.package_updates import (
     PackageRefreshRequest,
     PackageRefreshService,
 )
+from bkg_py.packages.versions.selection import VersionSelectionSettings
+from bkg_py.packages.versions.updates import VersionRefreshExecution
 from bkg_py.publication import PublicationLimits
 from bkg_py.runtime import GracefulStop
-from bkg_py.version_selection import VersionSelectionSettings
-from bkg_py.version_updates import VersionRefreshExecution
 
-from .github_client_fake import FakeGitHubClient as _FakeClient
+from ..github_client_fake import FakeGitHubClient as _FakeClient
 
 _TODAY = "2026-06-26"
 
@@ -331,7 +331,7 @@ def test_interrupted_publication_keeps_old_files_and_pending_marker(
         raise GracefulStop("test-stop")
 
     monkeypatch.setattr(
-        bkg_py.package_updates,
+        bkg_py.packages.updates,
         "publish_json_file",
         stop_publication,
     )

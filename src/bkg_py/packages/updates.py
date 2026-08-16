@@ -10,45 +10,45 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
-from .database import (
+from ..database import (
     DatabaseError,
     DatabaseRepository,
     PackageRecord,
     PackageRef,
     VersionRecord,
 )
-from .enrichment import (
-    METRIC_TEXT_REQUEST_POLICY,
-    PACKAGE_METRIC_SCOPE,
-    transient_request_error,
-)
-from .github import GitHubError, GitHubNotFoundError
-from .publication import (
+from ..github import GitHubError, GitHubNotFoundError
+from ..publication import (
     PublicationError,
     PublicationLimits,
     PublicationResult,
     publish_json_file,
 )
-from .rendering import PackageRenderOptions, RenderingError, render_package_file
-from .version_ingestion import (
+from ..rendering import PackageRenderOptions, RenderingError, render_package_file
+from .enrichment import (
+    METRIC_TEXT_REQUEST_POLICY,
+    PACKAGE_METRIC_SCOPE,
+    transient_request_error,
+)
+from .versions.ingestion import (
     VersionIngestionError,
     VersionListingUnavailable,
     VersionPageClient,
 )
-from .version_selection import VersionSelectionSettings
-from .version_updates import (
+from .versions.metadata import (
+    DownloadMetrics,
+    VersionListingContext,
+    extract_download_metrics,
+    package_detail_html_url,
+)
+from .versions.selection import VersionSelectionSettings
+from .versions.updates import (
     VersionRefreshError,
     VersionRefreshExecution,
     VersionRefreshPolicy,
     VersionRefreshRequest,
     VersionRefreshResult,
     VersionRefreshService,
-)
-from .versions import (
-    DownloadMetrics,
-    VersionListingContext,
-    extract_download_metrics,
-    package_detail_html_url,
 )
 
 DiagnosticSink = Callable[[str], None]

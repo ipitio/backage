@@ -7,7 +7,7 @@ from collections.abc import Callable, Mapping
 import httpx
 
 from bkg_py.github import GitHubJsonResponse, GitHubTextRequestPolicy
-from bkg_py.registry_transport import (
+from bkg_py.packages.registry.transport import (
     PackageRegistryResource,
     PackageRegistrySizeProbe,
 )
