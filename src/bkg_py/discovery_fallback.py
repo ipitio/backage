@@ -68,7 +68,7 @@ class _AnchorParser(HTMLParser):
             self.anchors.append((href, values.get("data-hovercard-type", "")))
 
 
-class PublicHtmlDiscoveryTraversal:  # pylint: disable=too-few-public-methods
+class PublicHtmlDiscoveryTraversal:
     """Best-effort public traversal used when authenticated discovery is unavailable."""
 
     def __init__(

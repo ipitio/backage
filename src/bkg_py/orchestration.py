@@ -51,29 +51,28 @@ class OwnerPhaseDecision:
     message: str = ""
 
 
-class RunOutcomePolicy:  # pylint: disable=too-few-public-methods
-    """Map completed phase statuses into top-level publication decisions."""
+def owner_updates_decision(
+    phase_status: int,
+    run_status: int = 0,
+) -> OwnerPhaseDecision:
+    """Map completed owner-phase statuses into publication decisions."""
 
-    @staticmethod
-    def owner_updates(phase_status: int, run_status: int = 0) -> OwnerPhaseDecision:
-        """Preserve graceful publication while aborting unexpected failures."""
-
-        _validate_process_status(phase_status, "owner phase")
-        _validate_process_status(run_status, "run")
-        if phase_status == 0:
-            return OwnerPhaseDecision("publish", run_status)
-        if phase_status == ExitStatus.GRACEFUL_STOP:
-            return OwnerPhaseDecision(
-                "publish",
-                int(ExitStatus.GRACEFUL_STOP),
-                "Graceful stop requested; stopping after persisting state...",
-            )
+    _validate_process_status(phase_status, "owner phase")
+    _validate_process_status(run_status, "run")
+    if phase_status == 0:
+        return OwnerPhaseDecision("publish", run_status)
+    if phase_status == ExitStatus.GRACEFUL_STOP:
         return OwnerPhaseDecision(
-            "abort",
-            phase_status,
-            f"Owner updates failed with status {phase_status}; "
-            "stopping before snapshot publication.",
+            "publish",
+            int(ExitStatus.GRACEFUL_STOP),
+            "Graceful stop requested; stopping after persisting state...",
         )
+    return OwnerPhaseDecision(
+        "abort",
+        phase_status,
+        f"Owner updates failed with status {phase_status}; "
+        "stopping before snapshot publication.",
+    )
 
 
 class BatchRuntimeService:

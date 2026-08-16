@@ -7,7 +7,7 @@ from typing import cast
 
 import pytest
 
-from bkg_py.orchestration import BatchRuntimeService, RunOutcomePolicy
+from bkg_py.orchestration import BatchRuntimeService, owner_updates_decision
 from bkg_py.runtime_names import StateKey
 from bkg_py.state import StateStore
 
@@ -244,7 +244,7 @@ def test_owner_phase_policy_controls_snapshot_publication(
 ) -> None:
     """Only graceful stops remain publishable after a nonzero owner phase."""
 
-    decision = RunOutcomePolicy.owner_updates(phase_status, run_status)
+    decision = owner_updates_decision(phase_status, run_status)
 
     assert decision.action == action
     assert decision.run_status == decided_status
