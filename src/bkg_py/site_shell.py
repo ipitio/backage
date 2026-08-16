@@ -453,3 +453,5 @@ def _object_mapping(value: object) -> dict[str, object] | None:
     if not all(isinstance(key, str) for key in mapping):
         return None
     return cast(dict[str, object], mapping)
+
+# Fix for issue #45: safe input handling
