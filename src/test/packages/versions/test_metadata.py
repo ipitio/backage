@@ -53,6 +53,17 @@ def test_extract_download_metrics_from_version_page_spans() -> None:
     assert extract_download_metric(html, "Missing") == -1
 
 
+def test_extract_download_metric_from_package_total_heading() -> None:
+    """Package detail pages expose the exact total in a heading title."""
+
+    html = """
+    <span class="d-block color-fg-muted text-small">Total downloads</span>
+    <h3 title="96901">96.9K</h3>
+    """
+
+    assert extract_download_metric(html, "Total downloads") == 96_901
+
+
 def test_parse_version_listing_html_matches_github_rows() -> None:
     """Version listing rows retain IDs, names, tags, and current decoding rules."""
 

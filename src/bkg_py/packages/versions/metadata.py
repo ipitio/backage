@@ -191,6 +191,12 @@ def extract_download_metric(html: str, label: str) -> int:
         re.DOTALL,
     )
     if match is None:
+        match = re.search(
+            re.escape(label) + r'</span>\s*<h[1-6]\b[^>]*\btitle="([^"]+)"[^>]*>',
+            html,
+            re.DOTALL,
+        )
+    if match is None:
         return -1
     return parse_metric_value(match.group(1))
 
