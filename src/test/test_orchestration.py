@@ -7,7 +7,7 @@ from typing import cast
 
 import pytest
 
-from bkg_py.orchestration import BatchRuntimeService, owner_updates_decision
+from bkg_py.orchestration import BatchRuntimeService, decide_owner_phase
 from bkg_py.runtime_names import StateKey
 from bkg_py.state import StateStore
 
@@ -235,7 +235,7 @@ def test_daily_gate_tracks_date_batch_directions_and_source_publish(
         (2, 0, "abort", 2, "stopping before snapshot publication"),
     ],
 )
-def test_owner_phase_policy_controls_snapshot_publication(
+def test_owner_phase_decision_controls_snapshot_publication(
     phase_status: int,
     run_status: int,
     action: str,
@@ -244,7 +244,7 @@ def test_owner_phase_policy_controls_snapshot_publication(
 ) -> None:
     """Only graceful stops remain publishable after a nonzero owner phase."""
 
-    decision = owner_updates_decision(phase_status, run_status)
+    decision = decide_owner_phase(phase_status, run_status)
 
     assert decision.action == action
     assert decision.run_status == decided_status

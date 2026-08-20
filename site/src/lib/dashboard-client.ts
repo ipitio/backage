@@ -106,7 +106,7 @@ export function startDashboard(): void {
       )}`;
 
       const coverage = document.createElement("td");
-      coverage.append(coverageMeasure(metric.coverage_basis_points, true));
+      coverage.append(coverageMeasure(metric.coverage_basis_points));
       row.append(heading, aggregate, known, coverage);
       return row;
     });
@@ -179,7 +179,7 @@ export function startDashboard(): void {
       if (currentRequest !== requestNumber) {
         return;
       }
-      renderHistoryDocument(history);
+      await renderHistoryDocument(history);
       historyStatus.textContent = historyPeriod(history.samples);
       historyContent.hidden = false;
     } catch (error) {
@@ -194,67 +194,30 @@ export function startDashboard(): void {
     }
   }
 
-  function renderHistoryDocument(history: DashboardHistoryDocument): void {
+  async function renderHistoryDocument(
+    history: DashboardHistoryDocument,
+  ): Promise<void> {
     const first = history.samples[0];
     const last = history.samples.at(-1);
     if (first === undefined || last === undefined) {
       throw new DashboardSchemaError("dashboard history has no samples");
     }
-    setText("history-package-change", formatChange(last.packages - first.packages));
+    const { renderHistoryChart } = await import("./history-chart");
+    setText(
+      "history-package-change",
+      formatChange(last.packages - first.packages),
+    );
     setText("history-owner-change", formatChange(last.owners - first.owners));
     setText(
       "history-repository-change",
       formatChange(last.repositories - first.repositories),
     );
-    renderHistoryChart(history.samples);
+    renderHistoryChart(history.samples, {
+      canvas: element<HTMLCanvasElement>("history-chart"),
+      caption: element("history-caption"),
+    });
     const rows = history.samples.map(historyRow);
     element<HTMLTableSectionElement>("history-values").replaceChildren(...rows);
-  }
-
-  function renderHistoryChart(
-    samples: ReadonlyArray<DashboardHistorySample>,
-  ): void {
-    const values = samples.map((sample) => sample.packages);
-    const minimum = Math.min(...values);
-    const maximum = Math.max(...values);
-    const range = Math.max(1, maximum - minimum);
-    const left = 48;
-    const right = 696;
-    const top = 24;
-    const bottom = 184;
-    const width = right - left;
-    const height = bottom - top;
-    const points = samples.map((sample, index) => {
-      const progress = samples.length === 1 ? 1 : index / (samples.length - 1);
-      const x = left + progress * width;
-      const y = bottom - ((sample.packages - minimum) / range) * height;
-      return { sample, x, y };
-    });
-    element<SVGPolylineElement>("history-line").setAttribute(
-      "points",
-      points.map(({ x, y }) => `${x.toFixed(2)},${y.toFixed(2)}`).join(" "),
-    );
-    const finalPoint = points.at(-1);
-    if (finalPoint === undefined) {
-      throw new DashboardSchemaError("dashboard history has no chart points");
-    }
-    const marker = element<SVGCircleElement>("history-last-point");
-    marker.setAttribute("cx", finalPoint.x.toFixed(2));
-    marker.setAttribute("cy", finalPoint.y.toFixed(2));
-    setText("history-chart-maximum", formatCount(maximum));
-    setText("history-chart-minimum", formatCount(minimum));
-    const first = samples[0];
-    if (first === undefined) {
-      throw new DashboardSchemaError("dashboard history has no first sample");
-    }
-    setText(
-      "history-chart-description",
-      `Package count changed from ${formatCount(first.packages)} on ${formatPublicationDate(first.date)} to ${formatCount(finalPoint.sample.packages)} on ${formatPublicationDate(finalPoint.sample.date)}.`,
-    );
-    setText(
-      "history-caption",
-      `${formatPublicationDate(first.date)} to ${formatPublicationDate(finalPoint.sample.date)} UTC`,
-    );
   }
 
   function renderFailure(error: unknown): void {
@@ -367,23 +330,18 @@ function setText(id: string, value: string): void {
   element(id).textContent = value;
 }
 
-function coverageMeasure(
-  basisPoints: number,
-  metric = false,
-): HTMLDivElement {
+function coverageMeasure(basisPoints: number): HTMLDivElement {
   const measure = document.createElement("div");
   measure.className = "measure";
-  const track = document.createElement("span");
-  track.className = "measure-track";
-  track.setAttribute("aria-hidden", "true");
-  const fill = document.createElement("span");
-  fill.className = metric ? "measure-fill metric-fill" : "measure-fill";
-  fill.style.width = `${basisPoints / 100}%`;
-  track.append(fill);
+  const progress = document.createElement("progress");
+  progress.max = 100;
+  progress.value = basisPoints / 100;
+  progress.setAttribute("aria-label", `${formatCoverage(basisPoints)} coverage`);
   const value = document.createElement("span");
   value.className = "measure-value";
+  value.ariaHidden = "true";
   value.textContent = formatCoverage(basisPoints);
-  measure.append(track, value);
+  measure.append(progress, value);
   return measure;
 }
 

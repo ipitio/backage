@@ -13,7 +13,7 @@ from typing import Protocol
 from ..orchestration import (
     BatchRuntimeService,
     OwnerPhaseDecision,
-    owner_updates_decision,
+    decide_owner_phase,
 )
 from ..owners import (
     OwnerBatchRequest,
@@ -431,7 +431,7 @@ class RunCoordinator:  # pylint: disable=too-few-public-methods
                     )
                 )
             )
-        return owner_updates_decision(int(phase_status), run_status)
+        return decide_owner_phase(int(phase_status), run_status)
 
     def _update_prepared_owner_work(
         self,
@@ -470,7 +470,7 @@ class RunCoordinator:  # pylint: disable=too-few-public-methods
             )
             status, result = self._prepare_owner_queue_interruptibly(request)
             if status == ExitStatus.GRACEFUL_STOP:
-                return owner_updates_decision(int(status), decision.run_status)
+                return decide_owner_phase(int(status), decision.run_status)
             if result is None:
                 raise AssertionError("successful owner queue preparation has no result")
             current = _GlobalOwnerAdmission(request, result)

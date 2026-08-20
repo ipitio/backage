@@ -1,0 +1,65 @@
+---
+import "@picocss/pico/css/pico.classless.min.css";
+import "../styles/dashboard.css";
+
+interface Props {
+  dashboardUrl: string;
+  dataRoot: string;
+  latestReleaseUrl: string;
+}
+
+const { dashboardUrl, dataRoot, latestReleaseUrl } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <meta name="color-scheme" content="light dark" />
+    <meta
+      name="description"
+      content="Current package inventory, freshness, and metric coverage for backage."
+    />
+    <link rel="icon" href={`${dataRoot}favicon.ico`} />
+    <title>backage package index</title>
+  </head>
+  <body data-dashboard-url={dashboardUrl}>
+    <header class="site-header">
+      <nav aria-label="Index resources">
+        <ul>
+          <li>
+            <a class="brand" href={dataRoot}>
+              <img src={`${dataRoot}logo-b.webp`} alt="" width="44" height="44" />
+              <strong>backage</strong>
+            </a>
+          </li>
+        </ul>
+        <ul class="resource-links">
+          <li><a href={`${dataRoot}.json`}>Index summary</a></li>
+          <li><a href={latestReleaseUrl}>Latest release</a></li>
+          <li><a href={`${dataRoot}README.md`}>Documentation</a></li>
+          <li><a href={`${dataRoot}dashboard.json`}>Raw data</a></li>
+        </ul>
+      </nav>
+    </header>
+
+    <main><slot /></main>
+
+    <footer>
+      <nav aria-label="Dashboard data">
+        <ul>
+          <li><a href={`${dataRoot}README.md`}>Documentation</a></li>
+          <li><a href={`${dataRoot}dashboard-history.json`}>Daily history</a></li>
+          <li><a href={`${dataRoot}dashboard.json`}>Current projection</a></li>
+        </ul>
+      </nav>
+    </footer>
+  </body>
+</html>
+
+<script>
+  import { startDashboard } from "../lib/dashboard-client";
+
+  startDashboard();
+</script>

@@ -1,281 +1,50 @@
 ---
-import "../styles/dashboard.css";
+import DistributionSection from "../components/DistributionSection.astro";
+import HistorySection from "../components/HistorySection.astro";
+import InventorySection from "../components/InventorySection.astro";
+import MetricsSection from "../components/MetricsSection.astro";
+import NoScriptFallback from "../components/NoScriptFallback.astro";
+import PublicationStatus from "../components/PublicationStatus.astro";
+import SiteShell from "../components/SiteShell.astro";
 
 const dataRoot = "__BKG_DATA_ROOT__";
 ---
 
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width" />
-    <meta name="color-scheme" content="light dark" />
-    <meta
-      name="description"
-      content="Current package inventory, freshness, and metric coverage for backage."
-    />
-    <link rel="icon" href={`${dataRoot}favicon.ico`} />
-    <title>backage package index</title>
-  </head>
-  <body data-dashboard-url={`${dataRoot}dashboard.json`}>
-    <header class="site-header">
-      <a class="brand" href={dataRoot}>
-        <img src={`${dataRoot}logo-b.webp`} alt="" width="44" height="44" />
-        <span>backage</span>
-      </a>
-      <nav aria-label="Index resources">
-        <a href={`${dataRoot}.json`}>Index summary</a>
-        <a href="__BKG_LATEST_RELEASE_URL__">Latest release</a>
-        <a href={`${dataRoot}README.md`}>Documentation</a>
-        <a href={`${dataRoot}dashboard.json`}>Raw data</a>
-      </nav>
-    </header>
+<SiteShell
+  dashboardUrl={`${dataRoot}dashboard.json`}
+  dataRoot={dataRoot}
+  latestReleaseUrl="__BKG_LATEST_RELEASE_URL__"
+>
+  <header class="page-heading">
+    <hgroup>
+      <h1>backage index status</h1>
+      <p>Inventory, update freshness, and available package metrics.</p>
+    </hgroup>
+  </header>
 
-    <main>
-      <header class="page-heading">
-        <p class="eyebrow">Package index</p>
-        <h1>backage index status</h1>
-        <p class="lede">
-          Inventory, update freshness, and available package metrics.
-        </p>
-      </header>
+  <PublicationStatus />
 
-      <div
-        class="publication-status requires-js"
-        id="publication-status"
-        data-tone="loading"
-      >
-        <span class="status-indicator" aria-hidden="true"></span>
-        <div
-          class="status-copy"
-          id="status-live"
-          role="status"
-          aria-live="polite"
-          aria-atomic="true"
-          aria-busy="true"
-        >
-          <p class="status-title" id="status-title">Loading index snapshot</p>
-          <p class="status-detail" id="status-detail">
-            Reading the current published data.
-          </p>
-        </div>
-        <button id="retry" type="button" hidden>Retry</button>
-      </div>
+  <div id="dashboard-content" hidden>
+    <InventorySection />
+    <div class="distribution-grid">
+      <DistributionSection
+        bodyId="package-types"
+        heading="Package types"
+        headingId="types-heading"
+        itemLabel="Type"
+        regionLabel="Package type distribution"
+      />
+      <DistributionSection
+        bodyId="freshness"
+        heading="Last observed"
+        headingId="freshness-heading"
+        itemLabel="Age"
+        regionLabel="Package freshness distribution"
+      />
+    </div>
+    <MetricsSection />
+    <HistorySection />
+  </div>
 
-      <div id="dashboard-content" hidden>
-        <section class="dashboard-section" aria-labelledby="inventory-heading">
-          <div class="section-heading">
-            <div>
-              <p class="section-label">Inventory</p>
-              <h2 id="inventory-heading">Catalog totals</h2>
-            </div>
-            <p class="section-aside" id="publication-date"></p>
-          </div>
-          <dl class="inventory-grid">
-            <div>
-              <dt>Packages</dt>
-              <dd id="inventory-packages">0</dd>
-            </div>
-            <div>
-              <dt>Owners</dt>
-              <dd id="inventory-owners">0</dd>
-            </div>
-            <div>
-              <dt>Repositories</dt>
-              <dd id="inventory-repositories">0</dd>
-            </div>
-            <div>
-              <dt>Resolved packages</dt>
-              <dd id="inventory-resolved">0</dd>
-            </div>
-          </dl>
-        </section>
-
-        <div class="distribution-grid">
-          <section class="dashboard-section" aria-labelledby="types-heading">
-            <div class="section-heading compact-heading">
-              <div>
-                <p class="section-label">Distribution</p>
-                <h2 id="types-heading">Package types</h2>
-              </div>
-            </div>
-            <div
-              class="table-scroll"
-              role="region"
-              aria-label="Package type distribution"
-              tabindex="0"
-            >
-              <table>
-                <thead>
-                  <tr>
-                    <th scope="col">Type</th>
-                    <th scope="col" class="numeric">Packages</th>
-                    <th scope="col">Share</th>
-                  </tr>
-                </thead>
-                <tbody id="package-types"></tbody>
-              </table>
-            </div>
-          </section>
-
-          <section class="dashboard-section" aria-labelledby="freshness-heading">
-            <div class="section-heading compact-heading">
-              <div>
-                <p class="section-label">Freshness</p>
-                <h2 id="freshness-heading">Last observed</h2>
-              </div>
-            </div>
-            <div
-              class="table-scroll"
-              role="region"
-              aria-label="Package freshness distribution"
-              tabindex="0"
-            >
-              <table>
-                <thead>
-                  <tr>
-                    <th scope="col">Age</th>
-                    <th scope="col" class="numeric">Packages</th>
-                    <th scope="col">Share</th>
-                  </tr>
-                </thead>
-                <tbody id="freshness"></tbody>
-              </table>
-            </div>
-          </section>
-        </div>
-
-        <section class="dashboard-section" aria-labelledby="metrics-heading">
-          <div class="section-heading">
-            <div>
-              <p class="section-label">Data coverage</p>
-              <h2 id="metrics-heading">Available package metrics</h2>
-            </div>
-            <p class="section-aside">Unknown values are excluded from totals.</p>
-          </div>
-          <div
-            class="table-scroll"
-            role="region"
-            aria-label="Package metric coverage"
-            tabindex="0"
-          >
-            <table class="metrics-table">
-              <thead>
-                <tr>
-                  <th scope="col">Metric</th>
-                  <th scope="col" class="numeric">Aggregate</th>
-                  <th scope="col" class="numeric">Known packages</th>
-                  <th scope="col">Coverage</th>
-                </tr>
-              </thead>
-              <tbody id="metrics"></tbody>
-            </table>
-          </div>
-        </section>
-
-        <section class="dashboard-section" aria-labelledby="history-heading">
-          <div class="section-heading">
-            <div>
-              <p class="section-label">Daily history</p>
-              <h2 id="history-heading">Catalog growth</h2>
-            </div>
-            <p class="section-aside" id="history-status" aria-live="polite">
-              Loading daily history.
-            </p>
-          </div>
-          <div id="history-content" hidden>
-            <dl class="history-summary">
-              <div>
-                <dt>Packages</dt>
-                <dd id="history-package-change">0</dd>
-              </div>
-              <div>
-                <dt>Owners</dt>
-                <dd id="history-owner-change">0</dd>
-              </div>
-              <div>
-                <dt>Repositories</dt>
-                <dd id="history-repository-change">0</dd>
-              </div>
-            </dl>
-            <figure class="history-figure">
-              <svg
-                id="history-chart"
-                viewBox="0 0 720 220"
-                role="img"
-                aria-labelledby="history-chart-title history-chart-description"
-              >
-                <title id="history-chart-title">Package count over time</title>
-                <desc id="history-chart-description"></desc>
-                <line class="chart-axis" x1="48" y1="184" x2="696" y2="184"
-                ></line>
-                <polyline id="history-line" class="chart-line"></polyline>
-                <circle id="history-last-point" class="chart-point" r="5"></circle>
-                <text id="history-chart-maximum" class="chart-label" x="48" y="24"
-                ></text>
-                <text id="history-chart-minimum" class="chart-label" x="48" y="205"
-                ></text>
-              </svg>
-              <figcaption id="history-caption"></figcaption>
-            </figure>
-            <details class="history-details">
-              <summary>Daily values</summary>
-              <div
-                class="table-scroll"
-                role="region"
-                aria-label="Daily catalog history"
-                tabindex="0"
-              >
-                <table class="history-table">
-                  <thead>
-                    <tr>
-                      <th scope="col">Date</th>
-                      <th scope="col" class="numeric">Packages</th>
-                      <th scope="col" class="numeric">Owners</th>
-                      <th scope="col" class="numeric">Repositories</th>
-                      <th scope="col" class="numeric">Known sizes</th>
-                      <th scope="col" class="numeric">Known downloads</th>
-                    </tr>
-                  </thead>
-                  <tbody id="history-values"></tbody>
-                </table>
-              </div>
-            </details>
-          </div>
-          <p class="history-unavailable" id="history-unavailable" hidden>
-            Daily history is unavailable. Current totals remain valid.
-          </p>
-        </section>
-      </div>
-
-      <noscript>
-        <style is:global>
-          .requires-js {
-            display: none !important;
-          }
-        </style>
-        <section class="no-script" aria-labelledby="no-script-heading">
-          <p class="section-label">Current data</p>
-          <h2 id="no-script-heading">Dashboard data requires JavaScript</h2>
-          <p>
-            The package index remains available through
-            <a href={`${dataRoot}.json`}>the compact index summary</a> and
-            <a href={`${dataRoot}dashboard.json`}>dashboard.json</a>.
-          </p>
-        </section>
-      </noscript>
-    </main>
-
-    <footer>
-      <a href={`${dataRoot}README.md`}>Documentation</a>
-      <a href={`${dataRoot}dashboard-history.json`}>Daily history</a>
-      <a href={`${dataRoot}dashboard.json`}>Current projection</a>
-    </footer>
-  </body>
-</html>
-
-<script>
-  import { startDashboard } from "../lib/dashboard-client";
-
-  startDashboard();
-</script>
+  <NoScriptFallback dataRoot={dataRoot} />
+</SiteShell>

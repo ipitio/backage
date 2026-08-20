@@ -1,0 +1,29 @@
+---
+interface Props {
+  bodyId: string;
+  heading: string;
+  headingId: string;
+  itemLabel: string;
+  regionLabel: string;
+}
+
+const { bodyId, heading, headingId, itemLabel, regionLabel } = Astro.props;
+---
+
+<section class="data-section" aria-labelledby={headingId}>
+  <header class="section-heading">
+    <h2 id={headingId}>{heading}</h2>
+  </header>
+  <div class="table-scroll" role="region" aria-label={regionLabel} tabindex="0">
+    <table>
+      <thead>
+        <tr>
+          <th scope="col">{itemLabel}</th>
+          <th scope="col" class="numeric">Packages</th>
+          <th scope="col">Share</th>
+        </tr>
+      </thead>
+      <tbody id={bodyId}></tbody>
+    </table>
+  </div>
+</section>

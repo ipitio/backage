@@ -1,4 +1,4 @@
-"""Typed run and batch decisions for the migrating application orchestrator."""
+"""Typed run and batch decisions for the application orchestrator."""
 
 from __future__ import annotations
 
@@ -51,7 +51,7 @@ class OwnerPhaseDecision:
     message: str = ""
 
 
-def owner_updates_decision(
+def decide_owner_phase(
     phase_status: int,
     run_status: int = 0,
 ) -> OwnerPhaseDecision:

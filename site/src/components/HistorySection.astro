@@ -1,0 +1,60 @@
+<section class="data-section" aria-labelledby="history-heading">
+  <header class="section-heading">
+    <h2 id="history-heading">Catalog growth</h2>
+    <small id="history-status" aria-live="polite">Loading daily history.</small>
+  </header>
+  <div id="history-content" hidden>
+    <dl class="history-summary">
+      <div>
+        <dt>Packages</dt>
+        <dd id="history-package-change">0</dd>
+      </div>
+      <div>
+        <dt>Owners</dt>
+        <dd id="history-owner-change">0</dd>
+      </div>
+      <div>
+        <dt>Repositories</dt>
+        <dd id="history-repository-change">0</dd>
+      </div>
+    </dl>
+    <figure class="history-figure">
+      <div class="history-chart-container">
+        <canvas
+          id="history-chart"
+          role="img"
+          aria-label="Package count over time"
+        >
+          Package history is available in the daily values table.
+        </canvas>
+      </div>
+      <figcaption id="history-caption"></figcaption>
+    </figure>
+    <details class="history-details">
+      <summary>Daily values</summary>
+      <div
+        class="table-scroll"
+        role="region"
+        aria-label="Daily catalog history"
+        tabindex="0"
+      >
+        <table class="history-table">
+          <thead>
+            <tr>
+              <th scope="col">Date</th>
+              <th scope="col" class="numeric">Packages</th>
+              <th scope="col" class="numeric">Owners</th>
+              <th scope="col" class="numeric">Repositories</th>
+              <th scope="col" class="numeric">Known sizes</th>
+              <th scope="col" class="numeric">Known downloads</th>
+            </tr>
+          </thead>
+          <tbody id="history-values"></tbody>
+        </table>
+      </div>
+    </details>
+  </div>
+  <p id="history-unavailable" hidden>
+    Daily history is unavailable. Current totals remain valid.
+  </p>
+</section>

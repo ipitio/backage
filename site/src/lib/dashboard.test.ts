@@ -13,14 +13,18 @@ import {
   parseDashboardHistory,
   publicationState,
 } from "./dashboard.ts";
+import {
+  dashboardFixture,
+  historyFixture,
+} from "../../tests/dashboard-fixtures.ts";
 
 test("parses a complete internally consistent dashboard", () => {
   const dashboard = parseDashboard(validDashboard());
 
-  assert.equal(dashboard.inventory.packages, 10);
+  assert.equal(dashboard.inventory.packages, 1_200);
   assert.equal(dashboard.package_types.items[0]?.name, "container");
   assert.equal(dashboard.freshness.buckets[4]?.name, "unknown");
-  assert.equal(dashboard.metrics.size.known_packages, 8);
+  assert.equal(dashboard.metrics.size.known_packages, 1_000);
 });
 
 test("rejects unknown schema fields and versions", () => {
@@ -34,22 +38,42 @@ test("rejects unknown schema fields and versions", () => {
   );
 });
 
+test("rejects invalid nested fields, dates, and unsafe counts", () => {
+  const nestedField = validDashboard();
+  const inventory = nestedField.inventory as Record<string, unknown>;
+  inventory.surprise = true;
+  assert.throws(() => parseDashboard(nestedField), DashboardSchemaError);
+
+  assert.throws(
+    () => parseDashboard({ ...validDashboard(), generated_date: "2026-02-30" }),
+    DashboardSchemaError,
+  );
+
+  const unsafeCount = validDashboard();
+  const unsafeInventory = unsafeCount.inventory as Record<string, unknown>;
+  unsafeInventory.packages = Number.MAX_SAFE_INTEGER + 1;
+  assert.throws(() => parseDashboard(unsafeCount), DashboardSchemaError);
+});
+
 test("rejects inconsistent inventory, partitions, and coverage", () => {
   const badInventory = validDashboard();
   const inventory = badInventory.inventory as Record<string, unknown>;
-  inventory.owners = 8;
-  assert.throws(() => parseDashboard(badInventory), /inconsistent catalog counts/);
+  inventory.owners = 400;
+  assert.throws(
+    () => parseDashboard(badInventory),
+    /inconsistent catalog counts/,
+  );
 
   const badPartition = validDashboard();
   const packageTypes = badPartition.package_types as Record<string, unknown>;
-  packageTypes.other_packages = 2;
-  packageTypes.other_coverage_basis_points = 2_000;
+  packageTypes.other_packages = 51;
+  packageTypes.other_coverage_basis_points = 425;
   assert.throws(() => parseDashboard(badPartition), /does not partition/);
 
   const badCoverage = validDashboard();
   const metrics = badCoverage.metrics as Record<string, unknown>;
   const size = metrics.size as Record<string, unknown>;
-  size.coverage_basis_points = 7_999;
+  size.coverage_basis_points = 8_332;
   assert.throws(() => parseDashboard(badCoverage), /coverage does not match/);
 });
 
@@ -78,12 +102,14 @@ test("parses bounded history that matches the current projection", async () => {
   const dashboard = parseDashboard(validDashboard());
   const history = parseDashboardHistory(validHistory(), dashboard);
 
-  assert.equal(history.samples.length, 2);
-  assert.equal(history.samples[0]?.packages, 9);
-  assert.equal(history.samples[1]?.downloads_known_packages, 9);
+  assert.equal(history.samples.length, 3);
+  assert.equal(history.samples[0]?.packages, 1_180);
+  assert.equal(history.samples[2]?.downloads_known_packages, 1_100);
 
   const fetcher = (() =>
-    Promise.resolve(new Response(JSON.stringify(validHistory())))) as typeof fetch;
+    Promise.resolve(
+      new Response(JSON.stringify(validHistory())),
+    )) as typeof fetch;
   const loaded = await loadDashboardHistory(
     "./dashboard-history.json",
     dashboard,
@@ -116,7 +142,7 @@ test("rejects history that is stale, unordered, or internally inconsistent", () 
     Record<string, unknown>
   >;
   if (inconsistentSamples[0] !== undefined) {
-    inconsistentSamples[0].size_known_packages = 10;
+    inconsistentSamples[0].size_known_packages = 1_181;
   }
   assert.throws(
     () => parseDashboardHistory(inconsistent, dashboard),
@@ -124,9 +150,11 @@ test("rejects history that is stale, unordered, or internally inconsistent", () 
   );
 
   const mismatched = validHistory();
-  const mismatchedSamples = mismatched.samples as Array<Record<string, unknown>>;
-  if (mismatchedSamples[1] !== undefined) {
-    mismatchedSamples[1].packages = 9;
+  const mismatchedSamples = mismatched.samples as Array<
+    Record<string, unknown>
+  >;
+  if (mismatchedSamples[2] !== undefined) {
+    mismatchedSamples[2].packages = 1_199;
   }
   assert.throws(
     () => parseDashboardHistory(mismatched, dashboard),
@@ -166,92 +194,9 @@ test("formats dashboard values consistently", () => {
 });
 
 function validDashboard(): Record<string, unknown> {
-  return {
-    schema_version: 1,
-    generated_date: "2026-08-11",
-    inventory: {
-      owners: 4,
-      repositories: 7,
-      packages: 10,
-      resolved_packages: 9,
-    },
-    package_types: {
-      unit: "packages",
-      denominator: "catalog_packages",
-      limit: 16,
-      items: [
-        { name: "container", packages: 6, coverage_basis_points: 6_000 },
-        { name: "npm", packages: 3, coverage_basis_points: 3_000 },
-      ],
-      other_packages: 1,
-      other_coverage_basis_points: 1_000,
-    },
-    freshness: {
-      unit: "packages",
-      denominator: "catalog_packages",
-      unknown_treatment: "missing_invalid_or_future_observed_date",
-      buckets: [
-        { name: "today", packages: 5, coverage_basis_points: 5_000 },
-        { name: "days_1_7", packages: 2, coverage_basis_points: 2_000 },
-        { name: "days_8_30", packages: 1, coverage_basis_points: 1_000 },
-        { name: "days_31_plus", packages: 1, coverage_basis_points: 1_000 },
-        { name: "unknown", packages: 1, coverage_basis_points: 1_000 },
-      ],
-    },
-    metrics: {
-      size: metric("bytes", 8, 2, 8_000, 1_536),
-      downloads_day: metric("downloads", 7, 3, 7_000, 70),
-      downloads_week: metric("downloads", 6, 4, 6_000, 420),
-      downloads_month: metric("downloads", 5, 5, 5_000, 1_500),
-      downloads_total: metric("downloads", 9, 1, 9_000, 20_000),
-    },
-    history: {
-      path: "dashboard-history.json",
-      schema_version: 1,
-      retention_days: 180,
-    },
-  };
+  return dashboardFixture("2026-08-11") as Record<string, unknown>;
 }
 
 function validHistory(): Record<string, unknown> {
-  return {
-    schema_version: 1,
-    retention_days: 180,
-    samples: [
-      {
-        date: "2026-08-10",
-        owners: 4,
-        repositories: 7,
-        packages: 9,
-        size_known_packages: 7,
-        downloads_known_packages: 8,
-      },
-      {
-        date: "2026-08-11",
-        owners: 4,
-        repositories: 7,
-        packages: 10,
-        size_known_packages: 8,
-        downloads_known_packages: 9,
-      },
-    ],
-  };
-}
-
-function metric(
-  unit: "bytes" | "downloads",
-  knownPackages: number,
-  unknownPackages: number,
-  coverageBasisPoints: number,
-  value: number,
-): Record<string, unknown> {
-  return {
-    unit,
-    denominator: "catalog_packages",
-    unknown_treatment: "negative_or_missing_current_value",
-    known_packages: knownPackages,
-    unknown_packages: unknownPackages,
-    coverage_basis_points: coverageBasisPoints,
-    value,
-  };
+  return historyFixture("2026-08-11") as Record<string, unknown>;
 }

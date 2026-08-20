@@ -41,7 +41,8 @@ trap cleanup EXIT
 
 cp "$site_dir/package.json" "$site_dir/package-lock.json" \
 	"$site_dir/astro.config.ts" "$site_dir/tsconfig.json" "$workspace/"
-cp -R "$site_dir/public" "$site_dir/scripts" "$site_dir/src" "$workspace/"
+cp -R "$site_dir/public" "$site_dir/scripts" "$site_dir/src" \
+	"$site_dir/tests" "$workspace/"
 ln -s "$dependency_dir/node_modules" "$workspace/node_modules"
 
 export ASTRO_TELEMETRY_DISABLED=1
