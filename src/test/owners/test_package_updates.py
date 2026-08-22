@@ -42,7 +42,7 @@ from bkg_py.packages.versions.updates import VersionRefreshExecution
 from bkg_py.publication import PublicationLimits
 from bkg_py.runtime import GracefulStop
 
-from ..github_client_fake import FakeGitHubClient
+from ..github.fake import FakeGitHubClient
 
 
 def _execution(

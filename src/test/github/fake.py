@@ -55,7 +55,6 @@ class FakeGitHubClient:
         self.text_requests: list[str] = []
         self.text_authentication: list[bool] = []
         self.text_policies: list[GitHubTextRequestPolicy | None] = []
-        self.package_registry = UnexpectedPackageRegistryClient()
 
     def rest_json(self, path: str) -> GitHubJsonResponse:
         """Return one configured REST response."""

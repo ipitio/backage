@@ -54,7 +54,7 @@ from bkg_py.owners.updates import (
 from bkg_py.packages.updates import PackageRefreshPolicy
 from bkg_py.state import StateStore
 
-from ..github_client_fake import FakeGitHubClient
+from ..github.fake import FakeGitHubClient, UnexpectedPackageRegistryClient
 
 _TODAY = "2026-06-29"
 _RUN_TODAY = "2026-06-30"
@@ -434,6 +434,7 @@ def test_owner_update_operation_persists_backoff_and_reports_a_deferred_result(
     application = ApplicationContext.from_env()
     result = application.owner_update_operation(
         cast(GitHubClient, FakeGitHubClient()),
+        UnexpectedPackageRegistryClient(),
         OwnerOperationExecution(
             ConcurrencySettings(max_workers=1),
             progress.append,

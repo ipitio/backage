@@ -8,7 +8,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from threading import Lock
 
-from ..application import ApplicationContext
+from ..application import (
+    ApplicationContext,
+    GitHubOperationClients,
+    github_operation_clients,
+)
 from ..discovery import DiscoveryError, OwnerIdentityResolver
 from ..discovery_fallback import PublicHtmlDiscoveryTraversal
 from ..discovery_operations import (
@@ -85,11 +89,11 @@ class RunApplicationOperations:
         application: ApplicationContext,
         execution: RunApplicationExecution,
         *,
-        github_client: GitHubClient | None = None,
+        github_clients: GitHubOperationClients | None = None,
     ) -> None:
         self.application = application
         self.execution = execution
-        self._shared_github_client = github_client
+        self._shared_github_clients = github_clients
 
     def prepare_run(self, request: RunCoordinatorRequest) -> RunStartupResult:
         """Prepare persisted state, storage, and the initial package plan."""
@@ -327,11 +331,13 @@ class RunApplicationOperations:
         config = self.application.config
         if config.index_dir is None:
             raise ValueError("BKG_INDEX_DIR is required")
-        with self._github_client() as client:
+        with self._github_clients() as clients:
+            client = clients.github
             service = OwnerBatchService(
                 lambda concurrency: (
                     self.application.owner_update_operation(
                         client,
+                        clients.package_registry,
                         OwnerOperationExecution(
                             concurrency,
                             self.execution.progress,
@@ -471,11 +477,19 @@ class RunApplicationOperations:
 
     @contextmanager
     def _github_client(self) -> Generator[GitHubClient]:
-        if self._shared_github_client is not None:
-            yield self._shared_github_client
+        if self._shared_github_clients is not None:
+            yield self._shared_github_clients.github
             return
         with self.application.github_client() as client:
             yield client
+
+    @contextmanager
+    def _github_clients(self) -> Generator[GitHubOperationClients]:
+        if self._shared_github_clients is not None:
+            yield self._shared_github_clients
+            return
+        with github_operation_clients(self.application) as clients:
+            yield clients
 
 
 class LockedRunOutput:

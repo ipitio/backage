@@ -26,6 +26,7 @@ def _settings(**overrides: object) -> GitHubSettings:
         "total_timeout": 30,
         "initial_backoff": 1,
         "max_backoff": 8,
+        "user_agent": "test-agent",
     }
     values.update(overrides)
     return GitHubSettings(**values)  # type: ignore[arg-type]

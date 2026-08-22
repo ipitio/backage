@@ -41,7 +41,7 @@ class PackageRegistryTransportSettings:
     """Authentication and timeout settings shared with the GitHub client."""
 
     token: str = field(repr=False)
-    user_agent: str
+    user_agent: Callable[[], str]
     connect_timeout: float
     read_timeout: float
     write_timeout: float
@@ -221,7 +221,7 @@ class PackageRegistryTransport:
     ) -> dict[str, str]:
         headers = {
             "Accept": accept,
-            "User-Agent": self._settings.user_agent,
+            "User-Agent": self._settings.user_agent(),
         }
         if host in credential_hosts and self._settings.token:
             headers["Authorization"] = f"Bearer {self._settings.token}"

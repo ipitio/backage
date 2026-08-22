@@ -14,7 +14,7 @@ from bkg_py.packages.discovery import (
     parse_package_listing_html,
 )
 
-from ..github_client_fake import FakeGitHubClient
+from ..github.fake import FakeGitHubClient
 
 
 def test_listing_parser_associates_repositories_and_deduplicates_packages() -> None:

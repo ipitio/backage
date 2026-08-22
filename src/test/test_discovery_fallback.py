@@ -15,6 +15,7 @@ def _client(handler: httpx.MockTransport) -> GitHubClient:
             total_timeout=30,
             initial_backoff=0,
             max_backoff=0,
+            user_agent="test-agent",
         ),
         client=httpx.Client(transport=handler),
     )

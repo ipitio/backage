@@ -71,7 +71,7 @@ def _github_client(
     auth_value: str = "",
 ) -> GitHubClient:
     return GitHubClient(
-        GitHubSettings(token=auth_value),
+        GitHubSettings(token=auth_value, user_agent="test-agent"),
         client=httpx.Client(transport=handler),
     )
 

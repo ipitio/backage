@@ -110,7 +110,7 @@ def test_apply_release_retention_deletes_only_planned_resources() -> None:
 
     messages: list[str] = []
     with GitHubClient(
-        GitHubSettings(token=""),
+        GitHubSettings(token="", user_agent="test-agent"),
         client=httpx.Client(transport=httpx.MockTransport(respond)),
     ) as client:
         result = apply_release_retention(
@@ -148,7 +148,7 @@ def test_apply_release_retention_dry_run_performs_no_deletes() -> None:
         )
 
     with GitHubClient(
-        GitHubSettings(token=""),
+        GitHubSettings(token="", user_agent="test-agent"),
         client=httpx.Client(transport=httpx.MockTransport(respond)),
     ) as client:
         result = apply_release_retention(

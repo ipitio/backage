@@ -1,4 +1,4 @@
-"""GitHub HTTP operations with shared retries, accounting, and stop handling."""
+"""Pooled GitHub API and public-resource HTTP client."""
 
 from __future__ import annotations
 
@@ -6,27 +6,28 @@ import json
 import re
 import time
 from collections.abc import Callable, Iterator, Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
 from html.parser import HTMLParser
 from pathlib import Path
-from threading import Lock
 from typing import Any, cast
 
 import httpx
 
-from .config import ConfigError, read_float, read_int, read_text
-from .files import atomic_binary_output
-from .packages.registry.transport import (
-    PackageRegistryTransport,
-    PackageRegistryTransportRuntime,
-    PackageRegistryTransportSettings,
+from ..files import atomic_binary_output
+from ..runtime import GracefulStop
+from .errors import (
+    GitHubDecodeError,
+    GitHubError,
+    GitHubGraphQLError,
+    GitHubNotFoundError,
+    GitHubResponseError,
+    GitHubTransportError,
 )
-from .runtime import GracefulStop
-from .runtime_names import EnvironmentVariable as Env
-from .runtime_names import StateKey
-from .state import StateStore
+from .rate import GitHubRateAccounting
+from .settings import GitHubSettings
+from .user_agent import ChromiumUserAgentResolver
 
 _RETRYABLE_STATUS_CODES = frozenset({408, 429, 500, 502, 503, 504})
 _FORBIDDEN_STATUS = 403
@@ -39,25 +40,6 @@ _SECONDARY_LIMIT_MARKERS = (
     "temporarily blocked",
 )
 _RATE_LIMIT_SELECTION = "rateLimit { cost remaining resetAt }"
-_DEFAULT_REST_RESERVE = 50
-_RATE_RESET_BUFFER_SECONDS = 1.0
-_ACCOUNTING_FLUSH_RESPONSES = 32
-
-
-def _positive_setting(
-    values: Mapping[str, str],
-    name: str,
-    default: float,
-) -> float:
-    """Read one positive GitHub timing setting."""
-
-    return read_float(
-        values,
-        name,
-        default,
-        minimum=0,
-        minimum_exclusive=True,
-    )
 
 
 class _HtmlTitleParser(HTMLParser):
@@ -84,95 +66,6 @@ class _HtmlTitleParser(HTMLParser):
     def handle_data(self, data: str) -> None:
         if self.in_title:
             self.parts.append(data)
-
-
-class GitHubError(RuntimeError):
-    """A GitHub HTTP operation could not complete."""
-
-
-class GitHubTransportError(GitHubError):
-    """GitHub could not be reached within the configured retry budget."""
-
-
-class GitHubResponseError(GitHubError):
-    """GitHub returned a non-success response."""
-
-    def __init__(self, message: str, *, status_code: int | None = None) -> None:
-        super().__init__(message)
-        self.status_code = status_code
-
-
-class GitHubNotFoundError(GitHubResponseError):
-    """GitHub reported that the requested resource does not exist."""
-
-
-class GitHubGraphQLError(GitHubError):
-    """GitHub returned one or more GraphQL errors."""
-
-
-class GitHubDecodeError(GitHubError):
-    """GitHub returned a response that was not valid JSON."""
-
-
-@dataclass(frozen=True)
-class GitHubSettings:  # pylint: disable=too-many-instance-attributes
-    """Configuration for GitHub HTTP requests."""
-
-    token: str = field(repr=False)
-    api_url: str = "https://api.github.com"
-    connect_timeout: float = 10.0
-    read_timeout: float = 60.0
-    write_timeout: float = 60.0
-    pool_timeout: float = 10.0
-    total_timeout: float = 120.0
-    max_attempts: int = 5
-    initial_backoff: float = 1.0
-    max_backoff: float = 30.0
-    rest_reserve: int = _DEFAULT_REST_RESERVE
-    user_agent: str = "backage"
-
-    @classmethod
-    def from_mapping(cls, values: Mapping[str, str]) -> GitHubSettings:
-        """Load settings from one captured configuration mapping."""
-
-        settings = cls(
-            token=read_text(values, Env.GITHUB_TOKEN, "", allow_empty=True),
-            api_url=read_text(
-                values,
-                Env.BKG_GITHUB_API_URL,
-                "https://api.github.com",
-            ),
-            connect_timeout=_positive_setting(
-                values, Env.BKG_HTTP_CONNECT_TIMEOUT, 10.0
-            ),
-            read_timeout=_positive_setting(values, Env.BKG_HTTP_READ_TIMEOUT, 60.0),
-            write_timeout=_positive_setting(values, Env.BKG_HTTP_WRITE_TIMEOUT, 60.0),
-            pool_timeout=_positive_setting(values, Env.BKG_HTTP_POOL_TIMEOUT, 10.0),
-            total_timeout=_positive_setting(values, Env.BKG_HTTP_TOTAL_TIMEOUT, 120.0),
-            max_attempts=read_int(
-                values,
-                Env.BKG_HTTP_MAX_ATTEMPTS,
-                5,
-                minimum=1,
-            ),
-            initial_backoff=_positive_setting(
-                values, Env.BKG_HTTP_INITIAL_BACKOFF, 1.0
-            ),
-            max_backoff=_positive_setting(values, Env.BKG_HTTP_MAX_BACKOFF, 30.0),
-            rest_reserve=read_int(
-                values,
-                Env.BKG_GITHUB_REST_RESERVE,
-                _DEFAULT_REST_RESERVE,
-                minimum=0,
-            ),
-            user_agent=read_text(values, Env.BKG_HTTP_USER_AGENT, "backage"),
-        )
-        if settings.max_backoff < settings.initial_backoff:
-            raise ConfigError(
-                f"{Env.BKG_HTTP_MAX_BACKOFF} must be at least "
-                f"{Env.BKG_HTTP_INITIAL_BACKOFF}"
-            )
-        return settings
 
 
 @dataclass(frozen=True)
@@ -219,208 +112,17 @@ class _JsonRequest:
     graphql: bool = False
 
 
-@dataclass(frozen=True)
-class GitHubRateWait:
-    """A required pause before another authenticated REST request."""
+def create_http_transport(settings: GitHubSettings) -> httpx.Client:
+    """Create the pooled transport shared by application-composed clients."""
 
-    seconds: float | None
-    message: str
-    report: bool
-
-
-@dataclass
-class _GitHubRateWindow:
-    in_flight: int = 0
-    reported_reset_at: int | None = None
-    remaining: int | None = None
-    reset_at: int | None = None
-
-
-def _empty_rate_values() -> dict[str, str | int]:
-    return {}
-
-
-@dataclass
-class _GitHubPendingUsage:
-    values: dict[str, str | int] = field(default_factory=_empty_rate_values)
-    calls: int = 0
-    minute_calls: int = 0
-    responses: int = 0
-
-
-class GitHubRateAccounting:
-    """Share and persist REST capacity plus REST and GraphQL usage."""
-
-    def __init__(
-        self,
-        state: StateStore,
-        *,
-        rest_reserve: int = _DEFAULT_REST_RESERVE,
-        flush_responses: int = _ACCOUNTING_FLUSH_RESPONSES,
-    ) -> None:
-        if rest_reserve < 0:
-            raise ValueError("REST reserve must be zero or greater")
-        if flush_responses < 1:
-            raise ValueError("accounting flush responses must be positive")
-        self.state = state
-        self.rest_reserve = rest_reserve
-        self.flush_responses = flush_responses
-        self._lock = Lock()
-        self._rate = _GitHubRateWindow(
-            remaining=_nonnegative_int(state.get(StateKey.REST_REMAINING)),
-            reset_at=_nonnegative_int(state.get(StateKey.REST_RESET_AT)),
-        )
-        self._pending = _GitHubPendingUsage()
-
-    def reserve_rest(self, now: float) -> GitHubRateWait | None:
-        """Reserve one request or describe how long capacity must wait."""
-
-        with self._lock:
-            if self._rate.reset_at is not None and self._rate.reset_at <= now:
-                self._rate.remaining = None
-                self._rate.reset_at = None
-                self._rate.reported_reset_at = None
-
-            available = (
-                None
-                if self._rate.remaining is None
-                else self._rate.remaining - self._rate.in_flight
-            )
-            if available is None or available > self.rest_reserve:
-                self._rate.in_flight += 1
-                return None
-
-            reset_at = self._rate.reset_at
-            report = reset_at != self._rate.reported_reset_at
-            self._rate.reported_reset_at = reset_at
-
-        reserve = self.rest_reserve
-        if reset_at is None:
-            return GitHubRateWait(
-                None,
-                f"GitHub REST budget reached its {reserve}-request workflow "
-                "reserve, but GitHub did not report a reset time",
-                report,
-            )
-        reset_time = datetime.fromtimestamp(reset_at, UTC).isoformat()
-        seconds = max(0.0, reset_at - now + _RATE_RESET_BUFFER_SECONDS)
-        return GitHubRateWait(
-            seconds,
-            f"GitHub REST budget reached its {reserve}-request workflow reserve; "
-            f"waiting {seconds:.0f}s for reset at {reset_time}",
-            report,
-        )
-
-    def record_rest(
-        self,
-        headers: Mapping[str, str],
-        *,
-        budgeted: bool = True,
-    ) -> None:
-        """Count one REST response and retain its latest rate-limit headers."""
-
-        values = self._complete_rest_request(headers) if budgeted else {}
-        self._record_usage(values, calls=1, minute_calls=1)
-
-    def cancel_rest(self) -> None:
-        """Release a reservation when no REST response was received."""
-
-        with self._lock:
-            self._rate.in_flight = max(0, self._rate.in_flight - 1)
-
-    def record_graphql(self, value: object) -> None:
-        """Count one GraphQL response using GitHub's reported query cost."""
-
-        rate_limit = _graphql_rate_limit(value)
-        cost = _positive_int(rate_limit.get("cost"), default=1)
-        values: dict[str, str | int] = {StateKey.GRAPHQL_LAST_COST: cost}
-        remaining = _nonnegative_int(rate_limit.get("remaining"))
-        if remaining is not None:
-            values[StateKey.GRAPHQL_REMAINING] = remaining
-        reset_at = rate_limit.get("resetAt")
-        if isinstance(reset_at, str) and reset_at:
-            values[StateKey.GRAPHQL_RESET_AT] = reset_at
-        self._record_usage(values, calls=cost, minute_calls=cost)
-
-    def flush(self) -> None:
-        """Persist accumulated response accounting in one state replacement."""
-
-        with self._lock:
-            pending = self._pending
-            self._pending = _GitHubPendingUsage()
-        if not pending.values and pending.calls == 0 and pending.minute_calls == 0:
-            return
-        try:
-            self.state.update_many(
-                pending.values,
-                increments={
-                    StateKey.CALLS_TO_API: pending.calls,
-                    StateKey.MIN_CALLS_TO_API: pending.minute_calls,
-                },
-            )
-        except BaseException:
-            with self._lock:
-                current = self._pending
-                pending.values.update(current.values)
-                pending.calls += current.calls
-                pending.minute_calls += current.minute_calls
-                pending.responses += current.responses
-                self._pending = pending
-            raise
-
-    def _record_usage(
-        self,
-        values: Mapping[str, str | int],
-        *,
-        calls: int,
-        minute_calls: int,
-    ) -> None:
-        should_flush = False
-        with self._lock:
-            self._pending.values.update(values)
-            self._pending.calls += calls
-            self._pending.minute_calls += minute_calls
-            self._pending.responses += 1
-            should_flush = self._pending.responses >= self.flush_responses
-        if should_flush:
-            self.flush()
-
-    def _complete_rest_request(
-        self,
-        headers: Mapping[str, str],
-    ) -> dict[str, int]:
-        remaining = _nonnegative_int(headers.get("x-ratelimit-remaining"))
-        reset_at = _nonnegative_int(headers.get("x-ratelimit-reset"))
-        limit = _nonnegative_int(headers.get("x-ratelimit-limit"))
-
-        with self._lock:
-            self._rate.in_flight = max(0, self._rate.in_flight - 1)
-            if (
-                reset_at is not None
-                and self._rate.reset_at is not None
-                and reset_at < self._rate.reset_at
-            ):
-                remaining = None
-                reset_at = None
-            elif reset_at is not None and reset_at != self._rate.reset_at:
-                self._rate.reset_at = reset_at
-                self._rate.remaining = remaining
-                self._rate.reported_reset_at = None
-            elif remaining is not None:
-                self._rate.remaining = (
-                    remaining
-                    if self._rate.remaining is None
-                    else min(self._rate.remaining, remaining)
-                )
-
-            values: dict[str, int] = {}
-            if self._rate.remaining is not None:
-                values[StateKey.REST_REMAINING] = self._rate.remaining
-            if self._rate.reset_at is not None:
-                values[StateKey.REST_RESET_AT] = self._rate.reset_at
-            if limit is not None:
-                values[StateKey.REST_LIMIT] = limit
-            return values
+    return httpx.Client(
+        timeout=_http_timeout(settings, settings.total_timeout),
+        limits=httpx.Limits(
+            max_connections=20,
+            max_keepalive_connections=10,
+        ),
+        follow_redirects=True,
+    )
 
 
 class GitHubClient:
@@ -433,34 +135,21 @@ class GitHubClient:
         accounting: GitHubRateAccounting | None = None,
         runtime: GitHubRuntime | None = None,
         client: httpx.Client | None = None,
+        user_agent: Callable[[], str] | None = None,
     ) -> None:
         self.settings = settings
         self.accounting = accounting
         self.runtime = runtime or GitHubRuntime()
         self._owns_client = client is None
-        self._client = client or httpx.Client(
-            timeout=self._timeout(settings.total_timeout),
-            limits=httpx.Limits(
-                max_connections=20,
-                max_keepalive_connections=10,
-            ),
-            follow_redirects=True,
-        )
-        self.package_registry = PackageRegistryTransport(
-            self._client,
-            PackageRegistryTransportSettings(
-                token=settings.token,
-                user_agent=settings.user_agent,
-                connect_timeout=settings.connect_timeout,
-                read_timeout=settings.read_timeout,
-                write_timeout=settings.write_timeout,
-                pool_timeout=settings.pool_timeout,
-            ),
-            PackageRegistryTransportRuntime(
+        self._client = client or create_http_transport(settings)
+        if user_agent is None:
+            user_agent = ChromiumUserAgentResolver(
+                self._client,
+                override=settings.user_agent_override,
                 check_stop=self.runtime.check_stop,
-                clock=self.runtime.clock,
-            ),
-        )
+                report=self.runtime.report,
+            ).resolve
+        self._resolve_user_agent = user_agent
 
     def __enter__(self) -> GitHubClient:
         return self
@@ -469,7 +158,7 @@ class GitHubClient:
         self.close()
 
     def close(self) -> None:
-        """Close the internally owned connection pool."""
+        """Flush accounting and close an internally owned connection pool."""
 
         try:
             if self.accounting is not None:
@@ -799,7 +488,7 @@ class GitHubClient:
     ) -> dict[str, str]:
         headers = {
             "Accept": accept,
-            "User-Agent": self.settings.user_agent,
+            "User-Agent": self._resolve_user_agent(),
         }
         if api_version:
             headers["X-GitHub-Api-Version"] = "2022-11-28"
@@ -810,12 +499,7 @@ class GitHubClient:
         return headers
 
     def _timeout(self, remaining: float) -> httpx.Timeout:
-        return httpx.Timeout(
-            connect=min(self.settings.connect_timeout, remaining),
-            read=min(self.settings.read_timeout, remaining),
-            write=min(self.settings.write_timeout, remaining),
-            pool=min(self.settings.pool_timeout, remaining),
-        )
+        return _http_timeout(self.settings, remaining)
 
     def _remaining(self, deadline: float) -> float:
         remaining = deadline - self.runtime.clock()
@@ -909,6 +593,15 @@ class GitHubClient:
         return value.replace(self.settings.token, "[REDACTED]")
 
 
+def _http_timeout(settings: GitHubSettings, remaining: float) -> httpx.Timeout:
+    return httpx.Timeout(
+        connect=min(settings.connect_timeout, remaining),
+        read=min(settings.read_timeout, remaining),
+        write=min(settings.write_timeout, remaining),
+        pool=min(settings.pool_timeout, remaining),
+    )
+
+
 def _response_error_body(response: httpx.Response) -> str:
     body = response.text.strip()
     content_type = response.headers.get("content-type", "").casefold()
@@ -938,36 +631,6 @@ def _with_rate_limit(query: str) -> str:
     if closing_brace < 0:
         raise GitHubError("GraphQL query must contain a selection set")
     return f"{query[:closing_brace]} {_RATE_LIMIT_SELECTION} {query[closing_brace:]}"
-
-
-def _graphql_rate_limit(value: object) -> Mapping[str, object]:
-    if not isinstance(value, dict):
-        return {}
-    data = cast(dict[str, object], value).get("data")
-    if not isinstance(data, dict):
-        return {}
-    rate_limit = cast(dict[str, object], data).get("rateLimit")
-    return cast(dict[str, object], rate_limit) if isinstance(rate_limit, dict) else {}
-
-
-def _positive_int(value: object, *, default: int) -> int:
-    if isinstance(value, bool):
-        return default
-    try:
-        parsed = int(value)  # type: ignore[arg-type]
-    except TypeError, ValueError:
-        return default
-    return parsed if parsed > 0 else default
-
-
-def _nonnegative_int(value: object) -> int | None:
-    if isinstance(value, bool):
-        return None
-    try:
-        parsed = int(value)  # type: ignore[arg-type]
-    except TypeError, ValueError:
-        return None
-    return parsed if parsed >= 0 else None
 
 
 def _response_retry_delay(response: httpx.Response) -> float | None:

@@ -9,9 +9,10 @@ from pathlib import Path
 import pytest
 
 import bkg_py.cli
-from bkg_py.application import ApplicationContext
+from bkg_py.application import ApplicationContext, github_operation_clients
 from bkg_py.cli import build_parser, entrypoint, main
 from bkg_py.database import DatabaseError
+from bkg_py.packages.registry.transport import PackageRegistryTransport
 from bkg_py.result import ExitStatus
 from bkg_py.workspace import update as workspace_update
 
@@ -226,11 +227,14 @@ def test_github_client_uses_shared_runtime_services(
     monkeypatch.setenv("BKG_GITHUB_REST_RESERVE", "17")
     application = ApplicationContext.from_env()
 
-    with application.github_client() as client:
+    with github_operation_clients(application) as clients:
+        client = clients.github
         assert client.accounting is not None
         assert client.accounting.state is application.state
         assert client.accounting is application.github_rate_accounting
         assert client.accounting.rest_reserve == 17
+        assert isinstance(clients.package_registry, PackageRegistryTransport)
+        assert not hasattr(client, "package_registry")
         assert getattr(client.runtime.check_stop, "__self__", None) is application.stop
         assert (
             getattr(client.runtime.request_stop, "__self__", None) is application.stop

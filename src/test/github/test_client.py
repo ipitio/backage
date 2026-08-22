@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Iterator
 from pathlib import Path
 
 import httpx
@@ -20,21 +19,11 @@ from bkg_py.github import (
     GitHubTextRequestPolicy,
     GitHubTransportError,
 )
-from bkg_py.packages.registry.transport import (
-    PackageRegistryDecodeError,
-    PackageRegistryError,
-    PackageRegistryResource,
-)
 from bkg_py.runtime import GracefulStop
 from bkg_py.state import StateStore
 
 TEST_TOKEN = "github_pat_secret"
 TEST_REGISTRY_TOKEN = "registry-token"
-
-
-class _UnreadableStream(httpx.SyncByteStream):
-    def __iter__(self) -> Iterator[bytes]:
-        raise AssertionError("range-ignoring response body was consumed")
 
 
 def _settings(**overrides: object) -> GitHubSettings:
@@ -43,6 +32,7 @@ def _settings(**overrides: object) -> GitHubSettings:
         "total_timeout": 30,
         "initial_backoff": 1,
         "max_backoff": 8,
+        "user_agent": "test-agent",
     }
     values.update(overrides)
     return GitHubSettings(**values)  # type: ignore[arg-type]
@@ -166,6 +156,101 @@ def test_text_request_retries_without_api_headers_or_accounting(
     assert attempts == 2
     assert sleeps == [0.25]
     assert state.get_int("BKG_CALLS_TO_API") == 0
+
+
+def test_auto_requests_resolve_and_cache_current_stable_chromium_user_agent() -> None:
+    """Auto mode sends every operation as the current reduced Chromium UA."""
+
+    requested: list[str] = []
+    operation_user_agents: list[str] = []
+
+    def respond(request: httpx.Request) -> httpx.Response:
+        requested.append(str(request.url))
+        if request.url.host == "googlechromelabs.github.io":
+            assert request.headers["user-agent"] != "backage"
+            return httpx.Response(200, content=b"151.0.7922.174\n")
+        operation_user_agents.append(request.headers["user-agent"])
+        if request.url.host == "api.github.com":
+            return httpx.Response(200, json={"login": "example"})
+        return httpx.Response(200, text="<html>versions</html>")
+
+    client = _client(
+        httpx.MockTransport(respond),
+        settings=_settings(user_agent="auto"),
+    )
+
+    for page in ("versions", "tags"):
+        assert client.get_text(f"https://github.com/example/pkg/{page}").startswith(
+            "<html>"
+        )
+    assert client.rest_json("users/example").value == {"login": "example"}
+
+    expected_user_agent = (
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36"
+    )
+    assert operation_user_agents == [
+        expected_user_agent,
+        expected_user_agent,
+        expected_user_agent,
+    ]
+    assert requested == [
+        "https://googlechromelabs.github.io/chrome-for-testing/LATEST_RELEASE_STABLE",
+        "https://github.com/example/pkg/versions",
+        "https://github.com/example/pkg/tags",
+        "https://api.github.com/users/example",
+    ]
+
+
+def test_user_agent_lookup_failure_is_cached_as_bundled_chromium_fallback() -> None:
+    """UA discovery cannot fail or repeatedly delay ordinary HTTP work."""
+
+    requested: list[str] = []
+    reports: list[str] = []
+
+    def respond(request: httpx.Request) -> httpx.Response:
+        requested.append(str(request.url))
+        if request.url.host == "googlechromelabs.github.io":
+            return httpx.Response(503)
+        assert request.headers["user-agent"] == (
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36"
+        )
+        return httpx.Response(200, text="<html>versions</html>")
+
+    client = _client(
+        httpx.MockTransport(respond),
+        settings=_settings(user_agent="auto"),
+        runtime=GitHubRuntime(report=reports.append),
+    )
+
+    client.get_text("https://github.com/example/pkg/versions")
+    client.get_text("https://github.com/example/pkg/tags")
+
+    assert sum("googlechromelabs.github.io" in url for url in requested) == 1
+    assert reports == [
+        "Unable to resolve the current Stable Chromium User-Agent "
+        "(HTTPStatusError); using bundled Chrome/152.0.0.0 fallback"
+    ]
+
+
+def test_explicit_user_agent_skips_runtime_resolution_for_all_requests() -> None:
+    """The supported setting remains a deterministic universal override."""
+
+    def respond(request: httpx.Request) -> httpx.Response:
+        assert request.url.host in {"api.github.com", "github.com"}
+        assert request.headers["user-agent"] == "custom-agent"
+        if request.url.host == "api.github.com":
+            return httpx.Response(200, json={"login": "example"})
+        return httpx.Response(200, text="<html>versions</html>")
+
+    client = _client(
+        httpx.MockTransport(respond),
+        settings=_settings(user_agent="custom-agent"),
+    )
+
+    client.get_text("https://github.com/example/pkg/versions")
+    assert client.rest_json("users/example").value == {"login": "example"}
 
 
 def test_text_request_policy_can_disable_retries_for_optional_work() -> None:
@@ -696,99 +781,3 @@ def test_interrupted_download_preserves_destination(tmp_path: Path) -> None:
     with pytest.raises(GracefulStop):
         client.download("https://objects.example/asset.db", destination)
     assert destination.read_bytes() == b"old"
-
-
-def test_package_registry_metadata_is_authenticated_and_bounded() -> None:
-    """Registry metadata uses its designated host and a strict response limit."""
-
-    def respond(request: httpx.Request) -> httpx.Response:
-        assert request.url == "https://npm.pkg.github.com/@example%2Fdemo"
-        assert request.headers["authorization"] == f"Bearer {TEST_TOKEN}"
-        assert request.headers["accept"] == "application/json"
-        return httpx.Response(200, content=b"1234")
-
-    client = _client(httpx.MockTransport(respond))
-    resource = PackageRegistryResource(
-        "https://npm.pkg.github.com/@example%2Fdemo",
-        frozenset({"npm.pkg.github.com"}),
-        frozenset({"npm.pkg.github.com"}),
-        accept="application/json",
-    )
-
-    assert client.package_registry.read_bytes(resource, max_bytes=4) == b"1234"
-    with pytest.raises(PackageRegistryDecodeError, match="byte limit"):
-        client.package_registry.read_bytes(resource, max_bytes=3)
-
-
-def test_package_registry_size_strips_credentials_from_approved_redirect() -> None:
-    """A signed storage redirect retains the range but never the GitHub token."""
-
-    def respond(request: httpx.Request) -> httpx.Response:
-        assert request.headers["range"] == "bytes=0-0"
-        if request.url.host == "npm.pkg.github.com":
-            assert request.headers["authorization"] == f"Bearer {TEST_TOKEN}"
-            return httpx.Response(
-                302,
-                headers={
-                    "location": "https://pkg-npm.githubusercontent.com/blob?sig=value"
-                },
-            )
-        assert request.url.host == "pkg-npm.githubusercontent.com"
-        assert "authorization" not in request.headers
-        return httpx.Response(206, headers={"content-range": "bytes 0-0/1403"})
-
-    client = _client(httpx.MockTransport(respond))
-    resource = PackageRegistryResource(
-        "https://npm.pkg.github.com/download/example",
-        frozenset({"npm.pkg.github.com", "pkg-npm.githubusercontent.com"}),
-        frozenset({"npm.pkg.github.com"}),
-    )
-
-    probe = client.package_registry.probe_size(resource)
-
-    assert probe.size == 1403
-    assert probe.reason is None
-
-
-def test_package_registry_rejects_unapproved_redirect_before_requesting_it() -> None:
-    """Metadata cannot redirect a credentialed request to an arbitrary host."""
-
-    requests: list[str] = []
-
-    def respond(request: httpx.Request) -> httpx.Response:
-        requests.append(request.url.host)
-        return httpx.Response(
-            302,
-            headers={"location": "https://packages.example/archive"},
-        )
-
-    client = _client(httpx.MockTransport(respond))
-    resource = PackageRegistryResource(
-        "https://npm.pkg.github.com/download/example",
-        frozenset({"npm.pkg.github.com"}),
-        frozenset({"npm.pkg.github.com"}),
-    )
-
-    with pytest.raises(PackageRegistryError, match="URL is not allowed"):
-        client.package_registry.probe_size(resource)
-    assert requests == ["npm.pkg.github.com"]
-
-
-def test_package_registry_range_ignoring_response_is_not_consumed() -> None:
-    """A server returning 200 cannot make a size probe download its archive."""
-
-    client = _client(
-        httpx.MockTransport(
-            lambda _request: httpx.Response(200, stream=_UnreadableStream())
-        )
-    )
-    resource = PackageRegistryResource(
-        "https://npm.pkg.github.com/download/example",
-        frozenset({"npm.pkg.github.com"}),
-        frozenset({"npm.pkg.github.com"}),
-    )
-
-    probe = client.package_registry.probe_size(resource)
-
-    assert probe.size == -1
-    assert probe.reason == "range-ignored"

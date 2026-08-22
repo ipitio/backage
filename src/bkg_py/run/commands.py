@@ -9,7 +9,7 @@ from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime
 from pathlib import Path
 
-from ..application import ApplicationContext
+from ..application import ApplicationContext, github_operation_clients
 from ..config import RuntimeConfig
 from ..database import DatabaseError
 from ..discovery import DiscoveryError
@@ -139,11 +139,14 @@ def execute_prepared_application(
                     _coordinator_execution(output),
                 ).run(prepared.request)
             else:
-                with application.github_client(report=output.progress) as client:
+                with github_operation_clients(
+                    application,
+                    report=output.progress,
+                ) as clients:
                     phases = RunApplicationOperations(
                         application,
                         execution,
-                        github_client=client,
+                        github_clients=clients,
                     )
                     status = RunCoordinator(
                         application.state,

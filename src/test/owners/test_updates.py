@@ -16,7 +16,7 @@ from bkg_py.owners.updates import (
     OwnerScanVerificationService,
 )
 
-from ..github_client_fake import FakeGitHubClient
+from ..github.fake import FakeGitHubClient
 
 
 def _package(repo: str) -> PackageRef:

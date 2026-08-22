@@ -19,6 +19,8 @@ from .github import (
     GitHubRuntime,
     GitHubSettings,
 )
+from .github.client import create_http_transport
+from .github.user_agent import ChromiumUserAgentResolver
 from .owners.lifecycle import (
     OwnerLifecycleExecution,
     OwnerLifecycleService,
@@ -51,7 +53,13 @@ from .packages.registry.graphql import MavenArtifactSizeAdapter
 from .packages.registry.sizes import (
     NpmArtifactSizeAdapter,
     NuGetArtifactSizeAdapter,
+    PackageRegistryClient,
     RubyGemsArtifactSizeAdapter,
+)
+from .packages.registry.transport import (
+    PackageRegistryTransport,
+    PackageRegistryTransportRuntime,
+    PackageRegistryTransportSettings,
 )
 from .packages.updates import PackageRefreshExecution
 from .packages.versions.selection import VersionSelectionSettings
@@ -124,6 +132,14 @@ class ApplicationSettings:
             "aggregate": asdict(self.aggregate),
             "publication": asdict(self.publication),
         }
+
+
+@dataclass(frozen=True)
+class GitHubOperationClients:
+    """API and package-registry clients sharing one operation-scoped pool."""
+
+    github: GitHubClient
+    package_registry: PackageRegistryTransport
 
 
 @dataclass
@@ -330,11 +346,12 @@ class ApplicationContext:
     def owner_update_operation(
         self,
         client: GitHubClient,
+        package_registry: PackageRegistryClient,
         execution: OwnerOperationExecution,
     ) -> OwnerUpdateOperation:
         """Compose one owner updater from application-owned concrete services."""
 
-        return _owner_update_operation(self, client, execution)
+        return _owner_update_operation(self, client, package_registry, execution)
 
     @contextmanager
     def github_client(
@@ -344,24 +361,62 @@ class ApplicationContext:
     ) -> Generator[GitHubClient]:
         """Yield a pooled client connected to this process's state and stop control."""
 
-        self.ensure_state_file()
-        with GitHubClient(
-            self.github_settings,
-            accounting=self.github_rate_accounting,
-            runtime=GitHubRuntime(
-                check_stop=self.stop.check,
-                request_stop=self.stop.request_stop,
-                sleep=self.stop.sleep,
-                wall_clock=self.stop.timing.wall_clock,
-                report=report or (lambda _message: None),
+        with github_operation_clients(self, report=report) as clients:
+            yield clients.github
+
+
+@contextmanager
+def github_operation_clients(
+    application: ApplicationContext,
+    *,
+    report: Callable[[str], None] | None = None,
+) -> Generator[GitHubOperationClients]:
+    """Yield API and registry clients over one application-owned HTTP pool."""
+
+    application.ensure_state_file()
+    runtime = GitHubRuntime(
+        check_stop=application.stop.check,
+        request_stop=application.stop.request_stop,
+        sleep=application.stop.sleep,
+        wall_clock=application.stop.timing.wall_clock,
+        report=report or (lambda _message: None),
+    )
+    with create_http_transport(application.github_settings) as transport:
+        user_agent = ChromiumUserAgentResolver(
+            transport,
+            override=application.github_settings.user_agent_override,
+            check_stop=runtime.check_stop,
+            report=runtime.report,
+        ).resolve
+        package_registry = PackageRegistryTransport(
+            transport,
+            PackageRegistryTransportSettings(
+                token=application.github_settings.token,
+                user_agent=user_agent,
+                connect_timeout=application.github_settings.connect_timeout,
+                read_timeout=application.github_settings.read_timeout,
+                write_timeout=application.github_settings.write_timeout,
+                pool_timeout=application.github_settings.pool_timeout,
             ),
+            PackageRegistryTransportRuntime(
+                check_stop=runtime.check_stop,
+                clock=runtime.clock,
+            ),
+        )
+        with GitHubClient(
+            application.github_settings,
+            accounting=application.github_rate_accounting,
+            runtime=runtime,
+            client=transport,
+            user_agent=user_agent,
         ) as client:
-            yield client
+            yield GitHubOperationClients(client, package_registry)
 
 
 def _owner_update_operation(
     application: ApplicationContext,
     client: GitHubClient,
+    package_registry: PackageRegistryClient,
     execution: OwnerOperationExecution,
 ) -> OwnerUpdateOperation:
     index_dir = application.config.index_dir
@@ -371,6 +426,7 @@ def _owner_update_operation(
     artifact_sizes = _artifact_size_resolver(
         application,
         client,
+        package_registry,
         execution.diagnostic,
     )
     return OwnerUpdateOperation(
@@ -481,6 +537,7 @@ def _package_refresh_service(
 def _artifact_size_resolver(
     application: ApplicationContext,
     client: GitHubClient,
+    package_registry: PackageRegistryClient,
     diagnostic: Callable[[str], None],
 ) -> ArtifactSizeResolver:
     return ArtifactSizeResolver(
@@ -514,17 +571,17 @@ def _artifact_size_resolver(
                 diagnostic=diagnostic,
             ),
             "npm": NpmArtifactSizeAdapter(
-                client.package_registry,
+                package_registry,
                 application.artifact_size_enrichment["npm"],
                 diagnostic=diagnostic,
             ),
             "nuget": NuGetArtifactSizeAdapter(
-                client.package_registry,
+                package_registry,
                 application.artifact_size_enrichment["nuget"],
                 diagnostic=diagnostic,
             ),
             "rubygems": RubyGemsArtifactSizeAdapter(
-                client.package_registry,
+                package_registry,
                 application.artifact_size_enrichment["rubygems"],
                 diagnostic=diagnostic,
             ),
