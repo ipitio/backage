@@ -7,7 +7,7 @@ from dataclasses import dataclass
 
 from . import history_packages
 from .models import PackageRecord
-from .support import DatabaseError
+from .support import DatabaseError, SqlIdentifier
 
 PACKAGE_OBSERVATIONS_TABLE = "bkg_history_package_observations"
 PACKAGE_HISTORY_STATE_TABLE = "bkg_package_history_state"
@@ -63,13 +63,7 @@ _RESERVED_NAMES = frozenset(
 )
 
 
-class _SqlIdentifier(str):
-    """A SQLite identifier quoted before statement construction."""
-
-    def __new__(cls, value: str) -> _SqlIdentifier:
-        if "\x00" in value:
-            raise DatabaseError("SQLite identifiers cannot contain NUL")
-        return str.__new__(cls, f'"{value.replace(chr(34), chr(34) * 2)}"')
+_SqlIdentifier = SqlIdentifier
 
 
 @dataclass(frozen=True)

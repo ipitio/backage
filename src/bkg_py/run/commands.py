@@ -11,14 +11,14 @@ from pathlib import Path
 
 from ..application import ApplicationContext, github_operation_clients
 from ..config import RuntimeConfig
-from ..database import DatabaseError
+from ..database.support import DatabaseError
 from ..discovery import DiscoveryError
 from ..github import GitHubError
 from ..result import ExitStatus
 from ..runtime import GracefulStop
 from ..snapshots import SnapshotError
 from ..state import StateValueError
-from ..workspace import GitRepository, WorkspaceError
+from ..workspace import GitIndexRepository, WorkspaceError
 from .application import (
     LockedRunOutput,
     RunApplicationExecution,
@@ -186,7 +186,7 @@ def _owner_materializer(
         index_dir = application.config.index_dir
         if index_dir is None:
             raise WorkspaceError("BKG_INDEX_DIR is required for owner materialization")
-        GitRepository(Path(index_dir)).materialize_sparse_paths(
+        GitIndexRepository(Path(index_dir)).materialize_sparse_paths(
             owners,
             replace=True,
         )

@@ -8,9 +8,9 @@ from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
-from .config import ConfigError, read_int
-from .files import atomic_path
-from .runtime_names import EnvironmentVariable as Env
+from ..config import ConfigError, read_int
+from ..files import atomic_path
+from ..runtime_names import EnvironmentVariable as Env
 
 _XML_PREFIX = '<?xml version="1.0" encoding="UTF-8"?><xml>'
 _XML_SUFFIX = "</xml>"

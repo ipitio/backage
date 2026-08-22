@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from bkg_py.database import (
-    DatabaseRepository,
-    DatabaseSettings,
+from bkg_py.database.composition import DatabaseRepositories
+from bkg_py.database.models import (
     OwnerScanPackage,
     PackageRecord,
     PackageRef,
 )
+from bkg_py.database.settings import DatabaseSettings
 from bkg_py.owners.updates import (
     OwnerScanVerificationRequest,
     OwnerScanVerificationService,
@@ -31,11 +31,11 @@ def _package(repo: str) -> PackageRef:
 
 
 def _write_package(
-    repository: DatabaseRepository,
+    repository: DatabaseRepositories,
     package: PackageRef,
     date: str = "2026-06-01",
 ) -> None:
-    repository.write_package(PackageRecord(package, 1, 1, 1, 1, 1, date))
+    repository.packages.write_package(PackageRecord(package, 1, 1, 1, 1, 1, date))
 
 
 def test_verification_replaces_duplicate_aliases_and_removes_them_after_publish(
@@ -43,26 +43,28 @@ def test_verification_replaces_duplicate_aliases_and_removes_them_after_publish(
 ) -> None:
     """One API check canonicalizes aliases and retires them only after replacement."""
 
-    repository = DatabaseRepository(DatabaseSettings(tmp_path / "index.db"))
+    repository = DatabaseRepositories(DatabaseSettings(tmp_path / "index.db"))
     first_alias = _package("OldRepo")
     second_alias = _package("OtherRepo")
     _write_package(repository, first_alias, "2026-05-31")
     _write_package(repository, second_alias)
-    repository.begin_owner_scan("42", "example", "scan-1", 100)
+    repository.owners.begin_owner_scan("42", "example", "scan-1", 100)
     fallback = OwnerScanPackage(
         "users",
         "container",
         "demo%2Fworker",
         "demo%2Fworker",
     )
-    repository.observe_owner_scan("42", "scan-1", (fallback,), 101)
+    repository.owners.observe_owner_scan("42", "scan-1", (fallback,), 101)
     client = FakeGitHubClient(
         rest_values={
             "users/example/packages/container/demo%2Fworker": {"repository": None}
         }
     )
 
-    result = OwnerScanVerificationService(repository, client, lambda: None).verify(
+    result = OwnerScanVerificationService(
+        repository.owners, client, lambda: None
+    ).verify(
         OwnerScanVerificationRequest(
             "42",
             "example",
@@ -78,7 +80,7 @@ def test_verification_replaces_duplicate_aliases_and_removes_them_after_publish(
     assert result.work == (fallback,)
     assert not result.changes
 
-    incomplete = repository.complete_owner_scan(
+    incomplete = repository.owners.complete_owner_scan(
         "42",
         "scan-1",
         "2026-06-10",
@@ -87,10 +89,10 @@ def test_verification_replaces_duplicate_aliases_and_removes_them_after_publish(
     assert incomplete.pending == (fallback,)
     assert incomplete.removed == ()
 
-    repository.begin_owner_scan("42", "example", "scan-2", 104)
-    repository.observe_owner_scan("42", "scan-2", (fallback,), 105)
+    repository.owners.begin_owner_scan("42", "example", "scan-2", 104)
+    repository.owners.observe_owner_scan("42", "scan-2", (fallback,), 105)
     _write_package(repository, _package("demo%2Fworker"), "2026-06-10")
-    complete = repository.complete_owner_scan(
+    complete = repository.owners.complete_owner_scan(
         "42",
         "scan-2",
         "2026-06-10",
@@ -105,17 +107,17 @@ def test_verification_forces_work_after_changing_the_staged_repository(
 ) -> None:
     """A canonical identity change republishes even when its row is current."""
 
-    repository = DatabaseRepository(DatabaseSettings(tmp_path / "index.db"))
+    repository = DatabaseRepositories(DatabaseSettings(tmp_path / "index.db"))
     canonical = _package("CanonicalRepo")
     _write_package(repository, canonical, "2026-06-10")
-    repository.begin_owner_scan("42", "example", "scan-1", 100)
+    repository.owners.begin_owner_scan("42", "example", "scan-1", 100)
     fallback = OwnerScanPackage(
         "users",
         "container",
         "demo%2Fworker",
         "demo%2Fworker",
     )
-    repository.observe_owner_scan("42", "scan-1", (fallback,), 101)
+    repository.owners.observe_owner_scan("42", "scan-1", (fallback,), 101)
     client = FakeGitHubClient(
         rest_values={
             "users/example/packages/container/demo%2Fworker": {
@@ -124,7 +126,9 @@ def test_verification_forces_work_after_changing_the_staged_repository(
         }
     )
 
-    result = OwnerScanVerificationService(repository, client, lambda: None).verify(
+    result = OwnerScanVerificationService(
+        repository.owners, client, lambda: None
+    ).verify(
         OwnerScanVerificationRequest(
             "42",
             "example",
@@ -147,15 +151,17 @@ def test_verification_leaves_unavailable_missing_packages_unobserved(
 ) -> None:
     """A package API 404 leaves a truly absent known identity removable."""
 
-    repository = DatabaseRepository(DatabaseSettings(tmp_path / "index.db"))
+    repository = DatabaseRepositories(DatabaseSettings(tmp_path / "index.db"))
     missing = _package("OldRepo")
     _write_package(repository, missing)
-    repository.begin_owner_scan("42", "example", "scan-1", 100)
+    repository.owners.begin_owner_scan("42", "example", "scan-1", 100)
     client = FakeGitHubClient(
         rest_values={"users/example/packages/container/demo%2Fworker": None}
     )
 
-    result = OwnerScanVerificationService(repository, client, lambda: None).verify(
+    result = OwnerScanVerificationService(
+        repository.owners, client, lambda: None
+    ).verify(
         OwnerScanVerificationRequest(
             "42",
             "example",
@@ -164,7 +170,7 @@ def test_verification_leaves_unavailable_missing_packages_unobserved(
             101,
         )
     )
-    completed = repository.complete_owner_scan(
+    completed = repository.owners.complete_owner_scan(
         "42",
         "scan-1",
         "2026-06-10",

@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from bkg_py.site_shell import (
+from bkg_py.publication.site_shell import (
     SITE_MANIFEST_FILE,
     SITE_SHELL_VERSION,
     GitHubRepositoryIdentity,

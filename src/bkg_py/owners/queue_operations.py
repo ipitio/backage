@@ -11,12 +11,17 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Protocol
 
-from ..database import OwnerQueueAdmission, OwnerQueueCandidate, OwnerQueueEntry
+from ..database.owner_queue import (
+    OwnerQueueAdmission,
+    OwnerQueueCandidate,
+    OwnerQueueEntry,
+)
+from ..discovery.values import normalize_owner_lines
 from ..files import atomic_text_output
 from ..runtime import peak_resident_memory_mib
 from ..runtime_names import RunFile, StateKey
 from ..state import StateStore
-from .queue import OwnerQueuePaths, OwnerQueueSelector, normalize_owner_lines
+from .queue import OwnerQueuePaths, OwnerQueueSelector
 
 MessageSink = Callable[[str], None]
 StopCheck = Callable[[], None]

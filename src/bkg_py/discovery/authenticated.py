@@ -11,10 +11,10 @@ from pathlib import Path
 from typing import Any, cast
 from urllib.parse import quote
 
-from .config import RuntimeConfig
-from .files import atomic_text_output
-from .github import GitHubClient, GitHubError
-from .locking import FileLockOptions, LockWaitCheck, advisory_file_lock
+from ..config import RuntimeConfig
+from ..files import atomic_text_output
+from ..github import GitHubClient, GitHubError
+from ..locking import FileLockOptions, LockWaitCheck, advisory_file_lock
 
 _OWNER_REF_PATTERN = re.compile(r"^[1-9][0-9]*/.+$")
 _OWNER_LOOKUP_BATCH_SIZE = 50

@@ -5,7 +5,9 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
-from bkg_py.database import DatabaseRepository, DatabaseSettings, VersionStage
+from bkg_py.database.composition import DatabaseRepositories
+from bkg_py.database.models import VersionStage
+from bkg_py.database.settings import DatabaseSettings
 from bkg_py.database.values import normalized_version_values
 
 from .repository_support import (
@@ -43,9 +45,9 @@ def test_partial_migration_resumes_and_prefers_replacement_writes(
 
     path = tmp_path / "index.db"
     _legacy_database(path)
-    repository = DatabaseRepository(DatabaseSettings(path))
-    repository.ensure_schema()
-    repository.flush_version_stage(
+    repository = DatabaseRepositories(DatabaseSettings(path))
+    repository.kernel.ensure_schema()
+    repository.packages.flush_version_stage(
         VersionStage(
             package(),
             "unused",
@@ -54,7 +56,7 @@ def test_partial_migration_resumes_and_prefers_replacement_writes(
         )
     )
 
-    first = repository.migrate_version_history(1)
+    first = repository.history.migrate_version_history(1)
     assert first.migrated_rows == 1
     assert first.remaining_rows == 2
     assert not first.complete
@@ -67,7 +69,9 @@ def test_partial_migration_resumes_and_prefers_replacement_writes(
             """
         ).fetchone()
     assert partial_state == ("migrating", 1, 2)
-    rows_during_migration = repository.version_rows(package(), since=YESTERDAY).rows
+    rows_during_migration = repository.packages.version_rows(
+        package(), since=YESTERDAY
+    ).rows
     assert len(rows_during_migration) == 3
     assert (
         next(
@@ -78,7 +82,9 @@ def test_partial_migration_resumes_and_prefers_replacement_writes(
         == 999
     )
 
-    completed = DatabaseRepository(DatabaseSettings(path)).migrate_version_history(10)
+    completed = DatabaseRepositories(
+        DatabaseSettings(path)
+    ).history.migrate_version_history(10)
     assert completed.migrated_rows == 2
     assert completed.complete
     with sqlite3.connect(path) as connection:
@@ -110,10 +116,10 @@ def test_rotation_cleanup_finishes_retained_rows_and_drops_legacy_table(
 
     path = tmp_path / "index.db"
     _legacy_database(path)
-    repository = DatabaseRepository(DatabaseSettings(path))
-    repository.ensure_schema()
+    repository = DatabaseRepositories(DatabaseSettings(path))
+    repository.kernel.ensure_schema()
 
-    repository.cleanup_replaced_legacy_tables(
+    repository.packages.cleanup_replaced_legacy_tables(
         since=TODAY,
         prune_normalized=True,
     )

@@ -9,12 +9,8 @@ from pathlib import Path
 import pytest
 
 from bkg_py.concurrency import ConcurrencySettings
-from bkg_py.database import (
-    DatabaseRepository,
-    DatabaseSettings,
-    OwnerQueueCompletion,
-    OwnerQueueEntry,
-)
+from bkg_py.database.composition import DatabaseRepositories
+from bkg_py.database.settings import DatabaseSettings
 from bkg_py.owners.batch import (
     OwnerBatchEffects,
     OwnerBatchExecution,
@@ -34,40 +30,14 @@ from bkg_py.state import StateStore
 
 @dataclass
 class _Repository:
-    database: DatabaseRepository
+    database: DatabaseRepositories
     retired: list[str] = field(default_factory=list[str])
 
     def retire_owner(self, owner: str) -> int:
         """Record one owner retirement."""
 
         self.retired.append(owner)
-        return self.database.retire_owner(owner)
-
-    def owner_queue_entries(
-        self,
-        generation: str,
-        *,
-        status: str | None = None,
-    ) -> tuple[OwnerQueueEntry, ...]:
-        """Delegate one ordered queue read."""
-
-        return self.database.owner_queue_entries(generation, status=status)
-
-    def claim_owner_queue_wave(
-        self,
-        generation: str,
-        limit: int,
-        claim_token: str,
-        now: int,
-    ) -> tuple[OwnerQueueEntry, ...]:
-        """Delegate one bounded queue claim."""
-
-        return self.database.claim_owner_queue_wave(generation, limit, claim_token, now)
-
-    def finish_owner_queue_claim(self, completion: OwnerQueueCompletion) -> None:
-        """Delegate parent-owned queue completion."""
-
-        self.database.finish_owner_queue_claim(completion)
+        return self.database.packages.retire_owner(owner)
 
 
 @dataclass
@@ -94,8 +64,8 @@ def _service(  # pylint: disable=too-many-locals
     materialization_wave_size: int = 100,
 ) -> _Harness:
     state = StateStore(tmp_path / "state.env")
-    database = DatabaseRepository(DatabaseSettings(tmp_path / "index.db"))
-    database.prepare_owner_queue("batch-1", queued, 1)
+    database = DatabaseRepositories(DatabaseSettings(tmp_path / "index.db"))
+    database.owner_queue.prepare_owner_queue("batch-1", queued, 1)
     owners_file = tmp_path / "owners.txt"
     owners_file.write_text(
         "".join(f"{owner.split('/', maxsplit=1)[1]}\n" for owner in queued),
@@ -119,6 +89,7 @@ def _service(  # pylint: disable=too-many-locals
         factory,
         OwnerBatchEffects(
             repository,
+            database.owner_queue,
             state,
             owners_file,
             index_dir,
@@ -196,9 +167,9 @@ def test_owner_batch_applies_each_completed_outcome(tmp_path: Path) -> None:
     assert state.get("BKG_PAGE_2") is None
     assert state.get("BKG_OWNER_SCAN_5") is None
     assert state.get("BKG_PAGE_5") is None
-    remaining = harness.repository.database.owner_queue_entries("batch-1")
+    remaining = harness.repository.database.owner_queue.owner_queue_entries("batch-1")
     assert tuple(entry.ref for entry in remaining) == ("3/paused",)
-    completed = harness.repository.database.owner_queue_entries(
+    completed = harness.repository.database.owner_queue.owner_queue_entries(
         "batch-1",
         status="completed",
     )

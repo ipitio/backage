@@ -14,8 +14,8 @@ from ..application import (
     github_operation_clients,
 )
 from ..discovery import DiscoveryError, OwnerIdentityResolver
-from ..discovery_fallback import PublicHtmlDiscoveryTraversal
-from ..discovery_operations import (
+from ..discovery.fallback import PublicHtmlDiscoveryTraversal
+from ..discovery.operations import (
     DiscoveryPhaseExecution,
     DiscoveryPhaseIdentity,
     DiscoveryPhasePaths,
@@ -57,6 +57,7 @@ from .planning import PackageWorkPlanService, PackageWorkPlanSummary
 from .publication import (
     RunPublicationIdentity,
     RunPublicationPaths,
+    RunPublicationRepositories,
     RunPublicationRequest,
     RunPublicationService,
 )
@@ -103,7 +104,10 @@ class RunApplicationOperations:
             raise ValueError("BKG_INDEX_DB and BKG_INDEX_DIR are required")
         return RunStartupService(
             RunStartupServices(
-                self.application.database,
+                self.application.database.packages,
+                self.application.database.catalog,
+                self.application.database.history,
+                self.application.database.owner_queue,
                 self.application.snapshots,
                 self.application.state,
                 self.application.owner_identity_cache,
@@ -220,7 +224,7 @@ class RunApplicationOperations:
     ) -> PackageWorkPlanSummary:
         """Publish the current package plan after a batch transition."""
 
-        return PackageWorkPlanService(self.application.database).prepare(
+        return PackageWorkPlanService(self.application.database.packages).prepare(
             since,
             working_directory,
             batch_marker=self.application.state.get(StateKey.BATCH_MARKER) or "",
@@ -237,7 +241,8 @@ class RunApplicationOperations:
         if config.index_dir is None:
             raise ValueError("BKG_INDEX_DIR is required")
         effects = OwnerBatchEffects(
-            self.application.database,
+            self.application.database.packages,
+            self.application.database.owner_queue,
             self.application.state,
             Path(config.owners_file),
             Path(config.index_dir),
@@ -246,7 +251,7 @@ class RunApplicationOperations:
         with self._github_client() as client:
             return OwnerQueuePreparationService(
                 OwnerQueuePreparationServices(
-                    self.application.database,
+                    self.application.database.owner_queue,
                     OwnerIdentityResolver(
                         self.application.owner_identity_cache,
                         client,
@@ -294,14 +299,16 @@ class RunApplicationOperations:
     def reset_owner_queue(self, batch_marker: str, now: int) -> None:
         """Replace stale queue generations with one empty active queue."""
 
-        self.application.database.prepare_owner_queue(batch_marker, (), now)
+        self.application.database.owner_queue.prepare_owner_queue(batch_marker, (), now)
 
     def owner_queue_refs(self, batch_marker: str) -> tuple[str, ...]:
         """Return the authoritative remaining owner queue."""
 
         return tuple(
             entry.ref
-            for entry in self.application.database.owner_queue_entries(batch_marker)
+            for entry in self.application.database.owner_queue.owner_queue_entries(
+                batch_marker
+            )
         )
 
     def activate_paused_owner_queue(
@@ -311,10 +318,12 @@ class RunApplicationOperations:
     ) -> tuple[str, ...]:
         """Make paused scans ready for another pass."""
 
-        self.application.database.activate_paused_owner_queue(batch_marker, now)
+        self.application.database.owner_queue.activate_paused_owner_queue(
+            batch_marker, now
+        )
         return tuple(
             entry.ref
-            for entry in self.application.database.owner_queue_entries(
+            for entry in self.application.database.owner_queue.owner_queue_entries(
                 batch_marker,
                 status="ready",
             )
@@ -346,7 +355,8 @@ class RunApplicationOperations:
                     ).update
                 ),
                 OwnerBatchEffects(
-                    self.application.database,
+                    self.application.database.packages,
+                    self.application.database.owner_queue,
                     self.application.state,
                     Path(config.owners_file),
                     Path(config.index_dir),
@@ -375,10 +385,15 @@ class RunApplicationOperations:
         with self.application.stop.finalization_scope():
             RunFinalizationService(
                 RunFinalizationServices(
-                    self.application.database,
+                    self.application.database.packages,
+                    self.application.database.metrics,
+                    self.application.database.rotations,
                     self.application.snapshots,
                     RunPublicationService(
-                        self.application.database,
+                        RunPublicationRepositories(
+                            self.application.database.packages,
+                            self.application.database.dashboard,
+                        ),
                         self.application.state,
                         self.application.stop.check,
                         self.execution.progress,
@@ -440,7 +455,7 @@ class RunApplicationOperations:
     ) -> TargetedOwnerQueueService:
         return TargetedOwnerQueueService(
             TargetedOwnerQueueServices(
-                self.application.database,
+                self.application.database.owner_queue,
                 OwnerIdentityResolver(
                     self.application.owner_identity_cache,
                     client,

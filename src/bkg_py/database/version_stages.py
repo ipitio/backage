@@ -3,27 +3,15 @@
 from __future__ import annotations
 
 import sqlite3
-from collections.abc import Generator
-from contextlib import contextmanager
 
 from . import packages, version_history
 from .models import VersionStage
-from .support import DatabaseError
+from .support import SqlIdentifier
+from .support import sql as _sql
+from .support import transaction as _transaction
 from .values import legacy_version_values
 
-
-class _SqlIdentifier(str):
-    """A SQLite identifier quoted before statement construction."""
-
-    def __new__(cls, value: str) -> _SqlIdentifier:
-        if "\x00" in value:
-            raise DatabaseError("SQLite identifiers cannot contain NUL")
-        quoted = f'"{value.replace(chr(34), chr(34) * 2)}"'
-        return str.__new__(cls, quoted)
-
-
-def _sql(statement: str, /, **identifiers: _SqlIdentifier) -> str:
-    return statement.format_map(identifiers)
+_SqlIdentifier = SqlIdentifier
 
 
 def _table_exists(connection: sqlite3.Connection, table_name: str) -> bool:
@@ -38,17 +26,6 @@ def _table_exists(connection: sqlite3.Connection, table_name: str) -> bool:
         ).fetchone()
         is not None
     )
-
-
-@contextmanager
-def _transaction(connection: sqlite3.Connection) -> Generator[None]:
-    connection.execute("begin immediate")
-    try:
-        yield
-    except BaseException:
-        connection.rollback()
-        raise
-    connection.commit()
 
 
 def flush(

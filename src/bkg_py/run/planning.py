@@ -6,7 +6,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Protocol
 
-from ..database import PackageWorkItem, PackageWorkPlan
+from ..database.models import PackageWorkItem, PackageWorkPlan
 from ..files import atomic_text_output
 from ..runtime_names import RunFile
 

@@ -2,31 +2,13 @@
 
 from __future__ import annotations
 
-import sqlite3
-from abc import ABC, abstractmethod
-from collections.abc import Callable
-from typing import Any
-
 from . import rotation_events
+from .kernel import DatabaseComponent
 from .models import DatabaseRotationEvent
 
 
-class DatabaseRotationRepositoryMixin(ABC):
-    """Add rotation event writes and release-scoped reads to the repository."""
-
-    @abstractmethod
-    def ensure_schema(self) -> None:
-        """Create or migrate the lazy normalized schema."""
-
-        raise NotImplementedError
-
-    @abstractmethod
-    def _run_read(self, operation: Callable[[sqlite3.Connection], Any]) -> Any:
-        raise NotImplementedError
-
-    @abstractmethod
-    def _run_write(self, operation: Callable[[sqlite3.Connection], Any]) -> Any:
-        raise NotImplementedError
+class DatabaseRotationRepository(DatabaseComponent):
+    """Provide durable rotation event writes and release-scoped reads."""
 
     def record_database_rotation(self, event: DatabaseRotationEvent) -> None:
         """Persist one completed database rotation."""

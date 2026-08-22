@@ -7,19 +7,21 @@ from pathlib import Path
 
 import pytest
 
-from bkg_py.database import (
+import bkg_py.database.dashboard as dashboard_queries
+from bkg_py.database.composition import DatabaseRepositories
+from bkg_py.database.dashboard import (
     DashboardDistributionItem,
     DashboardFreshnessBucket,
     DashboardMetricCoverage,
-    DatabaseError,
-    DatabaseRepository,
-    DatabaseSettings,
+)
+from bkg_py.database.models import (
     PackageCatalogPath,
     PackageInventory,
     PackageRecord,
     PackageRef,
 )
-from bkg_py.database import dashboard as dashboard_queries
+from bkg_py.database.settings import DatabaseSettings
+from bkg_py.database.support import DatabaseError
 from bkg_py.database.values import package_values
 
 from .repository_support import (
@@ -51,14 +53,14 @@ def test_dashboard_requires_a_ready_catalog_and_supports_an_empty_one(
 ) -> None:
     """An incomplete seed cannot masquerade as an empty public index."""
 
-    repository = DatabaseRepository(DatabaseSettings(tmp_path / "index.db"))
+    repository = DatabaseRepositories(DatabaseSettings(tmp_path / "index.db"))
 
     with pytest.raises(DatabaseError, match="catalog is not initialized"):
-        repository.dashboard_projection(TODAY)
+        repository.dashboard.dashboard_projection(TODAY)
 
-    repository.initialize_package_catalog((), "a" * 40, TODAY)
+    repository.catalog.initialize_package_catalog((), "a" * 40, TODAY)
 
-    projection = repository.dashboard_projection(TODAY)
+    projection = repository.dashboard.dashboard_projection(TODAY)
 
     assert projection.inventory == PackageInventory(0, 0, 0)
     assert projection.resolved_packages == 0
@@ -84,7 +86,7 @@ def test_dashboard_projects_exact_current_coverage_and_freshness(
 ) -> None:
     """Current observations use catalog totals and fixed unknown semantics."""
 
-    repository = DatabaseRepository(DatabaseSettings(tmp_path / "index.db"))
+    repository = DatabaseRepositories(DatabaseSettings(tmp_path / "index.db"))
     records = (
         _record(
             PackageRef("1", "users", "container", "Alpha", "one", "one"),
@@ -108,8 +110,8 @@ def test_dashboard_projects_exact_current_coverage_and_freshness(
         ),
     )
     for record in records:
-        repository.write_package(record)
-    repository.initialize_package_catalog(
+        repository.packages.write_package(record)
+    repository.catalog.initialize_package_catalog(
         (
             *(_path(record.package_ref) for record in records),
             PackageCatalogPath("Tree", "only", "only"),
@@ -118,7 +120,7 @@ def test_dashboard_projects_exact_current_coverage_and_freshness(
         TODAY,
     )
 
-    projection = repository.dashboard_projection(TODAY)
+    projection = repository.dashboard.dashboard_projection(TODAY)
 
     assert projection.inventory == PackageInventory(4, 5, 5)
     assert projection.resolved_packages == 4
@@ -150,7 +152,7 @@ def test_dashboard_bounds_package_types_with_deterministic_ties(
 ) -> None:
     """Equal package-type counts use binary name order and a bounded tail."""
 
-    repository = DatabaseRepository(DatabaseSettings(tmp_path / "index.db"))
+    repository = DatabaseRepositories(DatabaseSettings(tmp_path / "index.db"))
     records = tuple(
         _record(
             PackageRef(
@@ -167,14 +169,14 @@ def test_dashboard_bounds_package_types_with_deterministic_ties(
         for index in range(18)
     )
     for record in records:
-        repository.write_package(record)
-    repository.initialize_package_catalog(
+        repository.packages.write_package(record)
+    repository.catalog.initialize_package_catalog(
         tuple(_path(record.package_ref) for record in records),
         "c" * 40,
         TODAY,
     )
 
-    projection = repository.dashboard_projection(TODAY)
+    projection = repository.dashboard.dashboard_projection(TODAY)
 
     assert tuple(item.name for item in projection.package_types) == tuple(
         f"type-{index:02}" for index in range(16)
@@ -188,20 +190,20 @@ def test_dashboard_catalog_survives_history_rotation_with_unknown_metrics(
 ) -> None:
     """Rotation preserves current paths while expired observations become unknown."""
 
-    repository = DatabaseRepository(DatabaseSettings(tmp_path / "index.db"))
+    repository = DatabaseRepositories(DatabaseSettings(tmp_path / "index.db"))
     record = _record(package(), "2026-05-01", (10, 5, 2, 1, 100))
-    repository.write_package(record)
-    repository.initialize_package_catalog(
+    repository.packages.write_package(record)
+    repository.catalog.initialize_package_catalog(
         (_path(record.package_ref), PackageCatalogPath("Tree", "only", "only")),
         "d" * 40,
         TODAY,
     )
 
-    repository.cleanup_replaced_legacy_tables(
+    repository.packages.cleanup_replaced_legacy_tables(
         since=TODAY,
         prune_normalized=True,
     )
-    projection = repository.dashboard_projection(TODAY)
+    projection = repository.dashboard.dashboard_projection(TODAY)
 
     assert projection.inventory == PackageInventory(2, 2, 2)
     assert projection.resolved_packages == 1
@@ -223,14 +225,14 @@ def test_dashboard_reads_current_metrics_from_a_legacy_compatibility_view(
             "insert into packages values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (*package_values(package_ref), 10, 5, 2, 1, 123, TODAY),
         )
-    repository = DatabaseRepository(DatabaseSettings(path))
-    repository.initialize_package_catalog(
+    repository = DatabaseRepositories(DatabaseSettings(path))
+    repository.catalog.initialize_package_catalog(
         (_path(package_ref),),
         "e" * 40,
         TODAY,
     )
 
-    projection = repository.dashboard_projection(TODAY)
+    projection = repository.dashboard.dashboard_projection(TODAY)
 
     assert projection.resolved_packages == 1
     assert projection.metrics[0] == DashboardMetricCoverage("size", "bytes", 1, 123)
@@ -248,8 +250,8 @@ def test_dashboard_query_budget_interrupts_and_clears_its_handler(
     """Optional analytics cannot hold final snapshot publication indefinitely."""
 
     path = tmp_path / "index.db"
-    repository = DatabaseRepository(DatabaseSettings(path))
-    repository.initialize_package_catalog((), "f" * 40, TODAY)
+    repository = DatabaseRepositories(DatabaseSettings(path))
+    repository.catalog.initialize_package_catalog((), "f" * 40, TODAY)
     clock_calls = 0
 
     def clock() -> float:

@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from typing import cast
 from urllib.parse import quote
 
-from .github import GitHubClient
+from ..github import GitHubClient
 
 _RELEASE_TAG = re.compile(
     r"v(?P<year>[0-9]{4})\.(?P<month>[1-9]|1[0-2])\.(?P<period>[0-9]+)"

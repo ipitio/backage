@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import cast
 
-from .files import atomic_binary_output
+from ..files import atomic_binary_output
 
 SITE_MANIFEST_FILE = ".bkg-site-manifest.json"
 SITE_MANIFEST_SCHEMA_VERSION = 1

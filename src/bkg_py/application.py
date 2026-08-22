@@ -10,7 +10,7 @@ from pathlib import Path
 
 from .concurrency import BoundedWorkerRunner, ConcurrencySettings
 from .config import RuntimeConfig, SettingsSnapshot
-from .database import DatabaseRepository
+from .database.composition import DatabaseRepositories
 from .database.settings import DatabaseSettings, DatabaseTuning
 from .discovery import OwnerIdentityCache, OwnerIdentityResolver
 from .github import (
@@ -65,7 +65,7 @@ from .packages.updates import PackageRefreshExecution
 from .packages.versions.selection import VersionSelectionSettings
 from .packages.versions.updates import VersionRefreshExecution
 from .publication import PublicationLimits
-from .rendering import AggregateSettings
+from .publication.rendering import AggregateSettings
 from .runtime import ProcessRunner, StopController
 from .snapshots import SnapshotStore
 from .state import StateStore
@@ -254,10 +254,10 @@ class ApplicationContext:
         )
 
     @cached_property
-    def database(self) -> DatabaseRepository:
-        """Return one repository configured for this process."""
+    def database(self) -> DatabaseRepositories:
+        """Return focused repositories configured for this process."""
 
-        return DatabaseRepository(
+        return DatabaseRepositories(
             DatabaseSettings.from_config(
                 self.config,
                 self.settings.database_tuning,
@@ -431,7 +431,8 @@ def _owner_update_operation(
     )
     return OwnerUpdateOperation(
         OwnerUpdateServices(
-            application.database,
+            application.database.owner_identities,
+            application.database.owners,
             application.state,
             identity,
             lambda today: _owner_lifecycle(
@@ -467,7 +468,7 @@ def _owner_lifecycle(
         today,
     )
     pages = OwnerScanPageService(
-        application.database,
+        application.database.owners,
         client,
         package_refresh,
         OwnerScanPageExecution(
@@ -476,17 +477,17 @@ def _owner_lifecycle(
         ),
     )
     return OwnerLifecycleService(
-        application.database,
+        application.database.owners,
         OwnerLifecycleServices(
             package_refresh,
             OwnerScanService(
-                application.database,
+                application.database.owners,
                 client,
                 pages,
                 package_refresh,
             ),
             OwnerPublicationService(
-                application.database,
+                application.database.packages,
                 application.aggregate_settings,
                 application.publication_limits,
                 application.stop.check,
@@ -507,7 +508,7 @@ def _package_refresh_service(
     today: str,
 ) -> OwnerPackageRefreshService:
     return OwnerPackageRefreshService(
-        application.database,
+        application.database.packages,
         client,
         OwnerPackageRefreshExecution(
             PackageRefreshExecution(

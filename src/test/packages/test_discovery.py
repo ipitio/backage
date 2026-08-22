@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from bkg_py.database import OwnerScanPackage
+from bkg_py.database.models import OwnerScanPackage
 from bkg_py.github import GitHubNotFoundError
 from bkg_py.packages.discovery import (
     PackageListingPage,

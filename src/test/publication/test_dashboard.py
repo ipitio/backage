@@ -8,16 +8,18 @@ from pathlib import Path
 
 import pytest
 
-from bkg_py.dashboard import (
-    DASHBOARD_HISTORY_RETENTION_DAYS,
-    publish_dashboard,
-)
-from bkg_py.database import (
+from bkg_py.database.dashboard import (
     DashboardDistributionItem,
     DashboardFreshnessBucket,
     DashboardMetricCoverage,
     DashboardProjection,
+)
+from bkg_py.database.models import (
     PackageInventory,
+)
+from bkg_py.publication.dashboard import (
+    DASHBOARD_HISTORY_RETENTION_DAYS,
+    publish_dashboard,
 )
 
 TODAY = "2026-08-10"

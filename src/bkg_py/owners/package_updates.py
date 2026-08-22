@@ -7,13 +7,13 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 
 from ..concurrency import BoundedWorkerRunner, ConcurrencySettings
-from ..database import (
-    DatabaseError,
-    DatabaseRepository,
+from ..database.models import (
     OwnerScanPackage,
     PackageBatch,
     PackageRef,
 )
+from ..database.package_repository import PackageRepository
+from ..database.support import DatabaseError
 from ..github import GitHubError
 from ..packages.updates import (
     PackageRefreshError,
@@ -101,7 +101,7 @@ class OwnerPackageRefreshService:  # pylint: disable=too-few-public-methods
 
     def __init__(
         self,
-        repository: DatabaseRepository,
+        repository: PackageRepository,
         client: VersionPageClient,
         execution: OwnerPackageRefreshExecution,
     ) -> None:

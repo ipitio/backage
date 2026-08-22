@@ -13,7 +13,7 @@ import pytest
 
 from bkg_py.application import ApplicationContext
 from bkg_py.result import ExitStatus
-from bkg_py.workspace import GitRepository, WorkflowHandoffControl
+from bkg_py.workspace import GitSourceRepository, WorkflowHandoffControl
 from bkg_py.workspace import update as workspace_update
 from bkg_py.workspace.update import (
     UpdateApplicationRequest,
@@ -84,7 +84,7 @@ def test_clone_url_credentials_are_captured_without_process_mutation(
         *,
         environment: Mapping[str, str] | None = None,
         redacted_values: Iterable[str] = (),
-    ) -> GitRepository:
+    ) -> GitSourceRepository:
         nonlocal captured_source, captured_environment, captured_redacted_values
         captured_source = clone_source
         captured_environment = dict(environment or {})

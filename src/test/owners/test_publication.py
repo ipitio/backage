@@ -8,21 +8,22 @@ from pathlib import Path
 
 import pytest
 
-from bkg_py.database import (
-    DatabaseRepository,
-    DatabaseSettings,
+from bkg_py.database.composition import DatabaseRepositories
+from bkg_py.database.models import (
     PackageRecord,
     PackageRef,
     VersionMetrics,
     VersionRecord,
     VersionStage,
 )
+from bkg_py.database.package_repository import PackageRepository
+from bkg_py.database.settings import DatabaseSettings
 from bkg_py.owners.publication import (
     OwnerPublicationRequest,
     OwnerPublicationService,
 )
 from bkg_py.publication import PublicationLimits
-from bkg_py.rendering import AggregateSettings
+from bkg_py.publication.rendering import AggregateSettings
 from bkg_py.runtime import GracefulStop
 
 _TODAY = "2026-06-28"
@@ -39,7 +40,7 @@ def _package(repo: str, name: str) -> PackageRef:
     )
 
 
-def _write_package(repository: DatabaseRepository, package: PackageRef) -> None:
+def _write_package(repository: PackageRepository, package: PackageRef) -> None:
     repository.write_package(
         PackageRecord(
             package,
@@ -70,7 +71,7 @@ def _write_package(repository: DatabaseRepository, package: PackageRef) -> None:
 
 
 def _service(
-    repository: DatabaseRepository,
+    repository: PackageRepository,
     check_stop: Callable[[], None] | None = None,
 ) -> OwnerPublicationService:
     stop = check_stop or (lambda: None)
@@ -87,7 +88,7 @@ def test_owner_publication_writes_database_backed_json_xml_pairs(
 ) -> None:
     """Owner and repository endpoints are published from current rows."""
 
-    repository = DatabaseRepository(DatabaseSettings(tmp_path / "index.db"))
+    repository = DatabaseRepositories(DatabaseSettings(tmp_path / "index.db")).packages
     _write_package(repository, _package("One", "alpha"))
     _write_package(repository, _package("Two", "beta"))
 
@@ -114,7 +115,7 @@ def test_owner_publication_writes_database_backed_json_xml_pairs(
 def test_interrupted_owner_publication_preserves_existing_pair(tmp_path: Path) -> None:
     """A stop during temporary rendering cannot split the published pair."""
 
-    repository = DatabaseRepository(DatabaseSettings(tmp_path / "index.db"))
+    repository = DatabaseRepositories(DatabaseSettings(tmp_path / "index.db")).packages
     _write_package(repository, _package("One", "alpha"))
     owner_directory = tmp_path / "index" / "Example"
     owner_directory.mkdir(parents=True)
@@ -139,7 +140,7 @@ def test_interrupted_owner_publication_preserves_existing_pair(tmp_path: Path) -
 def test_empty_owner_publication_removes_stale_aggregate_pair(tmp_path: Path) -> None:
     """An owner without database packages cannot retain aggregate endpoints."""
 
-    repository = DatabaseRepository(DatabaseSettings(tmp_path / "index.db"))
+    repository = DatabaseRepositories(DatabaseSettings(tmp_path / "index.db")).packages
     repository.ensure_schema()
     owner_directory = tmp_path / "index" / "Example"
     owner_directory.mkdir(parents=True)

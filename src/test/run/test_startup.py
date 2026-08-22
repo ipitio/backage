@@ -7,14 +7,14 @@ from pathlib import Path
 
 import pytest
 
-from bkg_py.database import (
-    DatabaseRepository,
-    DatabaseSettings,
+from bkg_py.database.composition import DatabaseRepositories
+from bkg_py.database.models import (
     PackageCatalogPath,
     PackageInventory,
     PackageRecord,
     PackageRef,
 )
+from bkg_py.database.settings import DatabaseSettings
 from bkg_py.database.values import normalized_version_values, package_values
 from bkg_py.discovery import OwnerIdentityCache
 from bkg_py.run import startup as run_startup
@@ -59,10 +59,13 @@ def _service(
     cache: OwnerIdentityCache,
     progress: list[str],
 ) -> RunStartupService:
-    repository = DatabaseRepository(DatabaseSettings(database_path))
+    repository = DatabaseRepositories(DatabaseSettings(database_path))
     return RunStartupService(
         RunStartupServices(
-            repository,
+            repository.packages,
+            repository.catalog,
+            repository.history,
+            repository.owner_queue,
             SnapshotStore(
                 SnapshotPaths(
                     database_path,
@@ -80,9 +83,9 @@ def test_startup_prepares_state_plan_cache_and_optouts(tmp_path: Path) -> None:
     """One startup operation publishes every input needed by discovery."""
 
     database_path = tmp_path / "index.db"
-    repository = DatabaseRepository(DatabaseSettings(database_path))
-    repository.write_package(_package("old", "2026-06-28"))
-    repository.write_package(_package("current", "2026-06-29"))
+    repository = DatabaseRepositories(DatabaseSettings(database_path))
+    repository.packages.write_package(_package("old", "2026-06-28"))
+    repository.packages.write_package(_package("current", "2026-06-29"))
     state = StateStore(tmp_path / "state.env")
     state.set_many({"BKG_BATCH_FIRST_STARTED": "2026-06-29", "BKG_OUT": 1})
     cache = OwnerIdentityCache(tmp_path / "owner-id-cache.txt")
@@ -131,8 +134,8 @@ def test_startup_recovers_database_backup_before_planning(tmp_path: Path) -> Non
 
     database_path = tmp_path / "index.db"
     backup = Path(f"{database_path}.bak")
-    repository = DatabaseRepository(DatabaseSettings(database_path))
-    repository.write_package(_package("saved", "2026-06-28"))
+    repository = DatabaseRepositories(DatabaseSettings(database_path))
+    repository.packages.write_package(_package("saved", "2026-06-28"))
     database_path.replace(backup)
     state = StateStore(tmp_path / "state.env")
     cache = OwnerIdentityCache(tmp_path / "owner-id-cache.txt")
@@ -251,7 +254,7 @@ def test_startup_seeds_catalog_once_per_index_revision(
     service.prepare(request)
 
     assert known_revisions == [None, revision]
-    assert service.services.repository.package_inventory() == PackageInventory(2, 2, 2)
+    assert service.services.packages.package_inventory() == PackageInventory(2, 2, 2)
     assert any(
         message.startswith("Package catalog initialized: ") for message in progress
     )
@@ -287,11 +290,10 @@ def test_startup_imports_legacy_owner_queue_only_once(tmp_path: Path) -> None:
     service.prepare(request)
 
     assert state.get("BKG_OWNERS_QUEUE") is None
-    repository = DatabaseRepository(DatabaseSettings(database_path))
-    assert tuple(entry.ref for entry in repository.owner_queue_entries("batch-1")) == (
-        "1/Alpha",
-        "2/Beta",
-    )
+    repository = DatabaseRepositories(DatabaseSettings(database_path))
+    assert tuple(
+        entry.ref for entry in repository.owner_queue.owner_queue_entries("batch-1")
+    ) == ("1/Alpha", "2/Beta")
 
 
 def test_startup_retains_legacy_queue_until_database_import_commits(
@@ -315,7 +317,7 @@ def test_startup_retains_legacy_queue_until_database_import_commits(
         raise RuntimeError("interrupted import")
 
     monkeypatch.setattr(
-        service.services.repository,
+        service.services.owner_queue,
         "prepare_owner_queue",
         interrupt_import,
     )

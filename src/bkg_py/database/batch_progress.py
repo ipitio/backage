@@ -5,17 +5,14 @@ from __future__ import annotations
 import sqlite3
 
 from .models import PackageRef
-from .support import DatabaseError
+from .support import SqlIdentifier
 from .values import package_values
 
 TABLE = '"bkg_package_batch_progress"'
 _PUBLICATIONS = '"bkg_package_publications"'
 
 
-def _identifier(value: str) -> str:
-    if "\x00" in value:
-        raise DatabaseError("SQLite identifiers cannot contain NUL")
-    return f'"{value.replace(chr(34), chr(34) * 2)}"'
+_identifier = SqlIdentifier
 
 
 def bootstrap(

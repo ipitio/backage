@@ -2,12 +2,8 @@
 
 from __future__ import annotations
 
-import sqlite3
-from abc import ABC, abstractmethod
-from collections.abc import Callable
-from typing import Any
-
-from . import owner_queue
+from . import owner_queue, owner_scans
+from .kernel import DatabaseComponent
 from .owner_queue import (
     OwnerQueueAdmission,
     OwnerQueueCandidate,
@@ -17,22 +13,8 @@ from .owner_queue import (
 )
 
 
-class OwnerQueueRepositoryMixin(ABC):
-    """Add generation-scoped queue operations to the shared repository."""
-
-    @abstractmethod
-    def ensure_schema(self) -> None:
-        """Create or migrate the lazy normalized schema."""
-
-        raise NotImplementedError
-
-    @abstractmethod
-    def _run_read(self, operation: Callable[[sqlite3.Connection], Any]) -> Any:
-        raise NotImplementedError
-
-    @abstractmethod
-    def _run_write(self, operation: Callable[[sqlite3.Connection], Any]) -> Any:
-        raise NotImplementedError
+class OwnerQueueRepository(DatabaseComponent):
+    """Provide generation-scoped durable owner-queue operations."""
 
     def prepare_owner_queue(
         self,
@@ -160,3 +142,9 @@ class OwnerQueueRepositoryMixin(ABC):
         return self._run_write(
             lambda connection: owner_queue.activate_paused(connection, generation, now)
         )
+
+    def deferred_owners(self, now: int) -> tuple[tuple[str, int], ...]:
+        """Return owners still waiting for their retry time."""
+
+        self.ensure_schema()
+        return self._run_read(lambda connection: owner_scans.deferred(connection, now))

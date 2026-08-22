@@ -7,18 +7,18 @@ from pathlib import Path
 
 import pytest
 
-from bkg_py.database import (
-    DatabaseError,
-    DatabaseRepository,
-    DatabaseSettings,
+from bkg_py.database.composition import DatabaseRepositories
+from bkg_py.database.owner_queue import (
     OwnerQueueAdmission,
     OwnerQueueCandidate,
     OwnerQueueCompletion,
 )
+from bkg_py.database.settings import DatabaseSettings
+from bkg_py.database.support import DatabaseError
 
 
-def _repository(tmp_path: Path) -> DatabaseRepository:
-    return DatabaseRepository(DatabaseSettings(tmp_path / "index.db"))
+def _repository(tmp_path: Path) -> DatabaseRepositories:
+    return DatabaseRepositories(DatabaseSettings(tmp_path / "index.db"))
 
 
 def test_legacy_import_is_idempotent_and_database_becomes_authoritative(
@@ -28,12 +28,12 @@ def test_legacy_import_is_idempotent_and_database_becomes_authoritative(
 
     repository = _repository(tmp_path)
 
-    imported = repository.prepare_owner_queue(
+    imported = repository.owner_queue.prepare_owner_queue(
         "batch-1",
         ("1/Alpha", "2/Beta"),
         100,
     )
-    repeated = repository.prepare_owner_queue(
+    repeated = repository.owner_queue.prepare_owner_queue(
         "batch-1",
         ("3/Replacement",),
         101,
@@ -51,8 +51,8 @@ def test_admission_promotes_without_resequencing_or_demoting(tmp_path: Path) -> 
     """A stronger reason changes priority while stable admission order remains."""
 
     repository = _repository(tmp_path)
-    repository.prepare_owner_queue("batch-1", (), 100)
-    repository.admit_owner_queue(
+    repository.owner_queue.prepare_owner_queue("batch-1", (), 100)
+    repository.owner_queue.admit_owner_queue(
         "batch-1",
         (
             OwnerQueueAdmission("1", "Alpha", "connection"),
@@ -61,7 +61,7 @@ def test_admission_promotes_without_resequencing_or_demoting(tmp_path: Path) -> 
         ),
         101,
     )
-    repository.admit_owner_queue(
+    repository.owner_queue.admit_owner_queue(
         "batch-1",
         (
             OwnerQueueAdmission("3", "Gamma", "manual"),
@@ -70,7 +70,7 @@ def test_admission_promotes_without_resequencing_or_demoting(tmp_path: Path) -> 
         102,
     )
 
-    entries = repository.owner_queue_entries("batch-1")
+    entries = repository.owner_queue.owner_queue_entries("batch-1")
 
     assert tuple(entry.owner for entry in entries) == ("Gamma", "Alpha", "Beta")
     assert {entry.owner: entry.sequence for entry in entries} == {
@@ -91,8 +91,8 @@ def test_startup_lazily_normalizes_persisted_reason_priorities(
     """An upgrade promotes queued connections without rebuilding the queue."""
 
     repository = _repository(tmp_path)
-    repository.prepare_owner_queue("batch-1", (), 100)
-    repository.admit_owner_queue(
+    repository.owner_queue.prepare_owner_queue("batch-1", (), 100)
+    repository.owner_queue.admit_owner_queue(
         "batch-1",
         (
             OwnerQueueAdmission("1", "Connected", "connection"),
@@ -105,9 +105,9 @@ def test_startup_lazily_normalizes_persisted_reason_priorities(
             "update bkg_owner_queue set priority = 40 where owner = 'Connected'"
         )
 
-    repository.prepare_owner_queue("batch-1", (), 102)
+    repository.owner_queue.prepare_owner_queue("batch-1", (), 102)
 
-    entries = repository.owner_queue_entries("batch-1")
+    entries = repository.owner_queue.owner_queue_entries("batch-1")
     assert tuple((entry.owner, entry.priority) for entry in entries) == (
         ("Connected", 15),
         ("Stale", 20),
@@ -120,8 +120,8 @@ def test_candidate_attempts_bound_continuation_and_reset_with_generation(
     """Attempted and admitted logins are durable only for the active generation."""
 
     repository = _repository(tmp_path)
-    repository.prepare_owner_queue("batch-1", (), 100)
-    repository.record_owner_queue_candidates(
+    repository.owner_queue.prepare_owner_queue("batch-1", (), 100)
+    repository.owner_queue.record_owner_queue_candidates(
         "batch-1",
         (
             OwnerQueueCandidate("Alpha", "connection"),
@@ -131,11 +131,11 @@ def test_candidate_attempts_bound_continuation_and_reset_with_generation(
         101,
     )
 
-    assert repository.known_owner_queue_candidates(
+    assert repository.owner_queue.known_owner_queue_candidates(
         "batch-1",
         ("alpha", "Missing", "Unseen"),
     ) == frozenset({"alpha", "missing"})
-    stats = repository.owner_queue_stats("batch-1")
+    stats = repository.owner_queue.owner_queue_stats("batch-1")
     assert (
         stats.total,
         stats.ready,
@@ -144,9 +144,9 @@ def test_candidate_attempts_bound_continuation_and_reset_with_generation(
         stats.completed,
         stats.candidates,
     ) == (1, 1, 0, 0, 0, 2)
-    repository.prepare_owner_queue("batch-2", (), 102)
+    repository.owner_queue.prepare_owner_queue("batch-2", (), 102)
 
-    assert not repository.known_owner_queue_candidates(
+    assert not repository.owner_queue.known_owner_queue_candidates(
         "batch-2",
         ("Alpha", "Missing"),
     )
@@ -160,15 +160,15 @@ def test_candidate_admission_reconciles_a_renamed_login(tmp_path: Path) -> None:
     """An old candidate login maps to one canonical queue identity."""
 
     repository = _repository(tmp_path)
-    repository.prepare_owner_queue("batch-1", (), 100)
+    repository.owner_queue.prepare_owner_queue("batch-1", (), 100)
 
-    added = repository.record_owner_queue_candidates(
+    added = repository.owner_queue.record_owner_queue_candidates(
         "batch-1",
         (OwnerQueueCandidate("OldLogin", "connection"),),
         (OwnerQueueAdmission("1", "NewLogin", "connection"),),
         101,
     )
-    repeated = repository.record_owner_queue_candidates(
+    repeated = repository.owner_queue.record_owner_queue_candidates(
         "batch-1",
         (OwnerQueueCandidate("NewLogin", "stale"),),
         (OwnerQueueAdmission("1", "NewLogin", "stale"),),
@@ -177,20 +177,20 @@ def test_candidate_admission_reconciles_a_renamed_login(tmp_path: Path) -> None:
 
     assert tuple(entry.ref for entry in added) == ("1/NewLogin",)
     assert repeated == ()
-    assert repository.known_owner_queue_candidates(
+    assert repository.owner_queue.known_owner_queue_candidates(
         "batch-1",
         ("OldLogin", "NewLogin"),
     ) == frozenset({"oldlogin", "newlogin"})
-    assert tuple(entry.ref for entry in repository.owner_queue_entries("batch-1")) == (
-        "1/NewLogin",
-    )
+    assert tuple(
+        entry.ref for entry in repository.owner_queue.owner_queue_entries("batch-1")
+    ) == ("1/NewLogin",)
 
 
 def test_candidate_and_queue_admission_roll_back_together(tmp_path: Path) -> None:
     """An interrupted canonical insert cannot strand an attempted candidate."""
 
     repository = _repository(tmp_path)
-    repository.prepare_owner_queue("batch-1", (), 100)
+    repository.owner_queue.prepare_owner_queue("batch-1", (), 100)
     with sqlite3.connect(tmp_path / "index.db") as connection:
         connection.execute(
             """
@@ -203,15 +203,17 @@ def test_candidate_and_queue_admission_roll_back_together(tmp_path: Path) -> Non
         )
 
     with pytest.raises(DatabaseError, match="simulated interruption"):
-        repository.record_owner_queue_candidates(
+        repository.owner_queue.record_owner_queue_candidates(
             "batch-1",
             (OwnerQueueCandidate("Alpha", "connection"),),
             (OwnerQueueAdmission("1", "Alpha", "connection"),),
             101,
         )
 
-    assert not repository.known_owner_queue_candidates("batch-1", ("Alpha",))
-    assert repository.owner_queue_entries("batch-1") == ()
+    assert not repository.owner_queue.known_owner_queue_candidates(
+        "batch-1", ("Alpha",)
+    )
+    assert repository.owner_queue.owner_queue_entries("batch-1") == ()
 
 
 def test_claims_are_bounded_completed_by_parent_and_paused_later(
@@ -220,8 +222,8 @@ def test_claims_are_bounded_completed_by_parent_and_paused_later(
     """Only a bounded wave is claimed and paused work needs explicit activation."""
 
     repository = _repository(tmp_path)
-    repository.prepare_owner_queue("batch-1", (), 100)
-    repository.admit_owner_queue(
+    repository.owner_queue.prepare_owner_queue("batch-1", (), 100)
+    repository.owner_queue.admit_owner_queue(
         "batch-1",
         tuple(
             OwnerQueueAdmission(str(index), owner, "connection")
@@ -230,26 +232,33 @@ def test_claims_are_bounded_completed_by_parent_and_paused_later(
         101,
     )
 
-    first = repository.claim_owner_queue_wave("batch-1", 2, "claim-1", 102)
+    first = repository.owner_queue.claim_owner_queue_wave("batch-1", 2, "claim-1", 102)
     assert tuple(entry.owner for entry in first) == ("Alpha", "Beta")
-    repository.finish_owner_queue_claim(
+    repository.owner_queue.finish_owner_queue_claim(
         OwnerQueueCompletion("batch-1", "1", "claim-1", "updated", 103)
     )
-    repository.finish_owner_queue_claim(
+    repository.owner_queue.finish_owner_queue_claim(
         OwnerQueueCompletion("batch-1", "2", "claim-1", "paused", 103)
     )
 
-    second = repository.claim_owner_queue_wave("batch-1", 2, "claim-2", 104)
+    second = repository.owner_queue.claim_owner_queue_wave("batch-1", 2, "claim-2", 104)
     assert tuple(entry.owner for entry in second) == ("Gamma",)
-    repository.finish_owner_queue_claim(
+    repository.owner_queue.finish_owner_queue_claim(
         OwnerQueueCompletion("batch-1", "3", "claim-2", "deferred", 105)
     )
-    assert repository.claim_owner_queue_wave("batch-1", 2, "claim-3", 106) == ()
+    assert (
+        repository.owner_queue.claim_owner_queue_wave("batch-1", 2, "claim-3", 106)
+        == ()
+    )
 
-    assert repository.activate_paused_owner_queue("batch-1", 107) == 1
-    resumed = repository.claim_owner_queue_wave("batch-1", 2, "claim-4", 108)
+    assert repository.owner_queue.activate_paused_owner_queue("batch-1", 107) == 1
+    resumed = repository.owner_queue.claim_owner_queue_wave(
+        "batch-1", 2, "claim-4", 108
+    )
     assert tuple(entry.owner for entry in resumed) == ("Beta",)
-    completed = repository.owner_queue_entries("batch-1", status="completed")
+    completed = repository.owner_queue.owner_queue_entries(
+        "batch-1", status="completed"
+    )
     assert {(entry.owner, entry.status) for entry in completed} == {
         ("Alpha", "completed"),
         ("Gamma", "completed"),
@@ -260,55 +269,57 @@ def test_startup_recovers_claims_and_removes_stale_generations(tmp_path: Path) -
     """A killed sole writer resumes its claim under only the active generation."""
 
     repository = _repository(tmp_path)
-    repository.prepare_owner_queue("batch-1", ("1/Alpha",), 100)
-    repository.claim_owner_queue_wave("batch-1", 1, "abandoned", 101)
+    repository.owner_queue.prepare_owner_queue("batch-1", ("1/Alpha",), 100)
+    repository.owner_queue.claim_owner_queue_wave("batch-1", 1, "abandoned", 101)
 
-    recovered = repository.prepare_owner_queue("batch-1", ("2/Beta",), 102)
+    recovered = repository.owner_queue.prepare_owner_queue("batch-1", ("2/Beta",), 102)
     assert len(recovered) == 1
     assert recovered[0].owner == "Alpha"
     assert recovered[0].status == "ready"
     assert recovered[0].claim_token == ""
 
-    assert repository.prepare_owner_queue("batch-2", (), 103) == ()
-    assert repository.owner_queue_entries("batch-1") == ()
+    assert repository.owner_queue.prepare_owner_queue("batch-2", (), 103) == ()
+    assert repository.owner_queue.owner_queue_entries("batch-1") == ()
 
 
 def test_retryable_and_promoted_completed_work_can_reactivate(tmp_path: Path) -> None:
     """Deferrals and stronger explicit reasons reopen without changing sequence."""
 
     repository = _repository(tmp_path)
-    repository.prepare_owner_queue("batch-1", (), 100)
-    repository.admit_owner_queue(
+    repository.owner_queue.prepare_owner_queue("batch-1", (), 100)
+    repository.owner_queue.admit_owner_queue(
         "batch-1",
         (OwnerQueueAdmission("1", "Alpha", "connection"),),
         101,
     )
-    claimed = repository.claim_owner_queue_wave("batch-1", 1, "claim-1", 102)
-    repository.finish_owner_queue_claim(
+    claimed = repository.owner_queue.claim_owner_queue_wave(
+        "batch-1", 1, "claim-1", 102
+    )
+    repository.owner_queue.finish_owner_queue_claim(
         OwnerQueueCompletion("batch-1", "1", "claim-1", "deferred", 103)
     )
 
-    retried = repository.admit_owner_queue(
+    retried = repository.owner_queue.admit_owner_queue(
         "batch-1",
         (OwnerQueueAdmission("1", "Alpha", "connection"),),
         104,
     )
     assert len(retried) == 1
     assert retried[0].sequence == claimed[0].sequence
-    repository.claim_owner_queue_wave("batch-1", 1, "claim-2", 105)
-    repository.finish_owner_queue_claim(
+    repository.owner_queue.claim_owner_queue_wave("batch-1", 1, "claim-2", 105)
+    repository.owner_queue.finish_owner_queue_claim(
         OwnerQueueCompletion("batch-1", "1", "claim-2", "updated", 106)
     )
 
     assert (
-        repository.admit_owner_queue(
+        repository.owner_queue.admit_owner_queue(
             "batch-1",
             (OwnerQueueAdmission("1", "Alpha", "connection"),),
             107,
         )
         == ()
     )
-    promoted = repository.admit_owner_queue(
+    promoted = repository.owner_queue.admit_owner_queue(
         "batch-1",
         (OwnerQueueAdmission("1", "Alpha", "manual"),),
         108,

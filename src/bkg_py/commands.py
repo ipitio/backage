@@ -77,7 +77,7 @@ def _run_information_command(
 
         print(json.dumps(build_runtime_reference(parser), sort_keys=True))
     else:
-        from .release import release_tag
+        from .publication.release import release_tag
 
         print(release_tag(args.run_date))
     return ExitStatus.SUCCESS
@@ -90,7 +90,7 @@ def _run_repository_maintenance(args: argparse.Namespace) -> ExitStatus:
         return run_fork_merge_configuration(args)
 
     from .github import GitHubClient, GitHubError, GitHubSettings
-    from .release_retention import ReleaseRetentionError, apply_release_retention
+    from .publication.retention import ReleaseRetentionError, apply_release_retention
 
     settings = SettingsSnapshot.from_env()
     repository = RepositoryMaintenanceSettings.from_mapping(settings)

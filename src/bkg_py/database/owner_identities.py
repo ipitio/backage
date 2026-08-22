@@ -3,25 +3,16 @@
 from __future__ import annotations
 
 import sqlite3
-from abc import ABC, abstractmethod
-from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any
 
 from . import catalog, package_history, version_history
+from .kernel import DatabaseComponent
 from .models import OwnerIdentityCleanup, PackageRef
 from .settings import DatabaseSettings
-from .support import DatabaseError
+from .support import DatabaseError, SqlFragment, SqlIdentifier
+from .support import sql as _sql
 
-
-class _SqlIdentifier(str):
-    """A SQLite identifier quoted before statement substitution."""
-
-    def __new__(cls, value: str) -> _SqlIdentifier:
-        if "\x00" in value:
-            raise DatabaseError("SQLite identifiers cannot contain NUL")
-        quoted = f'"{value.replace(chr(34), chr(34) * 2)}"'
-        return str.__new__(cls, quoted)
+_SqlIdentifier = SqlIdentifier
 
 
 _SCANS = _SqlIdentifier("bkg_owner_scans")
@@ -39,24 +30,8 @@ class _CleanupContext:
     orphaned: tuple[PackageRef, ...]
 
 
-class OwnerIdentityRepositoryMixin(ABC):
-    """Add verified owner-ID reconciliation to the SQLite repository."""
-
-    settings: DatabaseSettings
-
-    @abstractmethod
-    def ensure_schema(self) -> None:
-        """Create or migrate the lazy normalized schema."""
-
-        raise NotImplementedError
-
-    @abstractmethod
-    def _run_read(self, operation: Callable[[sqlite3.Connection], Any]) -> Any:
-        raise NotImplementedError
-
-    @abstractmethod
-    def _run_write(self, operation: Callable[[sqlite3.Connection], Any]) -> Any:
-        raise NotImplementedError
+class OwnerIdentityRepository(DatabaseComponent):
+    """Provide verified owner-ID reconciliation."""
 
     def owner_alias_ids(self, owner_id: str, owner: str) -> tuple[str, ...]:
         """Return persisted IDs superseded by one owner login's current ID."""
@@ -413,17 +388,13 @@ def _delete_alias_rows(
     )
 
 
-def _alias_condition(alias: str = "") -> str:
+def _alias_condition(alias: str = "") -> SqlFragment:
     qualifier = f"{alias}." if alias else ""
-    return (
+    return SqlFragment(
         f"(({qualifier}owner_id = ? and {qualifier}owner != ? collate binary) "
         f"or ({qualifier}owner = ? collate nocase "
         f"and ({qualifier}owner_id is null or {qualifier}owner_id != ?)))"
     )
-
-
-def _sql(statement: str, /, **identifiers: str) -> str:
-    return statement.format_map(identifiers)
 
 
 def _table_exists(connection: sqlite3.Connection, table_name: str) -> bool:

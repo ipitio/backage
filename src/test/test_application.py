@@ -11,7 +11,7 @@ import pytest
 import bkg_py.cli
 from bkg_py.application import ApplicationContext, github_operation_clients
 from bkg_py.cli import build_parser, entrypoint, main
-from bkg_py.database import DatabaseError
+from bkg_py.database.support import DatabaseError
 from bkg_py.packages.registry.transport import PackageRegistryTransport
 from bkg_py.result import ExitStatus
 from bkg_py.workspace import update as workspace_update
@@ -36,7 +36,7 @@ def test_context_constructs_services_lazily_and_reuses_them(
     assert application.state.path == state_path
     assert application.stop.state is application.state
     assert application.database is application.database
-    assert application.database.settings.path == database_path
+    assert application.database.kernel.settings.path == database_path
     assert application.aggregate_settings is application.aggregate_settings
     assert application.publication_limits is application.publication_limits
     assert "metric_enrichment" in vars(application)
@@ -83,7 +83,7 @@ def test_database_settings_use_captured_runtime_config(
     monkeypatch.setenv("BKG_INDEX_TBL_PKG", "changed_packages")
     monkeypatch.setenv("BKG_INDEX_TBL_VER", "changed_versions")
 
-    settings = application.database.settings
+    settings = application.database.kernel.settings
 
     assert settings.path == original_database_path
     assert settings.owners_table == "captured_owners"
@@ -118,7 +118,7 @@ def test_all_core_settings_share_one_environment_snapshot(
         monkeypatch.setenv(name, "99999")
 
     assert application.github_settings.read_timeout == 17
-    assert application.database.settings.max_attempts == 4
+    assert application.database.kernel.settings.max_attempts == 4
     assert application.aggregate_settings.target_bytes == 12_345
     assert application.aggregate_settings.version_limit == 7
     assert application.publication_limits.maximum_bytes == 20_000

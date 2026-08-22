@@ -8,13 +8,10 @@ from pathlib import Path
 
 import pytest
 
-import bkg_py.database.repository as database_repository
-from bkg_py.database import (
-    DatabaseRepository,
-    DatabaseSettings,
-    PackageRecord,
-    PackageRef,
-)
+import bkg_py.database.kernel as database_kernel
+from bkg_py.database.composition import DatabaseRepositories
+from bkg_py.database.models import PackageRecord, PackageRef
+from bkg_py.database.settings import DatabaseSettings
 
 _TODAY = "2026-06-10"
 
@@ -37,8 +34,8 @@ def test_schema_initialization_runs_once_per_database_identity(
     """Repeated and concurrent operations reuse initialized schema state."""
 
     path = tmp_path / "index.db"
-    repository = DatabaseRepository(DatabaseSettings(path))
-    original = database_repository.schema.ensure
+    repository = DatabaseRepositories(DatabaseSettings(path))
+    original = database_kernel.schema.ensure
     calls = 0
 
     def count_schema_ensure(
@@ -52,9 +49,9 @@ def test_schema_initialization_runs_once_per_database_identity(
         original(connection, owners, packages, versions)
 
     def ensure_schema(_index: int) -> None:
-        repository.ensure_schema()
+        repository.kernel.ensure_schema()
 
-    monkeypatch.setattr(database_repository.schema, "ensure", count_schema_ensure)
+    monkeypatch.setattr(database_kernel.schema, "ensure", count_schema_ensure)
 
     with ThreadPoolExecutor(max_workers=4) as executor:
         list(executor.map(ensure_schema, range(8)))
@@ -62,7 +59,7 @@ def test_schema_initialization_runs_once_per_database_identity(
     assert calls == 1
 
     path.unlink()
-    repository.ensure_schema()
+    repository.kernel.ensure_schema()
 
     assert calls == 2
 
@@ -114,11 +111,11 @@ def test_schema_lazily_replaces_old_package_key_without_losing_rows(
             ),
         )
 
-    repository = DatabaseRepository(DatabaseSettings(path))
-    repository.ensure_schema()
-    repository.ensure_schema()
+    repository = DatabaseRepositories(DatabaseSettings(path))
+    repository.kernel.ensure_schema()
+    repository.kernel.ensure_schema()
     second = _package("SecondRepo")
-    repository.write_package(PackageRecord(second, 2, 2, 2, 2, 2, _TODAY))
+    repository.packages.write_package(PackageRecord(second, 2, 2, 2, 2, 2, _TODAY))
 
     with sqlite3.connect(path) as connection:
         legacy_primary_key = tuple(
@@ -151,7 +148,7 @@ def test_schema_lazily_replaces_old_package_key_without_losing_rows(
     assert "idx_bkg_history_package_observations_date" in indexes
     assert temporary_table is None
 
-    progress = repository.migrate_package_history(10)
+    progress = repository.history.migrate_package_history(10)
 
     assert progress.migrated_rows == 1
     assert progress.complete

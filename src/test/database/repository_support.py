@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import sqlite3
 
-from bkg_py.database import PackageRef, VersionMetrics, VersionRecord
+from bkg_py.database.models import PackageRef, VersionMetrics, VersionRecord
 
 TODAY = "2026-06-10"
 YESTERDAY = "2026-06-09"

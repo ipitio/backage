@@ -5,15 +5,15 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
-from bkg_py.database import (
-    DatabaseRepository,
-    DatabaseSettings,
+from bkg_py.database.composition import DatabaseRepositories
+from bkg_py.database.models import (
     OwnerScanFailure,
     OwnerScanPackage,
     PackageRecord,
     PackageRef,
     VersionStage,
 )
+from bkg_py.database.settings import DatabaseSettings
 
 from .repository_support import (
     TODAY,
@@ -31,11 +31,11 @@ def test_completed_owner_scan_reconciles_only_unobserved_packages(
     """A verified complete scan removes absent package data atomically."""
 
     database_path = tmp_path / "index.db"
-    repository = DatabaseRepository(DatabaseSettings(database_path))
+    repository = DatabaseRepositories(DatabaseSettings(database_path))
     retained = package(repo="retained", package_name="retained")
     removed = package(repo="removed", package_name="removed")
     for package_ref in (retained, removed):
-        repository.write_package(
+        repository.packages.write_package(
             PackageRecord(
                 package_ref=package_ref,
                 downloads=1,
@@ -46,7 +46,7 @@ def test_completed_owner_scan_reconciles_only_unobserved_packages(
                 date=TODAY,
             )
         )
-        repository.flush_version_stage(
+        repository.packages.flush_version_stage(
             VersionStage(
                 package_ref=package_ref,
                 legacy_table=legacy_table(package_ref),
@@ -57,15 +57,15 @@ def test_completed_owner_scan_reconciles_only_unobserved_packages(
     with sqlite3.connect(database_path) as connection:
         create_legacy_table(connection, legacy_table(removed))
 
-    repository.begin_owner_scan(
+    repository.owners.begin_owner_scan(
         retained.owner_id,
         retained.owner,
         "scan-1",
         100,
     )
-    assert repository.owner_scan_active(retained.owner_id, "scan-1")
-    assert not repository.owner_scan_active(retained.owner_id, "scan-old")
-    repository.observe_owner_scan(
+    assert repository.owners.owner_scan_active(retained.owner_id, "scan-1")
+    assert not repository.owners.owner_scan_active(retained.owner_id, "scan-old")
+    repository.owners.observe_owner_scan(
         retained.owner_id,
         "scan-1",
         (
@@ -79,11 +79,11 @@ def test_completed_owner_scan_reconciles_only_unobserved_packages(
         101,
     )
 
-    assert repository.missing_owner_scan_packages(
+    assert repository.owners.missing_owner_scan_packages(
         retained.owner_id,
         "scan-1",
     ) == (removed,)
-    result = repository.complete_owner_scan(
+    result = repository.owners.complete_owner_scan(
         retained.owner_id,
         "scan-1",
         TODAY,
@@ -93,7 +93,7 @@ def test_completed_owner_scan_reconciles_only_unobserved_packages(
     assert result.removed == (removed,)
     assert result.pending_count == 0
     assert result.retry_after == 0
-    assert not repository.owner_scan_active(retained.owner_id, "scan-1")
+    assert not repository.owners.owner_scan_active(retained.owner_id, "scan-1")
     with sqlite3.connect(database_path) as connection:
         packages = connection.execute(
             "select repo, package from bkg_package_history order by repo"
@@ -132,7 +132,7 @@ def test_incomplete_owner_refresh_uses_persisted_exponential_backoff(
 ) -> None:
     """Incomplete refreshes defer automatic selection until retry time."""
 
-    repository = DatabaseRepository(
+    repository = DatabaseRepositories(
         DatabaseSettings(
             tmp_path / "index.db",
             owner_retry_initial_seconds=10,
@@ -140,7 +140,7 @@ def test_incomplete_owner_refresh_uses_persisted_exponential_backoff(
         )
     )
     package_ref = package()
-    repository.write_package(
+    repository.packages.write_package(
         PackageRecord(
             package_ref=package_ref,
             downloads=1,
@@ -151,13 +151,13 @@ def test_incomplete_owner_refresh_uses_persisted_exponential_backoff(
             date=YESTERDAY,
         )
     )
-    repository.begin_owner_scan(
+    repository.owners.begin_owner_scan(
         package_ref.owner_id,
         package_ref.owner,
         "scan-1",
         100,
     )
-    repository.observe_owner_scan(
+    repository.owners.observe_owner_scan(
         package_ref.owner_id,
         "scan-1",
         (
@@ -171,7 +171,7 @@ def test_incomplete_owner_refresh_uses_persisted_exponential_backoff(
         101,
     )
 
-    result = repository.complete_owner_scan(
+    result = repository.owners.complete_owner_scan(
         package_ref.owner_id,
         "scan-1",
         TODAY,
@@ -179,10 +179,10 @@ def test_incomplete_owner_refresh_uses_persisted_exponential_backoff(
     )
     assert result.pending_count == 1
     assert result.retry_after == 112
-    assert repository.deferred_owners(111) == ((package_ref.owner, 112),)
-    assert repository.deferred_owners(112) == ()
+    assert repository.owner_queue.deferred_owners(111) == ((package_ref.owner, 112),)
+    assert repository.owner_queue.deferred_owners(112) == ()
 
-    retry_after = repository.fail_owner_scan(
+    retry_after = repository.owners.fail_owner_scan(
         OwnerScanFailure(
             package_ref.owner_id,
             package_ref.owner,
@@ -192,14 +192,14 @@ def test_incomplete_owner_refresh_uses_persisted_exponential_backoff(
         )
     )
     assert retry_after == 133
-    assert repository.deferred_owners(120) == ((package_ref.owner, 133),)
+    assert repository.owner_queue.deferred_owners(120) == ((package_ref.owner, 133),)
 
-    repository.clear_owner_backoff(
+    repository.owners.clear_owner_backoff(
         package_ref.owner_id,
         package_ref.owner,
         121,
     )
-    assert repository.deferred_owners(120) == ()
+    assert repository.owner_queue.deferred_owners(120) == ()
 
 
 def test_direct_refresh_replaces_scan_marker_and_clears_staging(
@@ -208,15 +208,15 @@ def test_direct_refresh_replaces_scan_marker_and_clears_staging(
     """A successful direct refresh closes obsolete resumable scan state."""
 
     database_path = tmp_path / "index.db"
-    repository = DatabaseRepository(DatabaseSettings(database_path))
+    repository = DatabaseRepositories(DatabaseSettings(database_path))
     package_ref = package()
-    repository.begin_owner_scan(
+    repository.owners.begin_owner_scan(
         package_ref.owner_id,
         package_ref.owner,
         "scan-old",
         100,
     )
-    repository.observe_owner_scan(
+    repository.owners.observe_owner_scan(
         package_ref.owner_id,
         "scan-old",
         (
@@ -230,7 +230,7 @@ def test_direct_refresh_replaces_scan_marker_and_clears_staging(
         101,
     )
 
-    repository.clear_owner_backoff(
+    repository.owners.clear_owner_backoff(
         package_ref.owner_id,
         package_ref.owner,
         102,
@@ -256,17 +256,17 @@ def test_rotation_prunes_only_inactive_scan_staging(tmp_path: Path) -> None:
     """Rotation removes old terminal staging without breaking resumable scans."""
 
     database_path = tmp_path / "index.db"
-    repository = DatabaseRepository(DatabaseSettings(database_path))
+    repository = DatabaseRepositories(DatabaseSettings(database_path))
     inactive = PackageRef("100", "orgs", "container", "inactive", "repo", "image")
     active = PackageRef("200", "orgs", "container", "active", "repo", "image")
     for package_ref, marker in ((inactive, "scan-old"), (active, "scan-active")):
-        repository.begin_owner_scan(
+        repository.owners.begin_owner_scan(
             package_ref.owner_id,
             package_ref.owner,
             marker,
             100,
         )
-        repository.observe_owner_scan(
+        repository.owners.observe_owner_scan(
             package_ref.owner_id,
             marker,
             (
@@ -289,7 +289,7 @@ def test_rotation_prunes_only_inactive_scan_staging(tmp_path: Path) -> None:
             (inactive.owner_id,),
         )
 
-    repository.cleanup_replaced_legacy_tables(
+    repository.packages.cleanup_replaced_legacy_tables(
         since=TODAY,
         prune_normalized=True,
     )
@@ -310,7 +310,7 @@ def test_pending_publication_keeps_current_owner_package_incomplete(
 ) -> None:
     """Owner reconciliation waits for generated package files to publish."""
 
-    repository = DatabaseRepository(
+    repository = DatabaseRepositories(
         DatabaseSettings(
             tmp_path / "index.db",
             owner_retry_initial_seconds=10,
@@ -318,7 +318,7 @@ def test_pending_publication_keeps_current_owner_package_incomplete(
         )
     )
     package_ref = package()
-    repository.write_package_pending_publication(
+    repository.packages.write_package_pending_publication(
         PackageRecord(
             package_ref=package_ref,
             downloads=1,
@@ -329,13 +329,13 @@ def test_pending_publication_keeps_current_owner_package_incomplete(
             date=TODAY,
         )
     )
-    repository.begin_owner_scan(
+    repository.owners.begin_owner_scan(
         package_ref.owner_id,
         package_ref.owner,
         "scan-1",
         100,
     )
-    repository.observe_owner_scan(
+    repository.owners.observe_owner_scan(
         package_ref.owner_id,
         "scan-1",
         (
@@ -349,7 +349,7 @@ def test_pending_publication_keeps_current_owner_package_incomplete(
         101,
     )
 
-    result = repository.complete_owner_scan(
+    result = repository.owners.complete_owner_scan(
         package_ref.owner_id,
         "scan-1",
         TODAY,

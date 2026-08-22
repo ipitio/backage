@@ -8,13 +8,13 @@ from datetime import UTC, datetime
 from threading import Lock
 
 from ...concurrency import BoundedWorkerRunner
-from ...database import (
-    DatabaseRepository,
+from ...database.models import (
     PackageRef,
     VersionMetrics,
     VersionRecord,
     VersionStage,
 )
+from ...database.package_repository import PackageRepository
 from ...github import GitHubError
 from ..enrichment import (
     METRIC_TEXT_REQUEST_POLICY,
@@ -100,7 +100,7 @@ class _LazyVersionRecordFallback:  # pylint: disable=too-few-public-methods
 
     def __init__(
         self,
-        repository: DatabaseRepository,
+        repository: PackageRepository,
         request: VersionRefreshRequest,
         current: tuple[VersionRecord, ...],
     ) -> None:
@@ -273,7 +273,7 @@ class VersionRefreshService:  # pylint: disable=too-few-public-methods
 
     def __init__(
         self,
-        repository: DatabaseRepository,
+        repository: PackageRepository,
         client: VersionPageClient,
         execution: VersionRefreshExecution,
     ) -> None:

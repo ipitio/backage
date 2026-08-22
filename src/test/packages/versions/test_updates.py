@@ -9,14 +9,14 @@ from pathlib import Path
 import pytest
 
 from bkg_py.concurrency import BoundedWorkerRunner, ConcurrencySettings
-from bkg_py.database import (
-    DatabaseRepository,
-    DatabaseSettings,
+from bkg_py.database.composition import DatabaseRepositories
+from bkg_py.database.models import (
     PackageRef,
     VersionMetrics,
     VersionRecord,
     VersionStage,
 )
+from bkg_py.database.settings import DatabaseSettings
 from bkg_py.github import GitHubTransportError
 from bkg_py.packages.enrichment import (
     METRIC_TEXT_REQUEST_POLICY,
@@ -231,7 +231,7 @@ def test_refresh_can_disable_hosted_size_without_authenticating_html(
     """Private-capable policy suppresses hosted sizing even without a token."""
 
     package = _package_ref(package_type="container")
-    repository = DatabaseRepository(DatabaseSettings(tmp_path / "index.db"))
+    repository = DatabaseRepositories(DatabaseSettings(tmp_path / "index.db")).packages
     api_path = (
         "orgs/Example/packages/container/Nested%2FImage/versions?per_page=30&page=1"
     )
@@ -319,7 +319,7 @@ def test_refresh_skips_existing_versions_and_flushes_one_batch(tmp_path: Path) -
     """Selection avoids current rows and persists inspected rows transactionally."""
 
     package = _package_ref()
-    repository = DatabaseRepository(DatabaseSettings(tmp_path / "index.db"))
+    repository = DatabaseRepositories(DatabaseSettings(tmp_path / "index.db")).packages
     repository.flush_version_stage(
         VersionStage(package, "legacy_versions", False, (_record("1"),))
     )
@@ -366,7 +366,7 @@ def test_force_refresh_reinspects_existing_same_day_versions(tmp_path: Path) -> 
     """A new batch generation refreshes details already written today."""
 
     package = _package_ref()
-    repository = DatabaseRepository(DatabaseSettings(tmp_path / "index.db"))
+    repository = DatabaseRepositories(DatabaseSettings(tmp_path / "index.db")).packages
     repository.flush_version_stage(
         VersionStage(package, "legacy_versions", False, (_record("1"),))
     )
@@ -407,7 +407,7 @@ def test_refresh_pauses_failing_detail_requests_and_preserves_stored_metrics(
     """Repeated transport failures use stored metrics without stalling the owner."""
 
     package = _package_ref()
-    repository = DatabaseRepository(DatabaseSettings(tmp_path / "index.db"))
+    repository = DatabaseRepositories(DatabaseSettings(tmp_path / "index.db")).packages
     repository.flush_version_stage(
         VersionStage(
             package,
@@ -494,10 +494,10 @@ def test_refresh_flushes_completed_rows_before_graceful_stop(tmp_path: Path) -> 
         raise GracefulStop("test stop")
 
     database_path = tmp_path / "index.db"
-    repository = DatabaseRepository(
+    repository = DatabaseRepositories(
         DatabaseSettings(database_path),
         check_stop=check_stop,
-    )
+    ).packages
     api_path = "orgs/Example/packages/npm/Nested%2FImage/versions?per_page=30&page=1"
     client = _FakeClient(
         rest_values={

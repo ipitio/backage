@@ -5,16 +5,14 @@ from __future__ import annotations
 import random
 import re
 import subprocess
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
+from ..discovery.values import normalize_owner_lines
 from ..runtime import resolve_executable
 from ..runtime_names import RunFile
 
-_IGNORED_OWNER_PATH = re.compile(
-    r"^(?:.*/)*(?:solutions|sponsors|enterprise|premium-support)$"
-)
 _OWNER_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9-]{0,38}")
 
 
@@ -37,26 +35,6 @@ def _read_lines(path: Path) -> list[str]:
         return path.read_text(encoding="utf-8").splitlines()
     except OSError:
         return []
-
-
-def normalize_owner_lines(lines: Iterable[str]) -> tuple[str, ...]:
-    """Normalize and de-duplicate owner values accepted by discovery."""
-
-    owners: list[str] = []
-    seen: set[str] = set()
-    for line in lines:
-        owner = line.replace('"', "").strip()
-        if (
-            not owner
-            or owner == "0/"
-            or owner.startswith("null/")
-            or _IGNORED_OWNER_PATH.fullmatch(owner) is not None
-            or owner in seen
-        ):
-            continue
-        seen.add(owner)
-        owners.append(owner)
-    return tuple(owners)
 
 
 def _requests(lines: list[str], count: int = 1) -> list[str]:

@@ -1,4 +1,4 @@
-"""Tests for the SQLite repository and lazy legacy replacement."""
+"""Tests for the SQLite kernel, package repository, and legacy replacement."""
 
 from __future__ import annotations
 
@@ -11,16 +11,16 @@ from pathlib import Path
 
 import pytest
 
-from bkg_py.database import (
-    DatabaseError,
-    DatabaseRepository,
-    DatabaseSettings,
+from bkg_py.database.composition import DatabaseRepositories
+from bkg_py.database.models import (
     OwnerRecord,
     OwnerScanPackage,
     PackageRecord,
     PackageRef,
     VersionStage,
 )
+from bkg_py.database.settings import DatabaseSettings
+from bkg_py.database.support import DatabaseError, SqlIdentifier, sql
 from bkg_py.runtime import GracefulStop
 
 from .repository_support import (
@@ -46,38 +46,44 @@ from .repository_support import (
 )
 
 
-class TestDatabaseRepository:
-    """Exercise schema, retry, transaction, fallback, and cleanup behavior."""
+class TestPackageRepository:
+    """Exercise kernel, package storage, fallback, and cleanup behavior."""
 
     def test_known_owner_type_uses_package_and_active_scan_state(self) -> None:
         """Existing durable owner state avoids a repeated identity request."""
 
         with tempfile.TemporaryDirectory() as directory:
-            repository = DatabaseRepository(
+            repository = DatabaseRepositories(
                 DatabaseSettings(Path(directory) / "index.db")
             )
             package = _package()
-            assert repository.known_owner_type(package.owner_id, package.owner) is None
-
-            repository.write_package(PackageRecord(package, 1, 1, 1, 1, 1, _TODAY))
             assert (
-                repository.known_owner_type(package.owner_id, package.owner) == "orgs"
+                repository.owners.known_owner_type(package.owner_id, package.owner)
+                is None
             )
 
-            repository.begin_owner_scan("7", "ScanOnly", "scan-1", 100)
-            repository.observe_owner_scan(
+            repository.packages.write_package(
+                PackageRecord(package, 1, 1, 1, 1, 1, _TODAY)
+            )
+            assert (
+                repository.owners.known_owner_type(package.owner_id, package.owner)
+                == "orgs"
+            )
+
+            repository.owners.begin_owner_scan("7", "ScanOnly", "scan-1", 100)
+            repository.owners.observe_owner_scan(
                 "7",
                 "scan-1",
                 (OwnerScanPackage("users", "npm", "repo", "package"),),
                 101,
             )
-            assert repository.known_owner_type("7", "ScanOnly") == "users"
+            assert repository.owners.known_owner_type("7", "ScanOnly") == "users"
 
     def test_package_work_plan_preserves_batch_and_publication_state(self) -> None:
         """One snapshot separates current published rows from pending work."""
 
         with tempfile.TemporaryDirectory() as directory:
-            repository = DatabaseRepository(
+            repository = DatabaseRepositories(
                 DatabaseSettings(Path(directory) / "index.db")
             )
             old_package = PackageRef(
@@ -89,19 +95,19 @@ class TestDatabaseRepository:
             unpublished_package = PackageRef(
                 "3", "orgs", "container", "Gamma", "repo-c", "pkg-c"
             )
-            repository.write_package(
+            repository.packages.write_package(
                 PackageRecord(old_package, 1, 1, 1, 1, 1, _YESTERDAY)
             )
-            repository.write_package(
+            repository.packages.write_package(
                 PackageRecord(current_package, 1, 1, 1, 1, 1, _TODAY)
             )
-            repository.write_package_pending_publication(
+            repository.packages.write_package_pending_publication(
                 PackageRecord(unpublished_package, 1, 1, 1, 1, 1, _TODAY)
             )
-            repository.write_owner(OwnerRecord("4", "Empty", _TODAY))
-            repository.write_owner(OwnerRecord("5", "OldEmpty", _YESTERDAY))
+            repository.owners.write_owner(OwnerRecord("4", "Empty", _TODAY))
+            repository.owners.write_owner(OwnerRecord("5", "OldEmpty", _YESTERDAY))
 
-            plan = repository.package_work_plan(_TODAY)
+            plan = repository.packages.package_work_plan(_TODAY)
 
             assert len(plan.packages) == 3
             assert plan.packages[0].owner == "Alpha"
@@ -114,10 +120,12 @@ class TestDatabaseRepository:
 
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "index.db"
-            repository = DatabaseRepository(DatabaseSettings(path))
+            repository = DatabaseRepositories(DatabaseSettings(path))
             package = _package()
-            repository.write_package(PackageRecord(package, 1, 1, 1, 1, 1, _YESTERDAY))
-            repository.flush_version_stage(
+            repository.packages.write_package(
+                PackageRecord(package, 1, 1, 1, 1, 1, _YESTERDAY)
+            )
+            repository.packages.flush_version_stage(
                 VersionStage(
                     package,
                     _legacy_table(package),
@@ -130,7 +138,7 @@ class TestDatabaseRepository:
                 )
             )
 
-            repository.write_package_pending_publication(
+            repository.packages.write_package_pending_publication(
                 PackageRecord(package, 2, 2, 2, 2, 2, _TODAY)
             )
 
@@ -154,11 +162,13 @@ class TestDatabaseRepository:
                 packages_table="select",
                 versions_table="versions; drop table select",
             )
-            repository = DatabaseRepository(settings)
+            repository = DatabaseRepositories(settings)
 
-            repository.ensure_schema()
-            repository.write_owner(OwnerRecord("1", "owner", _TODAY))
-            repository.write_package(PackageRecord(_package(), 1, 1, 1, 1, 1, _TODAY))
+            repository.kernel.ensure_schema()
+            repository.owners.write_owner(OwnerRecord("1", "owner", _TODAY))
+            repository.packages.write_package(
+                PackageRecord(_package(), 1, 1, 1, 1, 1, _TODAY)
+            )
 
             with sqlite3.connect(path) as connection:
                 tables = {
@@ -185,14 +195,14 @@ class TestDatabaseRepository:
             assert package_count == 1
 
         with tempfile.TemporaryDirectory() as directory:
-            repository = DatabaseRepository(
+            repository = DatabaseRepositories(
                 DatabaseSettings(
                     Path(directory) / "index.db",
                     owners_table="owners\x00trailing",
                 )
             )
             with pytest.raises(DatabaseError, match="cannot contain NUL"):
-                repository.ensure_schema()
+                repository.kernel.ensure_schema()
 
     def test_schema_is_lazy_idempotent_and_preserves_existing_tables(self) -> None:
         """Opening an existing database adds only missing normalized structures."""
@@ -227,9 +237,9 @@ class TestDatabaseRepository:
                     """
                 )
 
-            repository = DatabaseRepository(DatabaseSettings(path))
-            repository.ensure_schema()
-            repository.ensure_schema()
+            repository = DatabaseRepositories(DatabaseSettings(path))
+            repository.kernel.ensure_schema()
+            repository.kernel.ensure_schema()
 
             with sqlite3.connect(path) as connection:
                 tables = {
@@ -282,11 +292,13 @@ class TestDatabaseRepository:
 
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "index.db"
-            repository = DatabaseRepository(DatabaseSettings(path))
+            repository = DatabaseRepositories(DatabaseSettings(path))
             package = _package()
 
-            repository.write_owner(OwnerRecord(package.owner_id, package.owner, _TODAY))
-            repository.write_package(
+            repository.owners.write_owner(
+                OwnerRecord(package.owner_id, package.owner, _TODAY)
+            )
+            repository.packages.write_package(
                 PackageRecord(
                     package_ref=package,
                     downloads=2000,
@@ -325,20 +337,20 @@ class TestDatabaseRepository:
 
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "index.db"
-            repository = DatabaseRepository(DatabaseSettings(path))
+            repository = DatabaseRepositories(DatabaseSettings(path))
             package = _package()
             legacy_table = _legacy_table(package)
-            repository.ensure_schema()
+            repository.kernel.ensure_schema()
             with sqlite3.connect(path) as connection:
                 _create_legacy_table(connection, legacy_table)
                 _insert_legacy(connection, legacy_table, _version("1"))
 
-            fallback = repository.version_rows(
+            fallback = repository.packages.version_rows(
                 package,
                 since=_TODAY,
                 legacy_table=legacy_table,
             )
-            repository.flush_version_stage(
+            repository.packages.flush_version_stage(
                 VersionStage(
                     package_ref=package,
                     legacy_table=legacy_table,
@@ -346,7 +358,7 @@ class TestDatabaseRepository:
                     rows=(_version("2", downloads=200),),
                 )
             )
-            normalized = repository.version_rows(
+            normalized = repository.packages.version_rows(
                 package,
                 since=_TODAY,
                 legacy_table=legacy_table,
@@ -362,14 +374,14 @@ class TestDatabaseRepository:
 
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "index.db"
-            repository = DatabaseRepository(DatabaseSettings(path))
+            repository = DatabaseRepositories(DatabaseSettings(path))
             package = _package()
             legacy_table = _legacy_table(package)
-            repository.ensure_schema()
+            repository.kernel.ensure_schema()
             with sqlite3.connect(path) as connection:
                 _create_legacy_table(connection, legacy_table)
 
-            count = repository.flush_version_stage(
+            count = repository.packages.flush_version_stage(
                 VersionStage(
                     package_ref=package,
                     legacy_table=legacy_table,
@@ -383,7 +395,10 @@ class TestDatabaseRepository:
                     "select id, downloads from bkg_version_history order by id"
                 ).fetchall()
                 legacy = connection.execute(
-                    f'select id, downloads from "{legacy_table}" order by id'
+                    sql(
+                        "select id, downloads from {table} order by id",
+                        table=SqlIdentifier(legacy_table),
+                    )
                 ).fetchall()
 
             assert count == 2
@@ -401,7 +416,7 @@ class TestDatabaseRepository:
                 if stopped:
                     raise GracefulStop("test stop")
 
-            repository = DatabaseRepository(
+            repository = DatabaseRepositories(
                 DatabaseSettings(path),
                 check_stop=check_stop,
             )
@@ -412,13 +427,13 @@ class TestDatabaseRepository:
                 write_legacy=False,
                 rows=(_version("1"),),
             )
-            repository.ensure_schema()
+            repository.kernel.ensure_schema()
             stopped = True
 
             with pytest.raises(GracefulStop):
-                repository.flush_version_stage(stage)
+                repository.packages.flush_version_stage(stage)
 
-            assert repository.finalize_version_stage(stage) == 1
+            assert repository.packages.finalize_version_stage(stage) == 1
             with sqlite3.connect(path) as connection:
                 count = connection.execute(
                     "select count(*) from bkg_version_history"
@@ -430,15 +445,15 @@ class TestDatabaseRepository:
 
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "index.db"
-            repository = DatabaseRepository(DatabaseSettings(path))
+            repository = DatabaseRepositories(DatabaseSettings(path))
             package = _package()
             legacy_table = _legacy_table(package)
-            repository.ensure_schema()
+            repository.kernel.ensure_schema()
             with sqlite3.connect(path) as connection:
                 connection.execute(f'create table "{legacy_table}" (id text)')
 
             with pytest.raises(DatabaseError):
-                repository.flush_version_stage(
+                repository.packages.flush_version_stage(
                     VersionStage(
                         package_ref=package,
                         legacy_table=legacy_table,
@@ -464,15 +479,15 @@ class TestDatabaseRepository:
                 max_attempts=20,
                 retry_delay_seconds=0.01,
             )
-            repository = DatabaseRepository(settings)
-            repository.ensure_schema()
+            repository = DatabaseRepositories(settings)
+            repository.kernel.ensure_schema()
             lock = sqlite3.connect(path, isolation_level=None)
             lock.execute("begin immediate")
             errors: list[DatabaseError] = []
 
             def write() -> None:
                 try:
-                    repository.write_owner(
+                    repository.owners.write_owner(
                         OwnerRecord("1", "locked-owner", _TODAY),
                     )
                 except DatabaseError as error:  # pragma: no cover - assertion aid
@@ -526,13 +541,13 @@ class TestDatabaseRepository:
             row_path = stage_dir / "row.000001.json"
             manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
             row_path.write_text(json.dumps(row), encoding="utf-8")
-            repository = DatabaseRepository(DatabaseSettings(path))
-            repository.ensure_schema()
+            repository = DatabaseRepositories(DatabaseSettings(path))
+            repository.kernel.ensure_schema()
             with sqlite3.connect(path) as connection:
                 connection.execute(f'create table "{legacy_table}" (id text)')
 
             with pytest.raises(DatabaseError):
-                repository.flush_version_stage(VersionStage.load(stage_dir))
+                repository.packages.flush_version_stage(VersionStage.load(stage_dir))
 
             assert manifest_path.is_file()
             assert row_path.is_file()
@@ -544,11 +559,11 @@ class TestDatabaseRepository:
 
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "index.db"
-            repository = DatabaseRepository(DatabaseSettings(path))
+            repository = DatabaseRepositories(DatabaseSettings(path))
             package = _package()
             legacy_table = _legacy_table(package)
             orphan_table = "versions_orgs_container_Lazztech_Orphan_orphan"
-            repository.write_package(
+            repository.packages.write_package(
                 PackageRecord(
                     package_ref=package,
                     downloads=1,
@@ -568,19 +583,22 @@ class TestDatabaseRepository:
                 _insert_legacy(connection, legacy_table, _version("1"))
                 _insert_legacy(connection, orphan_table, _version("9"))
 
-            dropped = repository.cleanup_legacy_package(
+            dropped = repository.packages.cleanup_legacy_package(
                 package,
                 legacy_table,
                 since=_TODAY,
             )
             with sqlite3.connect(path) as connection:
                 remaining = connection.execute(
-                    f'select id from "{legacy_table}"'
+                    sql(
+                        "select id from {table}",
+                        table=SqlIdentifier(legacy_table),
+                    )
                 ).fetchall()
             assert not dropped
             assert remaining == [("1",)]
 
-            repository.flush_version_stage(
+            repository.packages.flush_version_stage(
                 VersionStage(
                     package_ref=package,
                     legacy_table=legacy_table,
@@ -588,10 +606,10 @@ class TestDatabaseRepository:
                     rows=(_version("1"),),
                 )
             )
-            assert repository.cleanup_legacy_package(
+            assert repository.packages.cleanup_legacy_package(
                 package, legacy_table, since=_TODAY
             )
-            assert repository.cleanup_replaced_legacy_tables(since=_TODAY) == 1
+            assert repository.packages.cleanup_replaced_legacy_tables(since=_TODAY) == 1
             with sqlite3.connect(path) as connection:
                 tables = {
                     row[0]
@@ -609,11 +627,11 @@ class TestDatabaseRepository:
 
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "index.db"
-            repository = DatabaseRepository(DatabaseSettings(path))
+            repository = DatabaseRepositories(DatabaseSettings(path))
             package = _package()
             legacy_table = _legacy_table(package)
             orphan_table = "versions_orgs_container_Lazztech_Orphan_orphan"
-            repository.write_package(
+            repository.packages.write_package(
                 PackageRecord(
                     package_ref=package,
                     downloads=1,
@@ -624,7 +642,7 @@ class TestDatabaseRepository:
                     date=_YESTERDAY,
                 )
             )
-            repository.write_package(
+            repository.packages.write_package(
                 PackageRecord(
                     package_ref=package,
                     downloads=2,
@@ -635,7 +653,7 @@ class TestDatabaseRepository:
                     date=_TODAY,
                 )
             )
-            repository.flush_version_stage(
+            repository.packages.flush_version_stage(
                 VersionStage(
                     package_ref=package,
                     legacy_table=legacy_table,
@@ -656,7 +674,7 @@ class TestDatabaseRepository:
                 _insert_legacy(connection, orphan_table, _version("9"))
 
             assert (
-                repository.cleanup_replaced_legacy_tables(
+                repository.packages.cleanup_replaced_legacy_tables(
                     since=_TODAY,
                     prune_normalized=True,
                     vacuum=True,
@@ -689,11 +707,13 @@ class TestDatabaseRepository:
 
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "index.db"
-            repository = DatabaseRepository(DatabaseSettings(path))
+            repository = DatabaseRepositories(DatabaseSettings(path))
             package = _package()
             legacy_table = _legacy_table(package)
-            repository.write_owner(OwnerRecord(package.owner_id, package.owner, _TODAY))
-            repository.write_package(
+            repository.owners.write_owner(
+                OwnerRecord(package.owner_id, package.owner, _TODAY)
+            )
+            repository.packages.write_package(
                 PackageRecord(
                     package_ref=package,
                     downloads=1,
@@ -704,7 +724,7 @@ class TestDatabaseRepository:
                     date=_TODAY,
                 )
             )
-            repository.flush_version_stage(
+            repository.packages.flush_version_stage(
                 VersionStage(
                     package_ref=package,
                     legacy_table=legacy_table,
@@ -715,7 +735,7 @@ class TestDatabaseRepository:
             with sqlite3.connect(path) as connection:
                 _create_legacy_table(connection, legacy_table)
 
-            assert repository.retire_owner(package.owner) == 3
+            assert repository.packages.retire_owner(package.owner) == 3
             with sqlite3.connect(path) as connection:
                 for table in (
                     "owners",
@@ -724,7 +744,10 @@ class TestDatabaseRepository:
                 ):
                     assert (
                         connection.execute(
-                            f"select count(*) from {table} where owner = ?",
+                            sql(
+                                "select count(*) from {table} where owner = ?",
+                                table=SqlIdentifier(table),
+                            ),
                             (package.owner,),
                         ).fetchone()[0]
                         == 0

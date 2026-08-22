@@ -9,11 +9,12 @@ from pathlib import Path
 import pytest
 
 from bkg_py.cli import main
-from bkg_py.database import PackageCatalogPath
+from bkg_py.database.models import PackageCatalogPath
 from bkg_py.result import ExitStatus
 from bkg_py.workspace import (
     GitIdentity,
-    GitRepository,
+    GitIndexRepository,
+    GitSourceRepository,
     IndexWorkspacePreparer,
     UpdateWorkspacePublisher,
     WorkspaceError,
@@ -22,7 +23,7 @@ from bkg_py.workspace import (
     published_run_status,
     read_index_package_catalog,
 )
-from bkg_py.workspace.repository import ensure_pages_root
+from bkg_py.workspace.index import ensure_pages_root
 
 from .repository_support import (
     clone_repository as _clone_repository,
@@ -56,7 +57,7 @@ def _create_publication_workspace(tmp_path: Path) -> tuple[Path, Path, Path, Pat
     index_dir = repository / "index"
     _git(repository, "worktree", "add", "-q", str(index_dir), "index")
     (index_dir / "recoverable.txt").write_text("old state\n", encoding="utf-8")
-    IndexWorkspacePreparer(GitRepository(repository)).prepare("index", index_dir)
+    IndexWorkspacePreparer(GitSourceRepository(repository)).prepare("index", index_dir)
     state_file = repository / "src" / "env.env"
     state_file.parent.mkdir()
     state_file.write_text("BKG_TIMEOUT=1\n", encoding="utf-8")
@@ -163,7 +164,7 @@ def test_sparse_repository_keeps_root_and_materializes_selected_owners(
 
     path = tmp_path / "index"
     _create_repository(path)
-    repository = GitRepository(path)
+    repository = GitIndexRepository(path)
 
     assert repository.top_level_directory_count() == 2
     repository.set_sparse_root()
@@ -216,7 +217,7 @@ def test_sparse_repository_stages_completed_paths_before_replacing_them(
 
     path = tmp_path / "index"
     _create_repository(path)
-    repository = GitRepository(path)
+    repository = GitIndexRepository(path)
     repository.set_sparse_root()
     repository.materialize_sparse_paths(("alpha",), replace=True)
     package = path / "alpha" / "repo-a" / "package.json"
@@ -245,7 +246,7 @@ def test_sparse_repository_retains_site_content_across_owner_waves(
     asset.write_text("prior asset\n", encoding="utf-8")
     _git(path, "add", "-A")
     _git(path, "commit", "-qm", "add site shell")
-    repository = GitRepository(path)
+    repository = GitIndexRepository(path)
     repository.set_sparse_root()
     repository.materialize_sparse_paths(("alpha",), replace=True)
     shell.write_text("next shell\n", encoding="utf-8")
@@ -268,7 +269,7 @@ def test_sparse_repository_ignores_an_absent_path_when_replacing_it(
 
     path = tmp_path / "index"
     _create_repository(path)
-    repository = GitRepository(path)
+    repository = GitIndexRepository(path)
     repository.set_sparse_root()
     repository.materialize_sparse_paths(("missing-owner",), replace=True)
 
@@ -281,7 +282,7 @@ def test_sparse_repository_ignores_an_absent_path_when_replacing_it(
 def test_sparse_operations_ignore_non_repository_path(tmp_path: Path) -> None:
     """Optional local index paths retain the previous no-op behavior."""
 
-    repository = GitRepository(tmp_path / "missing")
+    repository = GitIndexRepository(tmp_path / "missing")
 
     assert not repository.is_worktree()
     repository.set_sparse_root()
@@ -313,7 +314,7 @@ def test_repository_configuration_keeps_token_out_of_git_config(
     _create_repository(repository)
     monkeypatch.setenv("GITHUB_TOKEN", "workflow-secret")
 
-    GitRepository(repository).configure_for_updates(
+    GitSourceRepository(repository).configure_for_updates(
         GitIdentity.for_actor("workflow-actor")
     )
 
@@ -414,7 +415,7 @@ def test_prepare_existing_index_preserves_old_worktree_and_resumes(
     messages: list[str] = []
 
     result = IndexWorkspacePreparer(
-        GitRepository(repository),
+        GitSourceRepository(repository),
         progress=messages.append,
     ).prepare("index", index_dir)
 
@@ -431,7 +432,7 @@ def test_prepare_existing_index_preserves_old_worktree_and_resumes(
     )
     assert (repository / "index.bak" / "recoverable.txt").read_text() == "retained\n"
     assert not (index_dir / "alpha").exists()
-    assert GitRepository(index_dir).top_level_directory_count() == 2
+    assert GitIndexRepository(index_dir).top_level_directory_count() == 2
     assert any("prepare-index-branch-ref" in message for message in messages)
 
 
@@ -462,7 +463,7 @@ def test_prepare_existing_index_from_single_branch_clone_configures_tracking(
     )
     index_dir = repository / "index"
 
-    result = IndexWorkspacePreparer(GitRepository(repository)).prepare(
+    result = IndexWorkspacePreparer(GitSourceRepository(repository)).prepare(
         "index",
         index_dir,
     )
@@ -493,7 +494,7 @@ def test_prepare_missing_index_creates_parentless_branch_without_source_switch(
     index_dir = repository / "index"
     source_head = _git(repository, "rev-parse", "HEAD").stdout.strip()
 
-    result = IndexWorkspacePreparer(GitRepository(repository)).prepare(
+    result = IndexWorkspacePreparer(GitSourceRepository(repository)).prepare(
         "index",
         index_dir,
     )
@@ -534,7 +535,9 @@ def test_prepare_index_does_not_treat_remote_failure_as_missing_branch(
     index_dir = repository / "index"
 
     with pytest.raises(WorkspaceError, match="git ls-remote failed"):
-        IndexWorkspacePreparer(GitRepository(repository)).prepare("index", index_dir)
+        IndexWorkspacePreparer(GitSourceRepository(repository)).prepare(
+            "index", index_dir
+        )
 
     assert not index_dir.exists()
 
@@ -545,7 +548,7 @@ def test_update_publication_keeps_branch_ownership_and_skips_no_op_commits(
     """Generated index state and selected source files reach only their branches."""
 
     repository, remote, index_dir, state_file = _create_publication_workspace(tmp_path)
-    GitRepository(index_dir).materialize_sparse_paths(("gamma",))
+    GitIndexRepository(index_dir).materialize_sparse_paths(("gamma",))
     generated = index_dir / "gamma" / "repo" / "package.json"
     generated.parent.mkdir(parents=True)
     generated.write_text("{}\n", encoding="utf-8")
@@ -589,7 +592,7 @@ def test_update_publication_retains_index_commit_when_push_fails(
     """A failed push leaves the completed index commit and worktree available."""
 
     repository, _remote, index_dir, state_file = _create_publication_workspace(tmp_path)
-    GitRepository(index_dir).materialize_sparse_paths(("gamma",))
+    GitIndexRepository(index_dir).materialize_sparse_paths(("gamma",))
     generated = index_dir / "gamma" / "repo" / "package.json"
     generated.parent.mkdir(parents=True)
     generated.write_text("{}\n", encoding="utf-8")

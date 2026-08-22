@@ -5,12 +5,11 @@ from __future__ import annotations
 import json
 import re
 import sqlite3
-from collections.abc import Generator
-from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Literal
 
 from .support import DatabaseError
+from .support import transaction as _transaction
 
 OwnerQueueOutcome = Literal["updated", "paused", "missing", "deferred", "opted-out"]
 _OWNER_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9-]{0,38}")
@@ -609,14 +608,3 @@ def _validate_time(now: int) -> None:
 def _validate_status(status: str) -> None:
     if status not in {"ready", "claimed", "paused", "completed"}:
         raise DatabaseError(f"invalid owner queue status: {status}")
-
-
-@contextmanager
-def _transaction(connection: sqlite3.Connection) -> Generator[None]:
-    connection.execute("begin immediate")
-    try:
-        yield
-    except BaseException:
-        connection.rollback()
-        raise
-    connection.commit()

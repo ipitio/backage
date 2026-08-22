@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import httpx
 
-from bkg_py.discovery_fallback import PublicHtmlDiscoveryTraversal
+from bkg_py.discovery.fallback import PublicHtmlDiscoveryTraversal
 from bkg_py.github import GitHubClient, GitHubSettings
 
 

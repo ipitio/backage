@@ -3,8 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
-from collections.abc import Generator, Sequence
-from contextlib import contextmanager
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 from . import batch_progress, catalog, package_history, version_history
@@ -20,7 +19,8 @@ from .models import (
     PackageCatalogPath,
     PackageRef,
 )
-from .support import DatabaseError
+from .support import DatabaseError, SqlIdentifier
+from .support import transaction as _transaction
 
 _SCANS = '"bkg_owner_scans"'
 _SCAN_PACKAGES = '"bkg_owner_scan_packages"'
@@ -56,21 +56,7 @@ class OwnerScanCompletion:
     completed_at: int
 
 
-def _identifier(value: str) -> str:
-    if "\x00" in value:
-        raise DatabaseError("SQLite identifiers cannot contain NUL")
-    return f'"{value.replace(chr(34), chr(34) * 2)}"'
-
-
-@contextmanager
-def _transaction(connection: sqlite3.Connection) -> Generator[None]:
-    connection.execute("begin immediate")
-    try:
-        yield
-    except BaseException:
-        connection.rollback()
-        raise
-    connection.commit()
+_identifier = SqlIdentifier
 
 
 def _require_active(

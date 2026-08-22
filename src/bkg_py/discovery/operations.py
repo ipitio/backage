@@ -8,14 +8,38 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
-from .files import atomic_text_output
-from .owners import OwnerPageAdmissionResult, normalize_owner_lines
+from ..files import atomic_text_output
+from .values import normalize_owner_lines
 
 MessageSink = Callable[[str], None]
 StopCheck = Callable[[], None]
 Clock = Callable[[], float]
-OwnerPageAdmitter = Callable[[int, int], OwnerPageAdmissionResult]
 CompleteExploreGate = Callable[[str], None]
+
+
+class OwnerPageAdmission(Protocol):
+    """Discovery-visible outcome from admitting one global owner page."""
+
+    @property
+    def admitted_count(self) -> int:
+        """Return how many previously unknown owners were admitted."""
+
+        raise NotImplementedError
+
+    @property
+    def has_more(self) -> bool:
+        """Return whether another global owner page may exist."""
+
+        raise NotImplementedError
+
+    @property
+    def requested_logins(self) -> tuple[str, ...]:
+        """Return newly admitted logins that should be requested upstream."""
+
+        raise NotImplementedError
+
+
+OwnerPageAdmitter = Callable[[int, int], OwnerPageAdmission]
 
 
 class DiscoveryTraversal(Protocol):

@@ -9,9 +9,9 @@ from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
 
-from ..database import DatabaseRepository
+from ..database.package_repository import PackageRepository
 from ..publication import PublicationLimits, publish_json_file
-from ..rendering import (
+from ..publication.rendering import (
     AggregateSettings,
     DatabaseAggregateOptions,
     render_database_aggregate,
@@ -42,7 +42,7 @@ class OwnerPublicationService:  # pylint: disable=too-few-public-methods
 
     def __init__(
         self,
-        repository: DatabaseRepository,
+        repository: PackageRepository,
         aggregate_settings: AggregateSettings,
         publication_limits: PublicationLimits,
         check_stop: StopCheck,

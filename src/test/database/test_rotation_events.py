@@ -4,11 +4,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from bkg_py.database import (
-    DatabaseRepository,
-    DatabaseRotationEvent,
-    DatabaseSettings,
-)
+from bkg_py.database.composition import DatabaseRepositories
+from bkg_py.database.models import DatabaseRotationEvent
+from bkg_py.database.settings import DatabaseSettings
 
 
 def test_rotation_events_preserve_release_history_across_rotation_cleanup(
@@ -16,7 +14,7 @@ def test_rotation_events_preserve_release_history_across_rotation_cleanup(
 ) -> None:
     """Multiple same-day events survive pruning and remain release-scoped."""
 
-    repository = DatabaseRepository(DatabaseSettings(tmp_path / "index.db"))
+    repository = DatabaseRepositories(DatabaseSettings(tmp_path / "index.db"))
     first = DatabaseRotationEvent(
         "v2026.7.0",
         "2026-07-05T01:02:03.000004Z",
@@ -42,24 +40,26 @@ def test_rotation_events_preserve_release_history_across_rotation_cleanup(
         "2026-07-10",
     )
     for event in (second, next_release, first):
-        repository.record_database_rotation(event)
+        repository.rotations.record_database_rotation(event)
 
-    repository.cleanup_replaced_legacy_tables(
+    repository.packages.cleanup_replaced_legacy_tables(
         since="2026-07-01",
         prune_normalized=True,
     )
 
-    assert repository.database_rotations_for_release("v2026.7.0") == (
+    assert repository.rotations.database_rotations_for_release("v2026.7.0") == (
         first,
         second,
     )
-    assert repository.database_rotations_for_release("v2026.7.1") == (next_release,)
+    assert repository.rotations.database_rotations_for_release("v2026.7.1") == (
+        next_release,
+    )
 
 
 def test_rotation_event_record_is_idempotent_by_archive_name(tmp_path: Path) -> None:
     """Retrying one archive event updates its measurements without duplication."""
 
-    repository = DatabaseRepository(DatabaseSettings(tmp_path / "index.db"))
+    repository = DatabaseRepositories(DatabaseSettings(tmp_path / "index.db"))
     event = DatabaseRotationEvent(
         "v2026.7.0",
         "2026-07-05T01:02:03.000004Z",
@@ -68,7 +68,7 @@ def test_rotation_event_record_is_idempotent_by_archive_name(tmp_path: Path) -> 
         75,
         "2026-06-12",
     )
-    repository.record_database_rotation(event)
+    repository.rotations.record_database_rotation(event)
     corrected = DatabaseRotationEvent(
         event.release_tag,
         event.rotated_at,
@@ -78,6 +78,8 @@ def test_rotation_event_record_is_idempotent_by_archive_name(tmp_path: Path) -> 
         event.retained_since,
     )
 
-    repository.record_database_rotation(corrected)
+    repository.rotations.record_database_rotation(corrected)
 
-    assert repository.database_rotations_for_release(event.release_tag) == (corrected,)
+    assert repository.rotations.database_rotations_for_release(event.release_tag) == (
+        corrected,
+    )

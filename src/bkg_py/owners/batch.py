@@ -20,7 +20,11 @@ from ..concurrency import (
     TaskInterruption,
     WorkerEvent,
 )
-from ..database import OwnerQueueCompletion, OwnerQueueEntry, OwnerQueueOutcome
+from ..database.owner_queue import (
+    OwnerQueueCompletion,
+    OwnerQueueEntry,
+    OwnerQueueOutcome,
+)
 from ..files import atomic_text_output
 from ..result import ExitStatus
 from ..runtime import GracefulStop, peak_resident_memory_mib
@@ -44,13 +48,17 @@ _OWNER_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9-]{0,38}")
 _OWNER_MATERIALIZATION_WAVE_SIZE = 100
 
 
-class OwnerBatchRepository(Protocol):
-    """Database operations needed by outer owner execution and effects."""
+class OwnerRetirementRepository(Protocol):  # pylint: disable=too-few-public-methods
+    """Package retirement needed by outer owner effects."""
 
     def retire_owner(self, owner: str) -> int:
         """Remove one owner's persisted package state."""
 
         raise NotImplementedError
+
+
+class OwnerQueueClaimRepository(Protocol):
+    """Durable owner claim operations needed by outer owner execution."""
 
     def claim_owner_queue_wave(
         self,
@@ -105,7 +113,8 @@ class OwnerBatchItem:
 class OwnerBatchEffects:
     """Apply owner outcomes to durable database, source, and generated files."""
 
-    repository: OwnerBatchRepository
+    retirement: OwnerRetirementRepository
+    owner_queue: OwnerQueueClaimRepository
     state: StateStore
     owners_file: Path
     index_dir: Path
@@ -176,7 +185,7 @@ class OwnerBatchEffects:
             self.progress(f"Retired unavailable owner {owner.owner}")
 
     def _retire_storage(self, owner: str) -> None:
-        self.repository.retire_owner(owner)
+        self.retirement.retire_owner(owner)
         owner_dir = self.index_dir / owner
         if owner_dir.exists():
             shutil.rmtree(owner_dir)
@@ -247,7 +256,7 @@ class OwnerBatchService:  # pylint: disable=too-few-public-methods
         wave_number = 1
         while True:
             claim_started_at = time.monotonic()
-            claimed = self.effects.repository.claim_owner_queue_wave(
+            claimed = self.effects.owner_queue.claim_owner_queue_wave(
                 request.batch_marker,
                 self.materialization_wave_size,
                 claim_token,
@@ -414,7 +423,7 @@ class OwnerBatchService:  # pylint: disable=too-few-public-methods
                     _required_result(completed),
                 )
             )
-            self.effects.repository.finish_owner_queue_claim(
+            self.effects.owner_queue.finish_owner_queue_claim(
                 OwnerQueueCompletion(
                     generation=generation,
                     owner_id=item.owner.owner_id,

@@ -7,14 +7,14 @@ from pathlib import Path
 import pytest
 
 from bkg_py.concurrency import BoundedWorkerRunner, ConcurrencySettings
-from bkg_py.database import (
-    DatabaseRepository,
-    DatabaseSettings,
+from bkg_py.database.composition import DatabaseRepositories
+from bkg_py.database.models import (
     OwnerScanPackage,
     PackageBatch,
     PackageRecord,
     PackageRef,
 )
+from bkg_py.database.settings import DatabaseSettings
 from bkg_py.owners.package_updates import (
     OwnerPackageRefreshExecution,
     OwnerPackageRefreshRequest,
@@ -110,7 +110,7 @@ def test_owner_package_refresh_continues_after_expected_package_failure(
         for index in range(3)
     )
     service = OwnerPackageRefreshService(
-        DatabaseRepository(DatabaseSettings(tmp_path / "index.db")),
+        DatabaseRepositories(DatabaseSettings(tmp_path / "index.db")).packages,
         FakeGitHubClient(),
         _execution(tmp_path, progress, diagnostics),
     )
@@ -148,7 +148,7 @@ def test_owner_package_refresh_propagates_graceful_stop(
 
     monkeypatch.setattr(PackageRefreshService, "refresh", refresh)
     service = OwnerPackageRefreshService(
-        DatabaseRepository(DatabaseSettings(tmp_path / "index.db")),
+        DatabaseRepositories(DatabaseSettings(tmp_path / "index.db")).packages,
         FakeGitHubClient(),
         _execution(tmp_path, [], []),
     )
@@ -171,7 +171,7 @@ def test_owner_page_service_advances_multiple_pages_with_one_client(
 ) -> None:
     """One bounded service pass stages and advances every fetched page."""
 
-    repository = DatabaseRepository(DatabaseSettings(tmp_path / "index.db"))
+    repository = DatabaseRepositories(DatabaseSettings(tmp_path / "index.db"))
     package = PackageRef(
         "42",
         "orgs",
@@ -180,8 +180,10 @@ def test_owner_page_service_advances_multiple_pages_with_one_client(
         "repo",
         "package",
     )
-    repository.write_package(PackageRecord(package, 1, 1, 1, 1, 1, "2026-06-28"))
-    repository.mark_package_batch_completed(package, "batch-1", "2026-06-28")
+    repository.packages.write_package(
+        PackageRecord(package, 1, 1, 1, 1, 1, "2026-06-28")
+    )
+    repository.packages.mark_package_batch_completed(package, "batch-1", "2026-06-28")
     departed = PackageRef(
         "42",
         "orgs",
@@ -190,9 +192,11 @@ def test_owner_page_service_advances_multiple_pages_with_one_client(
         "old-repo",
         "departed",
     )
-    repository.write_package(PackageRecord(departed, 1, 1, 1, 1, 1, "2026-06-27"))
+    repository.packages.write_package(
+        PackageRecord(departed, 1, 1, 1, 1, 1, "2026-06-27")
+    )
     marker = "batch-1:42:100"
-    repository.begin_owner_scan("42", "example", marker, 100)
+    repository.owners.begin_owner_scan("42", "example", marker, 100)
     first_url = (
         "https://github.com/orgs/example/packages?visibility=public&per_page=100&page=1"
     )
@@ -223,12 +227,12 @@ def test_owner_page_service_advances_multiple_pages_with_one_client(
     timestamps = iter((101, 102, 103, 104, 105, 106))
 
     package_refresh = OwnerPackageRefreshService(
-        repository,
+        repository.packages,
         client,
         _execution(tmp_path, progress, []),
     )
     pages = OwnerScanPageService(
-        repository,
+        repository.owners,
         client,
         package_refresh,
         OwnerScanPageExecution(
@@ -238,7 +242,7 @@ def test_owner_page_service_advances_multiple_pages_with_one_client(
         ),
     )
     result = OwnerScanService(
-        repository,
+        repository.owners,
         client,
         pages,
         package_refresh,
@@ -259,7 +263,7 @@ def test_owner_page_service_advances_multiple_pages_with_one_client(
     assert result.reconciliation.completion.removed == (departed,)
     assert client.text_requests == [first_url, second_url]
     assert client.rest_requests == ["orgs/example/packages/container/departed"]
-    cursor = repository.current_owner_scan("42", "batch-1")
+    cursor = repository.owners.current_owner_scan("42", "batch-1")
     assert cursor is None
     assert progress == [
         "Starting example page 1...",

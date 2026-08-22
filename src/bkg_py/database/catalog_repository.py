@@ -2,34 +2,15 @@
 
 from __future__ import annotations
 
-import sqlite3
-from abc import ABC, abstractmethod
-from collections.abc import Callable, Iterable
-from typing import Any
+from collections.abc import Iterable
 
 from . import catalog, package_history
+from .kernel import DatabaseComponent
 from .models import PackageCatalogPath, PackageCatalogStatus
-from .settings import DatabaseSettings
 
 
-class PackageCatalogRepositoryMixin(ABC):
-    """Add catalog initialization and status operations to the repository."""
-
-    settings: DatabaseSettings
-
-    @abstractmethod
-    def ensure_schema(self) -> None:
-        """Create or migrate the lazy normalized schema."""
-
-        raise NotImplementedError
-
-    @abstractmethod
-    def _run_read(self, operation: Callable[[sqlite3.Connection], Any]) -> Any:
-        raise NotImplementedError
-
-    @abstractmethod
-    def _run_write(self, operation: Callable[[sqlite3.Connection], Any]) -> Any:
-        raise NotImplementedError
+class PackageCatalogRepository(DatabaseComponent):
+    """Provide catalog initialization and status operations."""
 
     def package_catalog_status(self) -> PackageCatalogStatus | None:
         """Return committed catalog state, or None before initialization."""

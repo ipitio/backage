@@ -3,8 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
-from collections.abc import Generator, Iterable
-from contextlib import contextmanager
+from collections.abc import Iterable
 
 from .models import (
     PackageCatalogPath,
@@ -13,7 +12,8 @@ from .models import (
     PackageRecord,
     PackageRef,
 )
-from .support import DatabaseError
+from .support import DatabaseError, SqlIdentifier
+from .support import transaction as _transaction
 from .values import package_values
 
 CATALOG_TABLE = "bkg_package_catalog"
@@ -21,25 +21,7 @@ CATALOG_STATE_TABLE = "bkg_package_catalog_state"
 _SCAN_PACKAGES_TABLE = "bkg_owner_scan_packages"
 
 
-class _SqlIdentifier(str):
-    """A SQLite identifier quoted before statement construction."""
-
-    def __new__(cls, value: str) -> _SqlIdentifier:
-        if "\x00" in value:
-            raise DatabaseError("SQLite identifiers cannot contain NUL")
-        quoted = f'"{value.replace(chr(34), chr(34) * 2)}"'
-        return str.__new__(cls, quoted)
-
-
-@contextmanager
-def _transaction(connection: sqlite3.Connection) -> Generator[None]:
-    connection.execute("begin immediate")
-    try:
-        yield
-    except BaseException:
-        connection.rollback()
-        raise
-    connection.commit()
+_SqlIdentifier = SqlIdentifier
 
 
 def status(connection: sqlite3.Connection) -> PackageCatalogStatus | None:

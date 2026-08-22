@@ -1,4 +1,4 @@
-"""Tests for owner identity discovery helpers."""
+"""Tests for authenticated owner identity and traversal behavior."""
 
 from __future__ import annotations
 

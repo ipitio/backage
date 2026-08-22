@@ -9,13 +9,13 @@ from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from typing import Literal, Protocol
 
-from ..database import (
-    DatabaseRepository,
+from ..database.models import (
     OwnerRecord,
     OwnerScanCursor,
     OwnerScanResult,
     OwnerScanStart,
 )
+from ..database.owner_repository import OwnerScanRepository
 from ..runtime_names import (
     StateKey,
     legacy_owner_page_key,
@@ -119,7 +119,7 @@ class OwnerLifecycleService:  # pylint: disable=too-few-public-methods
 
     def __init__(
         self,
-        repository: DatabaseRepository,
+        repository: OwnerScanRepository,
         services: OwnerLifecycleServices,
         execution: OwnerLifecycleExecution,
     ) -> None:

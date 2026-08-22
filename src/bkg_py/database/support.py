@@ -14,6 +14,25 @@ class DatabaseError(RuntimeError):
     """A database operation or staged record is invalid."""
 
 
+class SqlFragment(str):
+    """A statement fragment constructed by trusted database code."""
+
+
+class SqlIdentifier(SqlFragment):
+    """A SQLite identifier quoted before statement construction."""
+
+    def __new__(cls, value: str) -> SqlIdentifier:
+        if "\x00" in value:
+            raise DatabaseError("SQLite identifiers cannot contain NUL")
+        return str.__new__(cls, f'"{value.replace(chr(34), chr(34) * 2)}"')
+
+
+def sql(statement: str, /, **fragments: SqlFragment) -> str:
+    """Substitute only trusted fragments into a SQL statement."""
+
+    return statement.format_map(fragments)
+
+
 def required_text(value: Mapping[str, Any], key: str) -> str:
     """Return a required nonempty text field."""
 

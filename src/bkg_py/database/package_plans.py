@@ -9,7 +9,8 @@ from dataclasses import dataclass
 from typing import Any
 
 from .models import PackageWorkItem, PackageWorkPlan
-from .support import DatabaseError
+from .support import SqlIdentifier
+from .support import sql as _sql
 
 
 @dataclass(frozen=True)
@@ -22,14 +23,7 @@ class PackagePlanSelection:
     batch_marker: str = ""
 
 
-class _SqlIdentifier(str):
-    """A SQLite identifier quoted before statement construction."""
-
-    def __new__(cls, value: str) -> _SqlIdentifier:
-        if "\x00" in value:
-            raise DatabaseError("SQLite identifiers cannot contain NUL")
-        quoted = f'"{value.replace(chr(34), chr(34) * 2)}"'
-        return str.__new__(cls, quoted)
+_SqlIdentifier = SqlIdentifier
 
 
 def load(
@@ -166,10 +160,6 @@ def _completed_rows(
         )
         parameters = (since,)
     return connection.execute(statement, parameters).fetchall()
-
-
-def _sql(statement: str, /, **identifiers: _SqlIdentifier) -> str:
-    return statement.format_map(identifiers)
 
 
 def _package_work_item(row: tuple[Any, ...] | sqlite3.Row) -> PackageWorkItem:

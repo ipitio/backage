@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import sqlite3
-from collections.abc import Callable, Generator
-from contextlib import contextmanager
+from collections.abc import Callable
 
 from . import batch_progress, catalog, package_history, version_history
 from .models import PackageInventory, PackageRecord, PackageRef
-from .support import DatabaseError
+from .support import SqlIdentifier
+from .support import sql as _sql
+from .support import transaction as _transaction
 from .values import package_values
 
 _PUBLICATION_UPSERT = """
@@ -31,29 +32,7 @@ _PUBLICATION_DELETE = """
 """
 
 
-class _SqlIdentifier(str):
-    """A SQLite identifier quoted before statement construction."""
-
-    def __new__(cls, value: str) -> _SqlIdentifier:
-        if "\x00" in value:
-            raise DatabaseError("SQLite identifiers cannot contain NUL")
-        quoted = f'"{value.replace(chr(34), chr(34) * 2)}"'
-        return str.__new__(cls, quoted)
-
-
-def _sql(statement: str, /, **identifiers: _SqlIdentifier) -> str:
-    return statement.format_map(identifiers)
-
-
-@contextmanager
-def _transaction(connection: sqlite3.Connection) -> Generator[None]:
-    connection.execute("begin immediate")
-    try:
-        yield
-    except BaseException:
-        connection.rollback()
-        raise
-    connection.commit()
+_SqlIdentifier = SqlIdentifier
 
 
 def write(

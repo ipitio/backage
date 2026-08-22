@@ -9,27 +9,30 @@ from pathlib import Path
 
 import pytest
 
-from bkg_py.database import (
+from bkg_py.database.composition import DatabaseRepositories
+from bkg_py.database.dashboard import (
     DashboardDistributionItem,
     DashboardFreshnessBucket,
     DashboardMetricCoverage,
     DashboardProjection,
-    DatabaseError,
-    DatabaseRepository,
+)
+from bkg_py.database.models import (
     DatabaseRotationEvent,
-    DatabaseSettings,
     PackageInventory,
     PackageRecord,
     PackageRef,
 )
+from bkg_py.database.settings import DatabaseSettings
+from bkg_py.database.support import DatabaseError
+from bkg_py.publication.site_shell import SITE_SHELL_VERSION
 from bkg_py.run.publication import (
     RunPublicationIdentity,
     RunPublicationPaths,
+    RunPublicationRepositories,
     RunPublicationRequest,
     RunPublicationService,
 )
 from bkg_py.runtime_names import RunFile
-from bkg_py.site_shell import SITE_SHELL_VERSION
 from bkg_py.state import StateStore
 
 _SITE_ENTRYPOINT = "index.html"
@@ -52,6 +55,12 @@ class _InventoryRepository:
         if self.dashboard_error is not None:
             raise DatabaseError(self.dashboard_error)
         return _dashboard_projection(self.inventory)
+
+
+def _publication_repositories(
+    repository: _InventoryRepository,
+) -> RunPublicationRepositories:
+    return RunPublicationRepositories(repository, repository)
 
 
 def _dashboard_projection(inventory: PackageInventory) -> DashboardProjection:
@@ -158,7 +167,7 @@ def test_run_publication_hydrates_outputs_and_prunes_transient_state(
     messages: list[str] = []
 
     result = RunPublicationService(
-        _InventoryRepository(inventory),
+        _publication_repositories(_InventoryRepository(inventory)),
         state,
         lambda: None,
         messages.append,
@@ -263,7 +272,7 @@ def test_run_publication_retains_dashboard_when_projection_fails(
     inventory = PackageInventory(1, 2, 3)
 
     result = RunPublicationService(
-        _InventoryRepository(inventory, "projection failed"),
+        _publication_repositories(_InventoryRepository(inventory, "projection failed")),
         StateStore(tmp_path / "state.env"),
         lambda: None,
         messages.append,
@@ -308,7 +317,7 @@ def test_run_publication_retains_shell_when_bundle_verification_fails(
     messages: list[str] = []
 
     result = RunPublicationService(
-        _InventoryRepository(PackageInventory(1, 2, 3)),
+        _publication_repositories(_InventoryRepository(PackageInventory(1, 2, 3))),
         StateStore(tmp_path / "state.env"),
         lambda: None,
         messages.append,
@@ -336,7 +345,7 @@ def test_run_publication_retains_shell_when_bundle_verification_fails(
 def test_package_inventory_counts_distinct_published_paths(tmp_path: Path) -> None:
     """Inventory counts preserve the prior owner and repository grouping."""
 
-    repository = DatabaseRepository(DatabaseSettings(tmp_path / "index.db"))
+    repository = DatabaseRepositories(DatabaseSettings(tmp_path / "index.db"))
     packages = (
         PackageRef("1", "users", "container", "Alpha", "one", "a"),
         PackageRef("1", "users", "container", "Alpha", "one", "b"),
@@ -344,9 +353,11 @@ def test_package_inventory_counts_distinct_published_paths(tmp_path: Path) -> No
         PackageRef("2", "orgs", "container", "Beta", "one", "d"),
     )
     for package in packages:
-        repository.write_package(PackageRecord(package, 1, 1, 1, 1, 1, "2026-07-02"))
+        repository.packages.write_package(
+            PackageRecord(package, 1, 1, 1, 1, 1, "2026-07-02")
+        )
 
-    inventory = repository.package_inventory()
+    inventory = repository.packages.package_inventory()
 
     assert inventory == PackageInventory(owners=2, repositories=3, packages=4)
 
@@ -373,7 +384,7 @@ def test_publication_rejects_rotation_events_from_another_release(
 
     with pytest.raises(ValueError, match=r"do not belong to release v2026\.7\.0"):
         RunPublicationService(
-            _InventoryRepository(PackageInventory(1, 1, 1)),
+            _publication_repositories(_InventoryRepository(PackageInventory(1, 1, 1))),
             StateStore(tmp_path / "state.env"),
             lambda: None,
         ).publish(request)

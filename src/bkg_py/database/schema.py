@@ -6,15 +6,10 @@ import sqlite3
 
 from . import package_history, version_history
 from .schema_sql import OWNER_SCAN_SCHEMA_MIGRATIONS, SCHEMA_SQL
-from .support import DatabaseError
+from .support import SqlIdentifier
+from .support import sql as _sql
 
-
-class _SqlIdentifier(str):
-    def __new__(cls, value: str) -> _SqlIdentifier:
-        if "\x00" in value:
-            raise DatabaseError("SQLite identifiers cannot contain NUL")
-        quoted = f'"{value.replace(chr(34), chr(34) * 2)}"'
-        return str.__new__(cls, quoted)
+_SqlIdentifier = SqlIdentifier
 
 
 def ensure(
@@ -45,7 +40,3 @@ def ensure(
             connection.execute(statement)
     version_history.ensure(connection, versions_table)
     package_history.ensure(connection, packages_table)
-
-
-def _sql(statement: str, /, **identifiers: _SqlIdentifier) -> str:
-    return statement.format_map(identifiers)

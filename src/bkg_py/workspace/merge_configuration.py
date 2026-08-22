@@ -6,7 +6,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from ..files import atomic_text_output
-from .repository import GitLocalConfiguration, GitRepository, WorkspaceError
+from .git import GitCommandRunner, WorkspaceError
+from .source import GitSourceRepository
 
 _MERGE_DRIVER = "bkg-local"
 _ATTRIBUTE_COMMENT = "# Preserve deployment-local bkg inputs during merges."
@@ -15,6 +16,33 @@ _MERGE_ATTRIBUTES = (
     f"optout.txt merge={_MERGE_DRIVER}",
     f"README.md merge={_MERGE_DRIVER}",
 )
+
+
+class GitLocalConfiguration(GitCommandRunner):
+    """Read and write clone-local Git administration settings."""
+
+    def git_path(self, path: str) -> Path:
+        """Resolve one repository administration path through Git."""
+
+        if not path:
+            raise WorkspaceError("Git administration path is required")
+        value = self._run(
+            ("rev-parse", "--git-path", path),
+            required=True,
+        ).stdout.strip()
+        if not value:
+            raise WorkspaceError(f"Git returned an empty path for {path}")
+        resolved = Path(value)
+        if not resolved.is_absolute():
+            resolved = self.path / resolved
+        return resolved.resolve()
+
+    def set_value(self, key: str, value: str) -> None:
+        """Set one clone-local Git configuration value."""
+
+        if not key:
+            raise WorkspaceError("Git configuration key is required")
+        self._run(("config", "--local", key, value), required=True)
 
 
 @dataclass(frozen=True)
@@ -29,7 +57,7 @@ def configure_fork_merge(repository_path: Path) -> ForkMergeConfiguration:
     """Keep deployment-owned inputs when upstream is merged into this clone."""
 
     resolved_path = repository_path.resolve()
-    repository = GitRepository(resolved_path)
+    repository = GitSourceRepository(resolved_path)
     if not repository.is_worktree():
         raise WorkspaceError(f"not a Git worktree: {resolved_path}")
     local = GitLocalConfiguration(resolved_path)

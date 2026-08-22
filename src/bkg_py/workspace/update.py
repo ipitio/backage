@@ -20,19 +20,14 @@ from ..runtime_names import EnvironmentVariable as Env
 from ..runtime_names import StateKey
 from ..snapshots import SnapshotArchive, SnapshotError
 from ..state import StateStore, StateValueError
-from .handoff import WorkflowHandoffControl
+from .git import WorkspaceError
+from .handoff import GitControlRefRepository, WorkflowHandoffControl
+from .index import GitIndexRepository, IndexWorkspacePreparer, ensure_pages_root
 from .layout import WorkspaceLayout
 from .payload import import_workflow_payload
 from .publication import UpdateWorkspacePublisher, published_run_status
-from .repository import (
-    GitControlRefRepository,
-    GitRepository,
-    IndexWorkspacePreparer,
-    WorkspaceError,
-    clone_repository,
-    ensure_pages_root,
-)
 from .settings import WorkspaceSettings
+from .source import GitSourceRepository, clone_repository
 
 MessageSink = Callable[[str], None]
 _MINIMUM_SNAPSHOT_BYTES = 100
@@ -96,7 +91,7 @@ class PreparedUpdateWorkspace:
     """Services and paths prepared for one application run."""
 
     root: Path
-    repository: GitRepository
+    repository: GitSourceRepository
     layout: WorkspaceLayout
     state_file: Path
     application: ApplicationContext
@@ -238,7 +233,7 @@ class UpdateWorkflowService:  # pylint: disable=too-few-public-methods
         root: Path,
         request: UpdateWorkflowRequest,
         settings: WorkspaceSettings,
-    ) -> tuple[GitRepository, WorkspaceSettings]:
+    ) -> tuple[GitSourceRepository, WorkspaceSettings]:
         repository = self._repository(root, settings)
         if repository.is_worktree():
             resolved = self._resolve_credentials(settings, repository.remote_url())
@@ -264,8 +259,8 @@ class UpdateWorkflowService:  # pylint: disable=too-few-public-methods
         )
 
     @staticmethod
-    def _repository(path: Path, settings: WorkspaceSettings) -> GitRepository:
-        return GitRepository(
+    def _repository(path: Path, settings: WorkspaceSettings) -> GitSourceRepository:
+        return GitSourceRepository(
             path,
             environment=settings.resolved_mapping(),
             redacted_values=settings.redacted_values(),
@@ -338,8 +333,8 @@ class UpdateWorkflowService:  # pylint: disable=too-few-public-methods
         archive: SnapshotArchive | None,
     ) -> None:
         snapshot_size = _snapshot_or_database_size(archive, layout.index_db)
-        owner_count = application.database.package_inventory().owners
-        index_owner_count = GitRepository(
+        owner_count = application.database.packages.package_inventory().owners
+        index_owner_count = GitIndexRepository(
             layout.index_dir,
             environment=application.settings.source,
             redacted_values=(application.github_settings.token,),
@@ -409,7 +404,7 @@ class UpdateWorkflowService:  # pylint: disable=too-few-public-methods
             _make_shared_path(path)
 
     @staticmethod
-    def _source_published_today(repository: GitRepository) -> bool:
+    def _source_published_today(repository: GitSourceRepository) -> bool:
         epoch = repository.latest_commit_epoch("master")
         if epoch is None:
             return False

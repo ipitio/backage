@@ -10,15 +10,15 @@ import pytest
 
 import bkg_py.packages.updates
 from bkg_py.concurrency import BoundedWorkerRunner, ConcurrencySettings
-from bkg_py.database import (
-    DatabaseRepository,
-    DatabaseSettings,
+from bkg_py.database.composition import DatabaseRepositories
+from bkg_py.database.models import (
     PackageRecord,
     PackageRef,
     VersionMetrics,
     VersionRecord,
     VersionStage,
 )
+from bkg_py.database.settings import DatabaseSettings
 from bkg_py.github import GitHubNotFoundError, GitHubTransportError
 from bkg_py.packages.enrichment import METRIC_TEXT_REQUEST_POLICY
 from bkg_py.packages.registry.artifacts import (
@@ -179,7 +179,7 @@ def test_missing_package_detail_stays_pending_without_response_body_diagnostic(
     )
 
     result = PackageRefreshService(
-        DatabaseRepository(DatabaseSettings(tmp_path / "index.db")),
+        DatabaseRepositories(DatabaseSettings(tmp_path / "index.db")).packages,
         client,
         execution,
     ).refresh(_request(package, destination))
@@ -194,7 +194,7 @@ def test_refresh_commits_versions_package_and_publication(
     """One Python operation owns network ingestion through JSON/XML publication."""
 
     package = _package()
-    repository = DatabaseRepository(DatabaseSettings(tmp_path / "index.db"))
+    repository = DatabaseRepositories(DatabaseSettings(tmp_path / "index.db")).packages
     destination = tmp_path / "index" / package.owner / package.repo / "Demo.json"
     optout_file = tmp_path / "optout.txt"
     optout_file.write_text("", encoding="utf-8")
@@ -247,7 +247,7 @@ def test_transient_package_metrics_continue_with_previous_totals(
     """Optional package metrics do not block version and publication work."""
 
     package = _package()
-    repository = DatabaseRepository(DatabaseSettings(tmp_path / "index.db"))
+    repository = DatabaseRepositories(DatabaseSettings(tmp_path / "index.db")).packages
     repository.write_package(replace(_package_record(package), date="2026-06-25"))
     destination = tmp_path / "index" / package.owner / package.repo / "Demo.json"
     optout_file = tmp_path / "optout.txt"
@@ -282,7 +282,7 @@ def test_refresh_rejects_a_publication_marker_that_did_not_clear(
     """A refresh cannot report success while its files remain pending."""
 
     package = _package()
-    repository = DatabaseRepository(DatabaseSettings(tmp_path / "index.db"))
+    repository = DatabaseRepositories(DatabaseSettings(tmp_path / "index.db")).packages
     destination = tmp_path / "index" / package.owner / package.repo / "Demo.json"
     optout_file = tmp_path / "optout.txt"
     optout_file.write_text("", encoding="utf-8")
@@ -316,7 +316,7 @@ def test_interrupted_publication_keeps_old_files_and_pending_marker(
     """Committed data remains queued when publication stops before replacement."""
 
     package = _package()
-    repository = DatabaseRepository(DatabaseSettings(tmp_path / "index.db"))
+    repository = DatabaseRepositories(DatabaseSettings(tmp_path / "index.db")).packages
     repository.write_package(_package_record(package))
     repository.flush_version_stage(
         VersionStage(package, "legacy_versions", False, (_version(),))
@@ -352,7 +352,7 @@ def test_pending_publication_retries_without_network_requests(tmp_path: Path) ->
     """A later package operation publishes committed rows and clears the marker."""
 
     package = _package()
-    repository = DatabaseRepository(DatabaseSettings(tmp_path / "index.db"))
+    repository = DatabaseRepositories(DatabaseSettings(tmp_path / "index.db")).packages
     repository.write_package_pending_publication(_package_record(package))
     repository.flush_version_stage(
         VersionStage(package, "legacy_versions", False, (_version(),)),
@@ -378,7 +378,7 @@ def test_opted_out_package_removes_database_marker_and_files(tmp_path: Path) -> 
     """Package opt-out cleanup removes normalized and publication state together."""
 
     package = _package()
-    repository = DatabaseRepository(DatabaseSettings(tmp_path / "index.db"))
+    repository = DatabaseRepositories(DatabaseSettings(tmp_path / "index.db")).packages
     repository.write_package_pending_publication(_package_record(package))
     repository.flush_version_stage(
         VersionStage(package, "legacy_versions", False, (_version(),)),

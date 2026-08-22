@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import threading
-from collections.abc import Callable, Generator
+from collections.abc import Callable, Generator, Mapping
 from contextlib import contextmanager
 from pathlib import Path
 from typing import cast
 
 from ..runtime import StopController
-from .repository import GitControlRefRepository, WorkspaceError
+from .git import GitCommandRunner, WorkspaceError
 from .settings import HandoffSettings
 
 MessageSink = Callable[[str], None]
@@ -20,6 +20,106 @@ _REQUEST_ATTEMPTS = 3
 
 def _discard_message(_message: str) -> None:
     return
+
+
+class GitControlRefRepository(GitCommandRunner):
+    """Read and mutate one exact remote control ref without checkout changes."""
+
+    def remote_ref_sha(
+        self,
+        ref: str,
+        *,
+        remote: str = "origin",
+        timeout: float | None = None,
+    ) -> str | None:
+        """Return one exact remote ref SHA, or None when the ref is absent."""
+
+        result = self._run(
+            ("ls-remote", "--refs", remote, ref),
+            required=True,
+            timeout=timeout,
+        )
+        first_line = next(iter(result.stdout.splitlines()), "")
+        sha, _separator, _name = first_line.partition("\t")
+        return sha or None
+
+    def fetch_ref(
+        self,
+        ref: str,
+        *,
+        remote: str = "origin",
+        timeout: float | None = None,
+    ) -> str:
+        """Fetch one exact ref and return the fetched commit SHA."""
+
+        self._run(
+            ("fetch", "--quiet", "--no-tags", "--depth=1", remote, ref),
+            required=True,
+            timeout=timeout,
+        )
+        return self._run(
+            ("rev-parse", "FETCH_HEAD"),
+            required=True,
+        ).stdout.strip()
+
+    def empty_tree(self) -> str:
+        """Return Git's canonical empty-tree object ID."""
+
+        return self._run(("mktree",), input_text="", required=True).stdout.strip()
+
+    def commit_tree(
+        self,
+        message: str,
+        *,
+        parent: str | None = None,
+        additional_message: str | None = None,
+        environment: Mapping[str, str] | None = None,
+    ) -> str:
+        """Create an empty-tree commit without changing the worktree."""
+
+        arguments = ["commit-tree", self.empty_tree()]
+        if parent is not None:
+            arguments.extend(("-p", parent))
+        arguments.extend(("-m", message))
+        if additional_message is not None:
+            arguments.extend(("-m", additional_message))
+        return self._run(
+            arguments,
+            environment=environment,
+            required=True,
+        ).stdout.strip()
+
+    def commit_tree_id(self, commit: str) -> str:
+        """Return the tree object ID referenced by a commit."""
+
+        return self._run(
+            ("show", "-s", "--format=%T", commit),
+            required=True,
+        ).stdout.strip()
+
+    def commit_message(self, commit: str) -> str:
+        """Return a commit's complete message."""
+
+        return self._run(
+            ("show", "-s", "--format=%B", commit),
+            required=True,
+        ).stdout
+
+    def push_ref(
+        self,
+        commit: str,
+        ref: str,
+        *,
+        remote: str = "origin",
+        force_with_lease: str | None = None,
+    ) -> bool:
+        """Try to push one commit to a ref, returning False for a rejected race."""
+
+        arguments = ["push", "--quiet"]
+        if force_with_lease is not None:
+            arguments.append(f"--force-with-lease={ref}:{force_with_lease}")
+        arguments.extend((remote, f"{commit}:{ref}"))
+        return self._run(arguments).returncode == 0
 
 
 def scheduled_update_skip_reason(

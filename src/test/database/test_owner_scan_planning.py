@@ -6,10 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from bkg_py.database import (
-    DatabaseError,
-    DatabaseRepository,
-    DatabaseSettings,
+from bkg_py.database.composition import DatabaseRepositories
+from bkg_py.database.models import (
     OwnerScanPackage,
     OwnerScanPage,
     OwnerScanStart,
@@ -17,6 +15,8 @@ from bkg_py.database import (
     PackageRecord,
     PackageRef,
 )
+from bkg_py.database.settings import DatabaseSettings
+from bkg_py.database.support import DatabaseError
 
 _TODAY = "2026-06-10"
 
@@ -49,12 +49,12 @@ def test_owner_scan_cursor_replays_pages_and_selects_pending_work(
 ) -> None:
     """A page advances only after stale and unpublished work is selected."""
 
-    repository = DatabaseRepository(DatabaseSettings(tmp_path / "index.db"))
+    repository = DatabaseRepositories(DatabaseSettings(tmp_path / "index.db"))
     current = _package("current", "current")
     unpublished = _package("pending", "pending")
     discovered = _package("new", "new")
-    repository.write_package(_record(current))
-    repository.write_package_pending_publication(_record(unpublished))
+    repository.packages.write_package(_record(current))
+    repository.packages.write_package_pending_publication(_record(unpublished))
     observed = tuple(
         OwnerScanPackage(
             package.owner_type,
@@ -64,23 +64,23 @@ def test_owner_scan_cursor_replays_pages_and_selects_pending_work(
         )
         for package in (current, unpublished, discovered)
     )
-    cursor = repository.begin_or_resume_owner_scan(
+    cursor = repository.owners.begin_or_resume_owner_scan(
         OwnerScanStart(current.owner_id, current.owner, "batch-1", 100)
     )
 
     assert cursor.next_page == 1
     assert not cursor.resumed
     with pytest.raises(DatabaseError, match="expected page 1, got 2"):
-        repository.observe_owner_scan_page(
+        repository.owners.observe_owner_scan_page(
             OwnerScanPage(current.owner_id, cursor.marker, 2, 101),
             observed,
         )
-    repository.observe_owner_scan_page(
+    repository.owners.observe_owner_scan_page(
         OwnerScanPage(current.owner_id, cursor.marker, 1, 101),
         observed,
     )
     assert (
-        repository.owner_scan_packages_needing_refresh(
+        repository.owners.owner_scan_packages_needing_refresh(
             OwnerScanWorkSelection(
                 current.owner_id,
                 current.owner,
@@ -92,9 +92,9 @@ def test_owner_scan_cursor_replays_pages_and_selects_pending_work(
     )
 
     page = OwnerScanPage(current.owner_id, cursor.marker, 1, 102)
-    repository.advance_owner_scan_page(page)
-    repository.advance_owner_scan_page(page)
-    resumed = repository.begin_or_resume_owner_scan(
+    repository.owners.advance_owner_scan_page(page)
+    repository.owners.advance_owner_scan_page(page)
+    resumed = repository.owners.begin_or_resume_owner_scan(
         OwnerScanStart(current.owner_id, current.owner, "batch-1", 103)
     )
     assert resumed.next_page == 2
@@ -106,14 +106,14 @@ def test_owner_scan_staging_keeps_one_repository_identity_per_package(
 ) -> None:
     """Later observations replace repository aliases for one natural package."""
 
-    repository = DatabaseRepository(DatabaseSettings(tmp_path / "index.db"))
+    repository = DatabaseRepositories(DatabaseSettings(tmp_path / "index.db"))
     old = _package("old-repo", "shared")
     current = _package("current-repo", "shared")
-    repository.write_package(_record(old, "2026-06-09"))
-    repository.write_package(_record(current))
-    repository.begin_owner_scan(old.owner_id, old.owner, "scan-1", 100)
+    repository.packages.write_package(_record(old, "2026-06-09"))
+    repository.packages.write_package(_record(current))
+    repository.owners.begin_owner_scan(old.owner_id, old.owner, "scan-1", 100)
 
-    repository.observe_owner_scan(
+    repository.owners.observe_owner_scan(
         old.owner_id,
         "scan-1",
         (
@@ -133,7 +133,9 @@ def test_owner_scan_staging_keeps_one_repository_identity_per_package(
         101,
     )
 
-    assert repository.missing_owner_scan_packages(old.owner_id, "scan-1") == (old,)
+    assert repository.owners.missing_owner_scan_packages(old.owner_id, "scan-1") == (
+        old,
+    )
 
 
 def test_owner_refresh_plan_uses_normalized_rows_and_publication_state(
@@ -141,13 +143,13 @@ def test_owner_refresh_plan_uses_normalized_rows_and_publication_state(
 ) -> None:
     """Direct owner work is selected from current data and pending files."""
 
-    repository = DatabaseRepository(DatabaseSettings(tmp_path / "index.db"))
+    repository = DatabaseRepositories(DatabaseSettings(tmp_path / "index.db"))
     stale = _package("stale-repo", "stale")
     unpublished = _package("pending-repo", "pending")
     current = _package("current-repo", "current")
-    repository.write_package(_record(stale, "2026-06-09"))
+    repository.packages.write_package(_record(stale, "2026-06-09"))
 
-    stale_only = repository.owner_refresh_plan(
+    stale_only = repository.owners.owner_refresh_plan(
         stale.owner_id,
         stale.owner,
         _TODAY,
@@ -157,9 +159,9 @@ def test_owner_refresh_plan_uses_normalized_rows_and_publication_state(
         OwnerScanPackage("orgs", "container", "stale-repo", "stale"),
     )
 
-    repository.write_package_pending_publication(_record(unpublished))
-    repository.write_package(_record(current))
-    plan = repository.owner_refresh_plan(current.owner_id, current.owner, _TODAY)
+    repository.packages.write_package_pending_publication(_record(unpublished))
+    repository.packages.write_package(_record(current))
+    plan = repository.owners.owner_refresh_plan(current.owner_id, current.owner, _TODAY)
 
     assert plan.partially_updated
     assert plan.packages == (
@@ -167,9 +169,11 @@ def test_owner_refresh_plan_uses_normalized_rows_and_publication_state(
         OwnerScanPackage("orgs", "container", "pending-repo", "pending"),
     )
 
-    repository.write_package(_record(stale))
-    repository.clear_package_publication(unpublished)
-    complete = repository.owner_refresh_plan(current.owner_id, current.owner, _TODAY)
+    repository.packages.write_package(_record(stale))
+    repository.packages.clear_package_publication(unpublished)
+    complete = repository.owners.owner_refresh_plan(
+        current.owner_id, current.owner, _TODAY
+    )
     assert complete.partially_updated
     assert complete.pending_count == 0
 
@@ -179,11 +183,11 @@ def test_owner_refresh_plan_recovers_publication_only_work_directly(
 ) -> None:
     """Current data remains directly usable while every file is pending."""
 
-    repository = DatabaseRepository(DatabaseSettings(tmp_path / "index.db"))
+    repository = DatabaseRepositories(DatabaseSettings(tmp_path / "index.db"))
     unpublished = _package("pending-repo", "pending")
-    repository.write_package_pending_publication(_record(unpublished))
+    repository.packages.write_package_pending_publication(_record(unpublished))
 
-    plan = repository.owner_refresh_plan(
+    plan = repository.owners.owner_refresh_plan(
         unpublished.owner_id,
         unpublished.owner,
         _TODAY,
@@ -201,11 +205,11 @@ def test_owner_refresh_plan_distinguishes_same_day_batch_generations(
 ) -> None:
     """Owner planning agrees with the global plan for every batch marker."""
 
-    repository = DatabaseRepository(DatabaseSettings(tmp_path / "index.db"))
+    repository = DatabaseRepositories(DatabaseSettings(tmp_path / "index.db"))
     package = _package("current-repo", "current")
-    repository.write_package(_record(package))
+    repository.packages.write_package(_record(package))
 
-    first = repository.owner_refresh_plan(
+    first = repository.owners.owner_refresh_plan(
         package.owner_id,
         package.owner,
         _TODAY,
@@ -213,8 +217,8 @@ def test_owner_refresh_plan_distinguishes_same_day_batch_generations(
     )
     assert first.pending_count == 1
 
-    repository.mark_package_batch_completed(package, "batch-1", _TODAY)
-    completed = repository.owner_refresh_plan(
+    repository.packages.mark_package_batch_completed(package, "batch-1", _TODAY)
+    completed = repository.owners.owner_refresh_plan(
         package.owner_id,
         package.owner,
         _TODAY,
@@ -222,7 +226,7 @@ def test_owner_refresh_plan_distinguishes_same_day_batch_generations(
     )
     assert completed.pending_count == 0
 
-    next_batch = repository.owner_refresh_plan(
+    next_batch = repository.owners.owner_refresh_plan(
         package.owner_id,
         package.owner,
         _TODAY,

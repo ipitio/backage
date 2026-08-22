@@ -10,9 +10,8 @@ import pytest
 
 from bkg_py.application import ApplicationContext
 from bkg_py.concurrency import ConcurrencySettings
-from bkg_py.database import (
-    DatabaseRepository,
-    DatabaseSettings,
+from bkg_py.database.composition import DatabaseRepositories
+from bkg_py.database.models import (
     OwnerScanPackage,
     OwnerScanPage,
     OwnerScanResult,
@@ -22,6 +21,7 @@ from bkg_py.database import (
     PackageRecord,
     PackageRef,
 )
+from bkg_py.database.settings import DatabaseSettings
 from bkg_py.discovery import OwnerIdentityResolver
 from bkg_py.github import GitHubClient
 from bkg_py.owners.lifecycle import (
@@ -111,7 +111,7 @@ def _completed_scan(
 class _PackageRefresher:  # pylint: disable=too-few-public-methods
     def __init__(
         self,
-        repository: DatabaseRepository,
+        repository: DatabaseRepositories,
         *,
         apply_updates: bool = True,
     ) -> None:
@@ -137,11 +137,11 @@ class _PackageRefresher:  # pylint: disable=too-few-public-methods
                 package.repo,
                 package.package,
             )
-            self.repository.write_package(
+            self.repository.packages.write_package(
                 PackageRecord(reference, 1, 1, 1, 1, 1, request.since)
             )
-            self.repository.clear_package_publication(reference)
-            self.repository.mark_package_batch_completed(
+            self.repository.packages.clear_package_publication(reference)
+            self.repository.packages.mark_package_batch_completed(
                 reference,
                 request.batch_marker,
                 request.since,
@@ -176,14 +176,14 @@ class _Publisher:  # pylint: disable=too-few-public-methods
 
 
 def _service(
-    repository: DatabaseRepository,
+    repository: DatabaseRepositories,
     refresher: _PackageRefresher,
     scanner: _Scanner,
     publisher: _Publisher,
     execution: OwnerLifecycleExecution,
 ) -> OwnerLifecycleService:
     return OwnerLifecycleService(
-        repository,
+        repository.owners,
         OwnerLifecycleServices(refresher, scanner, publisher),
         execution,
     )
@@ -198,12 +198,12 @@ def test_direct_partial_refresh_publishes_without_starting_a_scan(
 ) -> None:
     """Resolved known work avoids a redundant complete owner listing."""
 
-    repository = DatabaseRepository(DatabaseSettings(tmp_path / "index.db"))
+    repository = DatabaseRepositories(DatabaseSettings(tmp_path / "index.db"))
     _, current = _package("current")
     stale_ref, stale = _package("stale", "2026-06-28")
-    repository.write_package(current)
-    repository.write_package(stale)
-    repository.mark_package_batch_completed(
+    repository.packages.write_package(current)
+    repository.packages.write_package(stale)
+    repository.packages.mark_package_batch_completed(
         current.package_ref,
         "batch-1",
         _TODAY,
@@ -239,9 +239,9 @@ def test_publication_only_work_is_replayed_without_owner_discovery(
 ) -> None:
     """Current package data can recover interrupted file publication directly."""
 
-    repository = DatabaseRepository(DatabaseSettings(tmp_path / "index.db"))
+    repository = DatabaseRepositories(DatabaseSettings(tmp_path / "index.db"))
     pending_ref, pending = _package("pending")
-    repository.write_package_pending_publication(pending)
+    repository.packages.write_package_pending_publication(pending)
     refresher = _PackageRefresher(repository)
     scanner = _Scanner()
 
@@ -262,7 +262,7 @@ def test_publication_only_work_is_replayed_without_owner_discovery(
             pending_ref.package,
         ),
     )
-    assert not repository.package_publication_pending(pending_ref)
+    assert not repository.packages.package_publication_pending(pending_ref)
     assert not scanner.requests
 
 
@@ -271,11 +271,11 @@ def test_unresolved_direct_refresh_falls_back_to_complete_owner_scan(
 ) -> None:
     """Incomplete known work cannot bypass deletion reconciliation."""
 
-    repository = DatabaseRepository(DatabaseSettings(tmp_path / "index.db"))
+    repository = DatabaseRepositories(DatabaseSettings(tmp_path / "index.db"))
     _, current = _package("current")
-    repository.write_package(current)
+    repository.packages.write_package(current)
     stale_ref, stale = _package("stale", "2026-06-28")
-    repository.write_package(stale)
+    repository.packages.write_package(stale)
     repo_directory = tmp_path / "index" / "Example" / stale_ref.repo
     repo_directory.mkdir(parents=True)
     for name in ("stale.json", "stale.json.tmp", "stale.xml", "stale.xml.abs"):
@@ -312,13 +312,13 @@ def test_paused_scan_resumes_and_clears_legacy_state_after_completion(
 ) -> None:
     """A bounded pass preserves its cursor and later completes in place."""
 
-    repository = DatabaseRepository(DatabaseSettings(tmp_path / "index.db"))
+    repository = DatabaseRepositories(DatabaseSettings(tmp_path / "index.db"))
     current_ref, current = _package("current")
-    repository.write_package(current)
-    cursor = repository.begin_or_resume_owner_scan(
+    repository.packages.write_package(current)
+    cursor = repository.owners.begin_or_resume_owner_scan(
         OwnerScanStart(current_ref.owner_id, current_ref.owner, "batch-1", 90)
     )
-    repository.advance_owner_scan_page(
+    repository.owners.advance_owner_scan_page(
         OwnerScanPage(current_ref.owner_id, cursor.marker, 1, 91)
     )
     state = StateStore(tmp_path / "state.env")
@@ -360,7 +360,7 @@ def test_discovered_empty_owner_is_remembered_after_complete_scan(
     """Connection discovery does not repeatedly queue a verified empty owner."""
 
     database_path = tmp_path / "index.db"
-    repository = DatabaseRepository(DatabaseSettings(database_path))
+    repository = DatabaseRepositories(DatabaseSettings(database_path))
     state = StateStore(tmp_path / "state.env")
     state.add_to_set("BKG_DISCOVERED_CONNECTION_OWNERS", "42/Example")
     state.set("BKG_OWNER_SCAN_42", "stale-marker")
@@ -422,9 +422,9 @@ def test_owner_update_operation_persists_backoff_and_reports_a_deferred_result(
         unexpected_owner_type_lookup,
     )
     database_path = tmp_path / "index.db"
-    repository = DatabaseRepository(DatabaseSettings(database_path))
+    repository = DatabaseRepositories(DatabaseSettings(database_path))
     _package_ref, package_record = _package("known")
-    repository.write_package(package_record)
+    repository.packages.write_package(package_record)
     monkeypatch.setenv("BKG_ROOT", str(tmp_path))
     monkeypatch.setenv("BKG_INDEX_DB", str(database_path))
     monkeypatch.setenv("BKG_INDEX_DIR", str(tmp_path / "index"))
@@ -450,7 +450,7 @@ def test_owner_update_operation_persists_backoff_and_reports_a_deferred_result(
         )
     )
 
-    deferred = repository.deferred_owners(0)
+    deferred = repository.owner_queue.deferred_owners(0)
     assert result.outcome == "deferred"
     assert result.error == "temporary owner failure"
     assert requests[0].owner_type == "orgs"

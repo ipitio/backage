@@ -1,9 +1,17 @@
 """Repository workspace preparation and sparse-worktree operations."""
 
+from .git import WorkspaceError
 from .handoff import (
     WorkflowHandoffControl,
     scheduled_update_skip_reason,
     workflow_run_freshness,
+)
+from .index import (
+    GitIndexRepository,
+    IndexPackageCatalogTree,
+    IndexWorkspacePreparation,
+    IndexWorkspacePreparer,
+    read_index_package_catalog,
 )
 from .layout import WorkspaceLayout
 from .merge_configuration import ForkMergeConfiguration, configure_fork_merge
@@ -13,21 +21,14 @@ from .publication import (
     WorkspacePublication,
     published_run_status,
 )
-from .repository import (
-    GitRepository,
-    IndexPackageCatalogTree,
-    IndexWorkspacePreparation,
-    IndexWorkspacePreparer,
-    WorkspaceError,
-    clone_repository,
-    read_index_package_catalog,
-)
 from .settings import GitIdentity, HandoffSettings, WorkspaceSettings
+from .source import GitSourceRepository, clone_repository
 
 __all__ = [
     "ForkMergeConfiguration",
     "GitIdentity",
-    "GitRepository",
+    "GitIndexRepository",
+    "GitSourceRepository",
     "HandoffSettings",
     "IndexPackageCatalogTree",
     "IndexWorkspacePreparation",

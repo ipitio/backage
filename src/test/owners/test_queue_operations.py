@@ -9,14 +9,14 @@ from pathlib import Path
 
 import pytest
 
-from bkg_py.database import (
-    DatabaseRepository,
-    DatabaseSettings,
+from bkg_py.database.composition import DatabaseRepositories
+from bkg_py.database.owner_queue import (
     OwnerQueueAdmission,
     OwnerQueueCandidate,
     OwnerQueueCompletion,
     OwnerQueueEntry,
 )
+from bkg_py.database.settings import DatabaseSettings
 from bkg_py.owners.batch import OwnerBatchEffects
 from bkg_py.owners.queue import OwnerQueuePaths, OwnerQueueSelector
 from bkg_py.owners.queue_operations import (
@@ -35,7 +35,7 @@ from ..workspace.repository_support import create_repository, git
 
 @dataclass
 class _Repository:
-    database: DatabaseRepository
+    database: DatabaseRepositories
     retired: list[str] = field(default_factory=list[str])
 
     def deferred_owners(self, now: int) -> tuple[tuple[str, int], ...]:
@@ -48,7 +48,7 @@ class _Repository:
         """Record one authoritatively missing owner."""
 
         self.retired.append(owner)
-        return self.database.retire_owner(owner)
+        return self.database.packages.retire_owner(owner)
 
     def admit_owner_queue(
         self,
@@ -58,7 +58,7 @@ class _Repository:
     ) -> tuple[OwnerQueueEntry, ...]:
         """Delegate owner admission to the production repository."""
 
-        return self.database.admit_owner_queue(generation, admissions, now)
+        return self.database.owner_queue.admit_owner_queue(generation, admissions, now)
 
     def known_owner_queue_candidates(
         self,
@@ -67,7 +67,9 @@ class _Repository:
     ) -> frozenset[str]:
         """Delegate bounded candidate lookups to the production repository."""
 
-        return self.database.known_owner_queue_candidates(generation, candidates)
+        return self.database.owner_queue.known_owner_queue_candidates(
+            generation, candidates
+        )
 
     def record_owner_queue_candidates(
         self,
@@ -78,7 +80,7 @@ class _Repository:
     ) -> tuple[OwnerQueueEntry, ...]:
         """Delegate atomic candidate and canonical owner admission."""
 
-        return self.database.record_owner_queue_candidates(
+        return self.database.owner_queue.record_owner_queue_candidates(
             generation,
             candidates,
             admissions,
@@ -93,7 +95,7 @@ class _Repository:
     ) -> tuple[OwnerQueueEntry, ...]:
         """Delegate ordered queue reads to the production repository."""
 
-        return self.database.owner_queue_entries(generation, status=status)
+        return self.database.owner_queue.owner_queue_entries(generation, status=status)
 
     def claim_owner_queue_wave(
         self,
@@ -104,17 +106,19 @@ class _Repository:
     ) -> tuple[OwnerQueueEntry, ...]:
         """Delegate bounded claims to the production repository."""
 
-        return self.database.claim_owner_queue_wave(generation, limit, claim_token, now)
+        return self.database.owner_queue.claim_owner_queue_wave(
+            generation, limit, claim_token, now
+        )
 
     def finish_owner_queue_claim(self, completion: OwnerQueueCompletion) -> None:
         """Delegate parent-owned completion to the production repository."""
 
-        self.database.finish_owner_queue_claim(completion)
+        self.database.owner_queue.finish_owner_queue_claim(completion)
 
 
 def _repository(tmp_path: Path) -> _Repository:
-    database = DatabaseRepository(DatabaseSettings(tmp_path / "index.db"))
-    database.prepare_owner_queue("batch-1", (), 1)
+    database = DatabaseRepositories(DatabaseSettings(tmp_path / "index.db"))
+    database.owner_queue.prepare_owner_queue("batch-1", (), 1)
     return _Repository(database)
 
 
@@ -358,14 +362,21 @@ def test_queue_preparation_owns_normalization_resolution_and_effects(
 
     state = StateStore(tmp_path / "state.env")
     repository = _repository(tmp_path)
-    repository.database.admit_owner_queue(
+    repository.database.owner_queue.admit_owner_queue(
         "batch-1",
         (OwnerQueueAdmission("2", "service", "legacy"),),
         2,
     )
     resolver = _Resolver()
     messages: list[str] = []
-    effects = OwnerBatchEffects(repository, state, owners, index, messages.append)
+    effects = OwnerBatchEffects(
+        repository,
+        repository,
+        state,
+        owners,
+        index,
+        messages.append,
+    )
     service = OwnerQueuePreparationService(
         OwnerQueuePreparationServices(
             repository,
@@ -416,7 +427,8 @@ def test_queue_preparation_owns_normalization_resolution_and_effects(
         "99/Beta",
     }
     assert [
-        entry.ref for entry in repository.database.owner_queue_entries("batch-1")
+        entry.ref
+        for entry in repository.database.owner_queue.owner_queue_entries("batch-1")
     ] == [
         "1/Manual",
         "3/Alpha",
@@ -472,7 +484,8 @@ def test_targeted_owner_queue_resolves_configured_owner_and_memberships(
     assert result.missing == 1
     assert resolver.candidates == ("service", "alpha", "99/Beta", "missing")
     assert [
-        entry.ref for entry in repository.database.owner_queue_entries("batch-1")
+        entry.ref
+        for entry in repository.database.owner_queue.owner_queue_entries("batch-1")
     ] == [
         "2/service",
         "3/Alpha",
@@ -510,5 +523,6 @@ def test_targeted_owner_queue_extracts_and_resolves_optout_owners(
     assert result.missing == 1
     assert resolver.candidates == ("alpha", "beta", "missing")
     assert tuple(
-        entry.ref for entry in repository.database.owner_queue_entries("batch-1")
+        entry.ref
+        for entry in repository.database.owner_queue.owner_queue_entries("batch-1")
     ) == ("3/Alpha", "99/Beta")

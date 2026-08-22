@@ -7,16 +7,17 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
-from ..database import (
-    DatabaseRepository,
-    PackageCatalogStatus,
-    package_history,
-    version_history,
-)
+from ..database.catalog_repository import PackageCatalogRepository
+from ..database.history_repository import HistoryRepository
+from ..database.models import PackageCatalogStatus
+from ..database.owner_queue_repository import OwnerQueueRepository
+from ..database.package_history import MIGRATION_BATCH_ROWS as PACKAGE_MIGRATION_ROWS
+from ..database.package_repository import PackageRepository
+from ..database.version_history import MIGRATION_BATCH_ROWS as VERSION_MIGRATION_ROWS
 from ..discovery import OwnerIdentityCache
+from ..discovery.values import normalize_owner_lines
 from ..files import atomic_text_output
 from ..orchestration import BatchRuntimeService
-from ..owners import normalize_owner_lines
 from ..runtime import peak_resident_memory_mib
 from ..runtime_names import StateKey
 from ..snapshots import SnapshotError, SnapshotStore
@@ -58,7 +59,10 @@ class RunStartupResult:
 class RunStartupServices:
     """Stateful services participating in application startup."""
 
-    repository: DatabaseRepository
+    packages: PackageRepository
+    catalog: PackageCatalogRepository
+    history: HistoryRepository
+    owner_queue: OwnerQueueRepository
     snapshots: SnapshotStore
     state: StateStore
     identity_cache: OwnerIdentityCache
@@ -101,7 +105,7 @@ class RunStartupService:  # pylint: disable=too-few-public-methods
 
         phase_started_at = self.execution.now()
         self._recover_database_backup(request.database_path)
-        self.services.repository.ensure_schema()
+        self.services.packages.ensure_schema()
         self._migrate_history()
         self._prepare_package_catalog(request)
         self._recover_owner_queue(
@@ -112,7 +116,7 @@ class RunStartupService:  # pylint: disable=too-few-public-methods
         progress_marker = self.services.state.get(StateKey.PACKAGE_PROGRESS_MARKER)
         if progress_marker != initialized.batch_marker:
             if progress_marker is None:
-                self.services.repository.bootstrap_package_batch(
+                self.services.packages.bootstrap_package_batch(
                     initialized.batch_marker,
                     initialized.batch_first_started,
                 )
@@ -120,7 +124,7 @@ class RunStartupService:  # pylint: disable=too-few-public-methods
                 StateKey.PACKAGE_PROGRESS_MARKER,
                 initialized.batch_marker,
             )
-        summary = PackageWorkPlanService(self.services.repository).prepare(
+        summary = PackageWorkPlanService(self.services.packages).prepare(
             initialized.batch_first_started,
             request.working_directory,
             batch_marker=initialized.batch_marker,
@@ -143,7 +147,7 @@ class RunStartupService:  # pylint: disable=too-few-public-methods
         )
 
     def _prepare_package_catalog(self, request: RunStartupRequest) -> None:
-        previous = self.services.repository.package_catalog_status()
+        previous = self.services.catalog.package_catalog_status()
         if request.index_directory is None:
             if previous is not None:
                 self._report_package_catalog("ready", previous)
@@ -172,7 +176,7 @@ class RunStartupService:  # pylint: disable=too-few-public-methods
             )
             return
 
-        catalog_status = self.services.repository.initialize_package_catalog(
+        catalog_status = self.services.catalog.initialize_package_catalog(
             tree.paths,
             tree.revision,
             request.today,
@@ -189,13 +193,13 @@ class RunStartupService:  # pylint: disable=too-few-public-methods
         migrations = (
             (
                 "Version",
-                self.services.repository.migrate_version_history,
-                version_history.MIGRATION_BATCH_ROWS,
+                self.services.history.migrate_version_history,
+                VERSION_MIGRATION_ROWS,
             ),
             (
                 "Package",
-                self.services.repository.migrate_package_history,
-                package_history.MIGRATION_BATCH_ROWS,
+                self.services.history.migrate_package_history,
+                PACKAGE_MIGRATION_ROWS,
             ),
         )
         while True:
@@ -252,16 +256,16 @@ class RunStartupService:  # pylint: disable=too-few-public-methods
         legacy_owner_queue: tuple[str, ...],
         started_at: int,
     ) -> None:
-        queue_before = self.services.repository.owner_queue_stats(batch_marker)
+        queue_before = self.services.owner_queue.owner_queue_stats(batch_marker)
         recovery_started_at = time.monotonic()
-        self.services.repository.prepare_owner_queue(
+        self.services.owner_queue.prepare_owner_queue(
             batch_marker,
             legacy_owner_queue,
             started_at,
         )
         legacy_removed = self.services.state.delete(StateKey.LEGACY_OWNERS_QUEUE)
         recovery_elapsed = max(0.0, time.monotonic() - recovery_started_at)
-        queue_after = self.services.repository.owner_queue_stats(batch_marker)
+        queue_after = self.services.owner_queue.owner_queue_stats(batch_marker)
         self.execution.progress(
             "Owner queue recovery: "
             f"active={queue_after.total} ready={queue_after.ready} "

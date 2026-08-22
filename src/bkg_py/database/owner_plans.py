@@ -13,16 +13,13 @@ from .models import (
     OwnerScanWorkSelection,
     PackageRef,
 )
-from .support import DatabaseError
+from .support import SqlIdentifier
 
 _PACKAGE_PUBLICATIONS = '"bkg_package_publications"'
 _BATCH_PROGRESS = batch_progress.TABLE
 
 
-def _identifier(value: str) -> str:
-    if "\x00" in value:
-        raise DatabaseError("SQLite identifiers cannot contain NUL")
-    return f'"{value.replace(chr(34), chr(34) * 2)}"'
+_identifier = SqlIdentifier
 
 
 def packages_needing_refresh(

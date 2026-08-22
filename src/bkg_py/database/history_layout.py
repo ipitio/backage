@@ -9,7 +9,7 @@ from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-from .support import DatabaseError
+from .support import DatabaseError, SqlIdentifier
 from .version_history import (
     DATA_SCHEMA_SQL,
     PACKAGE_IDENTITIES_TABLE,
@@ -50,13 +50,7 @@ _IDENTITY_JOIN = f"""
 """
 
 
-class _SqlIdentifier(str):
-    """A SQLite identifier quoted before statement construction."""
-
-    def __new__(cls, value: str) -> _SqlIdentifier:
-        if "\x00" in value:
-            raise DatabaseError("SQLite identifiers cannot contain NUL")
-        return str.__new__(cls, f'"{value.replace(chr(34), chr(34) * 2)}"')
+_SqlIdentifier = SqlIdentifier
 
 
 @dataclass(frozen=True)

@@ -6,7 +6,7 @@ import httpx
 import pytest
 
 from bkg_py.github import GitHubClient, GitHubSettings
-from bkg_py.release_retention import (
+from bkg_py.publication.retention import (
     ReleaseRetentionError,
     apply_release_retention,
     plan_release_retention,

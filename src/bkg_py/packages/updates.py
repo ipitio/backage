@@ -10,13 +10,13 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
-from ..database import (
-    DatabaseError,
-    DatabaseRepository,
+from ..database.models import (
     PackageRecord,
     PackageRef,
     VersionRecord,
 )
+from ..database.package_repository import PackageRepository
+from ..database.support import DatabaseError
 from ..github import GitHubError, GitHubNotFoundError
 from ..publication import (
     PublicationError,
@@ -24,7 +24,11 @@ from ..publication import (
     PublicationResult,
     publish_json_file,
 )
-from ..rendering import PackageRenderOptions, RenderingError, render_package_file
+from ..publication.rendering import (
+    PackageRenderOptions,
+    RenderingError,
+    render_package_file,
+)
 from .enrichment import (
     METRIC_TEXT_REQUEST_POLICY,
     PACKAGE_METRIC_SCOPE,
@@ -189,7 +193,7 @@ class PackageRefreshService:  # pylint: disable=too-few-public-methods
 
     def __init__(
         self,
-        repository: DatabaseRepository,
+        repository: PackageRepository,
         client: VersionPageClient,
         execution: PackageRefreshExecution,
     ) -> None:

@@ -1,8 +1,7 @@
-"""Tests for the public domain package APIs."""
+"""Tests for the owner and package domain APIs."""
 
 from importlib.util import find_spec
 
-from bkg_py.database import DatabaseRepository, DatabaseSettings, PackageRef
 from bkg_py.owners import OwnerBatchRequest, OwnerPageAdmissionResult
 from bkg_py.owners import batch as owners_batch
 from bkg_py.owners import pages as owners_pages
@@ -18,14 +17,6 @@ from bkg_py.packages.versions.ingestion import VersionCandidateLoader
 from bkg_py.packages.versions.metadata import VersionListingContext
 from bkg_py.packages.versions.selection import VersionSelectionSettings
 from bkg_py.packages.versions.updates import VersionRefreshService
-
-
-def test_database_package_exposes_repository_and_shared_values() -> None:
-    """The database package is the cross-domain SQLite API."""
-
-    assert DatabaseRepository.__module__ == "bkg_py.database.repository"
-    assert DatabaseSettings.__module__ == "bkg_py.database.settings"
-    assert PackageRef.__module__ == "bkg_py.database.models"
 
 
 def test_owner_package_exposes_outer_run_operations() -> None:

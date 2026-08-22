@@ -7,13 +7,13 @@ from dataclasses import dataclass, replace
 from typing import Protocol, cast
 from urllib.parse import quote
 
-from ..database import (
-    DatabaseRepository,
+from ..database.models import (
     OwnerScanPackage,
     OwnerScanResult,
     OwnerScanWorkSelection,
     PackageRef,
 )
+from ..database.owner_repository import OwnerScanRepository
 from ..github import GitHubJsonResponse
 from .package_updates import OwnerPackageRefreshService
 from .scan_pages import (
@@ -98,7 +98,7 @@ class OwnerScanVerificationService:  # pylint: disable=too-few-public-methods
 
     def __init__(
         self,
-        repository: DatabaseRepository,
+        repository: OwnerScanRepository,
         client: OwnerVerificationClient,
         check_stop: StopCheck,
     ) -> None:
@@ -192,7 +192,7 @@ class OwnerScanService:  # pylint: disable=too-few-public-methods
 
     def __init__(
         self,
-        repository: DatabaseRepository,
+        repository: OwnerScanRepository,
         client: OwnerVerificationClient,
         pages: OwnerScanPageService,
         package_refresh: OwnerPackageRefreshService,

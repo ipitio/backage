@@ -5,7 +5,9 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
-from bkg_py.database import DatabaseRepository, DatabaseSettings, PackageRecord
+from bkg_py.database.composition import DatabaseRepositories
+from bkg_py.database.models import PackageRecord
+from bkg_py.database.settings import DatabaseSettings
 from bkg_py.database.values import package_values
 
 from .repository_support import (
@@ -39,11 +41,11 @@ def test_partial_migration_resumes_and_prefers_replacement_writes(
 
     path = tmp_path / "index.db"
     _legacy_database(path)
-    repository = DatabaseRepository(DatabaseSettings(path))
-    repository.ensure_schema()
-    repository.write_package(_record(TODAY, 999))
+    repository = DatabaseRepositories(DatabaseSettings(path))
+    repository.kernel.ensure_schema()
+    repository.packages.write_package(_record(TODAY, 999))
 
-    first = repository.migrate_package_history(1)
+    first = repository.history.migrate_package_history(1)
 
     assert first.migrated_rows == 1
     assert first.remaining_rows == 1
@@ -61,7 +63,9 @@ def test_partial_migration_resumes_and_prefers_replacement_writes(
     assert state == ("migrating", 1, 1)
     assert rows == [(YESTERDAY, 10), (TODAY, 999)]
 
-    completed = DatabaseRepository(DatabaseSettings(path)).migrate_package_history(10)
+    completed = DatabaseRepositories(
+        DatabaseSettings(path)
+    ).history.migrate_package_history(10)
 
     assert completed.migrated_rows == 1
     assert completed.complete
@@ -90,10 +94,10 @@ def test_rotation_cleanup_finishes_retained_rows_and_drops_legacy_table(
 
     path = tmp_path / "index.db"
     _legacy_database(path)
-    repository = DatabaseRepository(DatabaseSettings(path))
-    repository.ensure_schema()
+    repository = DatabaseRepositories(DatabaseSettings(path))
+    repository.kernel.ensure_schema()
 
-    repository.cleanup_replaced_legacy_tables(
+    repository.packages.cleanup_replaced_legacy_tables(
         since=TODAY,
         prune_normalized=True,
     )
@@ -113,10 +117,10 @@ def test_version_pruning_preserves_package_only_identities(tmp_path: Path) -> No
     """Version cleanup cannot delete an identity used by package history."""
 
     path = tmp_path / "index.db"
-    repository = DatabaseRepository(DatabaseSettings(path))
-    repository.write_package(_record(TODAY, 20))
+    repository = DatabaseRepositories(DatabaseSettings(path))
+    repository.packages.write_package(_record(TODAY, 20))
 
-    repository.cleanup_replaced_legacy_tables(
+    repository.packages.cleanup_replaced_legacy_tables(
         since=TODAY,
         prune_normalized=True,
     )

@@ -11,16 +11,17 @@ from typing import cast
 
 import pytest
 
-from bkg_py.database import (
-    DatabaseRepository,
-    DatabaseSettings,
+from bkg_py.database.composition import DatabaseRepositories
+from bkg_py.database.models import (
     PackageRecord,
     PackageRef,
     VersionMetrics,
     VersionRecord,
     VersionStage,
 )
-from bkg_py.rendering import (
+from bkg_py.database.package_repository import PackageRepository
+from bkg_py.database.settings import DatabaseSettings
+from bkg_py.publication.rendering import (
     AggregateSettings,
     DatabaseAggregateOptions,
     render_database_aggregate,
@@ -83,7 +84,7 @@ def _version(version_id: int, *, tags: str = "") -> VersionRecord:
 
 
 def _write_package(
-    repository: DatabaseRepository,
+    repository: PackageRepository,
     package: PackageRef,
     versions: tuple[VersionRecord, ...],
     *,
@@ -115,7 +116,9 @@ class TestRendering:
     ) -> None:
         """Package JSON retains existing marks, limits, and humanized fields."""
 
-        repository = DatabaseRepository(DatabaseSettings(tmp_path / "index.db"))
+        repository = DatabaseRepositories(
+            DatabaseSettings(tmp_path / "index.db")
+        ).packages
         package = _package()
         _write_package(
             repository,
@@ -152,7 +155,9 @@ class TestRendering:
     ) -> None:
         """Database aggregates ignore stale files and support repository views."""
 
-        repository = DatabaseRepository(DatabaseSettings(tmp_path / "index.db"))
+        repository = DatabaseRepositories(
+            DatabaseSettings(tmp_path / "index.db")
+        ).packages
         first = _package(repo="RepoOne")
         second = _package(2, repo="RepoTwo")
         _write_package(repository, first, (_version(1, tags="latest"), _version(2)))
@@ -209,7 +214,9 @@ class TestRendering:
     ) -> None:
         """Legacy-backed packages retain the configured conservative slice."""
 
-        repository = DatabaseRepository(DatabaseSettings(tmp_path / "index.db"))
+        repository = DatabaseRepositories(
+            DatabaseSettings(tmp_path / "index.db")
+        ).packages
         package = _package(repo="LegacyRepo")
         repository.write_package(_package_record(package))
         legacy_table = _legacy_table(package)
@@ -306,7 +313,9 @@ class TestRendering:
     ) -> None:
         """A graceful stop cannot replace the previous complete aggregate."""
 
-        repository = DatabaseRepository(DatabaseSettings(tmp_path / "index.db"))
+        repository = DatabaseRepositories(
+            DatabaseSettings(tmp_path / "index.db")
+        ).packages
         for number in range(1, 4):
             _write_package(repository, _package(number), (_version(number),))
         destination = tmp_path / "owner.json"
@@ -341,7 +350,9 @@ class TestRendering:
     ) -> None:
         """A representative large owner stays within its regression budget."""
 
-        repository = DatabaseRepository(DatabaseSettings(tmp_path / "index.db"))
+        repository = DatabaseRepositories(
+            DatabaseSettings(tmp_path / "index.db")
+        ).packages
         repository.ensure_schema()
         packages = [
             _package(number, repo=f"Repo-{number % 10}") for number in range(150)

@@ -10,13 +10,14 @@ from pathlib import Path
 from ..config import SettingsSnapshot
 from ..result import ExitStatus
 from ..runtime_names import EnvironmentVariable as Env
+from .git import WorkspaceError
 from .handoff import (
+    GitControlRefRepository,
     WorkflowHandoffControl,
     scheduled_update_skip_reason,
     workflow_run_freshness,
 )
 from .merge_configuration import configure_fork_merge
-from .repository import GitControlRefRepository, WorkspaceError
 from .settings import HandoffSettings
 
 

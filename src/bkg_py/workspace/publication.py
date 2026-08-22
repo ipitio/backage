@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
 from ..files import atomic_text_output
 from ..result import ExitStatus
-from .repository import GitBranchPublisher, GitRepository, WorkspaceError
+from .git import GitCommandRunner, WorkspaceError
+from .index import GitIndexRepository
+from .source import GitSourceRepository
 
 MessageSink = Callable[[str], None]
 _SOURCE_PATHS = (":(top,glob)*.txt", "README.md")
@@ -27,18 +29,78 @@ class WorkspacePublication:
     source_committed: bool
 
 
+class GitBranchPublisher(GitCommandRunner):  # pylint: disable=too-few-public-methods
+    """Synchronize, commit, and push one branch-owned set of paths."""
+
+    def publish(
+        self,
+        branch: str,
+        message: str,
+        *,
+        pathspecs: Sequence[str] | None = None,
+        synchronize: bool = False,
+    ) -> bool:
+        """Publish staged branch paths and return whether a commit was created."""
+
+        if not message:
+            raise WorkspaceError("Git commit message is required")
+        if synchronize:
+            self._run(
+                ("pull", "--rebase", "--autostash"),
+                required=True,
+            )
+        current = self._run(
+            ("branch", "--show-current"),
+            required=True,
+        ).stdout.strip()
+        if current != branch:
+            raise WorkspaceError(
+                f"worktree is on branch {current or '<detached>'}, expected {branch}"
+            )
+
+        add_arguments = (
+            ("add", "--all", "--", ".")
+            if pathspecs is None
+            else ("add", "--all", "--", *pathspecs)
+        )
+        self._run(add_arguments, required=True)
+        changed = self._run(("diff", "--cached", "--quiet", "--exit-code"))
+        if changed.returncode == 0:
+            return False
+        if changed.returncode != 1:
+            self._raise_command_error(
+                ("diff", "--cached"),
+                changed,
+            )
+
+        self._run(
+            ("commit", "-m", message),
+            required=True,
+        )
+        self._run(
+            (
+                "push",
+                "--set-upstream",
+                "origin",
+                f"refs/heads/{branch}:refs/heads/{branch}",
+            ),
+            required=True,
+        )
+        return True
+
+
 class UpdateWorkspacePublisher:  # pylint: disable=too-few-public-methods
     """Commit and push one completed update without mixing branch ownership."""
 
     def __init__(
         self,
-        root: Path | GitRepository,
+        root: Path | GitSourceRepository,
         *,
         progress: MessageSink | None = None,
         commit_message: str | None = None,
     ) -> None:
         self.repository = (
-            root if isinstance(root, GitRepository) else GitRepository(root)
+            root if isinstance(root, GitSourceRepository) else GitSourceRepository(root)
         )
         self.root = self.repository.path.resolve()
         self.progress = progress or _discard_message
@@ -65,7 +127,7 @@ class UpdateWorkspacePublisher:  # pylint: disable=too-few-public-methods
         if not state_file.is_file():
             raise WorkspaceError(f"runtime state file is missing: {state_file}")
 
-        index_repository = GitRepository(
+        index_repository = GitIndexRepository(
             index_dir,
             environment=self.repository.command_environment,
             redacted_values=self.repository.redacted_values,

@@ -9,14 +9,16 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Protocol
 
-from ..database import (
+from ..database.metrics import (
     DatabaseMetricSample,
-    DatabaseRotationEvent,
     DatabaseStorageMetrics,
     DatabaseWriteCounts,
+)
+from ..database.models import (
+    DatabaseRotationEvent,
     PackageInventory,
 )
-from ..release import release_tag as release_tag_for_date
+from ..publication.release import release_tag as release_tag_for_date
 from ..runtime_names import StateKey
 from ..snapshots import SnapshotError, SnapshotRotationResult
 from ..state import StateStore
@@ -30,8 +32,8 @@ def _utc_now() -> datetime:
     return datetime.now(UTC)
 
 
-class RotationRepository(Protocol):  # pylint: disable=too-few-public-methods
-    """Database cleanup needed when an oversized snapshot rotates."""
+class LegacyCleanupRepository(Protocol):  # pylint: disable=too-few-public-methods
+    """Package-history cleanup needed when an oversized snapshot rotates."""
 
     def cleanup_replaced_legacy_tables(
         self,
@@ -43,6 +45,10 @@ class RotationRepository(Protocol):  # pylint: disable=too-few-public-methods
         """Prune old normalized rows and replaced legacy tables."""
 
         raise NotImplementedError
+
+
+class MetricsRepository(Protocol):
+    """Database measurements needed during snapshot finalization."""
 
     def database_storage_metrics(self) -> DatabaseStorageMetrics:
         """Capture bounded storage measurements."""
@@ -58,6 +64,10 @@ class RotationRepository(Protocol):  # pylint: disable=too-few-public-methods
         """Persist one compact daily finalization sample."""
 
         raise NotImplementedError
+
+
+class RotationEventRepository(Protocol):
+    """Durable rotation events used by finalization and release publication."""
 
     def record_database_rotation(self, event: DatabaseRotationEvent) -> None:
         """Persist one completed database rotation."""
@@ -131,7 +141,9 @@ class RunFinalizationResult:
 class RunFinalizationServices:
     """Stateful operations used during finalization."""
 
-    repository: RotationRepository
+    packages: LegacyCleanupRepository
+    metrics: MetricsRepository
+    rotations: RotationEventRepository
     snapshots: SnapshotFinalizer
     publisher: RunSummaryPublisher
     state: StateStore
@@ -176,7 +188,7 @@ class RunFinalizationService:  # pylint: disable=too-few-public-methods
             prepared = self._prepare_snapshot(request, current_release_tag)
 
         self.execution.progress("Hydrating templates and cleaning up...")
-        rotation_events = self.services.repository.database_rotations_for_release(
+        rotation_events = self.services.rotations.database_rotations_for_release(
             current_release_tag
         )
         inventory = self.services.publisher.publish(
@@ -198,8 +210,8 @@ class RunFinalizationService:  # pylint: disable=too-few-public-methods
         self.execution.progress("Preparing the database snapshot...")
         self.execution.check_stop()
         self.services.snapshots.checkpoint_database()
-        writes = self.services.repository.database_write_counts()
-        before = self.services.repository.database_storage_metrics()
+        writes = self.services.metrics.database_write_counts()
+        before = self.services.metrics.database_storage_metrics()
         rotated, archive_bytes, after = self._rotate_if_needed(
             request,
             current_release_tag,
@@ -215,7 +227,7 @@ class RunFinalizationService:  # pylint: disable=too-few-public-methods
             rotation_archive_bytes=archive_bytes,
             snapshot_bytes=after.pages.physical_bytes,
         )
-        self.services.repository.record_database_metric_sample(sample)
+        self.services.metrics.record_database_metric_sample(sample)
         snapshot = self.services.snapshots.prepare_database_snapshot()
         self._report_database_metrics(
             sample,
@@ -238,7 +250,7 @@ class RunFinalizationService:  # pylint: disable=too-few-public-methods
         self.execution.progress("Rotating the database...")
         rotated_at, rotation_stamp = _rotation_time(self.execution.now())
         rotation = self.services.snapshots.rotate_database_if_needed(
-            lambda: self.services.repository.cleanup_replaced_legacy_tables(
+            lambda: self.services.packages.cleanup_replaced_legacy_tables(
                 since=request.batch_first_started,
                 prune_normalized=True,
                 vacuum=True,
@@ -252,7 +264,7 @@ class RunFinalizationService:  # pylint: disable=too-few-public-methods
             rotated_at,
             rotation,
         )
-        after = self.services.repository.database_storage_metrics()
+        after = self.services.metrics.database_storage_metrics()
         self.execution.progress("Rotated the database")
         return rotation.rotated, archive_bytes, after
 
@@ -268,7 +280,7 @@ class RunFinalizationService:  # pylint: disable=too-few-public-methods
         if rotation.archive is None:
             raise SnapshotError("database rotation did not produce a retained archive")
         archive_bytes = rotation.compressed_bytes or _path_size(rotation.archive)
-        self.services.repository.record_database_rotation(
+        self.services.rotations.record_database_rotation(
             DatabaseRotationEvent(
                 release_tag=current_release_tag,
                 rotated_at=rotated_at,

@@ -5,7 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from .repository import GitRepository, WorkspaceError
+from .git import WorkspaceError
+from .source import GitSourceRepository
 
 
 @dataclass(frozen=True)
@@ -29,7 +30,7 @@ class WorkspaceLayout:
         """Inspect the repository and derive its complete workspace layout."""
 
         resolved_root = root.resolve()
-        source_branch = GitRepository(resolved_root).current_branch()
+        source_branch = GitSourceRepository(resolved_root).current_branch()
         return cls.from_branches(
             resolved_root,
             source_branch=source_branch,

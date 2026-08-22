@@ -2,29 +2,12 @@
 
 from __future__ import annotations
 
-import sqlite3
-from abc import ABC, abstractmethod
-from collections.abc import Callable
-from typing import Any
-
 from . import history_migration, package_history, version_history
-from .settings import DatabaseSettings
+from .kernel import DatabaseComponent
 
 
-class HistoryRepositoryMixin(ABC):
-    """Add lazy history migration to the shared SQLite repository."""
-
-    settings: DatabaseSettings
-
-    @abstractmethod
-    def ensure_schema(self) -> None:
-        """Create or migrate the lazy normalized schema."""
-
-        raise NotImplementedError
-
-    @abstractmethod
-    def _run_write(self, operation: Callable[[sqlite3.Connection], Any]) -> Any:
-        raise NotImplementedError
+class HistoryRepository(DatabaseComponent):
+    """Provide bounded lazy history migration."""
 
     def migrate_version_history(
         self,

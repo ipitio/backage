@@ -10,7 +10,7 @@ from threading import Lock
 from typing import Any, Literal, cast
 
 from . import version_history
-from .support import DatabaseError
+from .support import DatabaseError, SqlIdentifier
 
 DatabaseObjectKind = Literal["table", "index", "internal"]
 _DATE_BUCKET_LIMIT = 32
@@ -61,14 +61,7 @@ _METRICS_UPSERT = f"""
 """
 
 
-class _SqlIdentifier(str):
-    """A SQLite identifier quoted before statement construction."""
-
-    def __new__(cls, value: str) -> _SqlIdentifier:
-        if "\x00" in value:
-            raise DatabaseError("SQLite identifiers cannot contain NUL")
-        quoted = f'"{value.replace(chr(34), chr(34) * 2)}"'
-        return str.__new__(cls, quoted)
+_SqlIdentifier = SqlIdentifier
 
 
 @dataclass(frozen=True)

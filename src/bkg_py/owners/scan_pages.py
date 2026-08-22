@@ -6,7 +6,8 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass, replace
 
-from ..database import DatabaseRepository, OwnerScanPage, OwnerScanWorkSelection
+from ..database.models import OwnerScanPage, OwnerScanWorkSelection
+from ..database.owner_repository import OwnerScanRepository
 from ..packages.discovery import (
     OwnerListingClient,
     PackageListingRequest,
@@ -72,7 +73,7 @@ class OwnerScanPageService:  # pylint: disable=too-few-public-methods
 
     def __init__(
         self,
-        repository: DatabaseRepository,
+        repository: OwnerScanRepository,
         client: OwnerListingClient,
         package_refresh: OwnerPackageRefreshService,
         execution: OwnerScanPageExecution,

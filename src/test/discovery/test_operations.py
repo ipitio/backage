@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from bkg_py.discovery_operations import (
+from bkg_py.discovery.operations import (
     DiscoveryPhaseExecution,
     DiscoveryPhaseIdentity,
     DiscoveryPhasePaths,

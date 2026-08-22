@@ -10,8 +10,7 @@ from pathlib import Path
 from typing import Protocol
 
 from ..concurrency import ConcurrencySettings
-from ..database import (
-    DatabaseError,
+from ..database.models import (
     OwnerIdentityCleanup,
     OwnerScanCursor,
     OwnerScanFailure,
@@ -19,12 +18,13 @@ from ..database import (
     PackageBatch,
     PackageRef,
 )
+from ..database.support import DatabaseError
 from ..discovery import OwnerLookupResult
 from ..github import GitHubError
 from ..packages.discovery import PackageDiscoveryError
 from ..packages.updates import PackageRefreshPolicy
 from ..publication import PublicationError
-from ..rendering import RenderingError
+from ..publication.rendering import RenderingError
 from ..runtime_names import legacy_owner_page_key, legacy_owner_scan_key
 from .lifecycle import (
     OwnerLifecycleRequest,
@@ -40,8 +40,8 @@ from .updates import OwnerUpdateError
 MessageSink = Callable[[str], None]
 
 
-class OwnerUpdateRepository(Protocol):
-    """Persistence operations required by one outer owner update."""
+class OwnerIdentityRepository(Protocol):
+    """Persisted owner-identity operations required by one outer update."""
 
     def owner_has_aliases(self, owner_id: str, owner: str) -> bool:
         """Return whether an owner has superseded persisted identities."""
@@ -56,6 +56,10 @@ class OwnerUpdateRepository(Protocol):
         """Reconcile rows for one freshly verified owner identity."""
 
         raise NotImplementedError
+
+
+class OwnerScanStateRepository(Protocol):
+    """Owner scan state required by one outer update."""
 
     def known_owner_type(self, owner_id: str, owner: str) -> str | None:
         """Return an already persisted GitHub owner type."""
@@ -142,7 +146,8 @@ class OwnerOperationExecution:
 class OwnerUpdateServices:
     """Narrow collaborators supplied by the application composition root."""
 
-    repository: OwnerUpdateRepository
+    identities: OwnerIdentityRepository
+    scans: OwnerScanStateRepository
     state: OwnerUpdateState
     identity: OwnerIdentityLookup
     lifecycle_for_date: OwnerLifecycleFactory
@@ -179,7 +184,7 @@ class OwnerUpdateOperation:  # pylint: disable=too-few-public-methods
             owner_type = _resolve_owner_api_type(
                 request.owner_id,
                 request.owner,
-                self.services.repository,
+                self.services.scans,
                 self.services.identity,
                 self.execution.progress,
             )
@@ -203,7 +208,7 @@ class OwnerUpdateOperation:  # pylint: disable=too-few-public-methods
         ) as error:
             return _defer_owner_update(
                 request,
-                self.services.repository,
+                self.services.scans,
                 self.services.state,
                 error,
                 self.execution.progress,
@@ -213,7 +218,7 @@ class OwnerUpdateOperation:  # pylint: disable=too-few-public-methods
         self,
         request: OwnerUpdateRequest,
     ) -> OwnerUpdateRequest:
-        has_aliases = self.services.repository.owner_has_aliases(
+        has_aliases = self.services.identities.owner_has_aliases(
             request.owner_id,
             request.owner,
         )
@@ -231,7 +236,7 @@ class OwnerUpdateOperation:  # pylint: disable=too-few-public-methods
                 f"GitHub returned an invalid owner identity for {request.owner}"
             )
 
-        cleanup = self.services.repository.retire_owner_aliases(
+        cleanup = self.services.identities.retire_owner_aliases(
             verified_id, verified_owner
         )
         self.services.state.delete_matching(
@@ -302,7 +307,7 @@ def _build_package_refresh_request(
 def _resolve_owner_api_type(
     owner_id: str,
     owner: str,
-    repository: OwnerUpdateRepository,
+    repository: OwnerScanStateRepository,
     resolver: OwnerIdentityLookup,
     progress: MessageSink,
 ) -> str:
@@ -322,7 +327,7 @@ def _resolve_owner_api_type(
 
 def _defer_owner_update(
     request: OwnerUpdateRequest,
-    repository: OwnerUpdateRepository,
+    repository: OwnerScanStateRepository,
     state: OwnerUpdateState,
     error: Exception,
     progress: MessageSink,

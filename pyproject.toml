@@ -108,11 +108,11 @@ select = [
 "src/test/**/test_*.py" = ["PLR2004", "S101"]
 "src/test/database/test_repository.py" = ["S608"]
 "src/test/database/repository_support.py" = ["S608"]
-"src/test/test_discovery.py" = ["S105"]
+"src/test/discovery/test_authenticated.py" = ["S105"]
 "src/test/github/test_client.py" = ["S105"]
 "src/test/packages/registry/test_transport.py" = ["S105"]
 "src/test/packages/registry/test_ghcr.py" = ["S105"]
-"src/test/test_rendering.py" = ["S608"]
+"src/test/publication/test_rendering.py" = ["S608"]
 "src/test/test_state.py" = ["S603", "S607"]
 
 [tool.pyright]

@@ -7,14 +7,13 @@ from dataclasses import replace
 from datetime import date, timedelta
 from pathlib import Path
 
-from bkg_py.database import (
+from bkg_py.database.composition import DatabaseRepositories
+from bkg_py.database.metrics import (
     DatabaseMetricSample,
-    DatabaseRepository,
-    DatabaseSettings,
     DatabaseWriteCounts,
-    PackageRecord,
-    VersionStage,
 )
+from bkg_py.database.models import PackageRecord, VersionStage
+from bkg_py.database.settings import DatabaseSettings
 
 from .repository_support import legacy_table, package, version
 
@@ -23,14 +22,14 @@ def test_storage_metrics_bound_dates_and_group_legacy_objects(tmp_path: Path) ->
     """Measurements stay compact even with old dates and legacy tables."""
 
     path = tmp_path / "index.db"
-    repository = DatabaseRepository(DatabaseSettings(path))
+    repository = DatabaseRepositories(DatabaseSettings(path))
     package_ref = package()
     for day in range(35):
         observed_on = (date(2026, 5, 1) + timedelta(days=day)).isoformat()
-        repository.write_package(
+        repository.packages.write_package(
             PackageRecord(package_ref, day, day, day, day, day, observed_on)
         )
-    repository.flush_version_stage(
+    repository.packages.flush_version_stage(
         VersionStage(
             package_ref,
             legacy_table(package_ref),
@@ -42,7 +41,7 @@ def test_storage_metrics_bound_dates_and_group_legacy_objects(tmp_path: Path) ->
         connection.execute('create table "versions_orgs_container_A_a_a" (id text)')
         connection.execute('create table "versions_orgs_container_B_b_b" (id text)')
 
-    storage = repository.database_storage_metrics()
+    storage = repository.metrics.database_storage_metrics()
 
     assert storage.pages.physical_bytes > 0
     assert storage.pages.logical_bytes > 0
@@ -59,7 +58,7 @@ def test_storage_metrics_bound_dates_and_group_legacy_objects(tmp_path: Path) ->
             if item.name.startswith("legacy-version-")
         }
         assert legacy_objects["legacy-version-tables"] == 2
-    assert repository.database_write_counts() == DatabaseWriteCounts(35, 2)
+    assert repository.metrics.database_write_counts() == DatabaseWriteCounts(35, 2)
 
 
 def test_daily_samples_accumulate_writes_and_keep_latest_storage(
@@ -67,10 +66,10 @@ def test_daily_samples_accumulate_writes_and_keep_latest_storage(
 ) -> None:
     """Repeated finalization creates one sample per day, not one row per run."""
 
-    repository = DatabaseRepository(DatabaseSettings(tmp_path / "index.db"))
-    repository.ensure_schema()
-    storage = repository.database_storage_metrics()
-    repository.record_database_metric_sample(
+    repository = DatabaseRepositories(DatabaseSettings(tmp_path / "index.db"))
+    repository.kernel.ensure_schema()
+    storage = repository.metrics.database_storage_metrics()
+    repository.metrics.record_database_metric_sample(
         DatabaseMetricSample(
             "2026-07-05",
             1,
@@ -92,7 +91,7 @@ def test_daily_samples_accumulate_writes_and_keep_latest_storage(
         package_rows=3,
         version_rows=7,
     )
-    repository.record_database_metric_sample(
+    repository.metrics.record_database_metric_sample(
         DatabaseMetricSample(
             "2026-07-05",
             1,
@@ -104,7 +103,7 @@ def test_daily_samples_accumulate_writes_and_keep_latest_storage(
             latest_storage.pages.physical_bytes,
         )
     )
-    repository.record_database_metric_sample(
+    repository.metrics.record_database_metric_sample(
         DatabaseMetricSample(
             "2026-07-06",
             1,
@@ -117,7 +116,7 @@ def test_daily_samples_accumulate_writes_and_keep_latest_storage(
         )
     )
 
-    samples = repository.database_metric_samples()
+    samples = repository.metrics.database_metric_samples()
 
     assert len(samples) == 2
     first = samples[0]

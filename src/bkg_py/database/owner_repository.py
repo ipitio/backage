@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-import sqlite3
-from abc import ABC, abstractmethod
-from collections.abc import Callable, Sequence
-from typing import Any
+from collections.abc import Sequence
 
 from . import owner_plans, owner_scans, package_history
+from .kernel import DatabaseComponent
 from .models import (
+    OwnerRecord,
     OwnerRefreshPlan,
     OwnerRefreshSelection,
     OwnerScanCursor,
@@ -20,27 +19,22 @@ from .models import (
     OwnerScanWorkSelection,
     PackageRef,
 )
-from .settings import DatabaseSettings
 
 
-class OwnerScanRepositoryMixin(ABC):
-    """Add typed owner scan operations to the shared SQLite repository."""
+class OwnerScanRepository(DatabaseComponent):
+    """Provide typed owner scan and owner-observation operations."""
 
-    settings: DatabaseSettings
+    def write_owner(self, record: OwnerRecord) -> None:
+        """Insert or replace one owner scan record."""
 
-    @abstractmethod
-    def ensure_schema(self) -> None:
-        """Create or migrate the lazy normalized schema."""
-
-        raise NotImplementedError
-
-    @abstractmethod
-    def _run_read(self, operation: Callable[[sqlite3.Connection], Any]) -> Any:
-        raise NotImplementedError
-
-    @abstractmethod
-    def _run_write(self, operation: Callable[[sqlite3.Connection], Any]) -> Any:
-        raise NotImplementedError
+        self.ensure_schema()
+        self._run_write(
+            lambda connection: owner_scans.write_owner(
+                connection,
+                self.settings.owners_table,
+                record,
+            )
+        )
 
     def begin_owner_scan(
         self,
@@ -283,9 +277,3 @@ class OwnerScanRepositoryMixin(ABC):
                 ),
             )
         )
-
-    def deferred_owners(self, now: int) -> tuple[tuple[str, int], ...]:
-        """Return owners still waiting for their retry time."""
-
-        self.ensure_schema()
-        return self._run_read(lambda connection: owner_scans.deferred(connection, now))

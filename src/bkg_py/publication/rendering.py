@@ -11,9 +11,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TextIO, cast
 
-from .config import read_int, read_optional_int
-from .database import (
-    DatabaseRepository,
+from ..config import read_int, read_optional_int
+from ..database.models import (
     PackageRecord,
     PackageRef,
     PackageSnapshot,
@@ -21,9 +20,10 @@ from .database import (
     VersionRecord,
     VersionSource,
 )
-from .files import atomic_path, atomic_text_output
-from .publication import JsonValue
-from .runtime_names import EnvironmentVariable as Env
+from ..database.package_repository import PackageRepository
+from ..files import atomic_path, atomic_text_output
+from ..runtime_names import EnvironmentVariable as Env
+from .artifacts import JsonValue
 
 StopCheck = Callable[[], None]
 _METRIC_UNITS = ("", "k", "M", "B", "T", "P", "E", "Z", "Y")
@@ -195,7 +195,7 @@ def render_package(
 
 
 def render_package_file(
-    repository: DatabaseRepository,
+    repository: PackageRepository,
     package: PackageRef,
     destination: Path,
     options: PackageRenderOptions,
@@ -225,7 +225,7 @@ def render_package_file(
 
 
 def render_database_aggregate(
-    repository: DatabaseRepository,
+    repository: PackageRepository,
     owner_id: str,
     destination: Path,
     options: DatabaseAggregateOptions,
@@ -381,7 +381,7 @@ def _write_file_aggregate(
 
 
 def _database_version_limit(
-    repository: DatabaseRepository,
+    repository: PackageRepository,
     owner_id: str,
     *,
     repo: str | None,

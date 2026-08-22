@@ -9,14 +9,16 @@ from pathlib import Path
 
 import pytest
 
-from bkg_py.database import (
+from bkg_py.database.metrics import (
     DatabaseDateRows,
     DatabaseMetricSample,
     DatabaseObjectBytes,
     DatabasePageMetrics,
-    DatabaseRotationEvent,
     DatabaseStorageMetrics,
     DatabaseWriteCounts,
+)
+from bkg_py.database.models import (
+    DatabaseRotationEvent,
     PackageInventory,
 )
 from bkg_py.run.finalization import (
@@ -177,7 +179,14 @@ def test_finalization_rotates_prepares_and_then_publishes(tmp_path: Path) -> Non
     messages: list[str] = []
 
     result = RunFinalizationService(
-        RunFinalizationServices(repository, snapshots, publisher, state),
+        RunFinalizationServices(
+            repository,
+            repository,
+            repository,
+            snapshots,
+            publisher,
+            state,
+        ),
         RunFinalizationExecution(
             lambda: None,
             messages.append,
@@ -241,7 +250,14 @@ def test_finalization_can_publish_without_snapshot_work(tmp_path: Path) -> None:
     repository = _Repository(rotations=[event])
 
     result = RunFinalizationService(
-        RunFinalizationServices(repository, snapshots, publisher, state),
+        RunFinalizationServices(
+            repository,
+            repository,
+            repository,
+            snapshots,
+            publisher,
+            state,
+        ),
         RunFinalizationExecution(lambda: None, lambda _message: None),
     ).finalize(_request(tmp_path, prepare_snapshot=False))
 
@@ -256,9 +272,12 @@ def test_finalization_does_not_publish_after_snapshot_failure(tmp_path: Path) ->
     """A failed archive copy prevents stale release publication."""
 
     publisher = _Publisher()
+    repository = _Repository(physical_bytes=1)
     service = RunFinalizationService(
         RunFinalizationServices(
-            _Repository(physical_bytes=1),
+            repository,
+            repository,
+            repository,
             _Snapshots(fail_prepare=True),
             publisher,
             StateStore(tmp_path / "state.env"),

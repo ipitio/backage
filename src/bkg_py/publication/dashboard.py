@@ -9,9 +9,12 @@ from datetime import date, timedelta
 from pathlib import Path
 from typing import cast
 
-from .database import DashboardMetricCoverage, DashboardProjection
-from .database.dashboard import PACKAGE_TYPE_LIMIT
-from .files import atomic_binary_output
+from ..database.dashboard import (
+    PACKAGE_TYPE_LIMIT,
+    DashboardMetricCoverage,
+    DashboardProjection,
+)
+from ..files import atomic_binary_output
 
 DASHBOARD_SCHEMA_VERSION = 1
 DASHBOARD_HISTORY_SCHEMA_VERSION = 1

@@ -3,11 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
-import time
 from collections.abc import Callable, Generator
-from contextlib import contextmanager
-from threading import Lock
-from typing import Any
 
 from . import (
     batch_progress,
@@ -16,20 +12,14 @@ from . import (
     owner_scans,
     package_history,
     package_plans,
-    schema,
     version_history,
     version_stages,
 )
 from . import (
     packages as package_records,
 )
-from .catalog_repository import PackageCatalogRepositoryMixin
-from .dashboard_repository import DashboardRepositoryMixin
-from .history_repository import HistoryRepositoryMixin
-from .metrics import DatabaseWriteTracker
-from .metrics_repository import DatabaseMetricsRepositoryMixin
+from .kernel import DatabaseComponent
 from .models import (
-    OwnerRecord,
     PackageInventory,
     PackageRecord,
     PackageRef,
@@ -41,27 +31,18 @@ from .models import (
     VersionSource,
     VersionStage,
 )
-from .owner_identities import OwnerIdentityRepositoryMixin
-from .owner_queue_repository import OwnerQueueRepositoryMixin
-from .owner_repository import OwnerScanRepositoryMixin
 from .render_sql import (
     OWNER_VERSION_LIMIT_SQL,
     OWNER_VERSION_ROWS_SQL,
     PACKAGE_SNAPSHOT_SQL,
     RANKED_PACKAGES_SQL,
 )
-from .rotation_repository import DatabaseRotationRepositoryMixin
-from .settings import DatabaseSettings
-from .support import (
-    DatabaseError,
-    file_identity,
-)
+from .support import DatabaseError, SqlIdentifier
+from .support import sql as _sql
 from .support import (
     table_exists as _table_exists,
 )
-from .support import (
-    transaction as _transaction,
-)
+from .support import transaction as _transaction
 from .values import (
     package_sort_key as _package_sort_key,
 )
@@ -78,87 +59,11 @@ from .values import (
     version_records as _version_records,
 )
 
-_RETRYABLE_MESSAGES = (
-    "database is locked",
-    "database is busy",
-    "database schema is locked",
-    "locking protocol",
-    "cannot commit transaction",
-    "disk i/o error",
-)
+_SqlIdentifier = SqlIdentifier
 
 
-class _SqlIdentifier(str):
-    """A SQLite identifier quoted before it can enter a statement."""
-
-    def __new__(cls, value: str) -> _SqlIdentifier:
-        if "\x00" in value:
-            raise DatabaseError("SQLite identifiers cannot contain NUL")
-        quoted = f'"{value.replace(chr(34), chr(34) * 2)}"'
-        return str.__new__(cls, quoted)
-
-
-class DatabaseRepository(  # pylint: disable=too-many-ancestors,too-many-public-methods
-    PackageCatalogRepositoryMixin,
-    DashboardRepositoryMixin,
-    HistoryRepositoryMixin,
-    DatabaseMetricsRepositoryMixin,
-    DatabaseRotationRepositoryMixin,
-    OwnerIdentityRepositoryMixin,
-    OwnerQueueRepositoryMixin,
-    OwnerScanRepositoryMixin,
-):
-    """Own bkg's SQLite schema, transactions, fallback reads, and cleanup."""
-
-    def __init__(
-        self,
-        settings: DatabaseSettings,
-        *,
-        check_stop: Callable[[], None] = lambda: None,
-        sleep: Callable[[float], None] = time.sleep,
-    ) -> None:
-        self.settings = settings
-        self._check_stop = check_stop
-        self._sleep = sleep
-        self._schema_lock = Lock()
-        self._schema_identity: tuple[int, int] | None = None
-        self._write_tracker = DatabaseWriteTracker()
-
-    def ensure_schema(self) -> None:
-        """Lazily create normalized tables and their query indexes."""
-
-        identity = file_identity(self.settings.path)
-        if identity is not None and identity == self._schema_identity:
-            return
-
-        with self._schema_lock:
-            identity = file_identity(self.settings.path)
-            if identity is not None and identity == self._schema_identity:
-                return
-
-            def create(connection: sqlite3.Connection) -> None:
-                with _transaction(connection):
-                    schema.ensure(
-                        connection,
-                        self.settings.owners_table,
-                        self.settings.packages_table,
-                        self.settings.versions_table,
-                    )
-
-            self._run_write(create)
-            self._schema_identity = file_identity(self.settings.path)
-
-    def write_owner(self, record: OwnerRecord) -> None:
-        """Insert or replace one owner scan record."""
-
-        self.ensure_schema()
-        self._run_write(
-            lambda connection: owner_scans.write_owner(
-                connection,
-                self.settings.owners_table,
-                record,
-            )
-        )
+class PackageRepository(DatabaseComponent):  # pylint: disable=too-many-public-methods
+    """Provide normalized and legacy package metadata operations."""
 
     def write_package(self, record: PackageRecord) -> None:
         """Insert or replace one normalized package record."""
@@ -188,7 +93,7 @@ class DatabaseRepository(  # pylint: disable=too-many-ancestors,too-many-public-
                 mark_pending=publication_pending,
             )
         )
-        self._write_tracker.add_package_rows(1)
+        self.kernel.write_tracker.add_package_rows(1)
 
     def flush_version_stage(
         self,
@@ -240,7 +145,7 @@ class DatabaseRepository(  # pylint: disable=too-many-ancestors,too-many-public-
             self._run_final_write(flush)
         else:
             self._run_write(flush)
-        self._write_tracker.add_version_rows(len(stage.rows))
+        self.kernel.write_tracker.add_version_rows(len(stage.rows))
         return len(stage.rows)
 
     def package_updated_since(self, package: PackageRef, since: str) -> bool:
@@ -332,7 +237,7 @@ class DatabaseRepository(  # pylint: disable=too-many-ancestors,too-many-public-
             return package_records.inventory(
                 connection,
                 package_history.PACKAGE_HISTORY_VIEW,
-                self._check_stop,
+                self.kernel.check_stop,
             )
 
         return self._run_read(read)
@@ -924,66 +829,6 @@ class DatabaseRepository(  # pylint: disable=too-many-ancestors,too-many-public-
         connection.execute(_sql("drop table if exists {legacy}", legacy=legacy))
         return True
 
-    def _run_read(self, operation: Callable[[sqlite3.Connection], Any]) -> Any:
-        return self._run(operation, retry=False)
-
-    def _run_write(self, operation: Callable[[sqlite3.Connection], Any]) -> Any:
-        return self._run(operation, retry=True)
-
-    def _run_final_write(self, operation: Callable[[sqlite3.Connection], Any]) -> Any:
-        return self._run(operation, retry=False, observe_stop=False)
-
-    def _run(
-        self,
-        operation: Callable[[sqlite3.Connection], Any],
-        *,
-        retry: bool,
-        observe_stop: bool = True,
-    ) -> Any:
-        attempt = 1
-        while True:
-            if observe_stop:
-                self._check_stop()
-            try:
-                with self._connection() as connection:
-                    return operation(connection)
-            except sqlite3.Error as error:
-                if (
-                    not retry
-                    or not _is_retryable(error)
-                    or attempt >= self.settings.max_attempts
-                ):
-                    raise DatabaseError(str(error)) from error
-                if observe_stop:
-                    self._check_stop()
-                self._sleep(self.settings.retry_delay_seconds)
-                attempt += 1
-
-    @contextmanager
-    def _connection(self) -> Generator[sqlite3.Connection]:
-        self.settings.path.parent.mkdir(parents=True, exist_ok=True)
-        connection = sqlite3.connect(
-            self.settings.path,
-            timeout=self.settings.busy_timeout_ms / 1000,
-            isolation_level=None,
-        )
-        try:
-            connection.execute(f"pragma busy_timeout = {self.settings.busy_timeout_ms}")
-            connection.execute("pragma synchronous = normal")
-            connection.execute("pragma foreign_keys = on")
-            connection.execute("pragma journal_mode = wal")
-            connection.execute("pragma locking_mode = normal")
-            connection.execute("pragma temp_store = memory")
-            connection.execute("pragma wal_autocheckpoint = 1000")
-            connection.execute("pragma cache_size = -500000")
-            yield connection
-        finally:
-            connection.close()
-
-
-def _sql(statement: str, /, **identifiers: _SqlIdentifier) -> str:
-    return statement.format_map(identifiers)
-
 
 def _retire_owner(
     connection: sqlite3.Connection,
@@ -993,8 +838,3 @@ def _retire_owner(
     deleted = owner_scans.retire_owner(connection, owner, tables)
     owner_queue.retire_owner(connection, owner)
     return deleted
-
-
-def _is_retryable(error: sqlite3.Error) -> bool:
-    message = str(error).lower()
-    return any(fragment in message for fragment in _RETRYABLE_MESSAGES)

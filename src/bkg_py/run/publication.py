@@ -14,23 +14,23 @@ from decimal import ROUND_DOWN, Decimal
 from pathlib import Path
 from typing import Protocol
 
-from ..dashboard import DASHBOARD_SCHEMA_VERSION, publish_dashboard
-from ..database import (
-    DashboardProjection,
-    DatabaseError,
+from ..database.dashboard import DashboardProjection
+from ..database.models import (
     DatabaseRotationEvent,
     PackageInventory,
 )
+from ..database.support import DatabaseError
 from ..files import atomic_binary_output, atomic_text_output
 from ..publication import PublicationLimits, publish_json_file
-from ..release import release_tag as release_tag_for_date
-from ..runtime_names import RunFile, StateKey, StatePrefix
-from ..site_shell import (
+from ..publication.dashboard import DASHBOARD_SCHEMA_VERSION, publish_dashboard
+from ..publication.release import release_tag as release_tag_for_date
+from ..publication.site_shell import (
     GitHubRepositoryIdentity,
     SiteShellError,
     default_site_shell_directory,
     publish_site_shell,
 )
+from ..runtime_names import RunFile, StateKey, StatePrefix
 from ..state import StateStore
 
 StopCheck = Callable[[], None]
@@ -62,18 +62,30 @@ _INTERMEDIATE_FILES = (
 )
 
 
-class RunPublicationRepository(Protocol):  # pylint: disable=too-few-public-methods
-    """Database read needed for final run publication."""
+class InventoryRepository(Protocol):  # pylint: disable=too-few-public-methods
+    """Current package inventory needed for final run publication."""
 
     def package_inventory(self) -> PackageInventory:
         """Return current package, owner, and repository counts."""
 
         raise NotImplementedError
 
+
+class DashboardProjectionRepository(Protocol):  # pylint: disable=too-few-public-methods
+    """Current dashboard projection needed for static-site publication."""
+
     def dashboard_projection(self, today: str) -> DashboardProjection:
         """Return bounded analytics from the current catalog snapshot."""
 
         raise NotImplementedError
+
+
+@dataclass(frozen=True)
+class RunPublicationRepositories:
+    """Focused database readers needed for final run publication."""
+
+    inventory: InventoryRepository
+    dashboard: DashboardProjectionRepository
 
 
 @dataclass(frozen=True)
@@ -110,14 +122,14 @@ class RunPublicationService:  # pylint: disable=too-few-public-methods
 
     def __init__(
         self,
-        repository: RunPublicationRepository,
+        repositories: RunPublicationRepositories,
         state: StateStore,
         check_stop: StopCheck,
         progress: MessageSink | None = None,
         *,
         publication_limits: PublicationLimits | None = None,
     ) -> None:
-        self.repository = repository
+        self.repositories = repositories
         self.state = state
         self.check_stop = check_stop
         self.progress = progress or _ignore_message
@@ -128,7 +140,7 @@ class RunPublicationService:  # pylint: disable=too-few-public-methods
 
         _validate_request(request)
         sources = _read_sources(request.paths.root)
-        inventory = self.repository.package_inventory()
+        inventory = self.repositories.inventory.package_inventory()
         self.check_stop()
 
         changelog = _render_changelog(
@@ -175,7 +187,7 @@ class RunPublicationService:  # pylint: disable=too-few-public-methods
     ) -> None:
         query_started = time.monotonic()
         try:
-            projection = self.repository.dashboard_projection(today)
+            projection = self.repositories.dashboard.dashboard_projection(today)
         except DatabaseError as error:
             self.progress(
                 f"Dashboard projection unavailable; keeping previous artifacts: {error}"

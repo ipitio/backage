@@ -20,7 +20,7 @@ from urllib.parse import quote
 from .config import RuntimeConfig
 from .files import atomic_binary_output, atomic_path, atomic_text_output
 from .github import GitHubClient, GitHubError
-from .release_retention import release_has_rotation_archive
+from .publication.retention import release_has_rotation_archive
 
 ArchiveKind = Literal["db", "db-zst", "sql-zst"]
 StopCheck = Callable[[], None]
