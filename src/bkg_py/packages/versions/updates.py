@@ -14,7 +14,7 @@ from ...database.models import (
     VersionRecord,
     VersionStage,
 )
-from ...database.package_repository import PackageRepository
+from ...database.package.repository import PackageRepository
 from ...github import GitHubError
 from ..enrichment import (
     METRIC_TEXT_REQUEST_POLICY,

@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from bkg_py.database.metrics import (
+from bkg_py.database.maintenance.metrics import (
     DatabaseDateRows,
     DatabaseMetricSample,
     DatabaseObjectBytes,

@@ -9,7 +9,7 @@ from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
 
-from ..database.package_repository import PackageRepository
+from ..database.package.repository import PackageRepository
 from ..publication import PublicationLimits, publish_json_file
 from ..publication.rendering import (
     AggregateSettings,

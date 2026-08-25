@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
-from .database.schema import ensure
+from .database.schema.lifecycle import ensure
 from .runtime_names import EnvironmentVariable, RunFile, StateKey, StatePrefix
 
 

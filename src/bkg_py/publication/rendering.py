@@ -20,7 +20,7 @@ from ..database.models import (
     VersionRecord,
     VersionSource,
 )
-from ..database.package_repository import PackageRepository
+from ..database.package.repository import PackageRepository
 from ..files import atomic_path, atomic_text_output
 from ..runtime_names import EnvironmentVariable as Env
 from .artifacts import JsonValue

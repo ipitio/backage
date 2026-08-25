@@ -14,7 +14,7 @@ from decimal import ROUND_DOWN, Decimal
 from pathlib import Path
 from typing import Protocol
 
-from ..database.dashboard import DashboardProjection
+from ..database.catalog.dashboard import DashboardProjection
 from ..database.models import (
     DatabaseRotationEvent,
     PackageInventory,

@@ -5,16 +5,16 @@ from __future__ import annotations
 import time
 from collections.abc import Callable
 
-from .catalog_repository import PackageCatalogRepository
-from .dashboard_repository import DashboardRepository
-from .history_repository import HistoryRepository
+from .catalog.dashboard_repository import DashboardRepository
+from .catalog.package_repository import PackageCatalogRepository
+from .history.repository import HistoryRepository
 from .kernel import DatabaseKernel
-from .metrics_repository import DatabaseMetricsRepository
-from .owner_identities import OwnerIdentityRepository
-from .owner_queue_repository import OwnerQueueRepository
-from .owner_repository import OwnerScanRepository
-from .package_repository import PackageRepository
-from .rotation_repository import DatabaseRotationRepository
+from .maintenance.metrics_repository import DatabaseMetricsRepository
+from .maintenance.rotation_repository import DatabaseRotationRepository
+from .owner.identities import OwnerIdentityRepository
+from .owner.queue_repository import OwnerQueueRepository
+from .owner.scan_repository import OwnerScanRepository
+from .package.repository import PackageRepository
 from .settings import DatabaseSettings
 
 

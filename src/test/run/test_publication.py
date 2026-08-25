@@ -9,13 +9,13 @@ from pathlib import Path
 
 import pytest
 
-from bkg_py.database.composition import DatabaseRepositories
-from bkg_py.database.dashboard import (
+from bkg_py.database.catalog.dashboard import (
     DashboardDistributionItem,
     DashboardFreshnessBucket,
     DashboardMetricCoverage,
     DashboardProjection,
 )
+from bkg_py.database.composition import DatabaseRepositories
 from bkg_py.database.models import (
     DatabaseRotationEvent,
     PackageInventory,

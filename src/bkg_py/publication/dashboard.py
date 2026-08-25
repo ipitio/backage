@@ -9,7 +9,7 @@ from datetime import date, timedelta
 from pathlib import Path
 from typing import cast
 
-from ..database.dashboard import (
+from ..database.catalog.dashboard import (
     PACKAGE_TYPE_LIMIT,
     DashboardMetricCoverage,
     DashboardProjection,

@@ -20,7 +20,7 @@ from ..concurrency import (
     TaskInterruption,
     WorkerEvent,
 )
-from ..database.owner_queue import (
+from ..database.owner.queue import (
     OwnerQueueCompletion,
     OwnerQueueEntry,
     OwnerQueueOutcome,

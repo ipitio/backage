@@ -12,7 +12,7 @@ from ..database.models import (
     PackageBatch,
     PackageRef,
 )
-from ..database.package_repository import PackageRepository
+from ..database.package.repository import PackageRepository
 from ..database.support import DatabaseError
 from ..github import GitHubError
 from ..packages.updates import (

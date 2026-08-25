@@ -9,8 +9,8 @@ from contextlib import contextmanager
 from threading import Lock
 from typing import TypeVar
 
-from . import schema
-from .metrics import DatabaseWriteTracker
+from .maintenance.metrics import DatabaseWriteTracker
+from .schema import lifecycle as schema
 from .settings import DatabaseSettings
 from .support import DatabaseError, file_identity, transaction
 

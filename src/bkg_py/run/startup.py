@@ -7,13 +7,17 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
-from ..database.catalog_repository import PackageCatalogRepository
-from ..database.history_repository import HistoryRepository
+from ..database.catalog.package_repository import PackageCatalogRepository
+from ..database.history.package_history import (
+    MIGRATION_BATCH_ROWS as PACKAGE_MIGRATION_ROWS,
+)
+from ..database.history.repository import HistoryRepository
+from ..database.history.version_history import (
+    MIGRATION_BATCH_ROWS as VERSION_MIGRATION_ROWS,
+)
 from ..database.models import PackageCatalogStatus
-from ..database.owner_queue_repository import OwnerQueueRepository
-from ..database.package_history import MIGRATION_BATCH_ROWS as PACKAGE_MIGRATION_ROWS
-from ..database.package_repository import PackageRepository
-from ..database.version_history import MIGRATION_BATCH_ROWS as VERSION_MIGRATION_ROWS
+from ..database.owner.queue_repository import OwnerQueueRepository
+from ..database.package.repository import PackageRepository
 from ..discovery import OwnerIdentityCache
 from ..discovery.values import normalize_owner_lines
 from ..files import atomic_text_output

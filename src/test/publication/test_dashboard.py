@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from bkg_py.database.dashboard import (
+from bkg_py.database.catalog.dashboard import (
     DashboardDistributionItem,
     DashboardFreshnessBucket,
     DashboardMetricCoverage,

@@ -15,7 +15,7 @@ from ..database.models import (
     PackageRef,
     VersionRecord,
 )
-from ..database.package_repository import PackageRepository
+from ..database.package.repository import PackageRepository
 from ..database.support import DatabaseError
 from ..github import GitHubError, GitHubNotFoundError
 from ..publication import (

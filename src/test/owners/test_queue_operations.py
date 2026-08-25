@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 
 from bkg_py.database.composition import DatabaseRepositories
-from bkg_py.database.owner_queue import (
+from bkg_py.database.owner.queue import (
     OwnerQueueAdmission,
     OwnerQueueCandidate,
     OwnerQueueCompletion,

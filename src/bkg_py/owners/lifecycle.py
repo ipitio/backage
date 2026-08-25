@@ -15,7 +15,7 @@ from ..database.models import (
     OwnerScanResult,
     OwnerScanStart,
 )
-from ..database.owner_repository import OwnerScanRepository
+from ..database.owner.scan_repository import OwnerScanRepository
 from ..runtime_names import (
     StateKey,
     legacy_owner_page_key,

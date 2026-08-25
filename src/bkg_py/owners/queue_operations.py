@@ -11,7 +11,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Protocol
 
-from ..database.owner_queue import (
+from ..database.owner.queue import (
     OwnerQueueAdmission,
     OwnerQueueCandidate,
     OwnerQueueEntry,

@@ -9,7 +9,7 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Protocol
 
-from ..database.metrics import (
+from ..database.maintenance.metrics import (
     DatabaseMetricSample,
     DatabaseStorageMetrics,
     DatabaseWriteCounts,

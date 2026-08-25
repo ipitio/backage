@@ -1,0 +1,1 @@
+"""Owner persistence capabilities."""

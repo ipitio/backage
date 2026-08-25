@@ -13,7 +13,7 @@ from ..database.models import (
     OwnerScanWorkSelection,
     PackageRef,
 )
-from ..database.owner_repository import OwnerScanRepository
+from ..database.owner.scan_repository import OwnerScanRepository
 from ..github import GitHubJsonResponse
 from .package_updates import OwnerPackageRefreshService
 from .scan_pages import (

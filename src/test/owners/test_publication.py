@@ -16,7 +16,7 @@ from bkg_py.database.models import (
     VersionRecord,
     VersionStage,
 )
-from bkg_py.database.package_repository import PackageRepository
+from bkg_py.database.package.repository import PackageRepository
 from bkg_py.database.settings import DatabaseSettings
 from bkg_py.owners.publication import (
     OwnerPublicationRequest,
