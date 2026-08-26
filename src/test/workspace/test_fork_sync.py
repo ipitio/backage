@@ -6,6 +6,7 @@ import pytest
 
 from bkg_py.cli import main
 from bkg_py.result import ExitStatus
+from bkg_py.workspace import fork_sync as fork_sync_module
 from bkg_py.workspace.fork_sync import synchronize_fork_source
 from bkg_py.workspace.git import WorkspaceError
 
@@ -199,6 +200,74 @@ def test_fork_sync_adopts_defaults_for_missing_deployment_inputs(
     assert (fork / "owners.txt").read_text(encoding="utf-8") == "main-owner\n"
     assert (fork / "optout.txt").read_text(encoding="utf-8") == "main/package\n"
     assert not git(fork, "status", "--porcelain").stdout
+
+
+def test_fork_sync_uses_only_shallow_default_branch_history(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Fresh workflow clones synchronize without fetching deployment branches."""
+
+    monkeypatch.setattr(fork_sync_module, "_HISTORY_DEPTHS", (1,))
+    upstream, fork = _create_fork_pair(tmp_path)
+    _customize_fork_inputs(fork)
+    git(fork, "branch", "index")
+    fork_remote = tmp_path / "fork.git"
+    clone_repository(fork, fork_remote, bare=True)
+
+    shallow_fork = tmp_path / "shallow-fork"
+    clone_repository(fork_remote, shallow_fork, depth=1)
+    git(shallow_fork, "config", "user.name", "test")
+    git(shallow_fork, "config", "user.email", "test@example.com")
+    (upstream / "application.py").write_text(
+        "value = 'upstream'\n",
+        encoding="utf-8",
+    )
+    git(upstream, "commit", "-qam", "update upstream application")
+
+    result = synchronize_fork_source(
+        shallow_fork,
+        upstream_url=str(upstream),
+        upstream_branch="master",
+    )
+
+    assert result.updated
+    assert (shallow_fork / "application.py").read_text(encoding="utf-8") == (
+        "value = 'upstream'\n"
+    )
+    assert (shallow_fork / "owners.txt").read_text(encoding="utf-8") == ("fork-owner\n")
+    assert (
+        git(
+            shallow_fork,
+            "show-ref",
+            "--verify",
+            "refs/remotes/origin/index",
+            check=False,
+        ).returncode
+        != 0
+    )
+
+    git(shallow_fork, "push", "-q", "origin", "master")
+    repeated_fork = tmp_path / "repeated-fork"
+    clone_repository(fork_remote, repeated_fork, depth=1)
+    repeated = synchronize_fork_source(
+        repeated_fork,
+        upstream_url=str(upstream),
+        upstream_branch="master",
+    )
+
+    assert not repeated.updated
+    assert repeated.upstream_commit == result.upstream_commit
+    assert (
+        git(
+            repeated_fork,
+            "show-ref",
+            "--verify",
+            "refs/remotes/origin/index",
+            check=False,
+        ).returncode
+        != 0
+    )
 
 
 def test_fork_sync_rejects_a_dirty_worktree(tmp_path: Path) -> None:

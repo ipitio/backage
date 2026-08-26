@@ -65,13 +65,28 @@ def create_repository_with_remote(tmp_path: Path) -> tuple[Path, Path]:
     return repository, remote
 
 
-def clone_repository(source: Path, destination: Path) -> None:
+def clone_repository(
+    source: Path,
+    destination: Path,
+    *,
+    bare: bool = False,
+    depth: int | None = None,
+) -> None:
     """Clone one local repository into a test worktree."""
 
     executable = shutil.which("git")
     if executable is None:
         raise RuntimeError("Git is required for workspace tests")
+    arguments = [executable, "clone", "--quiet"]
+    if bare:
+        arguments.append("--bare")
+    if depth is not None:
+        arguments.extend((f"--depth={depth}", "--single-branch", "--branch=master"))
+        source_argument = source.resolve().as_uri()
+    else:
+        source_argument = str(source)
+    arguments.extend((source_argument, str(destination)))
     subprocess.run(  # noqa: S603
-        (executable, "clone", "--quiet", str(source), str(destination)),
+        arguments,
         check=True,
     )

@@ -243,10 +243,18 @@ grep -Fq 'contents: write' "$sync_workflow" || {
     echo "Upstream sync cannot publish its merge" >&2
     exit 1
 }
-grep -Fq 'fetch-depth: 0' "$sync_workflow" || {
-    echo "Upstream sync does not fetch the history needed for a real merge" >&2
+grep -Fq 'fetch-depth: 1' "$sync_workflow" || {
+    echo "Upstream sync does not start from one default-branch commit" >&2
     exit 1
 }
+grep -Fq 'filter: blob:none' "$sync_workflow" || {
+    echo "Upstream sync checkout includes unnecessary historical blobs" >&2
+    exit 1
+}
+if grep -Fq 'fetch-depth: 0' "$sync_workflow"; then
+    echo "Upstream sync still fetches every fork ref and its complete history" >&2
+    exit 1
+fi
 grep -Fq '[.source.clone_url, .source.default_branch]' "$sync_workflow" || {
     echo "Upstream sync does not resolve the fork network's canonical source" >&2
     exit 1
@@ -273,6 +281,25 @@ awk '
     END { exit !(push_line && build_line && push_line < build_line) }
 ' "$sync_workflow" || {
     echo "Upstream sync does not publish source before dispatching its build" >&2
+    exit 1
+}
+
+setup_fork="$repo_dir/src/setup-fork.sh"
+[[ -x $setup_fork ]] || {
+    echo "Programmatic fork setup is not executable" >&2
+    exit 1
+}
+bash "$setup_fork" --help >/dev/null
+grep -Fq -- '--default-branch-only' "$setup_fork" || {
+    echo "Programmatic fork setup can inherit generated branches" >&2
+    exit 1
+}
+grep -Fq 'state == "disabled_fork"' "$setup_fork" || {
+    echo "Programmatic fork setup does not enable fork-disabled workflows" >&2
+    exit 1
+}
+grep -Fq 'workflow run publish.yml' "$setup_fork" || {
+    echo "Programmatic fork setup does not start the initial Build" >&2
     exit 1
 }
 
