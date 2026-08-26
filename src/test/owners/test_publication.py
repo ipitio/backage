@@ -1,7 +1,5 @@
 """Tests for owner and repository aggregate publication."""
 
-from __future__ import annotations
-
 import json
 from collections.abc import Callable
 from pathlib import Path

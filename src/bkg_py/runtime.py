@@ -1,7 +1,5 @@
 """Runtime stop control and supervised subprocess execution."""
 
-from __future__ import annotations
-
 import os
 import resource
 import shutil

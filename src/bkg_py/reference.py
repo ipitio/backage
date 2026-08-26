@@ -1,7 +1,5 @@
 """Generate the supported runtime surface from authoritative names."""
 
-from __future__ import annotations
-
 import argparse
 import sqlite3
 from collections.abc import Iterable, Mapping

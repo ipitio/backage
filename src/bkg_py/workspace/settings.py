@@ -1,7 +1,5 @@
 """Immutable settings for repository workspace operations."""
 
-from __future__ import annotations
-
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass, field, replace
 

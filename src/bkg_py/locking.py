@@ -1,7 +1,5 @@
 """Stop-aware advisory file locking for shared runtime files."""
 
-from __future__ import annotations
-
 import fcntl
 import os
 import time

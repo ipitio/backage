@@ -1,7 +1,5 @@
 """Transactional owner listing scans and package reconciliation."""
 
-from __future__ import annotations
-
 import sqlite3
 from collections.abc import Sequence
 from dataclasses import dataclass

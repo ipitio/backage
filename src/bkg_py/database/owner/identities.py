@@ -1,7 +1,5 @@
 """Lazy reconciliation of superseded GitHub owner identities."""
 
-from __future__ import annotations
-
 import sqlite3
 from dataclasses import dataclass
 

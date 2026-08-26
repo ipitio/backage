@@ -1,7 +1,5 @@
 """GitHub package-registry archive locators and bounded size adapters."""
 
-from __future__ import annotations
-
 import json
 from collections.abc import Callable
 from json import JSONDecodeError

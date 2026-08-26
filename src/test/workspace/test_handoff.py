@@ -1,7 +1,5 @@
 """Tests for isolated Git workflow handoff signaling."""
 
-from __future__ import annotations
-
 import io
 import time
 from collections.abc import Callable

@@ -1,7 +1,5 @@
 """Tests for package-version candidate selection."""
 
-from __future__ import annotations
-
 import pytest
 
 from bkg_py.packages.versions.selection import (

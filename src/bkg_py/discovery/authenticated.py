@@ -1,7 +1,5 @@
 """Owner identity helpers for GitHub discovery."""
 
-from __future__ import annotations
-
 import json
 import re
 from collections.abc import Callable, Generator, Iterable, Sequence

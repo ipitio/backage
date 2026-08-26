@@ -1,7 +1,5 @@
 """Durable per-package completion state for the active batch marker."""
 
-from __future__ import annotations
-
 import sqlite3
 
 from ..models import PackageRef

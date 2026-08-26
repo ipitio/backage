@@ -1,7 +1,5 @@
 """GitHub GraphQL package-file sizing for Maven and Gradle artifacts."""
 
-from __future__ import annotations
-
 import json
 from collections.abc import Callable
 from dataclasses import dataclass

@@ -1,7 +1,5 @@
 """Tests for unattended deployment-fork source synchronization."""
 
-from __future__ import annotations
-
 from pathlib import Path
 
 import pytest

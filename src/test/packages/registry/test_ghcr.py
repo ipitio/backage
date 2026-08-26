@@ -1,7 +1,5 @@
 """Tests for direct GHCR manifest resolution."""
 
-from __future__ import annotations
-
 import json
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass

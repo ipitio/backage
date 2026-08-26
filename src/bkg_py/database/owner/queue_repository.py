@@ -1,7 +1,5 @@
 """Repository methods for the durable owner-work queue."""
 
-from __future__ import annotations
-
 from ..kernel import DatabaseComponent
 from . import queue as owner_queue
 from . import scans as owner_scans

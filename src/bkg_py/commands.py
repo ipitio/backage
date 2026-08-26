@@ -1,8 +1,6 @@
 """Execute the supported bkg command adapters."""
 # pylint: disable=import-outside-toplevel
 
-from __future__ import annotations
-
 import argparse
 import json
 import sys

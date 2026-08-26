@@ -1,7 +1,5 @@
 """Selective retention for database snapshot and rotation releases."""
 
-from __future__ import annotations
-
 import re
 from collections import defaultdict
 from collections.abc import Callable, Mapping

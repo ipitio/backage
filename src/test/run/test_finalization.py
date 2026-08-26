@@ -1,7 +1,5 @@
 """Tests for combined snapshot and run-summary finalization."""
 
-from __future__ import annotations
-
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime

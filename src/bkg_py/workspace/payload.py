@@ -1,7 +1,5 @@
 """Import workflow-downloaded files into a checked-out repository."""
 
-from __future__ import annotations
-
 import shutil
 from pathlib import Path
 

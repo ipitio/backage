@@ -1,7 +1,5 @@
 """Errors raised by GitHub API and public-resource operations."""
 
-from __future__ import annotations
-
 
 class GitHubError(RuntimeError):
     """A GitHub HTTP operation could not complete."""

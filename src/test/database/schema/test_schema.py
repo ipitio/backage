@@ -1,7 +1,5 @@
 """Tests for lazy normalized SQLite schema replacement."""
 
-from __future__ import annotations
-
 import sqlite3
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path

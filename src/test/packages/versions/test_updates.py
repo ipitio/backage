@@ -1,7 +1,5 @@
 """Tests for detailed package-version refresh orchestration."""
 
-from __future__ import annotations
-
 import sqlite3
 from collections.abc import Callable
 from pathlib import Path

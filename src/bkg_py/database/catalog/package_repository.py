@@ -1,7 +1,5 @@
 """Repository methods for the lazy rotation-independent package catalog."""
 
-from __future__ import annotations
-
 from collections.abc import Iterable
 
 from ..history import package_history

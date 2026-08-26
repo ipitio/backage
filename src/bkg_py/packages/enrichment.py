@@ -1,7 +1,5 @@
 """Adaptive backpressure for best-effort remote requests."""
 
-from __future__ import annotations
-
 import time
 from collections.abc import Callable, Generator
 from contextlib import contextmanager

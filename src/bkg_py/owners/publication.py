@@ -1,7 +1,5 @@
 """Owner and repository aggregate publication from committed database state."""
 
-from __future__ import annotations
-
 import os
 import tempfile
 from collections.abc import Callable

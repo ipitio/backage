@@ -1,7 +1,5 @@
 """Release-period identities shared by runtime and workflow publication."""
 
-from __future__ import annotations
-
 from datetime import date
 
 

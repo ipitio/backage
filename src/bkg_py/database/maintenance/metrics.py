@@ -1,7 +1,5 @@
 """Bounded SQLite storage measurements for database finalization."""
 
-from __future__ import annotations
-
 import json
 import sqlite3
 from dataclasses import dataclass

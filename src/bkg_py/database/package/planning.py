@@ -1,7 +1,5 @@
 """Snapshot-consistent package and owner work planning."""
 
-from __future__ import annotations
-
 import sqlite3
 from collections.abc import Generator
 from contextlib import contextmanager

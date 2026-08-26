@@ -1,7 +1,5 @@
 """Optional Docker daemon fallback for cumulative local container sizes."""
 
-from __future__ import annotations
-
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import Protocol

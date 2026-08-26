@@ -1,7 +1,5 @@
 """CLI adapter for the top-level Python run coordinator."""
 
-from __future__ import annotations
-
 import argparse
 import sys
 from collections.abc import Callable

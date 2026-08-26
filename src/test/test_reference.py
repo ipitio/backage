@@ -1,7 +1,5 @@
 """Tests for the generated runtime ownership reference."""
 
-from __future__ import annotations
-
 import ast
 import json
 import re

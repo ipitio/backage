@@ -1,7 +1,5 @@
 """Shared SQLite connection, schema, retry, and write-accounting kernel."""
 
-from __future__ import annotations
-
 import sqlite3
 import time
 from collections.abc import Callable, Generator

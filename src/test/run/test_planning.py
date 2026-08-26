@@ -1,7 +1,5 @@
 """Tests for typed package-work planning and live run intermediates."""
 
-from __future__ import annotations
-
 from dataclasses import dataclass, field
 from pathlib import Path
 

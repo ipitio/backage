@@ -1,7 +1,5 @@
 """Repository methods for bounded database finalization measurements."""
 
-from __future__ import annotations
-
 from ..history import package_history
 from ..kernel import DatabaseComponent
 from . import metrics

@@ -1,7 +1,5 @@
 """Tests for bounded Python worker execution."""
 
-from __future__ import annotations
-
 import threading
 import time
 

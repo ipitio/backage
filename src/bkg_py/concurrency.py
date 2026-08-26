@@ -1,7 +1,5 @@
 """Bounded worker execution for Python-owned bkg pipelines."""
 
-from __future__ import annotations
-
 import time
 from collections.abc import Callable, Sequence
 from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait

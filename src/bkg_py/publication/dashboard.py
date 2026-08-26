@@ -1,7 +1,5 @@
 """Serialize bounded dashboard projections and daily trend history."""
 
-from __future__ import annotations
-
 import json
 from collections.abc import Callable
 from dataclasses import dataclass

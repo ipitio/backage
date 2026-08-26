@@ -1,7 +1,5 @@
 """Verify and publish the static Pages shell built with Astro."""
 
-from __future__ import annotations
-
 import hashlib
 import json
 import re

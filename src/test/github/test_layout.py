@@ -1,7 +1,5 @@
 """Structural tests for the GitHub client package boundary."""
 
-from __future__ import annotations
-
 import ast
 from importlib.util import find_spec
 from pathlib import Path

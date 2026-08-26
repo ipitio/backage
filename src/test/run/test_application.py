@@ -1,7 +1,5 @@
 """Integration tests for the complete Python run command."""
 
-from __future__ import annotations
-
 from pathlib import Path
 
 import pytest

@@ -1,7 +1,5 @@
 """Structural tests for workspace Git capability boundaries."""
 
-from __future__ import annotations
-
 from importlib.util import find_spec
 from pathlib import Path
 

@@ -1,7 +1,5 @@
 """Tests for package metadata refresh and recoverable publication."""
 
-from __future__ import annotations
-
 import json
 from dataclasses import dataclass, replace
 from pathlib import Path

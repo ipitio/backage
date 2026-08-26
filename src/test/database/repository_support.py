@@ -1,7 +1,5 @@
 """Shared records and legacy-table helpers for database repository tests."""
 
-from __future__ import annotations
-
 import sqlite3
 
 from bkg_py.database.models import PackageRef, VersionMetrics, VersionRecord

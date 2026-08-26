@@ -1,7 +1,5 @@
 """Runtime resolution of the shared HTTP User-Agent."""
 
-from __future__ import annotations
-
 import re
 import threading
 from collections.abc import Callable

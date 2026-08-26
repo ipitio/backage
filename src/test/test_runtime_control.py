@@ -1,7 +1,5 @@
 """Tests for runtime stop control and supervised commands."""
 
-from __future__ import annotations
-
 import os
 import signal
 import sys

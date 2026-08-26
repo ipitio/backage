@@ -1,7 +1,5 @@
 """Typed run and batch decisions for the application orchestrator."""
 
-from __future__ import annotations
-
 import os
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass

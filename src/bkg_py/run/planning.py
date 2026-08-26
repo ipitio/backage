@@ -1,7 +1,5 @@
 """Typed package-work planning for top-level application orchestration."""
 
-from __future__ import annotations
-
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Protocol

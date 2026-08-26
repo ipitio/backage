@@ -1,7 +1,5 @@
 """Version-page parsing and container manifest helpers."""
 
-from __future__ import annotations
-
 import base64
 import html as html_lib
 import json

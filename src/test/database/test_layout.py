@@ -1,7 +1,5 @@
 """Structural tests for focused SQLite repositories and shared primitives."""
 
-from __future__ import annotations
-
 import ast
 from importlib.util import find_spec, resolve_name
 from pathlib import Path

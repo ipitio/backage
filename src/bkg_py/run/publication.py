@@ -1,7 +1,5 @@
 """Publish top-level run summaries after database updates finish."""
 
-from __future__ import annotations
-
 import json
 import re
 import tempfile

@@ -1,7 +1,5 @@
 """Repository methods for durable database-rotation events."""
 
-from __future__ import annotations
-
 from ..kernel import DatabaseComponent
 from ..models import DatabaseRotationEvent
 from . import rotations as rotation_events

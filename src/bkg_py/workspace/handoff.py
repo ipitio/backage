@@ -1,7 +1,5 @@
 """Isolated Git control-ref signaling for graceful workflow handoff."""
 
-from __future__ import annotations
-
 import threading
 from collections.abc import Callable, Generator, Mapping
 from contextlib import contextmanager

@@ -1,7 +1,5 @@
 """Tests for credential-isolated GitHub package-registry transport."""
 
-from __future__ import annotations
-
 from collections.abc import Iterator
 
 import httpx

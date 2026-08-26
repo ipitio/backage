@@ -1,7 +1,5 @@
 """Outer repository, snapshot, run, and publication workflow lifecycle."""
 
-from __future__ import annotations
-
 import shutil
 import subprocess
 import time

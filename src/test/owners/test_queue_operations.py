@@ -1,7 +1,5 @@
 """Tests for Python-owned post-discovery owner queue preparation."""
 
-from __future__ import annotations
-
 import random
 from collections.abc import Iterable
 from dataclasses import dataclass, field

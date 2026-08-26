@@ -1,7 +1,5 @@
 """Database snapshot archive selection and atomic local storage."""
 
-from __future__ import annotations
-
 import hashlib
 import re
 import shutil

@@ -1,7 +1,5 @@
 """Concurrent top-level owner updates with durable outcome effects."""
 
-from __future__ import annotations
-
 import re
 import secrets
 import shutil

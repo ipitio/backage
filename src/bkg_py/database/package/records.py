@@ -1,7 +1,5 @@
 """SQLite package rows and recoverable generated-file publication state."""
 
-from __future__ import annotations
-
 import sqlite3
 from collections.abc import Callable
 

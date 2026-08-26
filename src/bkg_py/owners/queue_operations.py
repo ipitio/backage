@@ -1,7 +1,5 @@
 """Prepare the durable owner queue after global discovery completes."""
 
-from __future__ import annotations
-
 import random
 import time
 from collections import Counter

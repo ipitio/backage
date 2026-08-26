@@ -1,7 +1,5 @@
 """Source-checkout Git operations used during update setup."""
 
-from __future__ import annotations
-
 import subprocess
 from collections.abc import Iterable, Mapping
 from pathlib import Path

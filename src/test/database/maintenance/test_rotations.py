@@ -1,7 +1,5 @@
 """Tests for durable release-scoped database-rotation events."""
 
-from __future__ import annotations
-
 from pathlib import Path
 
 from bkg_py.database.composition import DatabaseRepositories

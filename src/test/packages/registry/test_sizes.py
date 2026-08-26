@@ -1,7 +1,5 @@
 """Tests for non-container GitHub package archive sizing."""
 
-from __future__ import annotations
-
 import json
 
 from bkg_py.packages.enrichment import RequestCircuit, RequestCircuitSettings

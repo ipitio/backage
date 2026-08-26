@@ -1,7 +1,5 @@
 """Command-line runner for the version-history layout benchmark."""
 
-from __future__ import annotations
-
 import argparse
 import json
 import sys

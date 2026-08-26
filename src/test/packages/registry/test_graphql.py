@@ -1,7 +1,5 @@
 """Tests for Maven and Gradle package-file sizing through GitHub GraphQL."""
 
-from __future__ import annotations
-
 from collections.abc import Iterable
 
 import httpx

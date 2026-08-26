@@ -1,7 +1,5 @@
 """Construct and share bkg runtime services for one Python operation."""
 
-from __future__ import annotations
-
 from collections.abc import Callable, Generator, Mapping
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field, replace

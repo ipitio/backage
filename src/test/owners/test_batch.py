@@ -1,7 +1,5 @@
 """Tests for shared-process queued owner updates and durable effects."""
 
-from __future__ import annotations
-
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path

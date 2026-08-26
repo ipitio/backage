@@ -1,7 +1,5 @@
 """SQLite repository for bkg's normalized and legacy package metadata."""
 
-from __future__ import annotations
-
 import sqlite3
 from collections.abc import Callable, Generator
 

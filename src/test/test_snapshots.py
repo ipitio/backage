@@ -1,7 +1,5 @@
 """Tests for local database snapshot storage."""
 
-from __future__ import annotations
-
 import sqlite3
 import stat
 from compression import zstd

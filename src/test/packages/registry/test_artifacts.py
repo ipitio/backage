@@ -1,7 +1,5 @@
 """Tests for package-neutral artifact-size selection."""
 
-from __future__ import annotations
-
 from dataclasses import dataclass, field
 
 from bkg_py.packages.registry.artifacts import (

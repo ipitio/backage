@@ -1,7 +1,5 @@
 """Repository operations for bounded package and version history migration."""
 
-from __future__ import annotations
-
 from ..kernel import DatabaseComponent
 from . import migration as history_migration
 from . import package_history, version_history

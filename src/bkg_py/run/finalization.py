@@ -1,7 +1,5 @@
 """Finalize database snapshots and generated run summaries in one operation."""
 
-from __future__ import annotations
-
 import json
 from collections.abc import Callable
 from dataclasses import dataclass, replace

@@ -1,7 +1,5 @@
 """Inner owner update lifecycle built from Python-owned domain services."""
 
-from __future__ import annotations
-
 import shutil
 import time
 from collections.abc import Callable

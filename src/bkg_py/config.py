@@ -1,7 +1,5 @@
 """Capture and parse bkg's process configuration."""
 
-from __future__ import annotations
-
 import math
 import os
 from collections.abc import Iterator, Mapping

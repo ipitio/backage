@@ -1,7 +1,5 @@
 """Bounded in-process package refreshes for one owner update."""
 
-from __future__ import annotations
-
 from collections.abc import Callable
 from dataclasses import dataclass, replace
 from pathlib import Path

@@ -1,7 +1,5 @@
 """Tests for the lazy rotation-independent package catalog."""
 
-from __future__ import annotations
-
 import sqlite3
 from pathlib import Path
 

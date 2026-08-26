@@ -1,7 +1,5 @@
 """Publish generated index and source state to their owning Git branches."""
 
-from __future__ import annotations
-
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime

@@ -1,7 +1,5 @@
 """Compose existing application services into top-level run phases."""
 
-from __future__ import annotations
-
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from dataclasses import dataclass

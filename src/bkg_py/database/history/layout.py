@@ -1,7 +1,5 @@
 """Measure a normalized version-history layout without changing live data."""
 
-from __future__ import annotations
-
 import hashlib
 import sqlite3
 import time

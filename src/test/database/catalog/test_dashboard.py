@@ -1,7 +1,5 @@
 """Tests for bounded dashboard queries over the current package catalog."""
 
-from __future__ import annotations
-
 import sqlite3
 from pathlib import Path
 

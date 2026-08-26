@@ -1,7 +1,5 @@
 """Transactional normalized and legacy package-version stage writes."""
 
-from __future__ import annotations
-
 import sqlite3
 
 from ..models import VersionStage

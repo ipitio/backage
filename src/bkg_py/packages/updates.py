@@ -1,7 +1,5 @@
 """Package metadata refresh, persistence, and generated-file publication."""
 
-from __future__ import annotations
-
 import json
 import os
 import re

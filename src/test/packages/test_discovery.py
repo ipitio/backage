@@ -1,7 +1,5 @@
 """Tests for owner package listing discovery."""
 
-from __future__ import annotations
-
 import pytest
 
 from bkg_py.database.models import OwnerScanPackage

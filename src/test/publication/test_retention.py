@@ -1,7 +1,5 @@
 """Tests for selective database release retention."""
 
-from __future__ import annotations
-
 import httpx
 import pytest
 

@@ -1,7 +1,5 @@
 """Validate generated index files with the same results as the shell validator."""
 
-from __future__ import annotations
-
 import json
 import xml.etree.ElementTree as element_tree
 from pathlib import Path

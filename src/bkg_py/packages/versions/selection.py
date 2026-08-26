@@ -1,7 +1,5 @@
 """Package-version candidate selection policy."""
 
-from __future__ import annotations
-
 import re
 from collections.abc import Collection, Iterable, Iterator
 from dataclasses import dataclass, field

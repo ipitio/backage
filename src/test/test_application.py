@@ -1,7 +1,5 @@
 """Tests for application service construction and reuse."""
 
-from __future__ import annotations
-
 import json
 from dataclasses import replace
 from pathlib import Path

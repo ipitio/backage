@@ -1,7 +1,5 @@
 """Integration tests for the Python-owned outer update lifecycle."""
 
-from __future__ import annotations
-
 import os
 import secrets
 import sqlite3

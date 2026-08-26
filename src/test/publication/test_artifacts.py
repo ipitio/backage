@@ -1,7 +1,5 @@
 """Tests for bounded JSON and XML publication."""
 
-from __future__ import annotations
-
 import json
 import tempfile
 from pathlib import Path

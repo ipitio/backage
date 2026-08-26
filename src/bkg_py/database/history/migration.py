@@ -1,7 +1,5 @@
 """Retryable transaction adapter for bounded history migrations."""
 
-from __future__ import annotations
-
 import sqlite3
 from collections.abc import Callable
 from typing import Any

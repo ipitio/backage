@@ -1,7 +1,5 @@
 """Tests for bounded in-process owner package refreshes."""
 
-from __future__ import annotations
-
 from pathlib import Path
 
 import pytest

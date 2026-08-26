@@ -1,7 +1,5 @@
 """Execute one complete owner update through caller-composed services."""
 
-from __future__ import annotations
-
 import shutil
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, replace

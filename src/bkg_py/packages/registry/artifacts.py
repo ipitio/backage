@@ -1,7 +1,5 @@
 """Package-neutral artifact-size resolution and container adapters."""
 
-from __future__ import annotations
-
 from collections.abc import Callable, Mapping
 from concurrent.futures import Future
 from dataclasses import dataclass

@@ -1,7 +1,5 @@
 """Index-branch preparation, sparse checkout, and catalog operations."""
 
-from __future__ import annotations
-
 import shutil
 import time
 from collections.abc import Callable, Iterable, Sequence

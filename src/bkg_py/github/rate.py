@@ -1,7 +1,5 @@
 """Shared GitHub REST capacity and API usage accounting."""
 
-from __future__ import annotations
-
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime

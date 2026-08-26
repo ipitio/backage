@@ -1,7 +1,5 @@
 """Tests for adaptive remote-request backpressure."""
 
-from __future__ import annotations
-
 from bkg_py.packages.enrichment import RequestCircuit, RequestCircuitSettings
 
 _VERSION_SCOPE = "version"

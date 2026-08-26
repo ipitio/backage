@@ -1,7 +1,5 @@
 """Command adapters for repository workspace operations."""
 
-from __future__ import annotations
-
 import argparse
 import json
 import sys

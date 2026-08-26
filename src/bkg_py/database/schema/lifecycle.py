@@ -1,7 +1,5 @@
 """Lazy creation and replacement of normalized SQLite structures."""
 
-from __future__ import annotations
-
 import sqlite3
 
 from ..history import package_history, version_history

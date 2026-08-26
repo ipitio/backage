@@ -1,7 +1,5 @@
 """Shared credential-safe Git command execution for workspace adapters."""
 
-from __future__ import annotations
-
 import re
 import subprocess
 from collections.abc import Iterable, Mapping, Sequence

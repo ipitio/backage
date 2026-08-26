@@ -1,7 +1,5 @@
 """Authoritative names shared by bkg's runtime adapters."""
 
-from __future__ import annotations
-
 from enum import StrEnum
 
 

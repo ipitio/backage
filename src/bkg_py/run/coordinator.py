@@ -1,7 +1,5 @@
 """Top-level mode and phase ordering for one bkg run."""
 
-from __future__ import annotations
-
 import tempfile
 import time
 from collections.abc import Callable

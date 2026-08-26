@@ -1,7 +1,5 @@
 """Tests for final source and index summary publication."""
 
-from __future__ import annotations
-
 import hashlib
 import json
 from dataclasses import dataclass

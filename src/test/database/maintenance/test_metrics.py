@@ -1,7 +1,5 @@
 """Tests for bounded database storage and finalization measurements."""
 
-from __future__ import annotations
-
 import sqlite3
 from dataclasses import replace
 from datetime import date, timedelta

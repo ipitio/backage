@@ -1,7 +1,5 @@
 """Tests for public HTML owner discovery fallback."""
 
-from __future__ import annotations
-
 import httpx
 
 from bkg_py.discovery.fallback import PublicHtmlDiscoveryTraversal

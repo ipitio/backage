@@ -1,7 +1,5 @@
 """Tests for durable per-package batch generation progress."""
 
-from __future__ import annotations
-
 from pathlib import Path
 
 from bkg_py.database.composition import DatabaseRepositories

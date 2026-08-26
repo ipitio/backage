@@ -1,7 +1,5 @@
 """Tests for optional cumulative local sizing through a Docker daemon."""
 
-from __future__ import annotations
-
 from collections.abc import Iterable, Sequence
 
 import pytest

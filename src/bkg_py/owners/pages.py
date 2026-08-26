@@ -1,7 +1,5 @@
 """Admission helpers for REST owner discovery pages."""
 
-from __future__ import annotations
-
 from contextlib import AbstractContextManager
 from dataclasses import dataclass, field
 from pathlib import Path

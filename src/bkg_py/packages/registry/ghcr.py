@@ -1,7 +1,5 @@
 """GHCR container sizing through direct manifests and a hosted fallback."""
 
-from __future__ import annotations
-
 import json
 import re
 import threading

@@ -1,7 +1,5 @@
 """Public repository operations for durable owner listing scans."""
 
-from __future__ import annotations
-
 from collections.abc import Sequence
 
 from ..history import package_history

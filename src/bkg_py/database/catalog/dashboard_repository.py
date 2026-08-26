@@ -1,7 +1,5 @@
 """Repository boundary for bounded dashboard projections."""
 
-from __future__ import annotations
-
 from ..kernel import DatabaseComponent
 from . import dashboard
 from .dashboard import DashboardProjection

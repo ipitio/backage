@@ -1,7 +1,5 @@
 """Select owner candidates while preserving bkg's existing queue priorities."""
 
-from __future__ import annotations
-
 import random
 import re
 import subprocess

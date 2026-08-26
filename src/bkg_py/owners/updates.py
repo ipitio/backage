@@ -1,7 +1,5 @@
 """Owner package-listing verification and identity reconciliation."""
 
-from __future__ import annotations
-
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
 from typing import Protocol, cast

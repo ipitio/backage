@@ -1,7 +1,5 @@
 """Public GitHub HTML fallback for owner discovery."""
 
-from __future__ import annotations
-
 from collections.abc import Callable
 from html.parser import HTMLParser
 from typing import cast
