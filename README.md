@@ -30,16 +30,17 @@ Otherwise, if this is a fork, you'd prefer an alternative method, or your packag
 > [!TIP]
 > You only need to add names to the queue; IDs are fetched as needed and entries are removed once processed.
 
-New packages may not be added until *all* existing ones are refreshed; you should also create an independent instance that'll update faster and more frequently. Simply fork just the `master` branch, choose one of the following options, and use the [Alternative URL](#alternative-url) when it changes. This centralized repo will then serve as a backup for all subsets of packages not in `optout.txt`.
+New packages may not be added until *all* existing ones are refreshed; you should also create an independent instance that'll update faster and more frequently. Fork only the `master` branch, choose one of the following options, and use the [Alternative URL](#alternative-url) when it changes. This centralized repo will then serve as a backup for all subsets of packages not in `optout.txt`.
 
 > [!IMPORTANT]
 > Your own packages will be picked up automatically! If you need to edit `owners.txt`, do so after the first run.
 
 The fork-only **sync upstream** workflow checks for Main source changes every
-six hours. A managed sync retains the fork's tracked `owners.txt`, `optout.txt`,
-and generated `README.md`, adopts all other Main source, then builds and runs
-the synchronized deployment. It never force-pushes. Existing forks need one
-manual upstream merge to acquire this workflow, and new forks must enable
+six hours without downloading Main's generated branches. A managed sync retains
+the fork's tracked `owners.txt`, `optout.txt`, and generated `README.md`, adopts
+all other Main source, then builds and runs the synchronized deployment. It
+never force-pushes. Existing forks need one manual upstream merge to acquire
+this workflow, and new forks created without the setup script must enable
 scheduled workflows.
 
 Forks that intentionally maintain source changes should disable **sync
@@ -53,9 +54,30 @@ do not use GitHub's **Sync fork** button for an update that changes those files.
 
 You can use GitHub-hosted runners or your own.
 
-1. Enable Actions from its tab
-2. Enable all disabled workflows
-3. Run **sync upstream** once if the fork is behind
+#### GitHub Website
+
+1. Select **Copy the `master` branch only** when creating the fork
+2. Enable Actions and every workflow disabled because the repository is a fork
+3. Run **Build** once, then **sync upstream** whenever an existing fork is behind
+
+#### GitHub CLI
+
+The checked-in [`setup-fork.sh`](https://github.com/ipitio/backage/blob/master/src/setup-fork.sh)
+creates a personal fork, enables the workflows GitHub disables on new forks,
+and dispatches its initial Build. It is safe to run again: existing deployment
+branches and intentionally disabled workflows are left alone.
+
+```bash
+gh api -H 'Accept: application/vnd.github.raw+json' \
+  repos/ipitio/backage/contents/src/setup-fork.sh | bash
+```
+
+For an organization fork, pass its owner to the script:
+
+```bash
+gh api -H 'Accept: application/vnd.github.raw+json' \
+  repos/ipitio/backage/contents/src/setup-fork.sh | bash -s -- -o ORGANIZATION
+```
 
 </details>
 
