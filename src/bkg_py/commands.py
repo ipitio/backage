@@ -52,7 +52,11 @@ def _dispatch_command(
         from .workspace.commands import run_handoff
 
         return run_handoff(args)
-    if args.command in {"configure-fork-merge", "vacuum-releases"}:
+    if args.command in {
+        "configure-fork-merge",
+        "vacuum-releases",
+        "workflow-sync-fork",
+    }:
         return _run_repository_maintenance(args)
     if args.command == "workflow-update":
         return _run_workflow_update(args, parser)
@@ -88,6 +92,10 @@ def _run_repository_maintenance(args: argparse.Namespace) -> ExitStatus:
         from .workspace.commands import run_fork_merge_configuration
 
         return run_fork_merge_configuration(args)
+    if args.command == "workflow-sync-fork":
+        from .workspace.commands import run_fork_sync
+
+        return run_fork_sync(args)
 
     from .github import GitHubClient, GitHubError, GitHubSettings
     from .publication.retention import ReleaseRetentionError, apply_release_retention

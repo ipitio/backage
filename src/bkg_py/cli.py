@@ -48,6 +48,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="preserve deployment-owned files during upstream merges",
     )
     merge_parser.add_argument("repository", nargs="?", default=".")
+    sync_parser = subparsers.add_parser(
+        "workflow-sync-fork",
+        help="project material upstream source changes into a deployment fork",
+    )
+    sync_parser.add_argument("-C", "--repository", default=".")
+    sync_parser.add_argument("-u", "--upstream", required=True)
+    sync_parser.add_argument("-b", "--upstream-branch", required=True)
     _add_run_parser(subparsers)
     validate_parser = subparsers.add_parser(
         "validate",

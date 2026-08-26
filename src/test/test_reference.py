@@ -72,6 +72,7 @@ def test_reference_cli_reports_every_owned_runtime_surface_without_side_effects(
         "bkg run",
         "bkg vacuum-releases",
         "bkg validate",
+        "bkg workflow-sync-fork",
         "bkg workflow-update",
     } == set(commands)
     run_arguments = {

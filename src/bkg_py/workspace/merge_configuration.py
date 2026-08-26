@@ -11,11 +11,8 @@ from .source import GitSourceRepository
 
 _MERGE_DRIVER = "bkg-local"
 _ATTRIBUTE_COMMENT = "# Preserve deployment-local bkg inputs during merges."
-_MERGE_ATTRIBUTES = (
-    f"owners.txt merge={_MERGE_DRIVER}",
-    f"optout.txt merge={_MERGE_DRIVER}",
-    f"README.md merge={_MERGE_DRIVER}",
-)
+FORK_LOCAL_PATHS = ("owners.txt", "optout.txt", "README.md")
+_MERGE_ATTRIBUTES = tuple(f"{path} merge={_MERGE_DRIVER}" for path in FORK_LOCAL_PATHS)
 
 
 class GitLocalConfiguration(GitCommandRunner):

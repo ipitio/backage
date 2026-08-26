@@ -1,0 +1,77 @@
+name: sync upstream
+
+on:
+  schedule:
+    - cron: "23 */6 * * *"
+
+  workflow_dispatch:
+
+jobs:
+  sync:
+    if: ${{ github.event.repository.fork }}
+    runs-on: ubuntu-latest
+
+    concurrency:
+      group: ${{ github.repository }}-database-publication
+      cancel-in-progress: false
+      queue: max
+
+    permissions:
+      actions: write
+      contents: write
+
+    steps:
+      - name: Checkout fork
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version-file: ".python-version"
+
+      - name: Resolve upstream repository
+        id: upstream
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          source=$(gh api "repos/$GITHUB_REPOSITORY" --jq \
+            '[.source.clone_url, .source.default_branch] | @tsv')
+          IFS=$'\t' read -r url branch <<<"$source"
+          if [[ -z $url || -z $branch ]]; then
+            echo "GitHub did not return the fork source and default branch" >&2
+            exit 1
+          fi
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "branch=$branch" >> "$GITHUB_OUTPUT"
+
+      - name: Configure merge identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Synchronize material upstream source
+        id: source
+        env:
+          UPSTREAM_URL: ${{ steps.upstream.outputs.url }}
+          UPSTREAM_BRANCH: ${{ steps.upstream.outputs.branch }}
+        run: |
+          output=$(PYTHONPATH=src python -m bkg_py workflow-sync-fork \
+            -C . -u "$UPSTREAM_URL" -b "$UPSTREAM_BRANCH")
+          printf '%s\n' "$output"
+          printf '%s\n' "$output" >> "$GITHUB_OUTPUT"
+
+      - name: Push synchronized source
+        if: ${{ steps.source.outputs.updated == 'true' }}
+        env:
+          FORK_BRANCH: ${{ github.event.repository.default_branch }}
+        run: git push origin "HEAD:refs/heads/$FORK_BRANCH"
+
+      - name: Build synchronized source
+        if: ${{ steps.source.outputs.updated == 'true' }}
+        env:
+          FORK_BRANCH: ${{ github.event.repository.default_branch }}
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run publish.yml --ref "$FORK_BRANCH"

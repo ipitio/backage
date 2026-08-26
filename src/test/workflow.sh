@@ -5,7 +5,7 @@ set -euo pipefail
 test_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 repo_dir=$(cd "$test_dir/../.." && pwd)
 
-for workflow in manual stop update; do
+for workflow in manual stop sync update; do
     workflow_file="$repo_dir/.github/workflows/$workflow.yml"
     grep -Fq 'python-version-file: ".python-version"' "$workflow_file" || {
         echo "$workflow workflow does not use the shared Python version file" >&2
@@ -40,6 +40,7 @@ fi
 dockerfile="$repo_dir/Dockerfile"
 build_workflow="$repo_dir/.github/workflows/publish.yml"
 manual_workflow="$repo_dir/.github/workflows/manual.yml"
+sync_workflow="$repo_dir/.github/workflows/sync.yml"
 grep -Fq "FROM python-base AS test" "$dockerfile" || {
     echo "Dockerfile does not define the production-based test target" >&2
     exit 1
@@ -217,6 +218,63 @@ if grep -Eq '(^|[[:space:]])jq([[:space:]]|$)' \
     echo "Update workflow still requires jq for freshness parsing" >&2
     exit 1
 fi
+
+grep -Fq 'github.event.repository.fork' "$sync_workflow" || {
+    echo "Upstream sync is not limited to forks" >&2
+    exit 1
+}
+grep -Fq 'workflow_dispatch:' "$sync_workflow" || {
+    echo "Upstream sync cannot be requested manually" >&2
+    exit 1
+}
+grep -Fq 'cron: "23 */6 * * *"' "$sync_workflow" || {
+    echo "Upstream sync does not use the bounded six-hour schedule" >&2
+    exit 1
+}
+grep -Fq "\${{ github.repository }}-database-publication" "$sync_workflow" || {
+    echo "Upstream sync does not serialize with database publication" >&2
+    exit 1
+}
+grep -Fq 'actions: write' "$sync_workflow" || {
+    echo "Upstream sync cannot dispatch the synchronized build" >&2
+    exit 1
+}
+grep -Fq 'contents: write' "$sync_workflow" || {
+    echo "Upstream sync cannot publish its merge" >&2
+    exit 1
+}
+grep -Fq 'fetch-depth: 0' "$sync_workflow" || {
+    echo "Upstream sync does not fetch the history needed for a real merge" >&2
+    exit 1
+}
+grep -Fq '[.source.clone_url, .source.default_branch]' "$sync_workflow" || {
+    echo "Upstream sync does not resolve the fork network's canonical source" >&2
+    exit 1
+}
+grep -Fq 'workflow-sync-fork' "$sync_workflow" || {
+    echo "Upstream sync bypasses the tested fork merge policy" >&2
+    exit 1
+}
+grep -Fq "git push origin \"HEAD:refs/heads/\$FORK_BRANCH\"" "$sync_workflow" || {
+    echo "Upstream sync does not publish a normal branch update" >&2
+    exit 1
+}
+grep -Fq "gh workflow run publish.yml --ref \"\$FORK_BRANCH\"" "$sync_workflow" || {
+    echo "Upstream sync does not explicitly dispatch the suppressed build" >&2
+    exit 1
+}
+if grep -Eq 'git push .* (-f|--force)' "$sync_workflow"; then
+    echo "Upstream sync must not force-push a fork branch" >&2
+    exit 1
+fi
+awk '
+    /git push origin/ { push_line = NR }
+    /gh workflow run publish.yml/ { build_line = NR }
+    END { exit !(push_line && build_line && push_line < build_line) }
+' "$sync_workflow" || {
+    echo "Upstream sync does not publish source before dispatching its build" >&2
+    exit 1
+}
 
 stop_workflow="$repo_dir/.github/workflows/stop.yml"
 grep -Fq "workflow_dispatch:" "$stop_workflow" || {

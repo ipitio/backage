@@ -10,6 +10,7 @@ from pathlib import Path
 from ..config import SettingsSnapshot
 from ..result import ExitStatus
 from ..runtime_names import EnvironmentVariable as Env
+from .fork_sync import synchronize_fork_source
 from .git import WorkspaceError
 from .handoff import (
     GitControlRefRepository,
@@ -96,4 +97,21 @@ def run_fork_merge_configuration(args: argparse.Namespace) -> ExitStatus:
     _write_stdout(
         f"{action} fork-local merge handling in {result.attributes_path.parent}"
     )
+    return ExitStatus.SUCCESS
+
+
+def run_fork_sync(args: argparse.Namespace) -> ExitStatus:
+    """Synchronize one workflow checkout with material upstream changes."""
+
+    try:
+        result = synchronize_fork_source(
+            Path(args.repository),
+            upstream_url=args.upstream,
+            upstream_branch=args.upstream_branch,
+        )
+    except (OSError, WorkspaceError) as error:
+        _write_progress(str(error))
+        return ExitStatus.NON_FATAL
+    _write_stdout(f"updated={'true' if result.updated else 'false'}")
+    _write_stdout(f"upstream_sha={result.upstream_commit}")
     return ExitStatus.SUCCESS

@@ -35,12 +35,18 @@ New packages may not be added until *all* existing ones are refreshed; you shoul
 > [!IMPORTANT]
 > Your own packages will be picked up automatically! If you need to edit `owners.txt`, do so after the first run.
 
-Forks that merge upstream changes locally should run `bkg configure-fork-merge .`
-once in each clone. Ordinary merges will then retain that deployment's
-`owners.txt`, `optout.txt`, and generated `README.md` while accepting templates,
-contributor documentation, and other upstream changes. The setting is
-clone-local: use a merge rather than a rebase, and do not use GitHub's
-**Sync fork** button for an update that changes any of these files.
+The fork-only **sync upstream** workflow checks for Main source changes every
+six hours. A managed sync retains the fork's tracked `owners.txt`, `optout.txt`,
+and generated `README.md`, adopts all other Main source, then builds and runs
+the synchronized deployment. It never force-pushes. Existing forks need one
+manual upstream merge to acquire this workflow, and new forks must enable
+scheduled workflows.
+
+Forks that intentionally maintain source changes should disable **sync
+upstream** and run `bkg configure-fork-merge .` once in each local clone.
+Ordinary merges will then preserve the same three deployment-owned files while
+leaving other source differences to Git. Use a merge rather than a rebase, and
+do not use GitHub's **Sync fork** button for an update that changes those files.
 
 <details>
 <summary>With Actions</summary>
@@ -49,6 +55,7 @@ You can use GitHub-hosted runners or your own.
 
 1. Enable Actions from its tab
 2. Enable all disabled workflows
+3. Run **sync upstream** once if the fork is behind
 
 </details>
 
