@@ -459,3 +459,5 @@
 3150054/pizzaessa
 3150308/educollado
 3150364/me-software
+3150365/juray
+3150497/square205
