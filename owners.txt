@@ -478,3 +478,5 @@
 3152482/locarise
 3152683/SmrDC
 3152684/abberron
+3152927/legaCyMod
+3152899/playlegal52
