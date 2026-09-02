@@ -31,9 +31,10 @@ jobs:
 
       - name: Retain database releases
         run: |
+          repository_image="ghcr.io/${GITHUB_REPOSITORY,,}:master"
           docker run --rm \
             --env-file <(env | grep -E '^(GITHUB_TOKEN|GITHUB_OWNER|GITHUB_REPO)=') \
-            ghcr.io/$GITHUB_OWNER/$GITHUB_REPO:master \
+            "$repository_image" \
             bkg vacuum-releases
 
       - name: Delete old runs

@@ -128,6 +128,7 @@ jobs:
         run: |
           set +e
           run_date=$(date -u +%F)
+          repository_image="ghcr.io/${GITHUB_REPOSITORY,,}:master"
           docker run --rm \
             --volume "$PWD:/app" \
             --volume /var/run/docker.sock:/var/run/docker.sock \
@@ -141,7 +142,7 @@ jobs:
             --env GITHUB_REPO \
             --env GITHUB_RUN_ID \
             --env GITHUB_TOKEN \
-            "ghcr.io/$GITHUB_OWNER/$GITHUB_REPO:master" \
+            "$repository_image" \
             bkg workflow-update -C /app -D "$run_date"
           code=$?
           echo "updated=$code" >> "$GITHUB_OUTPUT"
@@ -154,7 +155,8 @@ jobs:
         env:
           RUN_DATE: ${{ steps.update.outputs.run_date }}
         run: |
-          release_tag=$(docker run --rm ghcr.io/$GITHUB_OWNER/$GITHUB_REPO:master bkg release-tag -D "$RUN_DATE")
+          repository_image="ghcr.io/${GITHUB_REPOSITORY,,}:master"
+          release_tag=$(docker run --rm "$repository_image" bkg release-tag -D "$RUN_DATE")
           echo "tag=$release_tag" >> "$GITHUB_OUTPUT"
 
       - name: Save database
