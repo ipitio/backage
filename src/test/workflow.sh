@@ -250,12 +250,16 @@ grep -Fq "\${{ github.repository }}-database-publication" "$sync_workflow" || {
     echo "Upstream sync does not serialize with database publication" >&2
     exit 1
 }
-grep -Fq 'actions: write' "$sync_workflow" || {
-    echo "Upstream sync cannot dispatch the synchronized build" >&2
+grep -Fq 'contents: read' "$sync_workflow" || {
+    echo "Upstream sync grants its API token unnecessary Contents write access" >&2
     exit 1
 }
-grep -Fq 'contents: write' "$sync_workflow" || {
-    echo "Upstream sync cannot publish its merge" >&2
+if grep -Fq 'contents: write' "$sync_workflow"; then
+    echo "Upstream sync still tries to push workflow files with GITHUB_TOKEN" >&2
+    exit 1
+fi
+grep -Fq "ssh-key: \${{ secrets.BKG_SYNC_SSH_KEY }}" "$sync_workflow" || {
+    echo "Upstream sync does not use its repository-only push credential" >&2
     exit 1
 }
 grep -Fq 'fetch-depth: 1' "$sync_workflow" || {
@@ -282,22 +286,14 @@ grep -Fq "git push origin \"HEAD:refs/heads/\$FORK_BRANCH\"" "$sync_workflow" ||
     echo "Upstream sync does not publish a normal branch update" >&2
     exit 1
 }
-grep -Fq "gh workflow run publish.yml --ref \"\$FORK_BRANCH\"" "$sync_workflow" || {
-    echo "Upstream sync does not explicitly dispatch the suppressed build" >&2
-    exit 1
-}
 if grep -Eq 'git push .* (-f|--force)' "$sync_workflow"; then
     echo "Upstream sync must not force-push a fork branch" >&2
     exit 1
 fi
-awk '
-    /git push origin/ { push_line = NR }
-    /gh workflow run publish.yml/ { build_line = NR }
-    END { exit !(push_line && build_line && push_line < build_line) }
-' "$sync_workflow" || {
-    echo "Upstream sync does not publish source before dispatching its build" >&2
+if grep -Fq 'gh workflow run publish.yml' "$sync_workflow"; then
+    echo "Upstream sync redundantly dispatches the Build triggered by its SSH push" >&2
     exit 1
-}
+fi
 
 setup_fork="$repo_dir/src/setup-fork.sh"
 [[ -x $setup_fork ]] || {
@@ -309,12 +305,40 @@ grep -Fq -- '--default-branch-only' "$setup_fork" || {
     echo "Programmatic fork setup can inherit generated branches" >&2
     exit 1
 }
-grep -Fq 'state == "disabled_fork"' "$setup_fork" || {
+grep -Fq "\$workflow_state == disabled_fork" "$setup_fork" || {
     echo "Programmatic fork setup does not enable fork-disabled workflows" >&2
     exit 1
 }
 grep -Fq 'workflow run publish.yml' "$setup_fork" || {
     echo "Programmatic fork setup does not start the initial Build" >&2
+    exit 1
+}
+grep -Fq -- '--rotate-sync-key' "$setup_fork" || {
+    echo "Programmatic fork setup cannot repair its synchronization credential" >&2
+    exit 1
+}
+grep -Fq -- '--no-sync-key' "$setup_fork" || {
+    echo "Programmatic fork setup cannot opt out of managed synchronization" >&2
+    exit 1
+}
+grep -Fq 'BKG_SYNC_SSH_KEY' "$setup_fork" || {
+    echo "Programmatic fork setup does not store its synchronization credential" >&2
+    exit 1
+}
+grep -Fq -- '-F read_only=false' "$setup_fork" || {
+    echo "Programmatic fork setup does not grant its repository deploy key write access" >&2
+    exit 1
+}
+grep -Fq "gh workflow disable \"\$workflow_id\"" "$setup_fork" || {
+    echo "Programmatic fork setup leaves synchronization active without a key" >&2
+    exit 1
+}
+grep -Fq "Upstream synchronization enabled" "$setup_fork" || {
+    echo "Programmatic fork setup cannot opt back into synchronization" >&2
+    exit 1
+}
+grep -Fq "::error title=Managed synchronization is not configured" "$sync_workflow" || {
+    echo "Upstream sync does not explain how to repair a missing credential" >&2
     exit 1
 }
 

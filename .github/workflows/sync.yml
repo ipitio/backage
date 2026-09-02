@@ -17,16 +17,26 @@ jobs:
       queue: max
 
     permissions:
-      actions: write
-      contents: write
+      contents: read
 
     steps:
+      - name: Require synchronization credential
+        env:
+          SYNC_SSH_KEY: ${{ secrets.BKG_SYNC_SSH_KEY }}
+        run: |
+          if [[ -z $SYNC_SSH_KEY ]]; then
+            message="Missing BKG_SYNC_SSH_KEY. Run src/setup-fork.sh without --no-sync-key to opt in, or disable sync upstream."
+            echo "::error title=Managed synchronization is not configured::$message" >&2
+            exit 1
+          fi
+
       - name: Checkout fork
         uses: actions/checkout@v7
         with:
           ref: ${{ github.event.repository.default_branch }}
           fetch-depth: 1
           filter: blob:none
+          ssh-key: ${{ secrets.BKG_SYNC_SSH_KEY }}
 
       - name: Set up Python
         uses: actions/setup-python@v7
@@ -69,10 +79,3 @@ jobs:
         env:
           FORK_BRANCH: ${{ github.event.repository.default_branch }}
         run: git push origin "HEAD:refs/heads/$FORK_BRANCH"
-
-      - name: Build synchronized source
-        if: ${{ steps.source.outputs.updated == 'true' }}
-        env:
-          FORK_BRANCH: ${{ github.event.repository.default_branch }}
-          GH_TOKEN: ${{ github.token }}
-        run: gh workflow run publish.yml --ref "$FORK_BRANCH"

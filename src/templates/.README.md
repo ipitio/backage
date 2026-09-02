@@ -39,9 +39,11 @@ The fork-only **sync upstream** workflow checks for Main source changes every
 six hours without downloading Main's generated branches. A managed sync retains
 the fork's tracked `owners.txt`, `optout.txt`, and generated `README.md`, adopts
 all other Main source, then builds and runs the synchronized deployment. It
-never force-pushes. Existing forks need one manual upstream merge to acquire
-this workflow, and new forks created without the setup script must enable
-scheduled workflows.
+never force-pushes. Its repository-only deploy key lets it update workflow
+files without storing a maintainer-wide token. Existing forks need one manual
+upstream merge to acquire this workflow and must run the current setup script
+once; new forks created without the setup script must configure the key and
+enable scheduled workflows.
 
 Forks that intentionally maintain source changes should disable **sync
 upstream** and run `bkg configure-fork-merge .` once in each local clone.
@@ -58,14 +60,22 @@ You can use GitHub-hosted runners or your own.
 
 1. Select **Copy the `master` branch only** when creating the fork
 2. Enable Actions and every workflow disabled because the repository is a fork
-3. Run **Build** once, then **sync upstream** whenever an existing fork is behind
+3. For managed source updates, create a repository-specific Ed25519 key, add
+   its public key under **Deploy keys** with write access, and save its private
+   key as the Actions secret `BKG_SYNC_SSH_KEY`; otherwise leave **sync
+   upstream** disabled
+4. Run **Build** once, then **sync upstream** whenever an existing fork is behind
 
 #### GitHub CLI
 
 The checked-in [`setup-fork.sh`](https://github.com/ipitio/backage/blob/master/src/setup-fork.sh)
 creates a personal fork, enables the workflows GitHub disables on new forks,
-and dispatches its initial Build. It is safe to run again: existing deployment
-branches and intentionally disabled workflows are left alone.
+configures a repository-only synchronization key, and dispatches its initial
+Build. It is safe to run again: the key, existing deployment branches, and
+other intentionally disabled workflows are left alone. Normal setup enables
+**sync upstream**; run it with `--rotate-sync-key` only when that credential
+needs replacement. Pass `--no-sync-key` to skip key creation and keep
+**sync upstream** disabled while enabling the other fork workflows.
 
 ```bash
 gh api -H 'Accept: application/vnd.github.raw+json' \
