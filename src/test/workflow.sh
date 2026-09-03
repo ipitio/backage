@@ -41,6 +41,8 @@ dockerfile="$repo_dir/Dockerfile"
 build_workflow="$repo_dir/.github/workflows/publish.yml"
 manual_workflow="$repo_dir/.github/workflows/manual.yml"
 sync_workflow="$repo_dir/.github/workflows/sync.yml"
+update_workflow="$repo_dir/.github/workflows/update.yml"
+vacuum_workflow="$repo_dir/.github/workflows/vacuum.yml"
 grep -Fq "FROM python-base AS test" "$dockerfile" || {
     echo "Dockerfile does not define the production-based test target" >&2
     exit 1
@@ -217,6 +219,18 @@ if grep -Fq 'workflow_run:' "$manual_workflow"; then
     echo "Manual workflow still relies on an implicit Build completion event" >&2
     exit 1
 fi
+
+for workflow_file in "$manual_workflow" "$update_workflow" "$vacuum_workflow"; do
+    grep -Fq 'uses: docker/login-action@v4' "$workflow_file" || {
+        echo "Runtime workflow cannot pull a private-default fork image" >&2
+        exit 1
+    }
+    grep -Fq 'packages: read' "$workflow_file" || {
+        echo "Runtime workflow cannot authenticate its repository image pull" >&2
+        exit 1
+    }
+done
+
 grep -Fq 'workflow_dispatch:' "$manual_workflow" || {
     echo "Manual workflow cannot be dispatched after a successful Build" >&2
     exit 1
