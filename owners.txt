@@ -420,3 +420,5 @@
 3156331/Synology
 3156344/AplexTM
 3156332/Zargero
+3156345/chardcrop26
+3156421/digioh
