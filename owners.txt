@@ -1,4 +1,3 @@
-3146614/goagentupdate
 3140408/hildaz
 3140424/home12pink
 3140389/ignus001
@@ -380,3 +379,5 @@
 3165081/mallboot90
 3165083/MthdDirector
 3165087/co52
+3165102/chef-community
+3165088/ju42000
