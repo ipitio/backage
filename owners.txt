@@ -383,3 +383,5 @@
 3165088/ju42000
 3165213/lvndsqlr
 3165103/masiello
+3165232/hexagrammatic
+3165214/plain5curve
