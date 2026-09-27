@@ -7,13 +7,11 @@ import httpx
 import pytest
 
 from bkg_py.discovery import (
+    OwnerIdentity,
     OwnerIdentityCache,
     OwnerIdentityResolver,
 )
 from bkg_py.github import GitHubClient, GitHubSettings
-from bkg_py.locking import FileLockOptions
-from bkg_py.owners.pages import OwnerPageAdmissionConfig, admit_owner_page
-from bkg_py.state import StateStore
 
 TEST_TOKEN = "github_pat_discovery_secret"
 
@@ -479,7 +477,8 @@ def test_explore_repository_uses_graphql_and_rest_edges(tmp_path: Path) -> None:
             if "stargazers(first:100)" in query:
                 nodes = [
                     {"login": "Alpha", "databaseId": 201},
-                    {"login": "ipitio", "databaseId": 202},
+                    {"login": "IPITIO", "databaseId": 202},
+                    {"login": "ipitio-labs", "databaseId": 207},
                 ]
                 edge = "stargazers"
             elif "watchers(first:100)" in query:
@@ -517,6 +516,8 @@ def test_explore_repository_uses_graphql_and_rest_edges(tmp_path: Path) -> None:
                 200,
                 json=[
                     {"login": "collab", "id": 205},
+                    {"login": "iPiTiO", "id": 202},
+                    {"login": "my-ipitio", "id": 208},
                     {"login": "missing-id"},
                     {"id": 206},
                 ],
@@ -529,9 +530,11 @@ def test_explore_repository_uses_graphql_and_rest_edges(tmp_path: Path) -> None:
 
     assert resolver.explore("ipitio/backage") == (
         "Alpha",
+        "ipitio-labs",
         "Watcher",
         "forker",
         "205/collab",
+        "208/my-ipitio",
     )
     assert requested == [
         "/graphql",
@@ -553,7 +556,11 @@ def test_explore_user_includes_organizations_once(tmp_path: Path) -> None:
         elif "followers(first:100)" in query:
             owner = {
                 "followers": {
-                    "nodes": [{"login": "Follower", "databaseId": 301}],
+                    "nodes": [
+                        {"login": "Follower", "databaseId": 301},
+                        {"login": "IPITIO", "databaseId": 202},
+                        {"login": "ipitio-team", "databaseId": 303},
+                    ],
                     "pageInfo": {"hasNextPage": False, "endCursor": None},
                 }
             }
@@ -586,7 +593,11 @@ def test_explore_user_includes_organizations_once(tmp_path: Path) -> None:
         _client(httpx.MockTransport(respond)),
     )
 
-    assert resolver.explore("ipitio", "followers") == ("Follower", "OrgOne")
+    assert resolver.explore("ipitio", "followers") == (
+        "Follower",
+        "ipitio-team",
+        "OrgOne",
+    )
 
 
 def test_membership_returns_organization_members(tmp_path: Path) -> None:
@@ -665,244 +676,35 @@ def test_organization_logins_can_emit_resolved_refs(tmp_path: Path) -> None:
     assert resolver.organization_logins("ipitio", resolve=True) == ("501/OrgOne",)
 
 
-def test_owner_page_merges_rest_user_and_organization_pages(
+def test_owner_page_uses_one_account_stream_and_link_cursor(
     tmp_path: Path,
 ) -> None:
-    """REST owner page discovery preserves raw counts and deduplicates logins."""
+    """The users endpoint includes organizations and supplies the next cursor."""
 
     def respond(request: httpx.Request) -> httpx.Response:
         assert dict(request.url.params) == {
             "per_page": "100",
-            "page": "2",
             "since": "7",
         }
-        if request.url.path == "/users":
-            return httpx.Response(
-                200,
-                json=[
-                    {"id": 20, "login": "beta"},
-                    {"id": 10, "login": "alpha"},
-                ],
-            )
-        if request.url.path == "/organizations":
-            return httpx.Response(
-                200,
-                json=[
-                    {"id": 11, "login": "alpha"},
-                    {"id": 30, "login": "gamma"},
-                    {"id": 40},
-                ],
-            )
-        pytest.fail(f"unexpected request: {request.url}")
-        raise AssertionError
+        assert request.url.path == "/users"
+        return httpx.Response(
+            200,
+            json=[
+                {"id": 10, "login": "alpha", "type": "User"},
+                {"id": 20, "login": "beta", "type": "Organization"},
+            ],
+            headers={"Link": '<https://api.github.com/users?since=40>; rel="next"'},
+        )
 
     resolver = OwnerIdentityResolver(
         OwnerIdentityCache(tmp_path / "owner-id-cache.txt"),
         _client(httpx.MockTransport(respond)),
     )
 
-    page = resolver.owner_page(2, last_id=7, per_page=100)
+    page = resolver.owner_page(last_id=7, per_page=100)
 
-    assert page.users_count == 2
-    assert page.orgs_count == 3
     assert page.owners == (
-        {"id": 10, "login": "alpha"},
-        {"id": 20, "login": "beta"},
-        {"id": 30, "login": "gamma"},
+        OwnerIdentity("10", "alpha"),
+        OwnerIdentity("20", "beta"),
     )
-
-
-def test_owner_page_admitter_queues_new_rest_owners_and_advances_marker(
-    tmp_path: Path,
-) -> None:
-    """REST owner page admission mirrors the shell queue and marker behavior."""
-
-    def respond(request: httpx.Request) -> httpx.Response:
-        assert dict(request.url.params) == {
-            "per_page": "2",
-            "page": "1",
-            "since": "0",
-        }
-        if request.url.path == "/users":
-            return httpx.Response(
-                200,
-                json=[
-                    {"id": 1, "login": "alpha"},
-                    {"id": 2, "login": "beta"},
-                ],
-            )
-        if request.url.path == "/organizations":
-            return httpx.Response(
-                200,
-                json=[
-                    {"id": 2, "login": "beta"},
-                ],
-            )
-        pytest.fail(f"unexpected request: {request.url}")
-        raise AssertionError
-
-    cache = OwnerIdentityCache(tmp_path / "owner-id-cache.txt")
-    state = StateStore(tmp_path / ".env", lock_poll_interval=0)
-    owners = tmp_path / "owners.txt"
-    packages_all = tmp_path / "packages_all"
-    packages_all.write_text("pkg|alpha|repo|package|2026-06-18\n", encoding="utf-8")
-
-    result = admit_owner_page(
-        OwnerIdentityResolver(cache, _client(httpx.MockTransport(respond))),
-        OwnerPageAdmissionConfig(
-            state,
-            owners,
-            packages_all,
-            lock_options=FileLockOptions(poll_interval=0),
-        ),
-        1,
-        2,
-    )
-
-    assert result.admitted_count == 1
-    assert result.owners_count == 2
-    assert result.has_more
-    assert result.requested_logins == ("beta",)
-    assert owners.read_text(encoding="utf-8") == "2/beta\n"
-    assert cache.lookup("alpha") == "1/alpha"
-    assert cache.lookup("beta") == "2/beta"
-    assert state.get_int("BKG_LAST_SCANNED_ID") == 2
-
-
-def test_owner_page_admitter_advances_marker_for_existing_queue_entry(
-    tmp_path: Path,
-) -> None:
-    """Already queued owners still advance the REST since marker."""
-
-    def respond(request: httpx.Request) -> httpx.Response:
-        assert dict(request.url.params) == {
-            "per_page": "100",
-            "page": "1",
-            "since": "0",
-        }
-        if request.url.path == "/users":
-            return httpx.Response(200, json=[{"id": 2, "login": "beta"}])
-        if request.url.path == "/organizations":
-            return httpx.Response(200, json=[])
-        pytest.fail(f"unexpected request: {request.url}")
-        raise AssertionError
-
-    state = StateStore(tmp_path / ".env", lock_poll_interval=0)
-    owners = tmp_path / "owners.txt"
-    owners.write_text("2/beta\n", encoding="utf-8")
-    packages_all = tmp_path / "packages_all"
-    packages_all.write_text("", encoding="utf-8")
-
-    result = admit_owner_page(
-        OwnerIdentityResolver(
-            OwnerIdentityCache(tmp_path / "owner-id-cache.txt"),
-            _client(httpx.MockTransport(respond)),
-        ),
-        OwnerPageAdmissionConfig(
-            state,
-            owners,
-            packages_all,
-            lock_options=FileLockOptions(poll_interval=0),
-        ),
-        1,
-        100,
-    )
-
-    assert result.admitted_count == 0
-    assert result.owners_count == 1
-    assert not result.has_more
-    assert result.requested_logins == ("beta",)
-    assert owners.read_text(encoding="utf-8") == "2/beta\n"
-    assert state.get_int("BKG_LAST_SCANNED_ID") == 2
-
-
-def test_owner_page_admitter_advances_marker_for_known_package_owner(
-    tmp_path: Path,
-) -> None:
-    """Already indexed package owners still advance the REST since marker."""
-
-    def respond(request: httpx.Request) -> httpx.Response:
-        assert dict(request.url.params) == {
-            "per_page": "100",
-            "page": "1",
-            "since": "0",
-        }
-        if request.url.path == "/users":
-            return httpx.Response(200, json=[{"id": 7, "login": "indexed"}])
-        if request.url.path == "/organizations":
-            return httpx.Response(200, json=[])
-        pytest.fail(f"unexpected request: {request.url}")
-        raise AssertionError
-
-    state = StateStore(tmp_path / ".env", lock_poll_interval=0)
-    owners = tmp_path / "owners.txt"
-    packages_all = tmp_path / "packages_all"
-    packages_all.write_text(
-        "container|indexed|repo|package|2026-06-18\n",
-        encoding="utf-8",
-    )
-
-    result = admit_owner_page(
-        OwnerIdentityResolver(
-            OwnerIdentityCache(tmp_path / "owner-id-cache.txt"),
-            _client(httpx.MockTransport(respond)),
-        ),
-        OwnerPageAdmissionConfig(
-            state,
-            owners,
-            packages_all,
-            lock_options=FileLockOptions(poll_interval=0),
-        ),
-        1,
-        100,
-    )
-
-    assert result.admitted_count == 0
-    assert not result.requested_logins
-    assert owners.read_text(encoding="utf-8") == ""
-    assert state.get_int("BKG_LAST_SCANNED_ID") == 7
-
-
-def test_owner_page_admitter_keeps_marker_when_owner_file_is_capped(
-    tmp_path: Path,
-) -> None:
-    """A full owner queue does not advance past an owner it failed to append."""
-
-    def respond(request: httpx.Request) -> httpx.Response:
-        assert dict(request.url.params) == {
-            "per_page": "100",
-            "page": "1",
-            "since": "0",
-        }
-        if request.url.path == "/users":
-            return httpx.Response(200, json=[{"id": 9, "login": "full"}])
-        if request.url.path == "/organizations":
-            return httpx.Response(200, json=[])
-        pytest.fail(f"unexpected request: {request.url}")
-        raise AssertionError
-
-    state = StateStore(tmp_path / ".env", lock_poll_interval=0)
-    owners = tmp_path / "owners.txt"
-    packages_all = tmp_path / "packages_all"
-    packages_all.write_text("", encoding="utf-8")
-
-    result = admit_owner_page(
-        OwnerIdentityResolver(
-            OwnerIdentityCache(tmp_path / "owner-id-cache.txt"),
-            _client(httpx.MockTransport(respond)),
-        ),
-        OwnerPageAdmissionConfig(
-            state,
-            owners,
-            packages_all,
-            owner_file_max_bytes=1,
-            lock_options=FileLockOptions(poll_interval=0),
-        ),
-        1,
-        100,
-    )
-
-    assert result.admitted_count == 0
-    assert not result.requested_logins
-    assert owners.read_text(encoding="utf-8") == ""
-    assert state.get_int("BKG_LAST_SCANNED_ID") == 0
+    assert page.next_since == 40

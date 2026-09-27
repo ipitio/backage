@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from ..discovery import OwnerIdentity, OwnerIdentityResolver
+from ..discovery.authenticated import owner_ref_login
 from ..locking import FileLockOptions, advisory_file_lock
 from ..runtime_names import StateKey
 from ..state import StateStore
@@ -36,41 +37,39 @@ class OwnerPageAdmissionResult:
 def admit_owner_page(
     resolver: OwnerIdentityResolver,
     config: OwnerPageAdmissionConfig,
-    page_number: int,
     per_page: int,
 ) -> OwnerPageAdmissionResult:
     """Fetch and admit one REST owner discovery page."""
 
     last_id = config.state.get_int(StateKey.LAST_SCANNED_ID, 0)
-    page = resolver.owner_page(page_number, last_id=last_id, per_page=per_page)
+    page = resolver.owner_page(last_id=last_id, per_page=per_page)
     package_owners = _package_owners(config.packages_all_path)
-    identities = tuple(
-        identity
-        for owner in page.owners
-        if (identity := _rest_page_owner_identity(owner)) is not None
-    )
+    identities = page.owners
     resolver.cache.cache_many(identity.ref for identity in identities)
 
     with _owners_lock(config):
         owner_lines = config.owners_path.read_text(encoding="utf-8").splitlines()
         known_owner_logins = {
-            line.rsplit("/", maxsplit=1)[-1] for line in owner_lines if line.strip()
+            owner_ref_login(line).casefold() for line in owner_lines if line.strip()
         }
-        admitted_count, requested_logins, advanced_id = _admit_identities(
+        admitted_count, requested_logins, complete = _admit_identities(
             identities,
             config,
             package_owners,
             known_owner_logins,
-            last_id,
         )
 
-    if advanced_id > last_id:
-        config.state.set(StateKey.LAST_SCANNED_ID, advanced_id)
+    if complete:
+        advanced_id = page.next_since or max(
+            (int(identity.owner_id) for identity in identities), default=last_id
+        )
+        if advanced_id > last_id:
+            config.state.set(StateKey.LAST_SCANNED_ID, advanced_id)
 
     return OwnerPageAdmissionResult(
         admitted_count=admitted_count,
         owners_count=len(page.owners),
-        has_more=page.has_more(per_page),
+        has_more=complete and page.next_since is not None,
         requested_logins=requested_logins,
     )
 
@@ -94,7 +93,7 @@ def _package_owners(path: Path) -> set[str]:
     for line in lines:
         fields = line.split("|")
         if len(fields) > 1 and fields[1]:
-            owners.add(fields[1])
+            owners.add(fields[1].casefold())
     return owners
 
 
@@ -103,25 +102,25 @@ def _admit_owner(
     config: OwnerPageAdmissionConfig,
     package_owners: set[str],
     known_owner_logins: set[str],
-) -> tuple[int, str | None, int | None]:
-    owner_id = int(identity.owner_id)
-    if identity.login in package_owners:
-        return 0, None, owner_id
+) -> tuple[int, str | None, bool]:
+    login_key = identity.login.casefold()
+    if login_key in package_owners:
+        return 0, None, True
+    if login_key in known_owner_logins:
+        return 0, identity.login, True
 
-    appended = False
-    if identity.login not in known_owner_logins:
-        with config.owners_path.open("a", encoding="utf-8") as file:
-            file.write(f"{identity.ref}\n")
-        known_owner_logins.add(identity.login)
-        appended = True
-
-    if config.owners_path.stat().st_size >= config.owner_file_max_bytes:
-        if appended:
-            _remove_last_owner_line(config.owners_path)
-            known_owner_logins.discard(identity.login)
-        return 0, None, None
-
-    return (1 if appended else 0), identity.login, owner_id
+    line = f"{identity.ref}\n".encode()
+    with config.owners_path.open("a+b") as file:
+        size = file.tell()
+        if size:
+            file.seek(size - 1)
+            if file.read(1) != b"\n":
+                line = b"\n" + line
+        if size + len(line) > config.owner_file_max_bytes:
+            return 0, None, False
+        file.write(line)
+    known_owner_logins.add(login_key)
+    return 1, identity.login, True
 
 
 def _admit_identities(
@@ -129,13 +128,11 @@ def _admit_identities(
     config: OwnerPageAdmissionConfig,
     package_owners: set[str],
     known_owner_logins: set[str],
-    last_id: int,
-) -> tuple[int, tuple[str, ...], int]:
+) -> tuple[int, tuple[str, ...], bool]:
     admitted_count = 0
     requested_logins: list[str] = []
-    advanced_id = last_id
     for identity in identities:
-        admitted, requested_login, admitted_id = _admit_owner(
+        admitted, requested_login, complete = _admit_owner(
             identity,
             config,
             package_owners,
@@ -144,32 +141,6 @@ def _admit_identities(
         admitted_count += admitted
         if requested_login is not None:
             requested_logins.append(requested_login)
-        if admitted_id is not None:
-            advanced_id = max(advanced_id, admitted_id)
-    return admitted_count, tuple(requested_logins), advanced_id
-
-
-def _remove_last_owner_line(path: Path) -> None:
-    lines = path.read_text(encoding="utf-8").splitlines()
-    path.write_text(
-        "".join(f"{line}\n" for line in lines[:-1]),
-        encoding="utf-8",
-    )
-
-
-def _rest_page_owner_identity(owner: dict[str, object]) -> OwnerIdentity | None:
-    owner_id = _positive_id(owner.get("id"))
-    login = owner.get("login")
-    if owner_id is None or not isinstance(login, str) or not login:
-        return None
-    return OwnerIdentity(str(owner_id), login)
-
-
-def _positive_id(value: object) -> int | None:
-    if isinstance(value, bool):
-        return None
-    try:
-        parsed = int(value)  # type: ignore[arg-type]
-    except TypeError, ValueError:
-        return None
-    return parsed if parsed > 0 else None
+        if not complete:
+            return admitted_count, tuple(requested_logins), False
+    return admitted_count, tuple(requested_logins), True

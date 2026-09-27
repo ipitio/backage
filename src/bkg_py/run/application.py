@@ -426,10 +426,9 @@ class RunApplicationOperations:
         service = DiscoveryPhaseService(
             DiscoveryPhaseServices(
                 traversal,
-                lambda page, per_page: admit_owner_page(
+                lambda per_page: admit_owner_page(
                     resolver,
                     admission,
-                    page,
                     per_page,
                 ),
                 self._complete_explore_gate,

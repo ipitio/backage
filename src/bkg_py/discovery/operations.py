@@ -37,7 +37,7 @@ class OwnerPageAdmission(Protocol):
         raise NotImplementedError
 
 
-OwnerPageAdmitter = Callable[[int, int], OwnerPageAdmission]
+OwnerPageAdmitter = Callable[[int], OwnerPageAdmission]
 
 
 class DiscoveryTraversal(Protocol):
@@ -186,7 +186,7 @@ class DiscoveryPhaseService:  # pylint: disable=too-few-public-methods
         for page_number in range(1, request.owner_page_limit + 1):
             self.execution.check_stop()
             self.execution.progress(f"Checking owners page {page_number}...")
-            result = self.services.admit_owner_page(page_number, per_page)
+            result = self.services.admit_owner_page(per_page)
             pages += 1
             admitted += result.admitted_count
             for owner in result.requested_logins:

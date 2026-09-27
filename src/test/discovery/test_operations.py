@@ -48,11 +48,11 @@ class _Traversal:
 
 @dataclass
 class _Admission:
-    calls: list[tuple[int, int]] = field(default_factory=list[tuple[int, int]])
+    calls: list[int] = field(default_factory=list[int])
 
-    def __call__(self, page: int, per_page: int) -> OwnerPageAdmissionResult:
-        self.calls.append((page, per_page))
-        if page == 1:
+    def __call__(self, per_page: int) -> OwnerPageAdmissionResult:
+        self.calls.append(per_page)
+        if len(self.calls) == 1:
             return OwnerPageAdmissionResult(1, 1, True, ("RequestedOne",))
         return OwnerPageAdmissionResult(2, 2, False, ("RequestedTwo",))
 
@@ -105,7 +105,7 @@ def test_primary_discovery_pools_traversal_expansion_and_owner_pages(
         "beta\nalpha\n99/Gamma\nOrgB\nOrgA\n"
     )
     assert completed == ["2026-07-03"]
-    assert admission.calls == [(1, 1), (2, 1)]
+    assert admission.calls == [1, 1]
     assert "Requested RequestedOne" in messages
     assert "Requested RequestedTwo" in messages
     assert "Startup phase 'discover-connections' completed in 2s" in messages
@@ -126,7 +126,7 @@ def test_membership_discovery_resets_first_run_inputs(tmp_path: Path) -> None:
     service = DiscoveryPhaseService(
         DiscoveryPhaseServices(
             traversal,
-            lambda _page, _per_page: OwnerPageAdmissionResult(0, 0, False),
+            lambda _per_page: OwnerPageAdmissionResult(0, 0, False),
             lambda _today: None,
         ),
         DiscoveryPhaseExecution(lambda: None, messages.append, _clock(10, 12)),

@@ -7,7 +7,7 @@ from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
-from urllib.parse import quote
+from urllib.parse import parse_qs, quote, urlsplit
 
 from ..config import RuntimeConfig
 from ..files import atomic_text_output
@@ -60,18 +60,10 @@ class DiscoveryPage:
 
 @dataclass(frozen=True)
 class RestOwnerDiscoveryPage:
-    """One REST page of global user and organization owner records."""
+    """One validated global account page and its next since cursor."""
 
-    owners: tuple[dict[str, object], ...]
-    users_count: int
-    orgs_count: int
-
-    def has_more(self, per_page: int) -> bool:
-        """Return whether either raw REST page was full enough to continue."""
-
-        return bool(self.owners) and (
-            self.users_count >= per_page or self.orgs_count >= per_page
-        )
+    owners: tuple[OwnerIdentity, ...]
+    next_since: int | None
 
 
 @dataclass
@@ -501,31 +493,31 @@ class OwnerIdentityResolver:
 
     def owner_page(
         self,
-        page: int,
         *,
         last_id: int = 0,
         per_page: int = 100,
     ) -> RestOwnerDiscoveryPage:
         """Return one global REST owner discovery page."""
 
-        if page <= 0:
-            raise DiscoveryError("owner discovery page must be greater than zero")
-        if per_page <= 0:
-            raise DiscoveryError("owner discovery page size must be greater than zero")
+        if not 1 <= per_page <= _REST_PAGE_SIZE:
+            raise DiscoveryError("owner discovery page size must be between 1 and 100")
         if last_id < 0:
             raise DiscoveryError("owner discovery since ID cannot be negative")
 
-        users = self._rest_owner_page("users", page, last_id=last_id, per_page=per_page)
-        orgs = self._rest_owner_page(
-            "organizations",
-            page,
-            last_id=last_id,
-            per_page=per_page,
-        )
+        response = self.client.rest_json(f"users?per_page={per_page}&since={last_id}")
+        response_value: object = response.value
+        if not isinstance(response_value, list):
+            raise DiscoveryError("invalid REST owner page response: users")
+        owners: list[OwnerIdentity] = []
+        for item in cast(list[object], response_value):
+            identity = _rest_owner_identity(item, fallback_login="")
+            if identity is None or int(identity.owner_id) <= last_id:
+                raise DiscoveryError("invalid REST owner record: users")
+            owners.append(identity)
+        identities = tuple(owners)
         return RestOwnerDiscoveryPage(
-            owners=_merge_rest_owner_pages(users, orgs),
-            users_count=len(users),
-            orgs_count=len(orgs),
+            identities,
+            _owner_page_cursor(response.next_url, identities),
         )
 
     def _resolve_graphql_batches(
@@ -570,24 +562,6 @@ class OwnerIdentityResolver:
         return OwnerLookupResult(
             None,
             missing=missing_responses == len(_REST_OWNER_LOOKUP_PREFIXES),
-        )
-
-    def _rest_owner_page(
-        self,
-        kind: str,
-        page: int,
-        *,
-        last_id: int,
-        per_page: int,
-    ) -> tuple[dict[str, object], ...]:
-        path = f"{kind}?per_page={per_page}&page={page}&since={last_id}"
-        response_value: object = self.client.rest_json(path).value
-        if not isinstance(response_value, list):
-            raise DiscoveryError(f"invalid REST owner page response: {kind}")
-        return tuple(
-            cast(dict[str, object], item)
-            for item in cast(list[object], response_value)
-            if isinstance(item, dict)
         )
 
     def _explore_repository(self, node: str, edge: str) -> tuple[str, ...]:
@@ -747,17 +721,26 @@ def _unique(values: Iterable[str]) -> list[str]:
     return result
 
 
-def _merge_rest_owner_pages(
-    users: Sequence[dict[str, object]],
-    orgs: Sequence[dict[str, object]],
-) -> tuple[dict[str, object], ...]:
-    owners_by_login: dict[str, dict[str, object]] = {}
-    for owner in (*users, *orgs):
-        login = owner.get("login")
-        if not isinstance(login, str) or not login:
-            continue
-        owners_by_login.setdefault(login, owner)
-    return tuple(owners_by_login[login] for login in sorted(owners_by_login))
+def _owner_page_cursor(
+    next_url: str | None,
+    owners: tuple[OwnerIdentity, ...],
+) -> int | None:
+    if next_url is None:
+        return None
+    try:
+        values = parse_qs(urlsplit(next_url).query, keep_blank_values=True).get(
+            "since", []
+        )
+    except ValueError as error:
+        raise DiscoveryError("invalid REST owner page next link") from error
+    cursor = _positive_id(values[0]) if len(values) == 1 else None
+    if (
+        cursor is None
+        or not owners
+        or cursor < max(int(owner.owner_id) for owner in owners)
+    ):
+        raise DiscoveryError("invalid REST owner page next cursor")
+    return cursor
 
 
 def _chunks(values: Sequence[str], size: int) -> Generator[list[str]]:
@@ -797,7 +780,8 @@ def _repository_parts(node: str) -> tuple[str, str]:
 
 
 def _without_self(values: Iterable[str], owner: str) -> tuple[str, ...]:
-    return tuple(value for value in values if owner not in value)
+    owner_key = _owner_ref_key(owner)
+    return tuple(value for value in values if _owner_ref_key(value) != owner_key)
 
 
 def _repository_discovery_query(
