@@ -389,3 +389,5 @@
 3165444/ioquake
 3165457/gitki
 3165445/kontonagithub
+3165486/CHSCompSci
+3165458/eaglesrobotics
