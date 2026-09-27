@@ -62,13 +62,19 @@ def test_catalog_seed_preserves_tree_paths_across_history_pruning(
     assert repository.packages.package_inventory() == PackageInventory(2, 2, 2)
 
 
-def test_catalog_seed_rolls_back_before_readiness_on_failure(tmp_path: Path) -> None:
-    """An interrupted first seed leaves history inventory authoritative."""
+@pytest.mark.parametrize("ready", [False, True])
+def test_catalog_seed_rolls_back_on_failure(tmp_path: Path, ready: bool) -> None:
+    """A failed seed retains the previous catalog and readiness state."""
 
     path = tmp_path / "index.db"
     repository = DatabaseRepositories(DatabaseSettings(path))
     retained = PackageCatalogPath("Lazztech", "retained", "retained")
     repository.packages.write_package(_record(retained))
+    previous = (
+        repository.catalog.initialize_package_catalog((retained,), "a" * 40, TODAY)
+        if ready
+        else None
+    )
     with sqlite3.connect(path) as connection:
         connection.execute(
             """
@@ -91,7 +97,7 @@ def test_catalog_seed_rolls_back_before_readiness_on_failure(tmp_path: Path) -> 
             TODAY,
         )
 
-    assert repository.catalog.package_catalog_status() is None
+    assert repository.catalog.package_catalog_status() == previous
     assert repository.packages.package_inventory() == PackageInventory(1, 1, 1)
 
 
@@ -114,6 +120,102 @@ def test_catalog_resynchronizes_to_a_new_index_revision(tmp_path: Path) -> None:
     assert status.source_inventory == PackageInventory(2, 2, 2)
     assert status.inventory == PackageInventory(2, 2, 2)
     assert repository.packages.package_inventory() == PackageInventory(2, 2, 2)
+
+
+def test_catalog_resynchronization_preserves_metadata_after_history_pruning(
+    tmp_path: Path,
+) -> None:
+    """A new tree revision cannot turn known retained paths into placeholders."""
+
+    path = tmp_path / "index.db"
+    repository = DatabaseRepositories(DatabaseSettings(path))
+    retained = PackageCatalogPath("Lazztech", "retained", "retained")
+    departed = PackageCatalogPath("Lazztech", "departed", "departed")
+    added = PackageCatalogPath("Historic", "new", "new")
+    record = _record(retained, "2026-06-01")
+    repository.packages.write_package(record)
+    repository.catalog.initialize_package_catalog((retained, departed), "a" * 40, TODAY)
+    repository.packages.cleanup_replaced_legacy_tables(
+        since=TODAY,
+        prune_normalized=True,
+    )
+
+    status = repository.catalog.initialize_package_catalog(
+        (retained, added), "b" * 40, TODAY
+    )
+
+    assert status.inventory == status.source_inventory == PackageInventory(2, 2, 2)
+    assert status.resolved_packages == 1
+    with sqlite3.connect(path) as connection:
+        rows = connection.execute(
+            """
+            select owner, repo, package, owner_id, owner_type, package_type, observed_at
+            from bkg_package_catalog order by owner
+            """
+        ).fetchall()
+    assert rows == [
+        (added.owner, added.repo, added.package, "", "", "", ""),
+        (
+            retained.owner,
+            retained.repo,
+            retained.package,
+            record.package_ref.owner_id,
+            record.package_ref.owner_type,
+            record.package_ref.package_type,
+            record.date,
+        ),
+    ]
+    projection = repository.dashboard.dashboard_projection(TODAY)
+    assert {item.name: item.packages for item in projection.package_types} == {
+        "container": 1,
+        "unknown": 1,
+    }
+    assert {bucket.name: bucket.packages for bucket in projection.freshness} == {
+        "today": 0,
+        "days_1_7": 0,
+        "days_8_30": 1,
+        "days_31_plus": 0,
+        "unknown": 1,
+    }
+
+
+def test_catalog_resynchronization_keeps_newer_owner_scan_observations(
+    tmp_path: Path,
+) -> None:
+    """Older retained history cannot undo a more recent complete owner scan."""
+
+    path = tmp_path / "index.db"
+    repository = DatabaseRepositories(DatabaseSettings(path))
+    retained = PackageCatalogPath("Lazztech", "retained", "retained")
+    record = _record(retained, "2026-06-01")
+    reference = record.package_ref
+    repository.packages.write_package(record)
+    repository.catalog.initialize_package_catalog((retained,), "a" * 40, TODAY)
+    repository.owners.begin_owner_scan(
+        reference.owner_id, reference.owner, "scan-1", 100
+    )
+    repository.owners.observe_owner_scan(
+        reference.owner_id,
+        "scan-1",
+        (
+            OwnerScanPackage(
+                reference.owner_type,
+                reference.package_type,
+                retained.repo,
+                retained.package,
+            ),
+        ),
+        101,
+    )
+    repository.owners.complete_owner_scan(reference.owner_id, "scan-1", TODAY, 102)
+
+    repository.catalog.initialize_package_catalog((retained,), "b" * 40, TODAY)
+
+    with sqlite3.connect(path) as connection:
+        observed_at = connection.execute(
+            "select observed_at from bkg_package_catalog"
+        ).fetchone()
+    assert observed_at == (TODAY,)
 
 
 def test_complete_scan_enriches_observed_and_retires_tree_only_paths(

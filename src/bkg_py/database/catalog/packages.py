@@ -66,7 +66,7 @@ def initialize(
     source_revision: str,
     initialized_at: str,
 ) -> PackageCatalogStatus:
-    """Atomically seed tracked paths and enrich them from normalized rows."""
+    """Atomically synchronize tracked paths without losing known metadata."""
 
     if not source_revision:
         raise DatabaseError("package catalog source revision is required")
@@ -76,14 +76,7 @@ def initialize(
     source_inventory = _path_inventory(unique_paths)
     packages = _SqlIdentifier(packages_table)
     with _transaction(connection):
-        connection.execute(f'delete from "{CATALOG_TABLE}"')
-        connection.executemany(
-            f"""
-            insert into "{CATALOG_TABLE}" (owner, repo, package)
-            values (?, ?, ?)
-            """,
-            ((path.owner, path.repo, path.package) for path in unique_paths),
-        )
+        _synchronize_paths(connection, unique_paths)
         connection.execute(
             f"""
             insert into "{CATALOG_TABLE}" (
@@ -112,6 +105,8 @@ def initialize(
                 owner_type = excluded.owner_type,
                 package_type = excluded.package_type,
                 observed_at = excluded.observed_at
+            where "{CATALOG_TABLE}".observed_at = ''
+               or excluded.observed_at >= "{CATALOG_TABLE}".observed_at
             """
         )
         connection.execute(
@@ -139,6 +134,54 @@ def initialize(
     if initialized is None:
         raise DatabaseError("package catalog initialization did not commit")
     return initialized
+
+
+def _synchronize_paths(
+    connection: sqlite3.Connection,
+    paths: tuple[PackageCatalogPath, ...],
+) -> None:
+    connection.execute(
+        """
+        create temp table "bkg_package_catalog_paths" (
+            owner text not null,
+            repo text not null,
+            package text not null,
+            primary key (owner, repo, package)
+        ) without rowid
+        """
+    )
+    connection.executemany(
+        """
+        insert into temp.bkg_package_catalog_paths (owner, repo, package)
+        values (?, ?, ?)
+        """,
+        ((path.owner, path.repo, path.package) for path in paths),
+    )
+    connection.execute(
+        f"""
+        delete from "{CATALOG_TABLE}"
+        where not exists (
+            select 1 from temp.bkg_package_catalog_paths source
+            where source.owner = "{CATALOG_TABLE}".owner
+              and source.repo = "{CATALOG_TABLE}".repo
+              and source.package = "{CATALOG_TABLE}".package
+        )
+        """
+    )
+    connection.execute(
+        f"""
+        insert into "{CATALOG_TABLE}" (owner, repo, package)
+        select source.owner, source.repo, source.package
+        from temp.bkg_package_catalog_paths source
+        where not exists (
+            select 1 from "{CATALOG_TABLE}" catalog
+            where catalog.owner = source.owner
+              and catalog.repo = source.repo
+              and catalog.package = source.package
+        )
+        """
+    )
+    connection.execute('drop table temp."bkg_package_catalog_paths"')
 
 
 def inventory(connection: sqlite3.Connection) -> PackageInventory:
