@@ -1,84 +1,14 @@
-"""SQL templates used by the database-backed renderers."""
+"""Fixed SQL fragments; runtime values are bound and identifiers quoted."""
 
-PACKAGE_SNAPSHOT_SQL = """
-with package_latest as (
-    select
-        owner_id,
-        owner_type,
-        package_type,
-        owner,
-        repo,
-        package,
-        downloads,
-        downloads_month,
-        downloads_week,
-        downloads_day,
-        size,
-        date
-    from {packages}
-    where owner_id = ?
-      and owner_type = ?
-      and package_type = ?
-      and owner = ?
-      and repo = ?
-      and package = ?
-    order by date desc
-    limit 1
-),
-owner_latest as (
-    select max(date) as latest_date
-    from {packages}
-    where owner_id = ?
-),
-repo_latest as (
-    select max(date) as latest_date
-    from {packages}
-    where owner_id = ?
-      and repo = ?
-),
-owner_ranked as (
-    select package, rank() over (order by downloads desc) as rank
-    from {packages}
-    where owner_id = ?
-      and date = (select latest_date from owner_latest)
-),
-repo_ranked as (
-    select package, rank() over (order by downloads desc) as rank
-    from {packages}
-    where owner_id = ?
-      and repo = ?
-      and date = (select latest_date from repo_latest)
-)
-select
-    p.owner_id,
-    p.owner_type,
-    p.package_type,
-    p.owner,
-    p.repo,
-    p.package,
-    p.downloads,
-    p.downloads_month,
-    p.downloads_week,
-    p.downloads_day,
-    p.size,
-    p.date,
-    coalesce((
-        select rank from owner_ranked where package = p.package
-    ), -1) as owner_rank,
-    coalesce((
-        select rank from repo_ranked where package = p.package
-    ), -1) as repo_rank
-from package_latest p
-"""
-
-OWNER_VERSION_LIMIT_SQL = """
+_LATEST_PACKAGES_SQL = """
 with latest_dates as (
-    select owner_id, package, max(date) as latest_date
+    select owner_id, owner_type, package_type, owner, repo, package,
+           max(date) as latest_date
     from {packages}
     where owner_id = ?
-    group by owner_id, package
+    group by owner_id, owner_type, package_type, owner, repo, package
 ),
-latest_packages as (
+all_latest_packages as (
     select
         p.owner_id,
         p.owner_type,
@@ -86,14 +16,39 @@ latest_packages as (
         p.owner,
         p.repo,
         p.package,
+        p.downloads,
+        p.downloads_month,
+        p.downloads_week,
+        p.downloads_day,
+        p.size,
         p.date
     from {packages} p
     join latest_dates l
       on p.owner_id = l.owner_id
+     and p.owner_type = l.owner_type
+     and p.package_type = l.package_type
+     and p.owner = l.owner
+     and p.repo = l.repo
      and p.package = l.package
      and p.date = l.latest_date
-    where (? is null or p.repo = ?)
-),
+)
+"""
+
+_LATEST_REPO_PACKAGES_SQL = (
+    _LATEST_PACKAGES_SQL  # noqa: S608
+    + """
+,
+latest_packages as (
+    select * from all_latest_packages
+    where (? is null or repo = ?)
+)
+"""
+)
+
+OWNER_VERSION_LIMIT_SQL = (
+    _LATEST_REPO_PACKAGES_SQL  # noqa: S608
+    + """
+,
 version_candidates as (
     select
         v.owner_id,
@@ -119,7 +74,8 @@ version_candidates as (
             coalesce(v.tags, ''), ' ', ''
         ), char(9), ''), char(10), ''), char(13), '') as compact_tags,
         row_number() over (
-            partition by v.owner_id, v.package_type, v.repo, v.package, v.id
+            partition by v.owner_id, v.owner_type, v.package_type,
+                         v.owner, v.repo, v.package, v.id
             order by v.date desc
         ) as version_date_rank
     from {versions} v
@@ -220,7 +176,8 @@ ranked_versions as (
             + length(cast(coalesce(v.downloads_day, -1) as text))
         ) as estimated_version_bytes,
         row_number() over (
-            partition by v.owner_id, v.package_type, v.repo, v.package
+            partition by v.owner_id, v.owner_type, v.package_type,
+                         v.owner, v.repo, v.package
             order by
                 case when v.numeric_id is null then 1 else 0 end desc,
                 coalesce(v.numeric_id, 0) desc,
@@ -282,30 +239,11 @@ select case
     ), 0)
 end
 """
-
-OWNER_VERSION_ROWS_SQL = """
-with latest_dates as (
-    select owner_id, package, max(date) as latest_date
-    from {packages}
-    where owner_id = ?
-    group by owner_id, package
-),
-latest_packages as (
-    select
-        p.owner_id,
-        p.owner_type,
-        p.package_type,
-        p.owner,
-        p.repo,
-        p.package,
-        p.date
-    from {packages} p
-    join latest_dates l
-      on p.owner_id = l.owner_id
-     and p.package = l.package
-     and p.date = l.latest_date
-    where (? is null or p.repo = ?)
 )
+
+OWNER_VERSION_ROWS_SQL = (
+    _LATEST_REPO_PACKAGES_SQL
+    + """
 select
     v.owner_id,
     v.owner_type,
@@ -341,41 +279,25 @@ order by
     v.id,
     v.date
 """
+)
 
-RANKED_PACKAGES_SQL = """
-with latest_dates as (
-    select owner_id, package, max(date) as latest_date
-    from {packages}
-    where owner_id = ?
-    group by owner_id, package
-),
-latest_packages as (
-    select
-        p.owner_id,
-        p.owner_type,
-        p.package_type,
-        p.owner,
-        p.repo,
-        p.package,
-        p.downloads,
-        p.downloads_month,
-        p.downloads_week,
-        p.downloads_day,
-        p.size,
-        p.date
-    from {packages} p
-    join latest_dates l
-      on p.owner_id = l.owner_id
-     and p.package = l.package
-     and p.date = l.latest_date
-),
+_RANKED_PACKAGES_SQL = (
+    _LATEST_PACKAGES_SQL
+    + """
+,
 ranked_packages as (
     select
         *,
         rank() over (order by downloads desc) as owner_rank,
         rank() over (partition by repo order by downloads desc) as repo_rank
-    from latest_packages
+    from all_latest_packages
 )
+"""
+)
+
+RANKED_PACKAGES_SQL = (
+    _RANKED_PACKAGES_SQL
+    + """
 select
     owner_id,
     owner_type,
@@ -393,5 +315,15 @@ select
     repo_rank
 from ranked_packages p
 where (? is null or p.repo = ?)
-order by p.owner, p.repo, p.package_type, p.package
+order by p.owner, p.repo, p.package_type, p.package, p.owner_type, p.owner_id
 """
+)
+
+PACKAGE_SNAPSHOT_SQL = (
+    _RANKED_PACKAGES_SQL
+    + """
+select * from ranked_packages
+where owner_id = ? and owner_type = ? and package_type = ?
+  and owner = ? and repo = ? and package = ?
+"""
+)

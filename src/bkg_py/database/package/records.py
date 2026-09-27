@@ -124,11 +124,12 @@ def maximum_downloads(
         _sql(
             """
             select max(downloads) from {packages}
-            where owner_id = ? and package = ?
+            where owner_id = ? and owner_type = ? and package_type = ?
+              and owner = ? and repo = ? and package = ?
             """,
             packages=_SqlIdentifier(packages_table),
         ),
-        (package.owner_id, package.package),
+        package_values(package),
     ).fetchone()
     if row is None or row[0] is None:
         return -1

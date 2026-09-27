@@ -335,15 +335,7 @@ class PackageRepository(DatabaseComponent):  # pylint: disable=too-many-public-m
             packages = _SqlIdentifier(package_history.PACKAGE_HISTORY_VIEW)
             row = connection.execute(
                 _sql(PACKAGE_SNAPSHOT_SQL, packages=packages),
-                (
-                    *_package_values(package),
-                    package.owner_id,
-                    package.owner_id,
-                    package.repo,
-                    package.owner_id,
-                    package.owner_id,
-                    package.repo,
-                ),
+                (package.owner_id, *_package_values(package)),
             ).fetchone()
             if row is None:
                 return None
