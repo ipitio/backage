@@ -6,10 +6,12 @@ from typing import Any
 from .models import (
     PackageRecord,
     PackageRef,
+    PackageWorkItem,
     RankedPackage,
     VersionMetrics,
     VersionRecord,
 )
+from .support import DatabaseError
 
 
 def package_values(package: PackageRef) -> tuple[str, ...]:
@@ -30,6 +32,18 @@ def package_sort_key(values: Sequence[str]) -> tuple[str, ...]:
 
     owner_id, owner_type, package_type, owner, repo, package = values
     return owner, repo, package_type, package, owner_type, owner_id
+
+
+def package_work_item(row: Sequence[Any]) -> PackageWorkItem:
+    """Decode six reference fields followed by the latest observation date."""
+
+    field_count = 7
+    if len(row) != field_count:
+        raise DatabaseError("expected seven fields in a package work item")
+    return PackageWorkItem(
+        PackageRef(*(str(value) for value in row[:-1])),
+        str(row[-1]),
+    )
 
 
 def ranked_package(row: Sequence[Any]) -> RankedPackage:

@@ -205,12 +205,9 @@ class PackageRecord:
 
 @dataclass(frozen=True)
 class PackageWorkItem:
-    """Shell-compatible package identity and latest update date."""
+    """A complete stored package reference and its latest observation date."""
 
-    owner_id: str
-    owner: str
-    repo: str
-    package: str
+    package_ref: PackageRef
     date: str
 
 
@@ -293,7 +290,7 @@ class PackageCatalogStatus:
 
 
 def _unique_work_owners(items: tuple[PackageWorkItem, ...]) -> tuple[str, ...]:
-    return tuple(dict.fromkeys(item.owner for item in items))
+    return tuple(dict.fromkeys(item.package_ref.owner for item in items))
 
 
 @dataclass(frozen=True)

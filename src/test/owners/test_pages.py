@@ -47,7 +47,9 @@ def test_owner_page_admitter_queues_new_rest_owners_and_advances_marker(
     state = StateStore(tmp_path / ".env", lock_poll_interval=0)
     owners = tmp_path / "owners.txt"
     packages_all = tmp_path / "packages_all"
-    packages_all.write_text("pkg|alpha|repo|package|2026-06-18\n", encoding="utf-8")
+    packages_all.write_text(
+        "1|users|container|alpha|repo|package|2026-06-18\n", encoding="utf-8"
+    )
 
     result = admit_owner_page(
         OwnerIdentityResolver(cache, _client(httpx.MockTransport(respond))),
@@ -132,7 +134,7 @@ def test_owner_page_admitter_advances_marker_for_known_package_owner(
     owners = tmp_path / "owners.txt"
     packages_all = tmp_path / "packages_all"
     packages_all.write_text(
-        "container|Indexed|repo|package|2026-06-18\n",
+        '7|users|container|Indexed|repo|"package|with\na newline"|2026-06-18\n',
         encoding="utf-8",
     )
 
@@ -154,6 +156,42 @@ def test_owner_page_admitter_advances_marker_for_known_package_owner(
     assert not result.requested_logins
     assert owners.read_text(encoding="utf-8") == ""
     assert state.get_int("BKG_LAST_SCANNED_ID") == 7
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        "1|Alpha|repo|package|2026-06-18\n",
+        '1|users|container|Alpha|repo|"unterminated',
+    ],
+)
+def test_malformed_package_work_file_does_not_request_or_advance_discovery(
+    tmp_path: Path, content: str
+) -> None:
+    """Invalid local work input is rejected before fetching or admitting accounts."""
+
+    def unexpected(request: httpx.Request) -> httpx.Response:
+        pytest.fail(f"unexpected request: {request.url}")
+        raise AssertionError
+
+    state = StateStore(tmp_path / ".env", lock_poll_interval=0)
+    state.set("BKG_LAST_SCANNED_ID", 17)
+    packages = tmp_path / "packages_all"
+    packages.write_text(content, encoding="utf-8")
+    owners = tmp_path / "owners.txt"
+    cache = OwnerIdentityCache(tmp_path / "owner-id-cache.txt")
+
+    with pytest.raises(
+        DiscoveryError, match=r"invalid package work item at .*packages_all:1"
+    ):
+        admit_owner_page(
+            OwnerIdentityResolver(cache, _client(httpx.MockTransport(unexpected))),
+            OwnerPageAdmissionConfig(state, owners, packages),
+            100,
+        )
+
+    assert state.get_int("BKG_LAST_SCANNED_ID") == 17
+    assert not owners.exists()
 
 
 def test_owner_page_admitter_keeps_marker_when_owner_file_is_capped(
@@ -265,7 +303,9 @@ def test_capped_owner_page_replays_without_skipping_later_known_owner(
     state = StateStore(tmp_path / ".env", lock_poll_interval=0)
     state.set("BKG_LAST_SCANNED_ID", 7)
     packages = tmp_path / "packages_all"
-    packages.write_text("container|indexed|repo|package|2026-06-18\n", encoding="utf-8")
+    packages.write_text(
+        "30|users|container|indexed|repo|package|2026-06-18\n", encoding="utf-8"
+    )
     config = OwnerPageAdmissionConfig(
         state, tmp_path / "owners.txt", packages, owner_file_max_bytes=len("10/alpha\n")
     )

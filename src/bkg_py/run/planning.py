@@ -1,10 +1,12 @@
 """Typed package-work planning for top-level application orchestration."""
 
+import csv
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Protocol
 
 from ..database.models import PackageWorkItem, PackageWorkPlan
+from ..database.values import package_values
 from ..files import atomic_text_output
 from ..runtime_names import RunFile
 
@@ -70,13 +72,11 @@ class PackageWorkPlanService:  # pylint: disable=too-few-public-methods
 
 
 def _write_items(path: Path, items: tuple[PackageWorkItem, ...]) -> None:
-    _write_lines(
-        path,
-        tuple(
-            "|".join((item.owner_id, item.owner, item.repo, item.package, item.date))
-            for item in items
-        ),
-    )
+    with atomic_text_output(path) as output:
+        writer = csv.writer(output, delimiter="|", lineterminator="\n")
+        writer.writerows(
+            (*package_values(item.package_ref), item.date) for item in items
+        )
 
 
 def _write_lines(path: Path, lines: tuple[str, ...]) -> None:

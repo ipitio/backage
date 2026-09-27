@@ -1,10 +1,13 @@
 """Admission helpers for REST owner discovery pages."""
 
+import csv
 from contextlib import AbstractContextManager
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from ..discovery import OwnerIdentity, OwnerIdentityResolver
+from ..database.support import DatabaseError
+from ..database.values import package_work_item
+from ..discovery import DiscoveryError, OwnerIdentity, OwnerIdentityResolver
 from ..discovery.authenticated import owner_ref_login
 from ..locking import FileLockOptions, advisory_file_lock
 from ..runtime_names import StateKey
@@ -41,9 +44,9 @@ def admit_owner_page(
 ) -> OwnerPageAdmissionResult:
     """Fetch and admit one REST owner discovery page."""
 
+    package_owners = _package_owners(config.packages_all_path)
     last_id = config.state.get_int(StateKey.LAST_SCANNED_ID, 0)
     page = resolver.owner_page(last_id=last_id, per_page=per_page)
-    package_owners = _package_owners(config.packages_all_path)
     identities = page.owners
     resolver.cache.cache_many(identity.ref for identity in identities)
 
@@ -86,15 +89,23 @@ def _owners_lock(config: OwnerPageAdmissionConfig) -> AbstractContextManager[Non
 
 def _package_owners(path: Path) -> set[str]:
     try:
-        lines = path.read_text(encoding="utf-8").splitlines()
+        with path.open(encoding="utf-8", newline="") as file:
+            reader = csv.reader(file, delimiter="|", strict=True)
+            owners: set[str] = set()
+            try:
+                for row in reader:
+                    if not row:
+                        continue
+                    owner = package_work_item(row).package_ref.owner
+                    if owner:
+                        owners.add(owner.casefold())
+            except (csv.Error, DatabaseError) as error:
+                raise DiscoveryError(
+                    f"invalid package work item at {path}:{reader.line_num}: {error}"
+                ) from error
+            return owners
     except FileNotFoundError:
         return set()
-    owners: set[str] = set()
-    for line in lines:
-        fields = line.split("|")
-        if len(fields) > 1 and fields[1]:
-            owners.add(fields[1].casefold())
-    return owners
 
 
 def _admit_owner(

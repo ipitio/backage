@@ -108,9 +108,12 @@ class TestPackageRepository:
             plan = repository.packages.package_work_plan(_TODAY)
 
             assert len(plan.packages) == 3
-            assert plan.packages[0].owner == "Alpha"
-            assert tuple(item.owner for item in plan.completed) == ("Beta",)
-            assert {item.owner for item in plan.pending} == {"Alpha", "Gamma"}
+            assert plan.packages[0].package_ref.owner == "Alpha"
+            assert tuple(item.package_ref.owner for item in plan.completed) == ("Beta",)
+            assert {item.package_ref.owner for item in plan.pending} == {
+                "Alpha",
+                "Gamma",
+            }
             assert plan.owners == ("Alpha", "Beta", "Empty", "Gamma")
 
     def test_package_write_prunes_only_unpaired_partial_version_stages(self) -> None:

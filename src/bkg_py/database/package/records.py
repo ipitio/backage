@@ -141,16 +141,16 @@ def inventory(
     packages_table: str,
     check_stop: Callable[[], None],
 ) -> PackageInventory:
-    """Count distinct package paths, owner IDs, and owner repositories."""
+    """Count stored package references, owner IDs, and owner repositories."""
 
     rows = connection.execute(
         _sql(
             """
             select owner_id, repo
             from (
-                select owner_id, owner, repo, package
+                select owner_id, owner_type, package_type, owner, repo, package
                 from {packages}
-                group by owner_id, owner, repo, package
+                group by owner_id, owner_type, package_type, owner, repo, package
             )
             order by owner_id, repo
             """,
