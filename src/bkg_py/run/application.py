@@ -79,6 +79,7 @@ class RunApplicationExecution:
     progress: MessageSink
     diagnostic: MessageSink
     materialize_owner_trees: OwnerMaterializer
+    remove_owner_tree: Callable[[str], None]
 
 
 class RunApplicationOperations:
@@ -244,7 +245,7 @@ class RunApplicationOperations:
             self.application.database.owner_queue,
             self.application.state,
             Path(config.owners_file),
-            Path(config.index_dir),
+            self.execution.remove_owner_tree,
             self.execution.progress,
         )
         with self._github_client() as client:
@@ -364,7 +365,7 @@ class RunApplicationOperations:
                     self.application.database.owner_queue,
                     self.application.state,
                     Path(config.owners_file),
-                    Path(config.index_dir),
+                    self.execution.remove_owner_tree,
                     self.execution.progress,
                 ),
                 OwnerBatchExecution(

@@ -24,6 +24,7 @@ from bkg_py.owners.updates import OwnerScanOutcome
 from bkg_py.result import ExitStatus
 from bkg_py.runtime import GracefulStop
 from bkg_py.state import StateStore
+from bkg_py.workspace import GitIndexRepository
 
 
 @dataclass
@@ -90,7 +91,7 @@ def _service(  # pylint: disable=too-many-locals
             database.owner_queue,
             state,
             owners_file,
-            index_dir,
+            GitIndexRepository(index_dir).remove_owner_tree,
             messages.progress.append,
         ),
         OwnerBatchExecution(

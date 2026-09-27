@@ -1,5 +1,6 @@
 """Index-branch preparation, sparse checkout, and catalog operations."""
 
+import re
 import shutil
 import time
 from collections.abc import Callable, Iterable, Sequence
@@ -16,6 +17,7 @@ _SPARSE_PATH_BATCH_SIZE = 100
 _PERSISTENT_SPARSE_PATHS = (SITE_CONTENT_DIRECTORY,)
 _PACKAGE_PATH_PARTS = 3
 _PACKAGE_FILENAME_INDEX = 2
+_OWNER_DIRECTORY_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9-]{0,38}")
 MessageSink = Callable[[str], None]
 
 
@@ -59,6 +61,35 @@ class GitIndexRepository(GitCommandRunner):
         self._run(("sparse-checkout", "init", "--cone"), required=True)
         self._run(("sparse-checkout", "set"), required=True)
         self._add_sparse_batch(_PERSISTENT_SPARSE_PATHS)
+
+    def remove_owner_tree(self, owner: str) -> None:
+        """Stage owner deletion without hydrating its tracked sparse tree."""
+
+        if _OWNER_DIRECTORY_PATTERN.fullmatch(owner) is None:
+            raise ValueError(f"invalid owner directory for retirement: {owner}")
+        root = self._run(("rev-parse", "--show-toplevel"))
+        if (
+            root.returncode == 0
+            and Path(root.stdout.strip()).resolve() == self.path.resolve()
+        ):
+            self._run(
+                (
+                    "rm",
+                    "--quiet",
+                    "--force",
+                    "-r",
+                    "--ignore-unmatch",
+                    "--sparse",
+                    "--",
+                    f":(top,literal){owner}/",
+                ),
+                required=True,
+            )
+        directory = self.path / owner
+        if directory.is_symlink():
+            directory.unlink()
+        elif directory.is_dir():
+            shutil.rmtree(directory)
 
     def materialize_sparse_paths(
         self,

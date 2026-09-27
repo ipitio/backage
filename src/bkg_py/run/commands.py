@@ -125,6 +125,7 @@ def execute_prepared_application(
         output.progress,
         output.diagnostic,
         _owner_materializer(application),
+        _owner_tree_remover(application),
     )
 
     try:
@@ -191,6 +192,16 @@ def _owner_materializer(
         application.stop.check()
 
     return materialize
+
+
+def _owner_tree_remover(application: ApplicationContext) -> Callable[[str], None]:
+    def remove(owner: str) -> None:
+        index_dir = application.config.index_dir
+        if index_dir is None:
+            raise WorkspaceError("BKG_INDEX_DIR is required for owner retirement")
+        GitIndexRepository(Path(index_dir)).remove_owner_tree(owner)
+
+    return remove
 
 
 def _stdout(message: str) -> None:

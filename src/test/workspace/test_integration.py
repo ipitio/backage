@@ -7,8 +7,12 @@ from pathlib import Path
 import pytest
 
 from bkg_py.cli import main
-from bkg_py.database.models import PackageCatalogPath
+from bkg_py.database.composition import DatabaseRepositories
+from bkg_py.database.models import PackageCatalogPath, PackageInventory
+from bkg_py.database.settings import DatabaseSettings
+from bkg_py.owners.batch import OwnerBatchEffects
 from bkg_py.result import ExitStatus
+from bkg_py.state import StateStore
 from bkg_py.workspace import (
     GitIdentity,
     GitIndexRepository,
@@ -177,6 +181,128 @@ def test_sparse_repository_keeps_root_and_materializes_selected_owners(
 
     assert (path / "alpha" / "repo-a" / "package.json").is_file()
     assert (path / "beta" / "repo-b" / "package.json").is_file()
+
+
+@pytest.mark.parametrize("hydrate", [False, True])
+def test_retired_sparse_owner_does_not_reappear_after_catalog_restart(
+    tmp_path: Path,
+    hydrate: bool,
+) -> None:
+    """Retirement removes tracked owner paths even before tree hydration."""
+
+    path = tmp_path / "index"
+    _create_repository(path)
+    index = GitIndexRepository(path)
+    index.set_sparse_root()
+    if hydrate:
+        index.materialize_sparse_paths(("alpha",))
+    database = DatabaseRepositories(DatabaseSettings(tmp_path / "index.db"))
+    tree = read_index_package_catalog(path)
+    database.catalog.initialize_package_catalog(tree.paths, tree.revision, "2026-09-27")
+    owners = tmp_path / "owners.txt"
+    owners.write_text("alpha\nbeta\n", encoding="utf-8")
+    effects = OwnerBatchEffects(
+        database.packages,
+        database.owner_queue,
+        StateStore(tmp_path / "state.env"),
+        owners,
+        index.remove_owner_tree,
+        lambda _message: None,
+    )
+
+    assert (path / "alpha").exists() == hydrate
+    effects.retire_unavailable("alpha")
+
+    assert _git(path, "diff", "--cached", "--name-only").stdout.splitlines() == [
+        "alpha/repo-a/package.json"
+    ]
+    _git(path, "commit", "-qm", "retire unavailable owner")
+    tree = read_index_package_catalog(path)
+    status = database.catalog.initialize_package_catalog(
+        tree.paths, tree.revision, "2026-09-28"
+    )
+    assert status.inventory == PackageInventory(1, 1, 1)
+    assert tree.paths == (PackageCatalogPath("beta", "repo-b", "package"),)
+    assert owners.read_text(encoding="utf-8") == "beta\n"
+    assert (path / "README.md").read_text(encoding="utf-8") == "index\n"
+    assert not (path / "beta").exists()
+
+
+def test_failed_sparse_retirement_preserves_catalog_and_owner_source(
+    tmp_path: Path,
+) -> None:
+    """A failed Git deletion must not retire durable owner state."""
+
+    path = tmp_path / "index"
+    _create_repository(path)
+    index = GitIndexRepository(path)
+    index.set_sparse_root()
+    database = DatabaseRepositories(DatabaseSettings(tmp_path / "index.db"))
+    tree = read_index_package_catalog(path)
+    previous = database.catalog.initialize_package_catalog(
+        tree.paths, tree.revision, "2026-09-27"
+    )
+    owners = tmp_path / "owners.txt"
+    owners.write_text("alpha\n", encoding="utf-8")
+    effects = OwnerBatchEffects(
+        database.packages,
+        database.owner_queue,
+        StateStore(tmp_path / "state.env"),
+        owners,
+        index.remove_owner_tree,
+        lambda _message: None,
+    )
+    (path / ".git" / "index.lock").write_text("held\n", encoding="utf-8")
+
+    with pytest.raises(WorkspaceError, match=r"index\.lock"):
+        effects.retire_unavailable("alpha")
+
+    assert database.catalog.package_catalog_status() == previous
+    assert owners.read_text(encoding="utf-8") == "alpha\n"
+    assert read_index_package_catalog(path) == tree
+
+
+def test_owner_tree_removal_does_not_follow_symlinks(tmp_path: Path) -> None:
+    """Local output retirement unlinks an owner alias without deleting its target."""
+
+    index = tmp_path / "index"
+    index.mkdir()
+    target = tmp_path / "outside"
+    target.mkdir()
+    retained = target / "package.json"
+    retained.write_text("{}\n", encoding="utf-8")
+    (index / "alpha").symlink_to(target, target_is_directory=True)
+
+    GitIndexRepository(index).remove_owner_tree("alpha")
+
+    assert not (index / "alpha").is_symlink()
+    assert retained.read_text(encoding="utf-8") == "{}\n"
+
+
+def test_local_owner_removal_does_not_modify_a_parent_repository(
+    tmp_path: Path,
+) -> None:
+    """An output directory within a repository is not its own Git worktree."""
+
+    repository = tmp_path / "repository"
+    _create_repository(repository)
+    index = repository / "generated"
+    (index / "alpha").mkdir(parents=True)
+    (index / "alpha" / "package.json").write_text("{}\n", encoding="utf-8")
+
+    GitIndexRepository(index).remove_owner_tree("alpha")
+
+    assert not (index / "alpha").exists()
+    assert (repository / "alpha" / "repo-a" / "package.json").is_file()
+    assert not _git(repository, "diff", "--cached", "--name-only").stdout.strip()
+
+
+@pytest.mark.parametrize("owner", ["../alpha", ".bkg-site", "alpha/beta", ":(glob)*"])
+def test_owner_tree_removal_rejects_unsafe_paths(tmp_path: Path, owner: str) -> None:
+    """Retirement cannot target parents, site assets, or Git pathspec patterns."""
+
+    with pytest.raises(ValueError, match="invalid owner directory"):
+        GitIndexRepository(tmp_path).remove_owner_tree(owner)
 
 
 def test_repository_lists_package_paths_without_aggregate_files(

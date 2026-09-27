@@ -2,7 +2,6 @@
 
 import re
 import secrets
-import shutil
 import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field, replace
@@ -115,7 +114,7 @@ class OwnerBatchEffects:
     owner_queue: OwnerQueueClaimRepository
     state: StateStore
     owners_file: Path
-    index_dir: Path
+    remove_owner_tree: Callable[[str], None]
     progress: MessageSink
     _lock: Lock = field(default_factory=Lock)
 
@@ -183,10 +182,8 @@ class OwnerBatchEffects:
             self.progress(f"Retired unavailable owner {owner.owner}")
 
     def _retire_storage(self, owner: str) -> None:
+        self.remove_owner_tree(owner)
         self.retirement.retire_owner(owner)
-        owner_dir = self.index_dir / owner
-        if owner_dir.exists():
-            shutil.rmtree(owner_dir)
 
     def _remove_manual_owner(self, owner: str) -> None:
         lines = self.owners_file.read_text(encoding="utf-8").splitlines()

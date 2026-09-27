@@ -28,6 +28,7 @@ from bkg_py.owners.queue_operations import (
     TargetedOwnerQueueServices,
 )
 from bkg_py.state import StateStore
+from bkg_py.workspace import GitIndexRepository
 
 from ..workspace.repository_support import create_repository, git
 
@@ -464,7 +465,7 @@ def test_queue_preparation_owns_normalization_resolution_and_effects(
         repository,
         state,
         owners,
-        index,
+        GitIndexRepository(index).remove_owner_tree,
         messages.append,
     )
     service = OwnerQueuePreparationService(
