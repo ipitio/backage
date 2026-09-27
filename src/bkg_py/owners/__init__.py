@@ -9,7 +9,7 @@ from .batch import (
 )
 from .operations import OwnerOperationExecution, OwnerUpdateOperation
 from .pages import OwnerPageAdmissionConfig, OwnerPageAdmissionResult, admit_owner_page
-from .queue import OwnerQueuePaths, OwnerQueueSelector
+from .queue import OwnerQueuePaths, OwnerQueueSelector, owner_candidate_capacity
 from .queue_operations import (
     OwnerQueuePreparationExecution,
     OwnerQueuePreparationPaths,
@@ -41,5 +41,6 @@ __all__ = [
     "TargetedOwnerQueueService",
     "TargetedOwnerQueueServices",
     "admit_owner_page",
+    "owner_candidate_capacity",
     "parse_owner_queue",
 ]

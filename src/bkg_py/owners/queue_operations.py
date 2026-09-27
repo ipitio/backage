@@ -98,6 +98,7 @@ class OwnerQueuePreparationRequest:  # pylint: disable=too-many-instance-attribu
     include_manual: bool
     now: int
     batch_marker: str
+    catalog_owners: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -212,6 +213,7 @@ class OwnerQueuePreparationService:  # pylint: disable=too-few-public-methods
                 state_dir=paths.working_directory,
             ),
             include_manual=request.include_manual,
+            catalog_owners=request.catalog_owners,
             deferred_owners=tuple(owner for owner, _retry_after in deferred),
         )
         selection = self._select_unattempted(selector, request.batch_marker)

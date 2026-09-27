@@ -17,6 +17,7 @@ _PRIORITIES = {
     "partially-updated": 10,
     "connection": 15,
     "stale": 20,
+    "catalog-metadata": 25,
     "service-owner": 30,
     "targeted": 30,
     "discovered": 50,

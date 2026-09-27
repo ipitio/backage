@@ -59,6 +59,32 @@ def is_ready(connection: sqlite3.Connection) -> bool:
     )
 
 
+def unresolved_owners(
+    connection: sqlite3.Connection, generation: str, limit: int
+) -> tuple[str, ...]:
+    """Select a bounded metadata-recovery lane without repeating attempted owners."""
+
+    if limit <= 0 or not is_ready(connection):
+        return ()
+    rows = connection.execute(
+        f"""
+        select distinct catalog.owner
+        from "{CATALOG_TABLE}" catalog
+        where (catalog.owner_id = '' or catalog.owner_type = ''
+               or catalog.package_type = '' or catalog.observed_at = '')
+          and not exists (
+              select 1 from bkg_owner_queue_candidates candidate
+              where candidate.generation = ?
+                and candidate.owner_key = lower(catalog.owner)
+          )
+        order by catalog.owner
+        limit ?
+        """,
+        (generation, limit),
+    ).fetchall()
+    return tuple(str(row[0]) for row in rows)
+
+
 def initialize(
     connection: sqlite3.Connection,
     packages_table: str,

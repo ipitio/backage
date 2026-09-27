@@ -11,6 +11,14 @@ from . import packages as catalog
 class PackageCatalogRepository(DatabaseComponent):
     """Provide catalog initialization and status operations."""
 
+    def unresolved_catalog_owners(self, generation: str, limit: int) -> tuple[str, ...]:
+        """Return bounded recovery candidates not yet attempted this generation."""
+
+        self.ensure_schema()
+        return self._run_read(
+            lambda connection: catalog.unresolved_owners(connection, generation, limit)
+        )
+
     def package_catalog_status(self) -> PackageCatalogStatus | None:
         """Return committed catalog state, or None before initialization."""
 

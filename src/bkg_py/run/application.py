@@ -41,6 +41,7 @@ from ..owners import (
     TargetedOwnerQueueService,
     TargetedOwnerQueueServices,
     admit_owner_page,
+    owner_candidate_capacity,
 )
 from ..result import ExitStatus
 from ..runtime_names import StateKey
@@ -275,6 +276,12 @@ class RunApplicationOperations:
                     include_manual=request.include_manual,
                     now=request.now,
                     batch_marker=request.batch_marker,
+                    catalog_owners=(
+                        self.application.database.catalog.unresolved_catalog_owners(
+                            request.batch_marker,
+                            owner_candidate_capacity(request.request_limit),
+                        )
+                    ),
                 )
             )
 

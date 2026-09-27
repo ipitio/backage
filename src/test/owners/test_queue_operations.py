@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from bkg_py.database.composition import DatabaseRepositories
+from bkg_py.database.models import PackageCatalogPath
 from bkg_py.database.owner.queue import (
     OwnerQueueAdmission,
     OwnerQueueCandidate,
@@ -227,6 +228,97 @@ def test_queue_selection_reserves_capacity_for_discovery_before_stale_backlog(
 
     assert all(0 < len(batch) <= selector.capacity for batch in batches)
     assert len(batches) > 1
+
+
+@pytest.mark.parametrize("deferred", [False, True])
+def test_metadata_lane_is_bounded_and_respects_existing_priorities_and_cooldowns(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, deferred: bool
+) -> None:
+    """Discovery and ongoing work retain room beside metadata recovery."""
+
+    working = tmp_path / "working"
+    index = tmp_path / "index"
+    working.mkdir()
+    index.mkdir()
+    connections = tmp_path / "connections"
+    manual = tmp_path / "owners.txt"
+    _write_lines(connections, "discovered")
+    _write_lines(manual)
+    _write_lines(working / "all_owners_in_db", "partial", "stale", "metadata")
+    _write_lines(working / "owners_partially_updated", "partial")
+    _write_lines(working / "owners_stale", "stale")
+    monkeypatch.setattr(OwnerQueueSelector, "history_owners", _no_history)
+    selector = OwnerQueueSelector(
+        "0",
+        1,
+        "",
+        OwnerQueuePaths(connections, manual, index, working),
+        ("metadata",) if deferred else (),
+        catalog_owners=("metadata", "next-metadata"),
+    )
+    selected = selector.select_with_reasons(random.Random(0))  # noqa: S311
+    assert len(selected) == selector.capacity == 4
+    assert selected[0] == ("discovered", "connection")
+    assert ("partial", "partially-updated") in selected
+    assert ("stale", "stale") in selected
+    expected = "next-metadata" if deferred else "metadata"
+    assert (expected, "catalog-metadata") in selected
+
+
+def test_metadata_admission_uses_durable_queue_and_does_not_repeat(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A history-known owner can recover unknown catalog paths once per generation."""
+
+    working = tmp_path / "working"
+    index = tmp_path / "index"
+    working.mkdir()
+    index.mkdir()
+    connections = tmp_path / "connections"
+    manual = tmp_path / "owners.txt"
+    _write_lines(connections)
+    _write_lines(manual)
+    _write_lines(working / "all_owners_in_db", "Alpha", "Beta")
+    monkeypatch.setattr(OwnerQueueSelector, "history_owners", _no_history)
+    repository = _repository(tmp_path)
+    repository.database.catalog.initialize_package_catalog(
+        tuple(
+            PackageCatalogPath(owner, "repo", "package") for owner in ("Alpha", "Beta")
+        ),
+        "a" * 40,
+        "2026-06-10",
+    )
+    resolver = _Resolver()
+    service = OwnerQueuePreparationService(
+        OwnerQueuePreparationServices(
+            repository,
+            resolver,
+            StateStore(tmp_path / "state.env"),
+            lambda _owner: None,
+        ),
+        OwnerQueuePreparationExecution(lambda: None, lambda _message: None),
+    )
+    paths = OwnerQueuePreparationPaths(connections, manual, index, working)
+    for expected in (2, 0):
+        result = service.prepare(
+            OwnerQueuePreparationRequest(
+                paths,
+                "0",
+                1,
+                "",
+                False,
+                100,
+                "batch-1",
+                repository.database.catalog.unresolved_catalog_owners("batch-1", 4),
+            )
+        )
+        assert result.queued == result.candidates == expected
+    assert not resolver.candidates
+    entries = repository.owner_queue_entries("batch-1")
+    assert {entry.owner for entry in entries} == {"Alpha", "Beta"}
+    assert all(
+        entry.reason == "catalog-metadata" and entry.priority == 25 for entry in entries
+    )
 
 
 def test_queue_preparation_reports_and_advances_a_full_chunk(

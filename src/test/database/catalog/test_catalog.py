@@ -13,6 +13,7 @@ from bkg_py.database.models import (
     PackageRecord,
     PackageRef,
 )
+from bkg_py.database.owner.queue import OwnerQueueCandidate
 from bkg_py.database.settings import DatabaseSettings
 from bkg_py.database.support import DatabaseError
 
@@ -232,6 +233,7 @@ def test_complete_scan_enriches_observed_and_retires_tree_only_paths(
         TODAY,
     )
     package_ref = package(repo=retained.repo, package_name=retained.package)
+    assert repository.catalog.unresolved_catalog_owners("batch-1", 10) == ("Lazztech",)
     repository.owners.begin_owner_scan(
         package_ref.owner_id,
         package_ref.owner,
@@ -266,6 +268,50 @@ def test_complete_scan_enriches_observed_and_retires_tree_only_paths(
     status = repository.catalog.package_catalog_status()
     assert status is not None
     assert status.resolved_packages == 1
+    assert repository.catalog.unresolved_catalog_owners("batch-1", 10) == ()
+
+
+def test_metadata_recovery_is_bounded_distinct_and_advances_past_attempts(
+    tmp_path: Path,
+) -> None:
+    """Partly resolved owners are included without restarting attempted work."""
+
+    repository = DatabaseRepositories(DatabaseSettings(tmp_path / "index.db"))
+    assert repository.catalog.unresolved_catalog_owners("batch-1", 2) == ()
+    known = PackageCatalogPath("Alpha", "repo", "known")
+    repository.packages.write_package(_record(known))
+    repository.catalog.initialize_package_catalog(
+        (
+            known,
+            PackageCatalogPath("Alpha", "repo", "unknown"),
+            PackageCatalogPath("Beta", "repo", "unknown"),
+            PackageCatalogPath("Gamma", "repo", "unknown"),
+        ),
+        "a" * 40,
+        TODAY,
+    )
+    repository.owner_queue.prepare_owner_queue("batch-1", (), 100)
+    assert repository.catalog.unresolved_catalog_owners("batch-1", 0) == ()
+    assert repository.catalog.unresolved_catalog_owners("batch-1", 2) == (
+        "Alpha",
+        "Beta",
+    )
+    repository.owner_queue.record_owner_queue_candidates(
+        "batch-1", (OwnerQueueCandidate("alpha", "catalog-metadata"),), (), 101
+    )
+    assert repository.catalog.unresolved_catalog_owners("batch-1", 2) == (
+        "Beta",
+        "Gamma",
+    )
+    repository.owner_queue.record_owner_queue_candidates(
+        "batch-1", (OwnerQueueCandidate("Beta", "stale"),), (), 102
+    )
+    assert repository.catalog.unresolved_catalog_owners("batch-1", 2) == ("Gamma",)
+    repository.owner_queue.prepare_owner_queue("batch-2", (), 103)
+    assert repository.catalog.unresolved_catalog_owners("batch-2", 2) == (
+        "Alpha",
+        "Beta",
+    )
 
 
 def test_catalog_tracks_package_and_owner_retirements(tmp_path: Path) -> None:

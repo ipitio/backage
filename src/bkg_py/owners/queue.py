@@ -14,6 +14,12 @@ from ..runtime_names import RunFile
 _OWNER_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9-]{0,38}")
 
 
+def owner_candidate_capacity(request_limit: int) -> int:
+    """Return the shared admission-window budget for one owner wave."""
+
+    return max(0, 4 * request_limit)
+
+
 def _owner_name(value: str) -> str:
     return value.split("/", maxsplit=1)[-1]
 
@@ -118,7 +124,7 @@ class _OwnerCandidatePlan:
 
 
 @dataclass(frozen=True)
-class OwnerQueueSelector:
+class OwnerQueueSelector:  # pylint: disable=too-many-instance-attributes
     """Inputs and state used to assemble the next owner candidate queue."""
 
     rest_first: str
@@ -127,12 +133,13 @@ class OwnerQueueSelector:
     paths: OwnerQueuePaths
     deferred_owners: tuple[str, ...]
     include_manual: bool = True
+    catalog_owners: tuple[str, ...] = ()
 
     @property
     def capacity(self) -> int:
         """Return the maximum number of candidates admitted in one chunk."""
 
-        return max(0, 4 * self.request_limit)
+        return owner_candidate_capacity(self.request_limit)
 
     def history_owners(self) -> list[str]:
         """Return indexed owners ordered from least to most recently changed."""
@@ -287,6 +294,7 @@ class OwnerQueueSelector:
         # large stale backlog cannot consume the whole daily discovery pass.
         new_discovered = _not_matching(known_owners, discovered)
         candidates.extend(new_discovered[: self.request_limit])
+        candidates.extend(self.catalog_owners[: self.request_limit])
         if self.rest_first != "0":
             candidates.extend(remaining(stale))
 
@@ -300,6 +308,7 @@ class OwnerQueueSelector:
             )
         )
         candidates.extend(new_discovered[self.request_limit :])
+        candidates.extend(self.catalog_owners[self.request_limit :])
         candidates.extend(
             _not_matching(
                 known_owners,
@@ -311,6 +320,7 @@ class OwnerQueueSelector:
             ("manual", requested_manual),
             ("partially-updated", {_owner_key(value) for value in partially_updated}),
             ("stale", {_owner_key(value) for value in stale}),
+            ("catalog-metadata", {_owner_key(value) for value in self.catalog_owners}),
             ("service-owner", {_owner_key(self.current_owner)}),
             ("connection", {_owner_key(value) for value in connections}),
             ("index-history", {_owner_key(value) for value in history}),
