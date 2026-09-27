@@ -1,11 +1,3 @@
----
-interface Props {
-  dataRoot: string;
-}
-
-const { dataRoot } = Astro.props;
----
-
 <noscript>
   <style is:global>
     .requires-js {
@@ -14,10 +6,6 @@ const { dataRoot } = Astro.props;
   </style>
   <section class="no-script" aria-labelledby="no-script-heading">
     <h2 id="no-script-heading">Dashboard data requires JavaScript</h2>
-    <p>
-      The package index remains available through
-      <a href={`${dataRoot}.json`}>the compact index summary</a> and
-      <a href={`${dataRoot}dashboard.json`}>dashboard.json</a>.
-    </p>
+    <p>The published data files are linked below.</p>
   </section>
 </noscript>

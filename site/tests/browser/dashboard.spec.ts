@@ -2,8 +2,11 @@ import { expect, test, type Page } from "@playwright/test";
 
 import {
   dashboardFixture,
+  emptyDashboardFixture,
   historyFixture,
+  historySample,
   utcDate,
+  utcDateFrom,
 } from "../dashboard-fixtures.ts";
 
 const dashboard = "/";
@@ -31,9 +34,10 @@ test("shows a useful loading state before current data arrives", async ({
   await expect(
     page.getByRole("link", { name: "Latest release" }),
   ).toHaveAttribute("href", releaseUrl);
-  await expect(
-    page.getByRole("link", { name: "Index summary" }),
-  ).toHaveAttribute("href", "./.json");
+  await expect(page.getByRole("link", { name: "Index JSON" })).toHaveAttribute(
+    "href",
+    "./.json",
+  );
 
   releaseDashboard();
   await expect(page.locator("#status-title")).toHaveText(
@@ -58,13 +62,13 @@ test("renders current inventory, accessible history, and repository navigation",
     "Index snapshot current",
   );
   await expect(page.locator("#inventory-packages")).toHaveText("1,200");
-  await expect(page.locator("#history-status")).toHaveText("3 daily samples");
-  await expect(page.locator("#history-package-change")).toHaveText("+20");
+  await expect(page.locator("#history-status")).toHaveText("3 days recorded");
+  await expect(page.locator("#history-change")).toHaveText("+20");
   await expect(page.locator("#history-chart")).toBeVisible();
   await expect.poll(() => chartUsesPrimary(page)).toBe(true);
   await expect(page.locator("#history-chart")).toHaveAttribute(
     "aria-label",
-    /Package count changed from 1,180/,
+    /Packages changed from 1,180/,
   );
   await expect
     .poll(() =>
@@ -81,12 +85,172 @@ test("renders current inventory, accessible history, and repository navigation",
   await expect(
     page.getByRole("link", { name: "Latest release" }),
   ).toHaveAttribute("href", releaseUrl);
+  expect(
+    await page
+      .locator(".brand img")
+      .evaluate((image) => getComputedStyle(image).objectFit),
+  ).toBe("cover");
   const details = page.locator(".history-details");
   await details.locator("summary").focus();
   await page.keyboard.press("Enter");
   await expect(details).toHaveAttribute("open", "");
   await expect(page.locator("#history-values tr")).toHaveCount(3);
   expect(consoleErrors).toEqual([]);
+});
+
+test("changes series and supports pointer and keyboard observation selection", async ({
+  page,
+}) => {
+  await routeSuccess(page);
+  await page.goto(dashboard);
+  const chart = page.locator("#history-chart");
+  await expect(chart).toBeVisible();
+  const beforeHover = await chart.evaluate((element) =>
+    (element as HTMLCanvasElement).toDataURL(),
+  );
+  await chart.hover({ position: { x: 80, y: 100 } });
+  await expect(page.locator("#history-value")).toHaveText("1,180");
+  await expect
+    .poll(() =>
+      chart.evaluate((element) => (element as HTMLCanvasElement).toDataURL()),
+    )
+    .not.toBe(beforeHover);
+
+  const observation = page.getByRole("slider", { name: "Observation" });
+  await observation.focus();
+  await page.keyboard.press("Home");
+  await expect(observation).toHaveAttribute(
+    "aria-valuetext",
+    /1,180 packages$/,
+  );
+  await page.keyboard.press("ArrowRight");
+  await expect(page.locator("#history-value")).toHaveText("1,190");
+  await page.keyboard.press("End");
+  await expect(page.locator("#history-value")).toHaveText("1,200");
+
+  await page.getByRole("radio", { name: "Owners", exact: true }).check();
+  await expect(page.locator("#history-value-label")).toHaveText("Owners");
+  await expect(page.locator("#history-value")).toHaveText("12");
+  await expect(page.locator("#history-change")).toHaveText("+1");
+  await expect(chart).toHaveAttribute("aria-label", /Owners changed from 11/);
+  await page.getByRole("radio", { name: "Repositories" }).check();
+  await expect(page.locator("#history-value")).toHaveText("345");
+  await expect(page.locator("#history-change")).toHaveText("+5");
+});
+
+test("filters calendar windows without treating missing days as observations", async ({
+  page,
+}) => {
+  const generatedDate = utcDate();
+  const history = historyFixture(generatedDate);
+  history.samples.unshift(
+    historySample(utcDateFrom(generatedDate, -40), 10, 335, 1_300, 800, 1_000),
+    historySample(utcDateFrom(generatedDate, -10), 10, 338, 1_250, 800, 1_000),
+  );
+  await page.route("**/dashboard.json", (route) =>
+    route.fulfill({ json: dashboardFixture(generatedDate) }),
+  );
+  await page.route("**/dashboard-history.json", (route) =>
+    route.fulfill({ json: history }),
+  );
+  await page.goto(dashboard);
+  await expect(page.locator("#history-content")).toBeVisible();
+  await expect(page.locator("#history-change")).toHaveText("-50");
+  await expect(page.locator("#history-sample-count")).toHaveText("4");
+
+  await page
+    .getByRole("combobox", { name: "History period" })
+    .selectOption("7");
+  await expect(page.locator("#history-change")).toHaveText("+20");
+  await expect(page.locator("#history-sample-count")).toHaveText("3");
+  await expect(page.locator("#history-values tr")).toHaveCount(3);
+  await page
+    .getByRole("combobox", { name: "History period" })
+    .selectOption("all");
+  await expect(page.locator("#history-change")).toHaveText("-100");
+  await expect(page.locator("#history-values tr")).toHaveCount(5);
+});
+
+test("keeps one observation usable without inventing growth", async ({
+  page,
+}) => {
+  const history = historyFixture();
+  history.samples = history.samples.slice(-1);
+  await page.route("**/dashboard.json", (route) =>
+    route.fulfill({ json: dashboardFixture() }),
+  );
+  await page.route("**/dashboard-history.json", (route) =>
+    route.fulfill({ json: history }),
+  );
+  await page.goto(dashboard);
+  await expect(page.locator("#history-content")).toBeVisible();
+  await expect(page.locator("#history-change")).toHaveText("0");
+  await expect(
+    page.getByRole("slider", { name: "Observation" }),
+  ).toBeDisabled();
+  await expect.poll(() => chartUsesPrimary(page)).toBe(true);
+});
+
+test("provides unique links and field counts without ambiguous metric totals", async ({
+  page,
+}) => {
+  await routeSuccess(page);
+  await page.goto(dashboard);
+  await expect(page.locator("#dashboard-content")).toBeVisible();
+  const hrefs = await page
+    .getByRole("link")
+    .evaluateAll((links) => links.map((link) => link.getAttribute("href")));
+  expect(new Set(hrefs).size).toBe(hrefs.length);
+  await expect(page.locator("#inventory-resolved")).toHaveCount(0);
+  await expect(page.locator(".field-details")).not.toHaveAttribute("open", "");
+  await page.getByText("Stored field availability", { exact: true }).click();
+  await expect(page.locator("#metrics tr")).toHaveCount(5);
+  await expect(page.locator("#metrics tr").first()).toHaveText(
+    "Artifact size1,000200",
+  );
+  await expect(page.getByText("9,000,000", { exact: true })).toHaveCount(0);
+});
+
+test("renders an empty fork without treating zero counts as missing data", async ({
+  page,
+}) => {
+  const generatedDate = utcDate();
+  const history = historyFixture(generatedDate);
+  history.samples = [historySample(generatedDate, 0, 0, 0, 0, 0)];
+  await page.route("**/dashboard.json", (route) =>
+    route.fulfill({ json: emptyDashboardFixture(generatedDate) }),
+  );
+  await page.route("**/dashboard-history.json", (route) =>
+    route.fulfill({ json: history }),
+  );
+  await page.goto(dashboard);
+  await expect(page.locator("#status-title")).toHaveText(
+    "Index snapshot current",
+  );
+  await expect(page.locator("#inventory-packages")).toHaveText("0");
+  await expect(page.locator("#history-status")).toHaveText("1 day recorded");
+  await expect(page.locator("#history-value")).toHaveText("0");
+  await expect(page.locator("#history-change")).toHaveText("0");
+  await expect.poll(() => chartUsesPrimary(page)).toBe(true);
+});
+
+test.describe("touch", () => {
+  test.use({
+    hasTouch: true,
+    isMobile: true,
+    viewport: { width: 390, height: 844 },
+  });
+
+  test("selects an observation by tapping the chart", async ({ page }) => {
+    await routeSuccess(page);
+    await page.goto(dashboard);
+    const chart = page.locator("#history-chart");
+    await expect(chart).toBeVisible();
+    await chart.tap({ position: { x: 65, y: 100 } });
+    await expect(page.locator("#history-value")).toHaveText("1,180");
+    await page.getByRole("radio", { name: "Owners", exact: true }).check();
+    await expect(page.locator("#history-value")).toHaveText("12");
+  });
 });
 
 test("keeps navigation and retry available for incompatible data", async ({
@@ -186,11 +350,12 @@ test("provides raw data and release navigation without JavaScript", async ({
     page.getByRole("link", { name: "Latest release" }),
   ).toHaveAttribute("href", releaseUrl);
   await expect(
-    page.getByRole("link", { name: "dashboard.json" }),
+    page.getByRole("link", { name: "Dashboard JSON" }),
   ).toBeVisible();
-  await expect(
-    page.getByRole("link", { name: "the compact index summary" }),
-  ).toHaveAttribute("href", "./.json");
+  await expect(page.getByRole("link", { name: "Index JSON" })).toHaveAttribute(
+    "href",
+    "./.json",
+  );
   await context.close();
 });
 
@@ -199,14 +364,21 @@ for (const viewport of [
     name: "wide",
     width: 1_280,
     height: 900,
-    inventoryColumns: 4,
+    inventoryColumns: 3,
     distributionColumns: 2,
   },
   {
     name: "narrow",
     width: 390,
     height: 844,
-    inventoryColumns: 1,
+    inventoryColumns: 3,
+    distributionColumns: 1,
+  },
+  {
+    name: "small phone",
+    width: 320,
+    height: 720,
+    inventoryColumns: 3,
     distributionColumns: 1,
   },
 ] as const) {
@@ -233,6 +405,14 @@ for (const viewport of [
     expect(await gridColumns(page, ".distribution-grid")).toBe(
       viewport.distributionColumns,
     );
+    const countBaselines = await page
+      .locator(".inventory-grid dd")
+      .evaluateAll((counts) =>
+        counts.map((count) => count.getBoundingClientRect().top),
+      );
+    expect(
+      Math.max(...countBaselines) - Math.min(...countBaselines),
+    ).toBeLessThan(1);
     expect(
       await page
         .locator(".distribution-grid .table-scroll")

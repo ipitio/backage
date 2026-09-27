@@ -148,7 +148,7 @@ async function packageShell(): Promise<void> {
     entrypoint,
     files: files.sort((left, right) => comparePaths(left.path, right.path)),
     schema_version: 1,
-    site_shell_version: 3,
+    site_shell_version: 4,
   };
   await writeFile(
     join(outputRoot, manifestName),

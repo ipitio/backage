@@ -4,7 +4,6 @@ import {
   FRESHNESS_LABELS,
   DashboardLoadError,
   DashboardSchemaError,
-  formatBytes,
   formatCount,
   formatCoverage,
   formatPublicationDate,
@@ -27,6 +26,7 @@ export function startDashboard(): void {
   const retry = element<HTMLButtonElement>("retry");
   const content = element<HTMLElement>("dashboard-content");
   let requestNumber = 0;
+  let disposeHistory: (() => void) | undefined;
 
   function setStatus(
     tone: "current" | "error" | "loading" | "warning",
@@ -43,6 +43,7 @@ export function startDashboard(): void {
     label: string,
   ): HTMLTableRowElement {
     const row = document.createElement("tr");
+    row.dataset.series = item.name;
     const heading = document.createElement("th");
     heading.scope = "row";
     heading.textContent = label;
@@ -91,23 +92,11 @@ export function startDashboard(): void {
       const heading = document.createElement("th");
       heading.scope = "row";
       heading.textContent = definition.label;
-
-      const aggregate = document.createElement("td");
-      aggregate.className = "numeric";
-      aggregate.textContent =
-        metric.unit === "bytes"
-          ? formatBytes(metric.value)
-          : formatCount(metric.value);
-
-      const known = document.createElement("td");
-      known.className = "numeric";
-      known.textContent = `${formatCount(metric.known_packages)} of ${formatCount(
-        dashboard.inventory.packages,
-      )}`;
-
-      const coverage = document.createElement("td");
-      coverage.append(coverageMeasure(metric.coverage_basis_points));
-      row.append(heading, aggregate, known, coverage);
+      row.append(
+        heading,
+        numericCell(metric.known_packages),
+        numericCell(metric.unknown_packages),
+      );
       return row;
     });
     element<HTMLTableSectionElement>("metrics").replaceChildren(...rows);
@@ -123,12 +112,7 @@ export function startDashboard(): void {
       "inventory-repositories",
       formatCount(dashboard.inventory.repositories),
     );
-    setText(
-      "inventory-resolved",
-      formatCount(dashboard.inventory.resolved_packages),
-    );
     const date = formatPublicationDate(dashboard.generated_date);
-    setText("publication-date", `Updated ${date} UTC`);
     renderDistributions(dashboard);
     renderMetrics(dashboard);
 
@@ -179,7 +163,10 @@ export function startDashboard(): void {
       if (currentRequest !== requestNumber) {
         return;
       }
-      await renderHistoryDocument(history);
+      await renderHistoryDocument(history, currentRequest);
+      if (currentRequest !== requestNumber) {
+        return;
+      }
       historyStatus.textContent = historyPeriod(history.samples);
       historyContent.hidden = false;
     } catch (error) {
@@ -196,28 +183,29 @@ export function startDashboard(): void {
 
   async function renderHistoryDocument(
     history: DashboardHistoryDocument,
+    currentRequest: number,
   ): Promise<void> {
-    const first = history.samples[0];
-    const last = history.samples.at(-1);
-    if (first === undefined || last === undefined) {
-      throw new DashboardSchemaError("dashboard history has no samples");
-    }
     const { renderHistoryChart } = await import("./history-chart");
-    setText(
-      "history-package-change",
-      formatChange(last.packages - first.packages),
-    );
-    setText("history-owner-change", formatChange(last.owners - first.owners));
-    setText(
-      "history-repository-change",
-      formatChange(last.repositories - first.repositories),
-    );
-    renderHistoryChart(history.samples, {
+    if (currentRequest !== requestNumber) {
+      return;
+    }
+    disposeHistory?.();
+    disposeHistory = renderHistoryChart(history.samples, {
       canvas: element<HTMLCanvasElement>("history-chart"),
       caption: element("history-caption"),
+      metric: element<HTMLFieldSetElement>("history-metric"),
+      period: element<HTMLSelectElement>("history-range"),
+      observation: element<HTMLInputElement>("history-observation"),
+      valueLabel: element("history-value-label"),
+      value: element("history-value"),
+      date: element<HTMLTimeElement>("history-selected-date"),
+      change: element("history-change"),
+      sampleCount: element("history-sample-count"),
+      renderRows: (samples) =>
+        element<HTMLTableSectionElement>("history-values").replaceChildren(
+          ...samples.map(historyRow),
+        ),
     });
-    const rows = history.samples.map(historyRow);
-    element<HTMLTableSectionElement>("history-values").replaceChildren(...rows);
   }
 
   function renderFailure(error: unknown): void {
@@ -238,6 +226,8 @@ export function startDashboard(): void {
   }
 
   async function refreshDashboard(): Promise<void> {
+    disposeHistory?.();
+    disposeHistory = undefined;
     const currentRequest = ++requestNumber;
     setStatus(
       "loading",
@@ -282,8 +272,6 @@ function historyRow(sample: DashboardHistorySample): HTMLTableRowElement {
     numericCell(sample.packages),
     numericCell(sample.owners),
     numericCell(sample.repositories),
-    numericCell(sample.size_known_packages),
-    numericCell(sample.downloads_known_packages),
   );
   return row;
 }
@@ -295,18 +283,8 @@ function numericCell(value: number): HTMLTableCellElement {
   return cell;
 }
 
-function formatChange(value: number): string {
-  if (value > 0) {
-    return `+${formatCount(value)}`;
-  }
-  return formatCount(value);
-}
-
 function historyPeriod(samples: ReadonlyArray<DashboardHistorySample>): string {
-  if (samples.length === 1) {
-    return "First daily sample";
-  }
-  return `${formatCount(samples.length)} daily samples`;
+  return `${formatCount(samples.length)} ${samples.length === 1 ? "day" : "days"} recorded`;
 }
 
 function requiredDashboardUrl(): string {
@@ -336,7 +314,10 @@ function coverageMeasure(basisPoints: number): HTMLDivElement {
   const progress = document.createElement("progress");
   progress.max = 100;
   progress.value = basisPoints / 100;
-  progress.setAttribute("aria-label", `${formatCoverage(basisPoints)} coverage`);
+  progress.setAttribute(
+    "aria-label",
+    `${formatCoverage(basisPoints)} of indexed packages`,
+  );
   const value = document.createElement("span");
   value.className = "measure-value";
   value.ariaHidden = "true";
@@ -346,6 +327,13 @@ function coverageMeasure(basisPoints: number): HTMLDivElement {
 }
 
 function packageTypeLabel(value: string): string {
+  const labels: Record<string, string> = {
+    unknown: "Not recorded",
+    npm: "npm",
+    nuget: "NuGet",
+    rubygems: "RubyGems",
+  };
+  if (labels[value] !== undefined) return labels[value];
   const normalized = value.replaceAll(/[_-]+/g, " ");
   return normalized.charAt(0).toUpperCase() + normalized.slice(1);
 }

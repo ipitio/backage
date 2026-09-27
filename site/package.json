@@ -19,7 +19,7 @@
     "@astrojs/check": "0.9.10",
     "@playwright/test": "1.62.1",
     "@types/node": "24.13.3",
-    "astro": "7.2.0",
+    "astro": "7.2.8",
     "typescript": "6.0.3"
   },
   "allowScripts": {
@@ -27,6 +27,7 @@
     "fsevents": false
   },
   "dependencies": {
+    "@lucide/astro": "1.48.0",
     "@picocss/pico": "2.1.1",
     "chart.js": "4.5.1",
     "zod": "4.4.3"

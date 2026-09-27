@@ -4,6 +4,7 @@ import {
   createDashboardHistorySchema,
   DASHBOARD_METRICS,
   DASHBOARD_SCHEMA_VERSION,
+  MILLISECONDS_PER_DAY,
   dashboardDocumentSchema,
   isoDateSchema,
   type DashboardDistributionItem,
@@ -18,6 +19,7 @@ import {
 export {
   DASHBOARD_METRICS,
   DASHBOARD_SCHEMA_VERSION,
+  MILLISECONDS_PER_DAY,
   type DashboardDistributionItem,
   type DashboardDocument,
   type DashboardHistoryDocument,
@@ -31,14 +33,13 @@ export const DASHBOARD_HISTORY_MAX_BYTES = 1_000_000;
 export const DASHBOARD_FETCH_TIMEOUT_MS = 10_000;
 
 const CURRENT_AGE_DAYS = 1;
-const MILLISECONDS_PER_DAY = 86_400_000;
 
 export const FRESHNESS_LABELS: Record<FreshnessName, string> = {
-  today: "Updated today",
-  days_1_7: "Updated 1-7 days ago",
-  days_8_30: "Updated 8-30 days ago",
-  days_31_plus: "Updated 31+ days ago",
-  unknown: "Update date unknown",
+  today: "Publication day",
+  days_1_7: "1-7 days earlier",
+  days_8_30: "8-30 days earlier",
+  days_31_plus: "31+ days earlier",
+  unknown: "No usable date",
 };
 
 export type PublicationState = "current" | "future" | "stale";

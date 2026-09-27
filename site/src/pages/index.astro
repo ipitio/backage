@@ -16,16 +16,16 @@ const dataRoot = "__BKG_DATA_ROOT__";
   latestReleaseUrl="__BKG_LATEST_RELEASE_URL__"
 >
   <header class="page-heading">
-    <hgroup>
-      <h1>backage index status</h1>
-      <p>Inventory, update freshness, and available package metrics.</p>
-    </hgroup>
+    <div>
+      <p class="eyebrow">GitHub Packages</p>
+      <h1>backage index</h1>
+    </div>
+    <PublicationStatus />
   </header>
-
-  <PublicationStatus />
 
   <div id="dashboard-content" hidden>
     <InventorySection />
+    <HistorySection />
     <div class="distribution-grid">
       <DistributionSection
         bodyId="package-types"
@@ -36,15 +36,14 @@ const dataRoot = "__BKG_DATA_ROOT__";
       />
       <DistributionSection
         bodyId="freshness"
-        heading="Last observed"
+        heading="Last package observation"
         headingId="freshness-heading"
-        itemLabel="Age"
+        itemLabel="Observed"
         regionLabel="Package freshness distribution"
       />
     </div>
     <MetricsSection />
-    <HistorySection />
   </div>
 
-  <NoScriptFallback dataRoot={dataRoot} />
+  <NoScriptFallback />
 </SiteShell>

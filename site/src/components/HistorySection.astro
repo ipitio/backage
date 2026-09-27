@@ -1,37 +1,71 @@
-<section class="data-section" aria-labelledby="history-heading">
+<section class="data-section history-section" aria-labelledby="history-heading">
   <header class="section-heading">
-    <h2 id="history-heading">Catalog growth</h2>
+    <h2 id="history-heading">Index history</h2>
     <small id="history-status" aria-live="polite">Loading daily history.</small>
   </header>
   <div id="history-content" hidden>
-    <dl class="history-summary">
+    <div class="history-controls">
+      <fieldset id="history-metric" class="segmented-control">
+        <legend class="sr-only">History metric</legend>
+        <label>
+          <input type="radio" name="history-metric" value="packages" checked />
+          Packages
+        </label>
+        <label>
+          <input type="radio" name="history-metric" value="owners" />
+          Owners
+        </label>
+        <label>
+          <input type="radio" name="history-metric" value="repositories" />
+          Repositories
+        </label>
+      </fieldset>
+      <label class="range-control" for="history-range">
+        <span class="sr-only">History period</span>
+        <select id="history-range">
+          <option value="7">Last 7 days</option>
+          <option value="30" selected>Last 30 days</option>
+          <option value="90">Last 90 days</option>
+          <option value="all">All available</option>
+        </select>
+      </label>
+    </div>
+    <div class="history-readout">
       <div>
-        <dt>Packages</dt>
-        <dd id="history-package-change">0</dd>
+        <span id="history-value-label">Packages</span>
+        <strong id="history-value">0</strong>
+        <time id="history-selected-date"></time>
       </div>
-      <div>
-        <dt>Owners</dt>
-        <dd id="history-owner-change">0</dd>
+      <div class="history-change">
+        <span>Net change in period</span>
+        <strong id="history-change">0</strong>
       </div>
-      <div>
-        <dt>Repositories</dt>
-        <dd id="history-repository-change">0</dd>
-      </div>
-    </dl>
+    </div>
     <figure class="history-figure">
       <div class="history-chart-container">
         <canvas
           id="history-chart"
           role="img"
-          aria-label="Package count over time"
+          aria-label="Indexed packages over time"
         >
-          Package history is available in the daily values table.
+          Observations are available in the daily values table.
         </canvas>
       </div>
       <figcaption id="history-caption"></figcaption>
     </figure>
+    <div class="observation-control">
+      <label for="history-observation">Observation</label>
+      <input
+        id="history-observation"
+        type="range"
+        min="0"
+        max="0"
+        value="0"
+        step="1"
+      />
+    </div>
     <details class="history-details">
-      <summary>Daily values</summary>
+      <summary>Daily observations <span id="history-sample-count"></span></summary>
       <div
         class="table-scroll"
         role="region"
@@ -41,12 +75,10 @@
         <table class="history-table">
           <thead>
             <tr>
-              <th scope="col">Date</th>
+              <th scope="col">Date (UTC)</th>
               <th scope="col" class="numeric">Packages</th>
               <th scope="col" class="numeric">Owners</th>
               <th scope="col" class="numeric">Repositories</th>
-              <th scope="col" class="numeric">Known sizes</th>
-              <th scope="col" class="numeric">Known downloads</th>
             </tr>
           </thead>
           <tbody id="history-values"></tbody>
@@ -54,7 +86,5 @@
       </div>
     </details>
   </div>
-  <p id="history-unavailable" hidden>
-    Daily history is unavailable. Current totals remain valid.
-  </p>
+  <p id="history-unavailable" hidden>Daily history is unavailable.</p>
 </section>

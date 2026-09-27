@@ -1,6 +1,7 @@
 ---
 import "@picocss/pico/css/pico.classless.min.css";
 import "../styles/dashboard.css";
+import { ArrowUpRight } from "@lucide/astro";
 
 interface Props {
   dashboardUrl: string;
@@ -19,7 +20,7 @@ const { dashboardUrl, dataRoot, latestReleaseUrl } = Astro.props;
     <meta name="color-scheme" content="light dark" />
     <meta
       name="description"
-      content="Current package inventory, freshness, and metric coverage for backage."
+      content="The backage GitHub Packages catalog, observation dates, and index history."
     />
     <link rel="icon" href={`${dataRoot}favicon.ico`} />
     <title>backage package index</title>
@@ -27,19 +28,17 @@ const { dashboardUrl, dataRoot, latestReleaseUrl } = Astro.props;
   <body data-dashboard-url={dashboardUrl}>
     <header class="site-header">
       <nav aria-label="Index resources">
-        <ul>
+        <a class="brand" href={dataRoot}>
+          <img src={`${dataRoot}logo-b.webp`} alt="" width="32" height="32" />
+          <strong>backage</strong>
+        </a>
+        <ul class="resource-links">
+          <li><a href={`${dataRoot}README.md`}>Documentation</a></li>
           <li>
-            <a class="brand" href={dataRoot}>
-              <img src={`${dataRoot}logo-b.webp`} alt="" width="44" height="44" />
-              <strong>backage</strong>
+            <a href={latestReleaseUrl}>
+              Latest release <ArrowUpRight size={16} aria-hidden="true" />
             </a>
           </li>
-        </ul>
-        <ul class="resource-links">
-          <li><a href={`${dataRoot}.json`}>Index summary</a></li>
-          <li><a href={latestReleaseUrl}>Latest release</a></li>
-          <li><a href={`${dataRoot}README.md`}>Documentation</a></li>
-          <li><a href={`${dataRoot}dashboard.json`}>Raw data</a></li>
         </ul>
       </nav>
     </header>
@@ -47,11 +46,12 @@ const { dashboardUrl, dataRoot, latestReleaseUrl } = Astro.props;
     <main><slot /></main>
 
     <footer>
+      <span class="footer-label">Published data</span>
       <nav aria-label="Dashboard data">
         <ul>
-          <li><a href={`${dataRoot}README.md`}>Documentation</a></li>
-          <li><a href={`${dataRoot}dashboard-history.json`}>Daily history</a></li>
-          <li><a href={`${dataRoot}dashboard.json`}>Current projection</a></li>
+          <li><a href={`${dataRoot}dashboard.json`}>Dashboard JSON</a></li>
+          <li><a href={`${dataRoot}dashboard-history.json`}>History JSON</a></li>
+          <li><a href={`${dataRoot}.json`}>Index JSON</a></li>
         </ul>
       </nav>
     </footer>

@@ -1,3 +1,8 @@
+import type {
+  DashboardHistoryDocument,
+  DashboardHistorySample,
+} from "../src/lib/dashboard-schema.ts";
+
 const MILLISECONDS_PER_DAY = 86_400_000;
 
 export function utcDate(offsetDays = 0): string {
@@ -12,7 +17,7 @@ export function utcDate(offsetDays = 0): string {
     .slice(0, 10);
 }
 
-export function dashboardFixture(generatedDate = utcDate()): object {
+export function dashboardFixture(generatedDate = utcDate()) {
   return {
     schema_version: 1,
     generated_date: generatedDate,
@@ -61,7 +66,33 @@ export function dashboardFixture(generatedDate = utcDate()): object {
   };
 }
 
-export function historyFixture(generatedDate = utcDate()): object {
+export function emptyDashboardFixture(generatedDate = utcDate()) {
+  const dashboard = dashboardFixture(generatedDate);
+  dashboard.inventory = {
+    owners: 0,
+    repositories: 0,
+    packages: 0,
+    resolved_packages: 0,
+  };
+  dashboard.package_types.items = [];
+  dashboard.package_types.other_packages = 0;
+  dashboard.package_types.other_coverage_basis_points = 0;
+  for (const bucket of dashboard.freshness.buckets) {
+    bucket.packages = 0;
+    bucket.coverage_basis_points = 0;
+  }
+  for (const field of Object.values(dashboard.metrics)) {
+    field.known_packages = 0;
+    field.unknown_packages = 0;
+    field.coverage_basis_points = 0;
+    field.value = 0;
+  }
+  return dashboard;
+}
+
+export function historyFixture(
+  generatedDate = utcDate(),
+): DashboardHistoryDocument {
   return {
     schema_version: 1,
     retention_days: 180,
@@ -73,7 +104,7 @@ export function historyFixture(generatedDate = utcDate()): object {
   };
 }
 
-function utcDateFrom(value: string, offsetDays: number): string {
+export function utcDateFrom(value: string, offsetDays: number): string {
   return new Date(
     Date.parse(`${value}T00:00:00.000Z`) + offsetDays * MILLISECONDS_PER_DAY,
   )
@@ -81,14 +112,14 @@ function utcDateFrom(value: string, offsetDays: number): string {
     .slice(0, 10);
 }
 
-function historySample(
+export function historySample(
   date: string,
   owners: number,
   repositories: number,
   packages: number,
   sizeKnownPackages: number,
   downloadsKnownPackages: number,
-): object {
+): DashboardHistorySample {
   return {
     date,
     owners,
@@ -105,7 +136,7 @@ function metric(
   unknownPackages: number,
   coverageBasisPoints: number,
   value: number,
-): object {
+) {
   return {
     unit,
     denominator: "catalog_packages",

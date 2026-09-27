@@ -7,10 +7,10 @@ export const DASHBOARD_HISTORY_RETENTION_DAYS = 180;
 
 const DASHBOARD_HISTORY_SCHEMA_VERSION = 1;
 const DASHBOARD_PACKAGE_TYPE_LIMIT = 16;
-const MILLISECONDS_PER_DAY = 86_400_000;
+export const MILLISECONDS_PER_DAY = 86_400_000;
 
 export const DASHBOARD_METRICS = [
-  { label: "Downloadable size", name: "size", unit: "bytes" },
+  { label: "Artifact size", name: "size", unit: "bytes" },
   { label: "Daily downloads", name: "downloads_day", unit: "downloads" },
   { label: "Weekly downloads", name: "downloads_week", unit: "downloads" },
   { label: "Monthly downloads", name: "downloads_month", unit: "downloads" },
