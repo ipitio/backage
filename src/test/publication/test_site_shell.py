@@ -11,12 +11,40 @@ from bkg_py.publication.site_shell import (
     SITE_SHELL_VERSION,
     GitHubRepositoryIdentity,
     SiteShellError,
+    default_site_shell_directory,
     publish_site_shell,
 )
 
 _LATEST_RELEASE_TOKEN = b"__BKG_LATEST_RELEASE_URL__"
 _LATEST_RELEASE_URL = b"https://github.com/example/backage/releases/latest"
 _REPOSITORY = GitHubRepositoryIdentity("example", "backage")
+
+
+@pytest.mark.parametrize("owner", ["ipitio", "Scibent"])
+def test_installed_site_shell_is_publishable(tmp_path: Path, owner: str) -> None:
+    """The actual image-bundled shell must pass its Python publication boundary."""
+
+    destination = tmp_path / "index"
+    result = publish_site_shell(
+        default_site_shell_directory(),
+        destination,
+        dashboard_schema_version=1,
+        repository=GitHubRepositoryIdentity(owner, "backage"),
+        check_stop=lambda: None,
+    )
+
+    assert result.site_shell_version == SITE_SHELL_VERSION
+    assert result.files > 0
+    entrypoint = (destination / result.entrypoint).read_text(encoding="utf-8")
+    assert f"https://github.com/{owner}/backage/releases/latest" in entrypoint
+    assert _LATEST_RELEASE_TOKEN.decode() not in entrypoint
+    manifest = json.loads(
+        (destination / SITE_MANIFEST_FILE).read_text(encoding="utf-8")
+    )
+    for item in manifest["files"]:
+        content = (destination / item["path"]).read_bytes()
+        assert len(content) == item["bytes"]
+        assert hashlib.sha256(content).hexdigest() == item["sha256"]
 
 
 def _write_shell(
