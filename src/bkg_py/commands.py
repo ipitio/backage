@@ -54,6 +54,7 @@ def _dispatch_command(
         "configure-fork-merge",
         "vacuum-releases",
         "workflow-sync-fork",
+        "workflow-report",
     }:
         return _run_repository_maintenance(args)
     if args.command == "workflow-update":
@@ -86,6 +87,10 @@ def _run_information_command(
 
 
 def _run_repository_maintenance(args: argparse.Namespace) -> ExitStatus:
+    if args.command == "workflow-report":
+        from .workspace.activity import run_activity_report
+
+        return run_activity_report(args)
     if args.command == "configure-fork-merge":
         from .workspace.commands import run_fork_merge_configuration
 

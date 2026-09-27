@@ -1,5 +1,6 @@
 """Integration tests for the Python-owned outer update lifecycle."""
 
+import hashlib
 import os
 import secrets
 import sqlite3
@@ -10,9 +11,13 @@ from pathlib import Path
 import pytest
 
 from bkg_py.application import ApplicationContext
+from bkg_py.database.composition import DatabaseRepositories
+from bkg_py.database.models import PackageRecord, PackageRef
+from bkg_py.database.settings import DatabaseSettings
 from bkg_py.result import ExitStatus
 from bkg_py.workspace import GitSourceRepository, WorkflowHandoffControl
 from bkg_py.workspace import update as workspace_update
+from bkg_py.workspace.activity import read_run_receipt, receipt_path
 from bkg_py.workspace.update import (
     UpdateApplicationRequest,
     UpdateWorkflowExecution,
@@ -124,9 +129,19 @@ def test_clone_url_credentials_are_captured_without_process_mutation(
     assert "GITHUB_TOKEN" not in os.environ
 
 
+@pytest.mark.parametrize(
+    ("owner", "run_status"),
+    [
+        ("example", ExitStatus.SUCCESS),
+        ("ipitio", ExitStatus.SUCCESS),
+        ("ipitio", ExitStatus.GRACEFUL_STOP),
+    ],
+)
 def test_update_workflow_clones_restores_runs_and_publishes(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    owner: str,
+    run_status: ExitStatus,
 ) -> None:
     """One service call carries downloaded state through both owning branches."""
 
@@ -135,8 +150,26 @@ def test_update_workflow_clones_restores_runs_and_publishes(
     invocation.mkdir()
     _snapshot_payload(invocation)
     _set_workflow_environment(monkeypatch)
+    monkeypatch.setenv("GITHUB_OWNER", owner)
+    monkeypatch.setenv("GITHUB_RUN_ID", "12345")
     monkeypatch.setenv("BKG_INDEX_DB", "outer.db")
+    if owner == "ipitio":
+        database = DatabaseRepositories(
+            DatabaseSettings(invocation / ".bkg/.snapshot/index.db")
+        )
+        database.packages.write_package(
+            PackageRecord(
+                PackageRef("1", "users", "container", "alpha", "repo-a", "package"),
+                1,
+                1,
+                1,
+                1,
+                1,
+                "2026-07-28",
+            )
+        )
     observed_options: list[UpdateApplicationRequest] = []
+    diagnostics: list[str] = []
 
     def run_application(
         options: UpdateApplicationRequest,
@@ -161,7 +194,7 @@ def test_update_workflow_clones_restores_runs_and_publishes(
             "updated source\n",
             encoding="utf-8",
         )
-        return ExitStatus.SUCCESS
+        return run_status
 
     status = run_update_workflow(
         UpdateWorkflowRequest(
@@ -170,10 +203,12 @@ def test_update_workflow_clones_restores_runs_and_publishes(
             clone_url=remote.as_uri(),
             run_date=date(2026, 7, 28),
         ),
-        UpdateWorkflowExecution(run_application=run_application),
+        UpdateWorkflowExecution(
+            run_application=run_application, diagnostic=diagnostics.append
+        ),
     )
 
-    assert status is ExitStatus.SUCCESS
+    assert status is ExitStatus.SUCCESS, diagnostics
     assert len(observed_options) == 1
     assert observed_options[0].source_published_today
     assert observed_options[0].working_directory == invocation / "checkout/src"
@@ -183,6 +218,18 @@ def test_update_workflow_clones_restores_runs_and_publishes(
     assert git(remote, "show", "index:index.html").stdout == "dashboard shell\n"
     assert git(remote, "show", "master:README.md").stdout == "updated source\n"
     assert (invocation / "checkout/.snapshot/index.db").stat().st_size > 100
+    if owner == "ipitio":
+        receipt = read_run_receipt(invocation / "checkout")
+        archive = invocation / "checkout/.snapshot/index.db"
+        assert (
+            receipt.snapshot.sha256 == hashlib.sha256(archive.read_bytes()).hexdigest()
+        )
+        assert receipt.snapshot.size_bytes == archive.stat().st_size
+        assert receipt.status is run_status
+        assert receipt.run_id == "12345"
+        assert receipt.data_date == date(2026, 7, 28)
+    else:
+        assert not receipt_path(invocation / "checkout").exists()
 
 
 def test_update_workflow_resets_published_stop_state_before_restoring(

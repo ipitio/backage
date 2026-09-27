@@ -2,6 +2,9 @@
 
 from enum import StrEnum
 
+DAILY_ACTIVITY_FILE = "activity.json"
+PUBLICATION_RECEIPT_FILE = "publication-receipt.json"
+
 
 class EnvironmentVariable(StrEnum):
     """Environment names interpreted by bkg rather than passed through."""

@@ -167,6 +167,17 @@ fi
 
 for workflow in manual update; do
     workflow_file="$repo_dir/.github/workflows/$workflow.yml"
+    awk '
+        /- name: Save database/ { upload = NR }
+        /id: snapshot_upload/ { upload_id = NR }
+        /- name: Record daily source activity/ { report = NR }
+        /steps.snapshot_upload.outcome == '\''success'\''/ { verified = NR }
+        /bkg workflow-report -C \/app\/bkg -D/ { command = NR }
+        END { exit !(upload && upload_id > upload && report > upload_id && verified > report && command > verified) }
+    ' "$workflow_file" || {
+        echo "$workflow workflow reports activity before a verified snapshot upload" >&2
+        exit 1
+    }
     grep -Fq "bkg workflow-update -C /app -D \"\$run_date\"" "$workflow_file" || {
         echo "$workflow workflow does not pass one date to the Python entrypoint" >&2
         exit 1
@@ -176,7 +187,7 @@ for workflow in manual update; do
         exit 1
     }
     if [[ $(grep -Fc "repository_image=\"ghcr.io/\${GITHUB_REPOSITORY,,}:master\"" \
-        "$workflow_file") -ne 2 ]]; then
+        "$workflow_file") -ne 3 ]]; then
         echo "$workflow workflow does not normalize each repository image reference" >&2
         exit 1
     fi
@@ -214,6 +225,11 @@ for workflow in manual update; do
         exit 1
     }
 done
+
+grep -A1 -F 'paths-ignore:' "$build_workflow" | grep -Fq 'activity.json' || {
+    echo "Daily activity reports can trigger unnecessary image rebuilds" >&2
+    exit 1
+}
 
 if grep -Fq 'workflow_run:' "$manual_workflow"; then
     echo "Manual workflow still relies on an implicit Build completion event" >&2

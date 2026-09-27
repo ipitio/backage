@@ -6,6 +6,7 @@ import pytest
 
 from bkg_py.cli import main
 from bkg_py.result import ExitStatus
+from bkg_py.runtime_names import DAILY_ACTIVITY_FILE
 from bkg_py.workspace import fork_sync as fork_sync_module
 from bkg_py.workspace.fork_sync import synchronize_fork_source
 from bkg_py.workspace.git import WorkspaceError
@@ -48,6 +49,8 @@ def test_workflow_sync_skips_upstream_deployment_churn(
     (upstream / "owners.txt").write_text("next-main-owner\n", encoding="utf-8")
     (upstream / "optout.txt").write_text("next-main/package\n", encoding="utf-8")
     (upstream / "README.md").write_text("next main rendering\n", encoding="utf-8")
+    (upstream / DAILY_ACTIVITY_FILE).write_text("{}\n", encoding="utf-8")
+    git(upstream, "add", DAILY_ACTIVITY_FILE)
     git(upstream, "commit", "-qam", "refresh main deployment inputs")
     upstream_head = git(upstream, "rev-parse", "HEAD").stdout.strip()
 
@@ -72,6 +75,7 @@ def test_workflow_sync_skips_upstream_deployment_churn(
     assert (fork / "owners.txt").read_text(encoding="utf-8") == "fork-owner\n"
     assert (fork / "optout.txt").read_text(encoding="utf-8") == "fork/package\n"
     assert (fork / "README.md").read_text(encoding="utf-8") == "fork rendering\n"
+    assert not (fork / DAILY_ACTIVITY_FILE).exists()
 
 
 def test_fork_sync_merges_source_and_preserves_deployment_inputs(
@@ -84,6 +88,8 @@ def test_fork_sync_merges_source_and_preserves_deployment_inputs(
     (upstream / "owners.txt").write_text("next-main-owner\n", encoding="utf-8")
     (upstream / "optout.txt").write_text("next-main/package\n", encoding="utf-8")
     (upstream / "README.md").write_text("next main rendering\n", encoding="utf-8")
+    (upstream / DAILY_ACTIVITY_FILE).write_text("{}\n", encoding="utf-8")
+    git(upstream, "add", DAILY_ACTIVITY_FILE)
     (upstream / "application.py").write_text(
         "value = 'upstream'\n",
         encoding="utf-8",
@@ -101,6 +107,7 @@ def test_fork_sync_merges_source_and_preserves_deployment_inputs(
     assert (fork / "owners.txt").read_text(encoding="utf-8") == "fork-owner\n"
     assert (fork / "optout.txt").read_text(encoding="utf-8") == "fork/package\n"
     assert (fork / "README.md").read_text(encoding="utf-8") == "fork rendering\n"
+    assert not (fork / DAILY_ACTIVITY_FILE).exists()
     assert (fork / "application.py").read_text(encoding="utf-8") == (
         "value = 'upstream'\n"
     )

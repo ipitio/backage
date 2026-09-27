@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from pathlib import Path
 
+from ..runtime_names import DAILY_ACTIVITY_FILE
 from .git import GitCommandRunner, WorkspaceError
 from .merge_configuration import FORK_LOCAL_PATHS
 
@@ -273,6 +274,11 @@ class ForkSourceSynchronizer(GitCommandRunner):
                             "--",
                             path,
                         ),
+                        required=True,
+                    )
+                elif path == DAILY_ACTIVITY_FILE:
+                    self._run(
+                        ("rm", "--force", "--ignore-unmatch", "--", path),
                         required=True,
                     )
             tree = self._run(("write-tree",), required=True).stdout.strip()

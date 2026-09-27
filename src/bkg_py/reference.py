@@ -8,7 +8,14 @@ from pathlib import Path
 from typing import cast
 
 from .database.schema.lifecycle import ensure
-from .runtime_names import EnvironmentVariable, RunFile, StateKey, StatePrefix
+from .runtime_names import (
+    DAILY_ACTIVITY_FILE,
+    PUBLICATION_RECEIPT_FILE,
+    EnvironmentVariable,
+    RunFile,
+    StateKey,
+    StatePrefix,
+)
 
 
 @dataclass(frozen=True)
@@ -404,6 +411,14 @@ _STATE_PREFIX_REFERENCES = (
 
 
 _PATH_REFERENCES = (
+    _PathReference(
+        f"${{BKG_ROOT}}/{DAILY_ACTIVITY_FILE}", "DailyActivity", "generated-main-only"
+    ),
+    _PathReference(
+        f"${{BKG_ROOT}}/.bkg/{PUBLICATION_RECEIPT_FILE}",
+        "UpdateWorkflowService",
+        "working-receipt",
+    ),
     _PathReference("${BKG_ROOT}/owners.txt", "RuntimeConfig", "source-input"),
     _PathReference("${BKG_ROOT}/optout.txt", "RuntimeConfig", "source-input"),
     _PathReference("${BKG_ROOT}/README.md", "RunPublicationService", "generated"),

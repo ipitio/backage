@@ -4,6 +4,8 @@ on:
   workflow_dispatch:
 
   push:
+    paths-ignore:
+      - activity.json
     branches:
       - master
     tags:

@@ -18,6 +18,7 @@ from ..runtime_names import EnvironmentVariable as Env
 from ..runtime_names import StateKey
 from ..snapshots import SnapshotArchive, SnapshotError
 from ..state import StateStore, StateValueError
+from .activity import RunReceipt, SnapshotReceipt, is_main_deployment, write_run_receipt
 from .git import WorkspaceError
 from .handoff import GitControlRefRepository, WorkflowHandoffControl
 from .index import GitIndexRepository, IndexWorkspacePreparer, ensure_pages_root
@@ -114,6 +115,7 @@ class UpdateWorkflowService:  # pylint: disable=too-few-public-methods
         request: UpdateWorkflowRequest,
         settings: WorkspaceSettings,
     ) -> ExitStatus:
+        run_date = request.run_date or datetime.now(UTC).date()
         prepared = self._prepare_update(request, settings)
         source_published_today = self._source_published_today(prepared.repository)
         status = self.execution.run_application(
@@ -123,7 +125,7 @@ class UpdateWorkflowService:  # pylint: disable=too-few-public-methods
                 source_published_today=source_published_today,
                 working_directory=prepared.root / "src",
                 owner_request_limit=request.owner_request_limit,
-                run_date=request.run_date,
+                run_date=run_date,
             ),
             prepared.application,
             prepared.handoff,
@@ -149,6 +151,25 @@ class UpdateWorkflowService:  # pylint: disable=too-few-public-methods
             prepared.layout.index_dir,
             prepared.state_file,
         )
+        if is_main_deployment(settings.repository):
+            with prepared.application.stop.finalization_scope():
+                database = prepared.application.database
+                write_run_receipt(
+                    prepared.root,
+                    RunReceipt(
+                        identity=settings.repository,
+                        data_date=run_date,
+                        run_id=settings.source.get(Env.GITHUB_RUN_ID, ""),
+                        status=status,
+                        snapshot=SnapshotReceipt(
+                            archive.path.name,
+                            archive.path.stat().st_size,
+                            prepared.application.snapshots.current_signature(),
+                        ),
+                        catalog=database.packages.package_inventory(),
+                        observations_written=database.metrics.database_write_counts(),
+                    ),
+                )
         return ExitStatus.SUCCESS
 
     def _prepare_update(

@@ -168,6 +168,7 @@ jobs:
           echo "tag=$release_tag" >> "$GITHUB_OUTPUT"
 
       - name: Save database
+        id: snapshot_upload
         if: ${{ steps.gate.outputs.run == 'true' && steps.update.outputs.updated == '0' }}
         uses: ncipollo/release-action@v1
         with:
@@ -176,3 +177,16 @@ jobs:
           tag: "${{ steps.date.outputs.tag }}"
           commit: "master"
           allowUpdates: true
+
+      - name: Record daily source activity
+        if: ${{ github.repository == 'ipitio/backage' && steps.snapshot_upload.outcome == 'success' }}
+        env:
+          RUN_DATE: ${{ steps.update.outputs.run_date }}
+        run: |
+          repository_image="ghcr.io/${GITHUB_REPOSITORY,,}:master"
+          docker run --rm --volume "$PWD:/app" \
+            --env GITHUB_ACTOR --env GITHUB_BRANCH \
+            --env GITHUB_OWNER --env GITHUB_REPO \
+            --env GITHUB_RUN_ID --env GITHUB_TOKEN \
+            "$repository_image" \
+            bkg workflow-report -C /app/bkg -D "$RUN_DATE"

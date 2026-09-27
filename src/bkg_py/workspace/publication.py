@@ -27,8 +27,31 @@ class WorkspacePublication:
     source_committed: bool
 
 
-class GitBranchPublisher(GitCommandRunner):  # pylint: disable=too-few-public-methods
+class GitBranchPublisher(GitCommandRunner):
     """Synchronize, commit, and push one branch-owned set of paths."""
+
+    def synchronize(self) -> None:
+        """Refresh source state before comparing or replacing a daily artifact."""
+
+        self._run(("pull", "--rebase", "--autostash"), required=True)
+
+    def require_unstaged_index(self) -> None:
+        """Reject unrelated staged changes before publishing a managed artifact."""
+
+        result = self._run(("diff", "--cached", "--quiet", "--exit-code"))
+        if result.returncode == 1:
+            raise WorkspaceError("daily activity requires an unstaged Git index")
+        if result.returncode != 0:
+            self._raise_command_error(("diff", "--cached"), result)
+
+    def require_published_head(self) -> None:
+        """Prevent a daily report from carrying unrelated or unpushed commits."""
+
+        revisions = self._run(("rev-parse", "HEAD", "@{upstream}"), required=True)
+        if len(set(revisions.stdout.splitlines())) != 1:
+            raise WorkspaceError(
+                "daily activity requires a fully published source checkout"
+            )
 
     def publish(
         self,
@@ -43,10 +66,7 @@ class GitBranchPublisher(GitCommandRunner):  # pylint: disable=too-few-public-me
         if not message:
             raise WorkspaceError("Git commit message is required")
         if synchronize:
-            self._run(
-                ("pull", "--rebase", "--autostash"),
-                required=True,
-            )
+            self.synchronize()
         current = self._run(
             ("branch", "--show-current"),
             required=True,

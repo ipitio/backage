@@ -4,12 +4,13 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from ..files import atomic_text_output
+from ..runtime_names import DAILY_ACTIVITY_FILE
 from .git import GitCommandRunner, WorkspaceError
 from .source import GitSourceRepository
 
 _MERGE_DRIVER = "bkg-local"
 _ATTRIBUTE_COMMENT = "# Preserve deployment-local bkg inputs during merges."
-FORK_LOCAL_PATHS = ("owners.txt", "optout.txt", "README.md")
+FORK_LOCAL_PATHS = ("owners.txt", "optout.txt", "README.md", DAILY_ACTIVITY_FILE)
 _MERGE_ATTRIBUTES = tuple(f"{path} merge={_MERGE_DRIVER}" for path in FORK_LOCAL_PATHS)
 
 

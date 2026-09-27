@@ -61,6 +61,12 @@ def build_parser() -> argparse.ArgumentParser:
     validate_parser.add_argument("file")
     _add_handoff_parser(subparsers)
     _add_workflow_update_parser(subparsers)
+    report_parser = subparsers.add_parser(
+        "workflow-report",
+        help="record Main's daily activity after a verified release upload",
+    )
+    report_parser.add_argument("-C", "--repository", default=".")
+    report_parser.add_argument("-D", "--run-date", type=_iso_date, required=True)
     return parser
 
 
