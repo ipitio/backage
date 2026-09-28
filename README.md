@@ -150,6 +150,11 @@ Once the packages you're interested in have been added, replace the parameters w
 
 ### Available Properties
 
+Package download counters come from GitHub's package page, not the subset of
+versions represented in an endpoint. Each unavailable raw counter is `-1`;
+zero is a known value, and a newly reported total may be lower than an earlier
+observation. Republishing stored data preserves its observation date.
+
 <details>
 
 <summary>Package</summary>
