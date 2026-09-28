@@ -54,7 +54,7 @@ class RunStartupResult:
     package_plan: PackageWorkPlanSummary
     database_size: int
     opted_out: int
-    fast_out: bool
+    optout_priority: bool
 
 
 @dataclass(frozen=True)
@@ -133,7 +133,7 @@ class RunStartupService:  # pylint: disable=too-few-public-methods
         )
         opted_out = _normalize_owner_file(request.optout_file)
         previous_opted_out = self.services.state.get(StateKey.OUT)
-        fast_out = bool(
+        optout_priority = bool(
             request.github_owner == "ipitio"
             and previous_opted_out is not None
             and self.services.state.get_int(StateKey.OUT) < opted_out
@@ -145,7 +145,7 @@ class RunStartupService:  # pylint: disable=too-few-public-methods
             summary,
             database_size,
             opted_out,
-            fast_out,
+            optout_priority,
         )
 
     def _prepare_package_catalog(self, request: RunStartupRequest) -> None:

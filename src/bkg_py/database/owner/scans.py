@@ -59,11 +59,13 @@ class OwnerScanCompletion:
 _identifier = SqlIdentifier
 
 
-def _require_active(
+def require_active(
     connection: sqlite3.Connection,
     owner_id: str,
     marker: str,
 ) -> None:
+    """Reject an operation against a stale or completed owner scan."""
+
     if not active(connection, owner_id, marker):
         raise DatabaseError(f"owner scan {owner_id}/{marker} is not active")
 
@@ -186,7 +188,7 @@ def advance_page(
     """Advance one page idempotently after its selected work completes."""
 
     with _transaction(connection):
-        _require_active(connection, page.owner_id, page.marker)
+        require_active(connection, page.owner_id, page.marker)
         row = connection.execute(
             f"select next_page from {_SCANS} where owner_id = ?",
             (page.owner_id,),
@@ -235,7 +237,7 @@ def observe(
     """Add package identities observed on one successfully parsed page."""
 
     with _transaction(connection):
-        _require_active(connection, owner_id, marker)
+        require_active(connection, owner_id, marker)
         _observe(connection, owner_id, marker, packages, observed_at)
 
 
@@ -247,7 +249,7 @@ def observe_page(
     """Observe a listing page only when it matches the durable cursor."""
 
     with _transaction(connection):
-        _require_active(connection, page.owner_id, page.marker)
+        require_active(connection, page.owner_id, page.marker)
         row = connection.execute(
             f"select next_page from {_SCANS} where owner_id = ?",
             (page.owner_id,),
@@ -330,7 +332,7 @@ def reconcile_package(
     """Replace staged repository identities for one verified package."""
 
     with _transaction(connection):
-        _require_active(connection, owner_id, marker)
+        require_active(connection, owner_id, marker)
         rows = connection.execute(
             f"""
             select distinct repo
@@ -389,7 +391,7 @@ def missing(
 ) -> tuple[PackageRef, ...]:
     """Return known packages absent from the staged owner listing."""
 
-    _require_active(connection, owner_id, marker)
+    require_active(connection, owner_id, marker)
     packages = _identifier(packages_table)
     rows = connection.execute(
         f"""

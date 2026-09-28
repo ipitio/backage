@@ -89,7 +89,6 @@ class PackageRenderOptions:
     """Rendering controls for one package endpoint."""
 
     since: str
-    output_date: str | None
     version_limit: int
     legacy_table: str | None
 
@@ -141,7 +140,6 @@ def render_package(
     snapshot: PackageSnapshot,
     *,
     version_limit: int,
-    output_date: str | None = None,
 ) -> dict[str, JsonValue]:
     """Return the generated package object for one database snapshot."""
 
@@ -165,7 +163,7 @@ def render_package(
         "owner": package_ref.owner,
         "repo": package_ref.repo,
         "package": package_ref.package,
-        "date": output_date or package.date,
+        "date": package.date,
         "size": _human_size(package.size),
         "versions": _human_metric(len(numeric_ids)),
         "tagged": _human_metric(len(tagged_ids)),
@@ -216,7 +214,6 @@ def render_package_file(
         render_package(
             snapshot,
             version_limit=options.version_limit,
-            output_date=options.output_date,
         ),
     )
     return bool(snapshot.versions.rows)

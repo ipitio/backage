@@ -588,7 +588,7 @@ def test_targeted_owner_queue_resolves_configured_owner_and_memberships(
 def test_targeted_owner_queue_extracts_and_resolves_optout_owners(
     tmp_path: Path,
 ) -> None:
-    """The fast opt-out path batches unique owners from component entries."""
+    """Opt-out priority admission batches unique owners from component entries."""
 
     optouts = tmp_path / "optout.txt"
     _write_lines(

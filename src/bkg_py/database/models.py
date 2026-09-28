@@ -131,6 +131,7 @@ class OwnerRefreshPlan:
     partially_updated: bool
     packages: tuple[OwnerScanPackage, ...]
     has_current_data: bool = False
+    known_packages: tuple[OwnerScanPackage, ...] = ()
 
     @property
     def pending_count(self) -> int:

@@ -3,6 +3,8 @@
 import sqlite3
 from pathlib import Path
 
+import pytest
+
 from bkg_py.database.composition import DatabaseRepositories
 from bkg_py.database.models import (
     OwnerScanFailure,
@@ -12,6 +14,7 @@ from bkg_py.database.models import (
     VersionStage,
 )
 from bkg_py.database.settings import DatabaseSettings
+from bkg_py.database.support import DatabaseError
 
 from ..repository_support import (
     TODAY,
@@ -21,6 +24,35 @@ from ..repository_support import (
     package,
     version,
 )
+
+
+def test_scan_exclusions_are_replayable_and_identity_scoped(tmp_path: Path) -> None:
+    """Cleanup cannot delete another scan, owner, type, or repository identity."""
+
+    repository = DatabaseRepositories(DatabaseSettings(tmp_path / "index.db")).owners
+    excluded = OwnerScanPackage("users", "container", "repo", "demo")
+    retained = OwnerScanPackage("users", "npm", "repo", "demo")
+    for owner_id in ("42", "43"):
+        repository.begin_owner_scan(owner_id, f"owner-{owner_id}", "scan-1", 100)
+        repository.observe_owner_scan(owner_id, "scan-1", (excluded, retained), 101)
+
+    with pytest.raises(DatabaseError, match="is not active"):
+        repository.exclude_owner_scan_packages("42", "stale-marker", (excluded,))
+    repository.exclude_owner_scan_packages(
+        "42", "scan-1", (OwnerScanPackage("users", "npm", "other", "demo"),)
+    )
+    assert repository.observed_owner_scan_packages("42", "scan-1") == (
+        excluded,
+        retained,
+    )
+
+    repository.exclude_owner_scan_packages("42", "scan-1", (excluded,))
+    repository.exclude_owner_scan_packages("42", "scan-1", (excluded,))
+    assert repository.observed_owner_scan_packages("42", "scan-1") == (retained,)
+    assert repository.observed_owner_scan_packages("43", "scan-1") == (
+        excluded,
+        retained,
+    )
 
 
 def test_completed_owner_scan_reconciles_only_unobserved_packages(

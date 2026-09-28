@@ -47,6 +47,7 @@ _CLUSTER_FILES = {
     "owner": {
         "__init__.py",
         "identities.py",
+        "inventory.py",
         "planning.py",
         "queue.py",
         "queue_repository.py",

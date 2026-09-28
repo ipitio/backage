@@ -17,6 +17,7 @@ from ..models import (
     OwnerScanWorkSelection,
     PackageRef,
 )
+from . import inventory as owner_inventory
 from . import planning as owner_plans
 from . import scans as owner_scans
 
@@ -130,6 +131,35 @@ class OwnerScanRepository(DatabaseComponent):
                 connection,
                 page,
                 packages,
+            )
+        )
+
+    def observed_owner_scan_packages(
+        self,
+        owner_id: str,
+        marker: str,
+    ) -> tuple[OwnerScanPackage, ...]:
+        """Return this scan's complete staged package inventory."""
+
+        self.ensure_schema()
+        return self._run_read(
+            lambda connection: owner_inventory.observed(connection, owner_id, marker)
+        )
+
+    def exclude_owner_scan_packages(
+        self,
+        owner_id: str,
+        marker: str,
+        packages: Sequence[OwnerScanPackage],
+    ) -> None:
+        """Discard only exclusions whose package cleanup has succeeded."""
+
+        if not packages:
+            return
+        self.ensure_schema()
+        self._run_write(
+            lambda connection: owner_inventory.exclude(
+                connection, owner_id, marker, packages
             )
         )
 

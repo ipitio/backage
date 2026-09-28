@@ -16,9 +16,48 @@ _EMPTY_XML = f"{_XML_PREFIX}{_XML_SUFFIX}\n".encode()
 _WRITE_CHUNK_SIZE = 1024 * 1024
 _MAX_TRIM_COUNT = 65536
 _CONTROL_CHARACTER_LIMIT = 32
+_LEGACY_SIDECAR_MARKERS = tuple(
+    f"{extension}.{suffix}"
+    for extension in (".json", ".xml")
+    for suffix in ("tmp", "abs", "rel")
+)
 
 JsonValue = dict[str, "JsonValue"] | list["JsonValue"] | str | int | float | bool | None
 StopCheck = Callable[[], None]
+
+
+def is_legacy_package_sidecar(name: str) -> bool:
+    """Recognize reserved transient names without mistaking endpoints for them."""
+
+    return not name.endswith((".json", ".xml")) and any(
+        marker in name for marker in _LEGACY_SIDECAR_MARKERS
+    )
+
+
+def remove_legacy_package_sidecars(destination: Path) -> None:
+    """Remove only this endpoint pair's old absolute, relative, and temp files."""
+
+    if not destination.parent.is_dir():
+        return
+    stem = destination.name.removesuffix(".json")
+    prefixes = tuple(f"{stem}{marker}" for marker in _LEGACY_SIDECAR_MARKERS)
+    for path in destination.parent.iterdir():
+        if (
+            path.name.startswith(prefixes)
+            and is_legacy_package_sidecar(path.name)
+            and (path.is_file() or path.is_symlink())
+        ):
+            path.unlink(missing_ok=True)
+
+
+def remove_package_artifacts(destination: Path) -> None:
+    """Remove one package's exact endpoints and sidecars, retaining siblings."""
+
+    if not destination.parent.is_dir():
+        return
+    for path in (destination, destination.with_suffix(".xml")):
+        path.unlink(missing_ok=True)
+    remove_legacy_package_sidecars(destination)
 
 
 class PublicationError(ValueError):

@@ -135,7 +135,7 @@ class RunPhaseOperations(Protocol):
         raise NotImplementedError
 
     def prepare_optout_owner_queue(self, batch_marker: str, now: int) -> None:
-        """Queue owners affected by a fast opt-out transition."""
+        """Prioritize owners affected by newly added opt-outs."""
 
         raise NotImplementedError
 
@@ -247,7 +247,6 @@ class RunCoordinator:  # pylint: disable=too-few-public-methods
                     run_status = prepared.status
                     if run_status != ExitStatus.GRACEFUL_STOP:
                         decision = self._update_prepared_owner_work(
-                            startup,
                             run_status,
                             prepared.global_admission,
                             request.today,
@@ -279,8 +278,8 @@ class RunCoordinator:  # pylint: disable=too-few-public-methods
         mode: RunMode,
     ) -> _PreparedOwnerWork:
         if mode.uses_global_discovery:
-            if startup.fast_out:
-                return _PreparedOwnerWork(self._prepare_fast_optout_queue())
+            if startup.optout_priority:
+                return _PreparedOwnerWork(self._prepare_optout_queue())
             return self._prepare_global_owner_queue(
                 request,
                 startup,
@@ -290,17 +289,16 @@ class RunCoordinator:  # pylint: disable=too-few-public-methods
             self._prepare_targeted_owner_queue(request, connections_file)
         )
 
-    def _prepare_fast_optout_queue(self) -> int:
+    def _prepare_optout_queue(self) -> int:
         self._log_prequeue_elapsed_once()
-        status = self._interruptible(
-            lambda: self.phases.prepare_optout_owner_queue(
-                self._batch_marker(),
-                self.execution.now(),
+        return int(
+            self._interruptible(
+                lambda: self.phases.prepare_optout_owner_queue(
+                    self._batch_marker(),
+                    self.execution.now(),
+                )
             )
         )
-        if status == ExitStatus.GRACEFUL_STOP:
-            return int(status)
-        return int(ExitStatus.NON_FATAL)
 
     def _prepare_global_owner_queue(
         self,
@@ -407,7 +405,6 @@ class RunCoordinator:  # pylint: disable=too-few-public-methods
 
     def _update_queued_owners(
         self,
-        startup: RunStartupResult,
         run_status: int,
         today: str,
     ) -> OwnerPhaseDecision:
@@ -425,7 +422,6 @@ class RunCoordinator:  # pylint: disable=too-few-public-methods
                         since=batch_first_started,
                         batch_marker=batch_marker,
                         today=today,
-                        fast_out=startup.fast_out,
                     )
                 )
             )
@@ -433,19 +429,17 @@ class RunCoordinator:  # pylint: disable=too-few-public-methods
 
     def _update_prepared_owner_work(
         self,
-        startup: RunStartupResult,
         run_status: int,
         admission: _GlobalOwnerAdmission | None,
         today: str,
     ) -> OwnerPhaseDecision:
         if admission is None:
-            decision = self._update_queued_owners(startup, run_status, today)
-            return self._continue_paused_owner_work(startup, decision, today)
-        return self._update_global_owner_work(startup, run_status, admission, today)
+            decision = self._update_queued_owners(run_status, today)
+            return self._continue_paused_owner_work(decision, today)
+        return self._update_global_owner_work(run_status, admission, today)
 
     def _update_global_owner_work(
         self,
-        startup: RunStartupResult,
         run_status: int,
         admission: _GlobalOwnerAdmission,
         today: str,
@@ -453,11 +447,11 @@ class RunCoordinator:  # pylint: disable=too-few-public-methods
         current = admission
 
         while True:
-            decision = self._update_queued_owners(startup, run_status, today)
+            decision = self._update_queued_owners(run_status, today)
             if decision.action == "abort" or decision.run_status != ExitStatus.SUCCESS:
                 return decision
             if not current.result.may_have_more:
-                return self._continue_paused_owner_work(startup, decision, today)
+                return self._continue_paused_owner_work(decision, today)
 
             self.execution.progress(
                 "Owner queue chunk completed; admitting more pending owners..."
@@ -475,7 +469,6 @@ class RunCoordinator:  # pylint: disable=too-few-public-methods
 
     def _continue_paused_owner_work(
         self,
-        startup: RunStartupResult,
         decision: OwnerPhaseDecision,
         today: str,
     ) -> OwnerPhaseDecision:
@@ -491,7 +484,6 @@ class RunCoordinator:  # pylint: disable=too-few-public-methods
                 f"{len(paused)} paused owner scan(s)..."
             )
             decision = self._update_queued_owners(
-                startup,
                 decision.run_status,
                 today,
             )

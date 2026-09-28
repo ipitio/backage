@@ -101,8 +101,7 @@ def test_equal_names_keep_reference_metrics_and_versions_separate(
         assert {item.metrics.downloads for item in row.versions.rows} == {
             row.package.record.downloads
         }
-    assert repository.maximum_package_downloads(references[0]) == 11
-    assert repository.maximum_package_downloads(references[2]) == 30
+    assert [row.package.record.downloads for row in rows] == [11, 30, 999]
     assert len(_snapshots(repository, references[0].owner_id, "RepoA")) == 2
 
 
@@ -165,10 +164,9 @@ def test_owner_login_and_type_are_preserved_in_stored_references(
     assert {row.package.record.package_ref for row in rows} == set(references)
     for row in rows:
         reference = row.package.record.package_ref
-        assert (
-            repository.maximum_package_downloads(reference)
-            == row.package.record.downloads
-        )
+        snapshot = repository.package_snapshot(reference, since="0000-00-00")
+        assert snapshot is not None
+        assert snapshot.package == row.package
         assert {item.metrics.downloads for item in row.versions.rows} == {
             row.package.record.downloads
         }

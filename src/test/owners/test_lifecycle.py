@@ -81,7 +81,7 @@ def _request(tmp_path: Path) -> OwnerLifecycleRequest:
             PackageBatch(_TODAY, "batch-1"),
             "versions",
             tmp_path / "index",
-            PackageRefreshPolicy(True, True, False, 0),
+            PackageRefreshPolicy(True, True, 0),
         ),
     )
 
@@ -106,7 +106,7 @@ def _completed_scan(
     )
 
 
-class _PackageRefresher:  # pylint: disable=too-few-public-methods
+class _PackageRefresher:
     def __init__(
         self,
         repository: DatabaseRepositories,
@@ -116,6 +116,16 @@ class _PackageRefresher:  # pylint: disable=too-few-public-methods
         self.repository = repository
         self.apply_updates = apply_updates
         self.requests: list[OwnerPackageRefreshRequest] = []
+
+    def select_work(
+        self,
+        request: OwnerPackageRefreshRequest,
+        due: tuple[OwnerScanPackage, ...],
+    ) -> tuple[OwnerScanPackage, ...]:
+        """Leave due work unchanged when this fake has no exclusion policy."""
+
+        assert set(due).issubset(request.packages)
+        return due
 
     def refresh(
         self,
@@ -280,6 +290,9 @@ def test_unresolved_direct_refresh_falls_back_to_complete_owner_scan(
         (repo_directory / name).write_text("stale", encoding="utf-8")
     unrelated = repo_directory / "other.json"
     unrelated.write_text("current", encoding="utf-8")
+    retained = ("stale.json.worker.json", "stale.xml.worker.xml")
+    for name in retained:
+        (repo_directory / name).write_text("current", encoding="utf-8")
     tree_only = PackageCatalogPath("Example", "tree-only", "departed")
     tree_only_directory = tmp_path / "index" / tree_only.owner / tree_only.repo
     tree_only_directory.mkdir(parents=True)
@@ -301,7 +314,7 @@ def test_unresolved_direct_refresh_falls_back_to_complete_owner_scan(
     assert result.scan is not None
     assert scanner.requests[0].start_page == 1
     assert unrelated.read_text(encoding="utf-8") == "current"
-    assert not tuple(repo_directory.glob("stale.*"))
+    assert {path.name for path in repo_directory.iterdir()} == {"other.json", *retained}
     assert not tree_only_directory.exists()
 
 
@@ -454,3 +467,53 @@ def test_owner_update_operation_persists_backoff_and_reports_a_deferred_result(
     assert requests[0].owner_type == "orgs"
     assert deferred == (("Example", result.retry_after),)
     assert any("Deferred Example after failed work" in message for message in progress)
+
+
+def test_direct_refresh_removes_newly_excluded_completed_package(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A new exclusion applies even when no package refresh was otherwise due."""
+
+    database_path = tmp_path / "index.db"
+    repository = DatabaseRepositories(DatabaseSettings(database_path))
+    excluded_ref, excluded = _package("excluded")
+    for name in ("excluded", "eligible"):
+        reference, record = _package(name)
+        repository.packages.write_package(record)
+        repository.packages.mark_package_batch_completed(reference, "batch-1", _TODAY)
+    destination = (
+        tmp_path / "index" / excluded_ref.owner / excluded_ref.repo / "excluded.json"
+    )
+    destination.parent.mkdir(parents=True)
+    destination.write_text("{}\n", encoding="utf-8")
+    optout_file = tmp_path / "optout.txt"
+    optout_file.write_text("Example/repo-excluded/excluded\n", encoding="utf-8")
+    monkeypatch.setenv("BKG_ROOT", str(tmp_path))
+    monkeypatch.setenv("BKG_INDEX_DB", str(database_path))
+    monkeypatch.setenv("BKG_INDEX_DIR", str(tmp_path / "index"))
+    monkeypatch.setenv("BKG_ENV", str(tmp_path / "state.env"))
+    monkeypatch.setenv("BKG_OPTOUT", str(optout_file))
+    client = FakeGitHubClient()
+    application = ApplicationContext.from_env()
+
+    result = application.owner_update_operation(
+        cast(GitHubClient, client),
+        UnexpectedPackageRegistryClient(),
+        OwnerOperationExecution(
+            ConcurrencySettings(max_workers=1),
+            lambda _message: None,
+            lambda _message: None,
+        ),
+    ).update(OwnerUpdateRequest("42", "Example", _TODAY, "batch-1", _RUN_TODAY))
+
+    assert result.outcome == "updated"
+    assert result.scan is None
+    assert result.publication is not None
+    assert result.publication.package_count == 1
+    assert (
+        repository.packages.package_snapshot(excluded.package_ref, since=_TODAY) is None
+    )
+    assert not destination.exists()
+    assert not client.text_requests
+    assert not client.rest_requests

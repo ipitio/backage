@@ -22,6 +22,7 @@ from ..github import GitHubError
 from ..packages.discovery import PackageDiscoveryError
 from ..packages.updates import PackageRefreshPolicy
 from ..publication import PublicationError
+from ..publication.artifacts import remove_package_artifacts
 from ..publication.rendering import RenderingError
 from ..runtime_names import legacy_owner_page_key, legacy_owner_scan_key
 from .lifecycle import (
@@ -128,7 +129,6 @@ class OwnerUpdateRequest:
     since: str
     batch_marker: str
     today: str
-    fast_out: bool = False
 
 
 @dataclass(frozen=True)
@@ -268,10 +268,7 @@ def _remove_orphaned_package_files(
         repo_directory = index_dir / package.owner / package.repo
         if not repo_directory.is_dir():
             continue
-        prefixes = (f"{package.package}.json", f"{package.package}.xml")
-        for path in repo_directory.iterdir():
-            if path.name.startswith(prefixes) and (path.is_file() or path.is_symlink()):
-                path.unlink(missing_ok=True)
+        remove_package_artifacts(repo_directory / f"{package.package}.json")
         if not any(
             path.is_file() and path.suffix == ".json" and not path.name.startswith(".")
             for path in repo_directory.iterdir()
@@ -296,7 +293,6 @@ def _build_package_refresh_request(
         PackageRefreshPolicy(
             write_legacy=True,
             use_rest_api=policy.use_rest_api,
-            fast_out=request.fast_out,
             mode=policy.mode,
         ),
     )

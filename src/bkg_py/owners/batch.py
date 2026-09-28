@@ -95,7 +95,6 @@ class OwnerBatchRequest:
     since: str
     batch_marker: str
     today: str
-    fast_out: bool = False
 
 
 @dataclass(frozen=True)
@@ -398,7 +397,6 @@ class OwnerBatchService:  # pylint: disable=too-few-public-methods
                     since=request.since,
                     batch_marker=request.batch_marker,
                     today=request.today,
-                    fast_out=request.fast_out,
                 )
             ),
         )

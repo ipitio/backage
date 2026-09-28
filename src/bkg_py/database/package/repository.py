@@ -234,18 +234,6 @@ class PackageRepository(DatabaseComponent):  # pylint: disable=too-many-public-m
 
         return self._run_read(read)
 
-    def maximum_package_downloads(self, package: PackageRef) -> int:
-        """Return the largest previously stored total download count."""
-
-        self.ensure_schema()
-        return self._run_read(
-            lambda connection: package_records.maximum_downloads(
-                connection,
-                package_history.PACKAGE_HISTORY_VIEW,
-                package,
-            )
-        )
-
     def mark_package_publication_pending(
         self,
         package: PackageRef,

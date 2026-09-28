@@ -113,29 +113,6 @@ def updated_since(
     return row is not None
 
 
-def maximum_downloads(
-    connection: sqlite3.Connection,
-    packages_table: str,
-    package: PackageRef,
-) -> int:
-    """Return the largest stored package download total."""
-
-    row = connection.execute(
-        _sql(
-            """
-            select max(downloads) from {packages}
-            where owner_id = ? and owner_type = ? and package_type = ?
-              and owner = ? and repo = ? and package = ?
-            """,
-            packages=_SqlIdentifier(packages_table),
-        ),
-        package_values(package),
-    ).fetchone()
-    if row is None or row[0] is None:
-        return -1
-    return int(row[0])
-
-
 def inventory(
     connection: sqlite3.Connection,
     packages_table: str,

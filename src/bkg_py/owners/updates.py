@@ -228,8 +228,17 @@ class OwnerScanService:  # pylint: disable=too-few-public-methods
                 f"Reconciled {len(verification.changes)} package repository "
                 f"association(s) for {refresh_request.owner}"
             )
-        self.package_refresh.refresh(
-            replace(refresh_request, packages=verification.work)
+        observed = self.repository.observed_owner_scan_packages(
+            refresh_request.owner_id, request.marker
+        )
+        work = self.package_refresh.select_work(
+            replace(refresh_request, packages=observed), verification.work
+        )
+        refreshed = self.package_refresh.refresh(
+            replace(refresh_request, packages=work)
+        )
+        self.repository.exclude_owner_scan_packages(
+            refresh_request.owner_id, request.marker, refreshed.opted_out
         )
         completion = self.repository.complete_owner_scan(
             refresh_request.owner_id,

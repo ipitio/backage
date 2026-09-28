@@ -21,13 +21,14 @@ from bkg_py.run.startup import RunStartupResult
 from bkg_py.runtime import GracefulStop
 from bkg_py.runtime_names import StateKey
 from bkg_py.state import StateStore
+from bkg_py.workspace.publication import published_run_status
 
 
 @dataclass(frozen=True)
 class FakeRunOptions:
     """Configurable outcomes for fake coordinator phases."""
 
-    fast_out: bool = False
+    optout_priority: bool = False
     package_plan: PackageWorkPlanSummary | None = None
     stop_at: str | None = None
     owner_status: ExitStatus = ExitStatus.SUCCESS
@@ -45,7 +46,7 @@ class FakeRunPhases:  # pylint: disable=too-many-instance-attributes
     ) -> None:
         selected = options or FakeRunOptions()
         self.state = state
-        self.fast_out = selected.fast_out
+        self.optout_priority = selected.optout_priority
         self.package_plan = selected.package_plan or PackageWorkPlanSummary(10, 2, 8)
         self.stop_at = selected.stop_at
         self.owner_status = selected.owner_status
@@ -77,7 +78,7 @@ class FakeRunPhases:  # pylint: disable=too-many-instance-attributes
             self.package_plan,
             1_234,
             0,
-            self.fast_out,
+            self.optout_priority,
         )
 
     def discover_owners(
@@ -288,7 +289,6 @@ def test_global_modes_run_global_queue_owner_work_and_snapshot(
         since="2026-07-12",
         batch_marker="batch-1",
         today="2026-07-13",
-        fast_out=False,
     )
     assert state.get_int("BKG_DIFF") == 1_234
     assert state.get_int("BKG_REST_TO_TOP") == 1
@@ -480,13 +480,21 @@ def test_completed_batch_republishes_package_plan(tmp_path: Path) -> None:
     assert state.get("BKG_BATCH_MARKER") != "batch-1"
 
 
-def test_fast_optout_run_preserves_nonfatal_status_through_publication(
+@pytest.mark.parametrize("paused", [False, True])
+def test_completed_optout_run_is_publishable(
     tmp_path: Path,
+    paused: bool,
 ) -> None:
-    """Fast opt-out work publishes its changes and retains status one."""
+    """Completed cleanup returns success so workflow publication can proceed."""
 
     state = StateStore(tmp_path / "state.env")
-    phases = FakeRunPhases(state, FakeRunOptions(fast_out=True))
+    phases = FakeRunPhases(
+        state,
+        FakeRunOptions(
+            optout_priority=True,
+            paused_owner_batches=(("1/one",),) if paused else (),
+        ),
+    )
 
     status, _, phases, _, _ = _run(
         tmp_path,
@@ -494,15 +502,33 @@ def test_fast_optout_run_preserves_nonfatal_status_through_publication(
         phases=phases,
     )
 
-    assert status == ExitStatus.NON_FATAL
+    assert status == ExitStatus.SUCCESS
+    assert published_run_status(status) == ExitStatus.SUCCESS
     assert phases.events == [
         "prepare",
         "optout-queue",
         "update",
+        *(["update"] if paused else []),
         "finalize:true",
     ]
     assert phases.owner_request is not None
-    assert phases.owner_request.fast_out
+    assert phases.owner_request.batch_marker == "batch-1"
+
+
+@pytest.mark.parametrize("stop_at", ["optout-queue", "update"])
+def test_optout_priority_stop_still_finalizes(tmp_path: Path, stop_at: str) -> None:
+    """Cleanup admission and owner stops preserve the normal restart snapshot."""
+
+    phases = FakeRunPhases(
+        StateStore(tmp_path / "state.env"),
+        FakeRunOptions(optout_priority=True, stop_at=stop_at),
+    )
+    status, state, phases, _, _ = _run(tmp_path, RunMode.ALL_PUBLIC, phases=phases)
+
+    assert status == ExitStatus.GRACEFUL_STOP
+    assert phases.events[-1] == "finalize:true"
+    assert state.get("BKG_TIMEOUT") is None
+    assert published_run_status(status) == ExitStatus.SUCCESS
 
 
 @pytest.mark.parametrize("stop_at", ["discover", "owner-queue", "update"])
@@ -527,13 +553,19 @@ def test_graceful_phase_stop_still_finalizes_resumable_state(
     assert any("Graceful stop requested" in message for message in diagnostics)
 
 
-def test_owner_failure_aborts_before_finalization(tmp_path: Path) -> None:
+@pytest.mark.parametrize("optout_priority", [False, True])
+@pytest.mark.parametrize("owner_status", [ExitStatus.NON_FATAL, ExitStatus.FAILURE])
+def test_owner_failure_aborts_before_finalization(
+    tmp_path: Path,
+    optout_priority: bool,
+    owner_status: ExitStatus,
+) -> None:
     """Unexpected owner failures cannot publish a replacement snapshot."""
 
     state = StateStore(tmp_path / "state.env")
     phases = FakeRunPhases(
         state,
-        FakeRunOptions(owner_status=ExitStatus.FAILURE),
+        FakeRunOptions(optout_priority=optout_priority, owner_status=owner_status),
     )
 
     status, _, phases, _, diagnostics = _run(
@@ -542,9 +574,10 @@ def test_owner_failure_aborts_before_finalization(tmp_path: Path) -> None:
         phases=phases,
     )
 
-    assert status == ExitStatus.FAILURE
+    assert status == owner_status
     assert phases.events[-1] == "update"
     assert "finalize:true" not in phases.events
     assert diagnostics == [
-        "Owner updates failed with status 2; stopping before snapshot publication."
+        f"Owner updates failed with status {owner_status}; "
+        "stopping before snapshot publication."
     ]

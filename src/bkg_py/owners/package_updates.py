@@ -14,6 +14,7 @@ from ..database.package.repository import PackageRepository
 from ..database.support import DatabaseError
 from ..github import GitHubError
 from ..packages.updates import (
+    PackageOptOuts,
     PackageRefreshError,
     PackageRefreshExecution,
     PackageRefreshPolicy,
@@ -83,6 +84,18 @@ class OwnerPackageRefreshResult:
 
         return sum(item.failed for item in self.items)
 
+    @property
+    def opted_out(self) -> tuple[OwnerScanPackage, ...]:
+        """Return exclusions whose file and database cleanup both succeeded."""
+
+        return tuple(
+            item.package
+            for item in self.items
+            if not item.failed
+            and item.result is not None
+            and item.result.outcome == "opted_out"
+        )
+
 
 @dataclass(frozen=True)
 class OwnerPackageRefreshExecution:
@@ -94,7 +107,7 @@ class OwnerPackageRefreshExecution:
     diagnostic: MessageSink
 
 
-class OwnerPackageRefreshService:  # pylint: disable=too-few-public-methods
+class OwnerPackageRefreshService:
     """Refresh an owner's packages with one bounded worker budget."""
 
     def __init__(
@@ -106,6 +119,26 @@ class OwnerPackageRefreshService:  # pylint: disable=too-few-public-methods
         self.repository = repository
         self.client = client
         self.execution = execution
+
+    def select_work(
+        self,
+        request: OwnerPackageRefreshRequest,
+        due: tuple[OwnerScanPackage, ...],
+    ) -> tuple[OwnerScanPackage, ...]:
+        """Include newly excluded identities even when their data is complete."""
+
+        try:
+            optouts = PackageOptOuts.load(self.execution.package.optout_file)
+        except PackageRefreshError as error:
+            raise OwnerPackageRefreshError(str(error)) from error
+        if not optouts.entries:
+            return due
+        excluded = (
+            package
+            for package in request.packages
+            if optouts.matches(self._package_request(request, package).package_ref)
+        )
+        return tuple(dict.fromkeys((*due, *excluded)))
 
     def refresh(
         self,
@@ -185,7 +218,7 @@ class OwnerPackageRefreshService:  # pylint: disable=too-few-public-methods
             self.execution.diagnostic(
                 f"Package metadata unavailable for {context}; leaving it pending"
             )
-        elif result.outcome != "fast_out":
+        else:
             self.execution.progress(f"Refreshed {context}")
         return OwnerPackageRefreshItem(package, result=result)
 

@@ -44,7 +44,7 @@ _OCI_IMAGE_CONFIG = "application/vnd.oci.image.config.v1+json"
 
 @dataclass(frozen=True)
 class DownloadMetrics:
-    """Download counters extracted from one version page."""
+    """Download counters extracted from one package or version page."""
 
     total: int
     month: int
@@ -200,7 +200,7 @@ def extract_download_metric(html: str, label: str) -> int:
 
 
 def extract_download_metrics(html: str) -> DownloadMetrics:
-    """Return all version-page download metrics used by bkg."""
+    """Return each recognized package or version counter, using -1 for unknown."""
 
     return DownloadMetrics(
         total=extract_download_metric(html, _DOWNLOAD_LABELS["total"]),

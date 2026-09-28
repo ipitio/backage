@@ -22,6 +22,10 @@ from ..publication import (
     PublicationResult,
     publish_json_file,
 )
+from ..publication.artifacts import (
+    remove_legacy_package_sidecars,
+    remove_package_artifacts,
+)
 from ..publication.rendering import (
     PackageRenderOptions,
     RenderingError,
@@ -81,7 +85,6 @@ class PackageRefreshPolicy:
 
     write_legacy: bool
     use_rest_api: bool
-    fast_out: bool
     mode: int
 
     @property
@@ -205,11 +208,12 @@ class PackageRefreshService:  # pylint: disable=too-few-public-methods
         self.execution.check_stop()
         package = request.package_ref
         if PackageOptOuts.load(self.execution.optout_file).matches(package):
+            self.repository.mark_package_publication_pending(
+                package, self.execution.version.today()
+            )
+            remove_package_artifacts(request.destination)
             self.repository.retire_package(package)
-            _remove_package_files(request.destination)
             return PackageRefreshResult("opted_out")
-        if request.policy.fast_out:
-            return PackageRefreshResult("fast_out")
 
         today = self.execution.version.today()
         already_updated = (
@@ -218,7 +222,7 @@ class PackageRefreshService:  # pylint: disable=too-few-public-methods
             else self.repository.package_updated_since(package, request.since)
         )
         version_result: VersionRefreshResult | None = None
-        advertised_metrics: DownloadMetrics | None = None
+        advertised_metrics = _UNKNOWN_METRICS
         if not already_updated:
             advertised_metrics = self._package_metrics(
                 package,
@@ -237,20 +241,15 @@ class PackageRefreshService:  # pylint: disable=too-few-public-methods
             since=request.since,
             legacy_table=request.legacy_table,
         )
-        package_record = _package_record(
-            package,
-            source.rows,
-            advertised_metrics,
-            previous_downloads=self.repository.maximum_package_downloads(package),
-            today=today,
-        )
-        package_written = not already_updated or request.policy.mode == 1
+        package_written = not already_updated
         if package_written:
-            self.repository.write_package_pending_publication(package_record)
+            self.repository.write_package_pending_publication(
+                _package_record(package, source.rows, advertised_metrics, today=today)
+            )
         else:
             self.repository.mark_package_publication_pending(package, today)
 
-        publication = self._publish(request, today, has_versions=bool(source.rows))
+        publication = self._publish(request, has_versions=bool(source.rows))
         self.repository.cleanup_legacy_package(
             package,
             request.legacy_table,
@@ -308,13 +307,13 @@ class PackageRefreshService:  # pylint: disable=too-few-public-methods
                     )
                 return _UNKNOWN_METRICS
             lease.record_success()
-        if "Total downloads" not in html:
+        metrics = extract_download_metrics(html)
+        if metrics == _UNKNOWN_METRICS:
             self.execution.version.diagnostic(
-                f"Package detail page has no download metrics for "
+                f"Package detail page has no recognized download metrics for "
                 f"{package.owner}/{package.package}"
             )
-            return _UNKNOWN_METRICS
-        return extract_download_metrics(html)
+        return metrics
 
     def _refresh_versions(
         self,
@@ -367,13 +366,12 @@ class PackageRefreshService:  # pylint: disable=too-few-public-methods
     def _publish(
         self,
         request: PackageRefreshRequest,
-        today: str,
         *,
         has_versions: bool,
     ) -> PublicationResult:
         destination = request.destination
         destination.parent.mkdir(parents=True, exist_ok=True)
-        _remove_legacy_sidecars(destination)
+        remove_legacy_package_sidecars(destination)
         descriptor, staged_name = tempfile.mkstemp(
             dir=destination.parent,
             prefix=f".{destination.name}.",
@@ -388,7 +386,6 @@ class PackageRefreshService:  # pylint: disable=too-few-public-methods
                 staged,
                 PackageRenderOptions(
                     since=request.since,
-                    output_date=today,
                     version_limit=-1,
                     legacy_table=request.legacy_table,
                 ),
@@ -452,9 +449,8 @@ class PackageRefreshService:  # pylint: disable=too-few-public-methods
 def _package_record(
     package: PackageRef,
     versions: tuple[VersionRecord, ...],
-    advertised: DownloadMetrics | None,
+    advertised: DownloadMetrics,
     *,
-    previous_downloads: int,
     today: str,
 ) -> PackageRecord:
     newest_sized = max(
@@ -463,40 +459,15 @@ def _package_record(
         default=None,
     )
     size = -1 if newest_sized is None else newest_sized.metrics.size
-    downloads = -1 if advertised is None else advertised.total
-    downloads = max(
-        downloads,
-        previous_downloads,
-        _metric_sum(versions, lambda version: version.metrics.downloads),
-    )
     return PackageRecord(
         package_ref=package,
-        downloads=downloads,
-        downloads_month=_metric_sum(
-            versions,
-            lambda version: version.metrics.downloads_month,
-        ),
-        downloads_week=_metric_sum(
-            versions,
-            lambda version: version.metrics.downloads_week,
-        ),
-        downloads_day=_metric_sum(
-            versions,
-            lambda version: version.metrics.downloads_day,
-        ),
+        downloads=advertised.total,
+        downloads_month=advertised.month,
+        downloads_week=advertised.week,
+        downloads_day=advertised.day,
         size=size,
         date=today,
     )
-
-
-def _metric_sum(
-    versions: tuple[VersionRecord, ...],
-    metric: Callable[[VersionRecord], int],
-) -> int:
-    if not versions:
-        return -1
-    total = sum(metric(version) for version in versions)
-    return total if total >= 0 else -1
 
 
 def _numeric_version_id(value: str) -> int:
@@ -538,23 +509,3 @@ def _optout_component_matches(component: str, target: str) -> bool:
         return re.search(component.removeprefix("/"), target) is not None
     except re.error:
         return False
-
-
-def _remove_package_files(destination: Path) -> None:
-    if not destination.parent.is_dir():
-        return
-    prefix = f"{destination.name.removesuffix('.json')}."
-    for path in destination.parent.iterdir():
-        if not path.name.startswith(prefix):
-            continue
-        if path.is_file() or path.is_symlink():
-            path.unlink(missing_ok=True)
-
-
-def _remove_legacy_sidecars(destination: Path) -> None:
-    if not destination.parent.is_dir():
-        return
-    prefixes = tuple(f"{destination.name}.{suffix}" for suffix in ("abs", "rel", "tmp"))
-    for path in destination.parent.iterdir():
-        if path.name.startswith(prefixes):
-            path.unlink(missing_ok=True)

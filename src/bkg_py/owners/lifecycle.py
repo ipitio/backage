@@ -10,10 +10,12 @@ from typing import Literal, Protocol
 from ..database.models import (
     OwnerRecord,
     OwnerScanCursor,
+    OwnerScanPackage,
     OwnerScanResult,
     OwnerScanStart,
 )
 from ..database.owner.scan_repository import OwnerScanRepository
+from ..publication.artifacts import remove_package_artifacts
 from ..runtime_names import (
     StateKey,
     legacy_owner_page_key,
@@ -37,8 +39,17 @@ OwnerLifecycleOutcome = Literal["updated", "paused", "missing", "deferred"]
 _PENDING_SUMMARY_LIMIT = 10
 
 
-class OwnerPackageRefresher(Protocol):  # pylint: disable=too-few-public-methods
+class OwnerPackageRefresher(Protocol):
     """Package batch behavior required by the owner lifecycle."""
+
+    def select_work(
+        self,
+        request: OwnerPackageRefreshRequest,
+        due: tuple[OwnerScanPackage, ...],
+    ) -> tuple[OwnerScanPackage, ...]:
+        """Select due refreshes and newly excluded known identities."""
+
+        raise NotImplementedError
 
     def refresh(
         self,
@@ -139,8 +150,12 @@ class OwnerLifecycleService:  # pylint: disable=too-few-public-methods
         if plan.has_current_data:
             cursor = self._current_scan(request)
             if cursor is None:
-                self.services.package_refresh.refresh(
-                    replace(refresh_request, packages=plan.packages)
+                work = self.services.package_refresh.select_work(
+                    replace(refresh_request, packages=plan.known_packages),
+                    plan.packages,
+                )
+                refreshed = self.services.package_refresh.refresh(
+                    replace(refresh_request, packages=work)
                 )
                 plan = self.repository.owner_refresh_plan(
                     refresh_request.owner_id,
@@ -148,7 +163,7 @@ class OwnerLifecycleService:  # pylint: disable=too-few-public-methods
                     refresh_request.since,
                     request.batch_marker,
                 )
-                if plan.pending_count == 0:
+                if plan.pending_count == 0 and refreshed.failure_count == 0:
                     self.repository.clear_owner_backoff(
                         refresh_request.owner_id,
                         refresh_request.owner,
@@ -156,7 +171,8 @@ class OwnerLifecycleService:  # pylint: disable=too-few-public-methods
                     )
                     return self._publish(request)
                 self.execution.progress(
-                    f"{refresh_request.owner} has {plan.pending_count} unresolved "
+                    f"{refresh_request.owner} has "
+                    f"{max(plan.pending_count, refreshed.failure_count)} unresolved "
                     "package refresh(es); verifying the complete owner listing"
                 )
 
@@ -270,15 +286,7 @@ class OwnerLifecycleService:  # pylint: disable=too-few-public-methods
             repo_directory = refresh.index_dir / package.owner / package.repo
             if not repo_directory.is_dir():
                 continue
-            prefixes = (
-                f"{package.package}.json",
-                f"{package.package}.xml",
-            )
-            for path in repo_directory.iterdir():
-                if path.name.startswith(prefixes) and (
-                    path.is_file() or path.is_symlink()
-                ):
-                    path.unlink(missing_ok=True)
+            remove_package_artifacts(repo_directory / f"{package.package}.json")
             if not any(
                 path.is_file()
                 and path.suffix == ".json"

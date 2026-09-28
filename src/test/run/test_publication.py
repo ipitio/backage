@@ -145,9 +145,16 @@ def test_run_publication_hydrates_outputs_and_prunes_transient_state(
     working.mkdir()
     sidecars = index / "owner" / "repo"
     sidecars.mkdir(parents=True)
-    for name in ("a.json.tmp", "b.json.abs.2", "c.json.rel.worker"):
+    for name in ("a.json.tmp", "b.json.abs.2", "c.json.rel.worker", "d.json.tmp123"):
         (sidecars / name).write_text("temporary", encoding="utf-8")
-    (sidecars / "keep.json").write_text("published", encoding="utf-8")
+    published_names = (
+        "keep.json",
+        "foo.json.tmp.worker.json",
+        "foo.json.abs.xml",
+        "foo.json.rel.json",
+    )
+    for name in published_names:
+        (sidecars / name).write_text("published", encoding="utf-8")
     for name in RunFile:
         (working / name).write_text("compatibility", encoding="utf-8")
     state.set_many(
@@ -206,8 +213,11 @@ def test_run_publication_hydrates_outputs_and_prunes_transient_state(
     assert "[v2026.7.0 release]" in changelog
     assert "`2026.07.01T03.04.05.000006Z.index.db.zst`" in changelog
     assert "source 200 bytes; compressed 75 bytes" in changelog
-    source_readme = (root / "README.md").read_text(encoding="utf-8")
-    assert source_readme.startswith("example/backage/master 2026-07-02 1200")
+    assert (
+        (root / "README.md")
+        .read_text(encoding="utf-8")
+        .startswith("example/backage/master 2026-07-02 1200")
+    )
     index_readme = (index / "README.md").read_text(encoding="utf-8")
     assert "logo-b.webp" in index_readme
     assert "src/img/logo-b.webp" not in index_readme
@@ -244,8 +254,7 @@ def test_run_publication_hydrates_outputs_and_prunes_transient_state(
     )
     assert messages[-2].startswith("Dashboard publication telemetry: ")
     assert messages[-1].startswith("Site shell publication telemetry: ")
-    assert (sidecars / "keep.json").is_file()
-    assert not any(path.name != "keep.json" for path in sidecars.iterdir())
+    assert {path.name for path in sidecars.iterdir()} == set(published_names)
     assert not any((working / name).exists() for name in RunFile)
     assert state.snapshot() == {
         "BKG_TIMEOUT": "1",

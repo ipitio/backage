@@ -112,7 +112,7 @@ def test_startup_prepares_state_plan_cache_and_optouts(tmp_path: Path) -> None:
     assert result.package_plan.pending == 1
     assert result.database_size == database_path.stat().st_size
     assert result.opted_out == 3
-    assert result.fast_out
+    assert result.optout_priority
     assert cache.path.read_text(encoding="utf-8") == ""
     assert optouts.read_text(encoding="utf-8") == "Alpha\nBeta\nOwner/repo/package\n"
     assert state.get("BKG_SCRIPT_START") == "1000"
@@ -153,7 +153,7 @@ def test_startup_recovers_database_backup_before_planning(tmp_path: Path) -> Non
     assert result.package_plan.pending == 1
     assert database_path.is_file()
     assert not backup.exists()
-    assert not result.fast_out
+    assert not result.optout_priority
 
 
 def test_startup_completes_small_history_migrations(tmp_path: Path) -> None:

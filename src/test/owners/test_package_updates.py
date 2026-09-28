@@ -1,18 +1,23 @@
 """Tests for bounded in-process owner package refreshes."""
 
+import sqlite3
+from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
 
+import bkg_py.packages.updates
 from bkg_py.concurrency import BoundedWorkerRunner, ConcurrencySettings
 from bkg_py.database.composition import DatabaseRepositories
 from bkg_py.database.models import (
     OwnerScanPackage,
+    OwnerScanPage,
     PackageBatch,
     PackageRecord,
     PackageRef,
 )
 from bkg_py.database.settings import DatabaseSettings
+from bkg_py.github import GitHubNotFoundError
 from bkg_py.owners.package_updates import (
     OwnerPackageRefreshExecution,
     OwnerPackageRefreshRequest,
@@ -25,7 +30,7 @@ from bkg_py.owners.scan_pages import (
     OwnerScanPagesRequest,
     OwnerScanPagesResult,
 )
-from bkg_py.owners.updates import OwnerScanService
+from bkg_py.owners.updates import OwnerScanOutcome, OwnerScanService
 from bkg_py.packages.registry.artifacts import ArtifactSizeResolver
 from bkg_py.packages.updates import (
     PackageRefreshError,
@@ -121,7 +126,7 @@ def test_owner_package_refresh_continues_after_expected_package_failure(
             PackageBatch("2026-06-28"),
             "versions",
             tmp_path / "index",
-            PackageRefreshPolicy(True, True, False, 0),
+            PackageRefreshPolicy(True, True, 0),
         )
     )
 
@@ -157,7 +162,7 @@ def test_owner_package_refresh_propagates_graceful_stop(
         PackageBatch("2026-06-28"),
         "versions",
         tmp_path / "index",
-        PackageRefreshPolicy(True, True, False, 0),
+        PackageRefreshPolicy(True, True, 0),
     )
 
     with pytest.raises(GracefulStop, match="test stop"):
@@ -220,7 +225,7 @@ def test_owner_page_service_advances_multiple_pages_with_one_client(
         PackageBatch("2026-06-28", "batch-1"),
         "versions",
         tmp_path / "index",
-        PackageRefreshPolicy(True, True, False, 0),
+        PackageRefreshPolicy(True, True, 0),
     )
     timestamps = iter((101, 102, 103, 104, 105, 106))
 
@@ -269,3 +274,204 @@ def test_owner_page_service_advances_multiple_pages_with_one_client(
         "Starting example page 2...",
         "Started example page 2",
     ]
+
+
+@dataclass(frozen=True)
+class _ExclusionStorage:
+    root: Path
+    repository: DatabaseRepositories
+    excluded: PackageRef
+    destination: Path
+
+
+def _exclusion_storage(
+    tmp_path: Path,
+    stored: str,
+    eligible_due: bool,
+) -> _ExclusionStorage:
+    """Seed the excluded and eligible identities independently of listing state."""
+
+    database_path = tmp_path / "index.db"
+    repository = DatabaseRepositories(DatabaseSettings(database_path))
+    excluded = PackageRef("42", "orgs", "container", "example", "repo", "excluded")
+    eligible = PackageRef("42", "orgs", "container", "example", "repo", "eligible")
+    if stored != "unseen":
+        date = "2026-06-28" if stored == "completed" else "2026-06-27"
+        repository.packages.write_package(PackageRecord(excluded, 1, 1, 1, 1, 1, date))
+        if stored == "completed":
+            repository.packages.mark_package_batch_completed(excluded, "batch-1", date)
+    repository.packages.write_package(
+        PackageRecord(eligible, 1, 1, 1, 1, 1, "2026-06-28")
+    )
+    if not eligible_due:
+        repository.packages.mark_package_batch_completed(
+            eligible, "batch-1", "2026-06-28"
+        )
+    destination = tmp_path / "index" / "example" / "repo" / "excluded.json"
+    destination.parent.mkdir(parents=True)
+    destination.write_text("{}\n", encoding="utf-8")
+    destination.with_suffix(".xml").write_text("<xml/>\n", encoding="utf-8")
+    (tmp_path / "optout.txt").write_text("example/repo/excluded\n", encoding="utf-8")
+    return _ExclusionStorage(tmp_path, repository, excluded, destination)
+
+
+def _exclusion_listing_client(
+    source: str,
+    start_page: int,
+    eligible_due: bool,
+) -> tuple[FakeGitHubClient, list[str]]:
+    """Offer package metadata only for actual due work and identity verification."""
+
+    listing_url = (
+        "https://github.com/orgs/example/packages?visibility=public&per_page=100"
+        f"&page={start_page}"
+    )
+    names = ("excluded", "eligible") if source == "page" else ("eligible",)
+    listing = "".join(
+        f'<a href="/orgs/example/packages/container/package/{name}">{name}</a>'
+        '<a href="/example/repo">repo</a>'
+        for name in names
+    )
+    eligible_url = "https://github.com/orgs/example/packages/container/package/eligible"
+    client = FakeGitHubClient(
+        text_values={
+            listing_url: listing,
+            eligible_url: GitHubNotFoundError("temporary missing metadata"),
+        },
+        rest_values={
+            "orgs/example/packages/container/excluded": {"repository": {"name": "repo"}}
+        },
+    )
+    return client, [listing_url, *([eligible_url] if eligible_due else [])]
+
+
+def _scan_exclusion(
+    storage: _ExclusionStorage,
+    source: str,
+    eligible_due: bool,
+) -> OwnerScanOutcome:
+    """Resume the real page, verification, and reconciliation services offline."""
+
+    marker = "batch-1:42:100"
+    storage.repository.owners.begin_owner_scan("42", "example", marker, 100)
+    start_page = 1 if source == "page" else 2
+    if start_page == 2:
+        observed = (
+            (OwnerScanPackage("orgs", "container", "repo", "excluded"),)
+            if source == "resumed"
+            else ()
+        )
+        page = OwnerScanPage("42", marker, 1, 101)
+        storage.repository.owners.observe_owner_scan_page(page, observed)
+        storage.repository.owners.advance_owner_scan_page(page)
+    client, expected_requests = _exclusion_listing_client(
+        source, start_page, eligible_due
+    )
+    refresh_request = OwnerPackageRefreshRequest(
+        "42",
+        "example",
+        (),
+        PackageBatch("2026-06-28", "batch-1"),
+        "versions",
+        storage.root / "index",
+        PackageRefreshPolicy(True, True, 0),
+    )
+    package_refresh = OwnerPackageRefreshService(
+        storage.repository.packages, client, _execution(storage.root, [], [])
+    )
+    pages = OwnerScanPageService(
+        storage.repository.owners,
+        client,
+        package_refresh,
+        OwnerScanPageExecution(lambda: None, lambda _message: None, now=lambda: 102),
+    )
+    result = OwnerScanService(
+        storage.repository.owners, client, pages, package_refresh
+    ).scan(OwnerScanPagesRequest("orgs", marker, start_page, 0, refresh_request))
+    assert client.text_requests == expected_requests
+    return result
+
+
+@pytest.mark.parametrize(
+    ("stored", "source", "eligible_due"),
+    [
+        ("unseen", "page", False),
+        ("stale", "page", True),
+        ("completed", "page", False),
+        ("unseen", "resumed", True),
+        ("completed", "resumed", False),
+        ("completed", "verification", False),
+    ],
+)
+def test_owner_scan_finishes_exclusions_without_losing_due_work(
+    tmp_path: Path,
+    stored: str,
+    source: str,
+    eligible_due: bool,
+) -> None:
+    """Excluded identities leave staging, even after completion or page resume."""
+
+    storage = _exclusion_storage(tmp_path, stored, eligible_due)
+    result = _scan_exclusion(storage, source, eligible_due)
+
+    assert result.reconciliation is not None
+    completion = result.reconciliation.completion
+    assert completion.pending == (
+        (OwnerScanPackage("orgs", "container", "repo", "eligible"),)
+        if eligible_due
+        else ()
+    )
+    assert bool(completion.retry_after) == eligible_due
+    assert (
+        storage.repository.packages.package_snapshot(
+            storage.excluded, since="0000-00-00"
+        )
+        is None
+    )
+    assert not storage.destination.exists()
+    assert not storage.destination.with_suffix(".xml").exists()
+    with sqlite3.connect(tmp_path / "index.db") as connection:
+        catalog_names = connection.execute(
+            "select package from bkg_package_catalog where owner = ?", ("example",)
+        ).fetchall()
+    assert catalog_names == [("eligible",)]
+
+
+def test_owner_scan_keeps_failed_exclusion_cleanup_pending(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Cleanup failure overrides an old completion marker and survives retry."""
+
+    storage = _exclusion_storage(tmp_path, "completed", False)
+
+    def deny_cleanup(_destination: Path) -> None:
+        raise PermissionError("cleanup denied")
+
+    with monkeypatch.context() as failing:
+        failing.setattr(
+            bkg_py.packages.updates, "remove_package_artifacts", deny_cleanup
+        )
+        result = _scan_exclusion(storage, "page", False)
+
+    assert result.reconciliation is not None
+    completion = result.reconciliation.completion
+    assert completion.pending == (
+        OwnerScanPackage("orgs", "container", "repo", "excluded"),
+    )
+    assert completion.retry_after > 0
+    assert (
+        storage.repository.packages.package_snapshot(
+            storage.excluded, since="0000-00-00"
+        )
+        is not None
+    )
+    assert storage.repository.packages.package_publication_pending(storage.excluded)
+    assert storage.destination.exists()
+
+    retried = _scan_exclusion(storage, "page", False)
+    assert retried.reconciliation is not None
+    assert retried.reconciliation.completion.pending_count == 0
+    assert retried.reconciliation.completion.retry_after == 0
+    assert not storage.repository.packages.package_publication_pending(storage.excluded)
+    assert not storage.destination.exists()

@@ -126,9 +126,10 @@ def owner_refresh_plan(
         ),
     ).fetchall()
 
+    known = tuple(OwnerScanPackage(*(str(value) for value in row[:4])) for row in rows)
     work = tuple(
-        OwnerScanPackage(*(str(value) for value in row[:4]))
-        for row in rows
+        package
+        for package, row in zip(known, rows, strict=True)
         if str(row[4]) < selection.since
         or bool(row[5])
         or (bool(selection.batch_marker) and not bool(row[8]))
@@ -137,4 +138,5 @@ def owner_refresh_plan(
         any(bool(row[6]) for row in rows),
         work,
         any(bool(row[7]) for row in rows),
+        known,
     )

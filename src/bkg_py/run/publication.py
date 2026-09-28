@@ -20,6 +20,7 @@ from ..database.models import (
 from ..database.support import DatabaseError
 from ..files import atomic_binary_output, atomic_text_output
 from ..publication import PublicationLimits, publish_json_file
+from ..publication.artifacts import is_legacy_package_sidecar
 from ..publication.dashboard import DASHBOARD_SCHEMA_VERSION, publish_dashboard
 from ..publication.release import release_tag as release_tag_for_date
 from ..publication.site_shell import (
@@ -34,7 +35,6 @@ from ..state import StateStore
 StopCheck = Callable[[], None]
 MessageSink = Callable[[str], None]
 _NUMBER_SUFFIXES = ("", "k", "M", "B", "T", "P", "E", "Z", "Y")
-_SIDECAR_MARKERS = (".json.tmp", ".json.abs", ".json.rel")
 _TRANSIENT_STATE_PREFIXES = (
     StatePrefix.LEGACY_VERSIONS,
     StatePrefix.LEGACY_PACKAGES,
@@ -435,7 +435,7 @@ def _cleanup_sidecars(index_directory: Path, check_stop: StopCheck) -> None:
     for index, path in enumerate(index_directory.rglob("*")):
         if index % 1024 == 0:
             check_stop()
-        if not path.is_file() or not _is_sidecar(path.name):
+        if not path.is_file() or not is_legacy_package_sidecar(path.name):
             continue
         with suppress(OSError):
             path.unlink()
@@ -450,12 +450,6 @@ def _prune_transient_state(state: StateStore) -> None:
     state.delete_matching(
         keys=(*_OBSOLETE_STATE_KEYS, *transient_keys),
         prefixes=_TRANSIENT_STATE_PREFIXES,
-    )
-
-
-def _is_sidecar(name: str) -> bool:
-    return any(
-        name.endswith(marker) or f"{marker}." in name for marker in _SIDECAR_MARKERS
     )
 
 

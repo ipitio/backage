@@ -141,7 +141,15 @@ class OwnerScanPageService:  # pylint: disable=too-few-public-methods
                     refresh_request.batch_marker,
                 )
             )
-            self.package_refresh.refresh(replace(refresh_request, packages=work))
+            selected = self.package_refresh.select_work(
+                replace(refresh_request, packages=page.packages), work
+            )
+            refreshed = self.package_refresh.refresh(
+                replace(refresh_request, packages=selected)
+            )
+            self.repository.exclude_owner_scan_packages(
+                owner_id, request.marker, refreshed.opted_out
+            )
             self.repository.advance_owner_scan_page(
                 OwnerScanPage(
                     owner_id,
