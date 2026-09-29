@@ -1,4 +1,3 @@
-3140366/jamiedeas
 3143586/jegoyalu
 3140405/jiucheng
 3140367/kunjandrc
@@ -399,7 +398,5 @@
 3165506/NikolayZenko
 3165507/peyj
 3165510/cribinput7
-3165511/0x558BEC
-3165512/Simonsworld
 3165513/coderwall-24PullRequestsParticipant
 3165514/sushi-chong
