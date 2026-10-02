@@ -1,5 +1,4 @@
 133648939/dockur
-3140373/limitjoseph08
 3145496/loopco
 3145544/louderthanten
 3140335/makeupracing84
@@ -404,7 +403,6 @@
 3165531/creekfm
 3165532/drb-ra
 3165533/queenhour9
-3165538/didiksemin
-3165539/StudentXico
 3165540/coderwall-24PullRequestsContinuous
 3165541/emelyanenko
+3165542/yhogarth
