@@ -44,7 +44,7 @@ from .versions.ingestion import (
 from .versions.metadata import (
     DownloadMetrics,
     VersionListingContext,
-    extract_download_metrics,
+    extract_package_download_metrics,
     package_detail_html_url,
 )
 from .versions.selection import VersionSelectionSettings
@@ -280,7 +280,7 @@ class PackageRefreshService:  # pylint: disable=too-few-public-methods
         enrichment = self.execution.version.metric_enrichment
         with enrichment.request(PACKAGE_METRIC_SCOPE) as lease:
             if not lease:
-                return _UNKNOWN_METRICS
+                return None
             try:
                 html = self.client.get_text(
                     url,
@@ -303,11 +303,11 @@ class PackageRefreshService:  # pylint: disable=too-few-public-methods
                     self.execution.version.diagnostic(
                         "Pausing GitHub metric enrichment for "
                         f"{cooldown:g}s after repeated transient failures; "
-                        "using available data"
+                        "retrying affected packages later"
                     )
-                return _UNKNOWN_METRICS
+                return None if transient_request_error(error) else _UNKNOWN_METRICS
             lease.record_success()
-        metrics = extract_download_metrics(html)
+        metrics = extract_package_download_metrics(html)
         if metrics == _UNKNOWN_METRICS:
             self.execution.version.diagnostic(
                 f"Package detail page has no recognized download metrics for "

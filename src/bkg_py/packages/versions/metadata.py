@@ -7,7 +7,9 @@ import math
 import re
 from collections.abc import Iterator
 from dataclasses import dataclass
+from datetime import date, timedelta
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
+from html.parser import HTMLParser
 from typing import cast
 from urllib.parse import unquote_plus
 
@@ -19,6 +21,7 @@ _DOWNLOAD_LABELS = {
     "week": "Last week",
     "day": "Today",
 }
+_DOWNLOAD_GRAPH_DAYS = 30
 _METRIC_SUFFIXES = "KMBTPEZY"
 _METRIC_PATTERN = re.compile(r"^([0-9]+(?:\.[0-9]+)?)([A-Za-z]?)$")
 _CODE_BLOCK_PATTERN = re.compile(r"<code\b[^>]*>(.*?)</code>", re.DOTALL)
@@ -207,6 +210,71 @@ def extract_download_metrics(html: str) -> DownloadMetrics:
         month=extract_download_metric(html, _DOWNLOAD_LABELS["month"]),
         week=extract_download_metric(html, _DOWNLOAD_LABELS["week"]),
         day=extract_download_metric(html, _DOWNLOAD_LABELS["day"]),
+    )
+
+
+class _DownloadGraphParser(HTMLParser):
+    """Read dated counts only from the package page's download graph."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.depth = 0
+        self.counts: dict[date, int] = {}
+        self.invalid = False
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        attributes = dict(attrs)
+        if self.depth == 0:
+            if attributes.get("aria-label") == "Downloads for the last 30 days":
+                self.depth = 1
+            return
+        self.depth += 1
+        if tag != "rect" or "data-merge-count" not in attributes:
+            return
+        try:
+            day = date.fromisoformat(attributes["data-date"] or "")
+            count = int(attributes["data-merge-count"] or "")
+        except KeyError, ValueError:
+            self.invalid = True
+            return
+        if count < 0 or day in self.counts:
+            self.invalid = True
+            return
+        self.counts[day] = count
+
+    def handle_endtag(self, tag: str) -> None:
+        if self.depth > 1:
+            self.depth -= 1
+        elif self.depth == 1 and tag == "div":
+            self.depth = 0
+
+
+def extract_package_download_metrics(html: str) -> DownloadMetrics:
+    """Read package counters, including GitHub's dated download graph."""
+
+    metrics = extract_download_metrics(html)
+    if min(metrics.month, metrics.week, metrics.day) >= 0:
+        return metrics
+    graph = _DownloadGraphParser()
+    graph.feed(html)
+    if graph.invalid or not graph.counts or len(graph.counts) > _DOWNLOAD_GRAPH_DAYS:
+        return metrics
+    newest = max(graph.counts)
+
+    def window(days: int) -> int:
+        dates = (newest - timedelta(days=offset) for offset in range(days))
+        values = [graph.counts.get(day) for day in dates]
+        return (
+            -1
+            if any(value is None for value in values)
+            else sum(cast(int, value) for value in values)
+        )
+
+    return DownloadMetrics(
+        total=metrics.total,
+        month=metrics.month if metrics.month >= 0 else window(_DOWNLOAD_GRAPH_DAYS),
+        week=metrics.week if metrics.week >= 0 else window(7),
+        day=metrics.day if metrics.day >= 0 else window(1),
     )
 
 

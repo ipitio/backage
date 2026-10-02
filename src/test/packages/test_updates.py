@@ -18,7 +18,12 @@ from bkg_py.database.models import (
 )
 from bkg_py.database.settings import DatabaseSettings
 from bkg_py.github import GitHubNotFoundError, GitHubTransportError
-from bkg_py.packages.enrichment import METRIC_TEXT_REQUEST_POLICY
+from bkg_py.packages.enrichment import (
+    METRIC_TEXT_REQUEST_POLICY,
+    PACKAGE_METRIC_SCOPE,
+    RequestCircuit,
+    RequestCircuitSettings,
+)
 from bkg_py.packages.registry.artifacts import (
     ArtifactSizeRequest,
     ArtifactSizeResolver,
@@ -252,15 +257,17 @@ def test_refresh_commits_versions_package_and_publication(
     ]
 
 
-def test_transient_package_metrics_remain_unknown_while_versions_continue(
+def test_transient_package_metrics_defer_without_overwriting_published_counts(
     tmp_path: Path,
 ) -> None:
-    """Optional package metrics do not block version and publication work."""
+    """A temporary package-page failure keeps its previous badge and retries later."""
 
     package = _package()
     repository = DatabaseRepositories(DatabaseSettings(tmp_path / "index.db")).packages
     repository.write_package(replace(_package_record(package), date="2026-06-25"))
     destination = tmp_path / "index" / package.owner / package.repo / "Demo.json"
+    destination.parent.mkdir(parents=True)
+    destination.write_text('{"raw_downloads":1500}', encoding="utf-8")
     optout_file = tmp_path / "optout.txt"
     optout_file.write_text("", encoding="utf-8")
     api_path = "orgs/Example/packages/npm/Demo/versions?per_page=30&page=1"
@@ -280,18 +287,42 @@ def test_transient_package_metrics_remain_unknown_while_versions_continue(
         _execution(optout_file),
     ).refresh(_request(package, destination))
 
-    rendered = json.loads(destination.read_text(encoding="utf-8"))
-    assert result.outcome == "refreshed"
-    assert [
-        rendered[field]
-        for field in (
-            "raw_downloads",
-            "raw_downloads_month",
-            "raw_downloads_week",
-            "raw_downloads_day",
-        )
-    ] == [-1, -1, -1, -1]
-    assert rendered["version"][0]["raw_downloads"] == 4
+    assert result.outcome == "metadata_unavailable"
+    assert destination.read_text(encoding="utf-8") == '{"raw_downloads":1500}'
+    snapshot = repository.package_snapshot(package, since=_TODAY)
+    assert snapshot is not None
+    assert snapshot.package.record.downloads == 1_500
+    assert not client.rest_requests
+    assert client.text_requests == [package_url]
+
+
+def test_open_metric_circuit_defers_without_fetching_or_publishing(
+    tmp_path: Path,
+) -> None:
+    """A paused package metric source leaves the package retryable."""
+
+    circuit = RequestCircuit(RequestCircuitSettings(failure_threshold=1))
+    with circuit.request(PACKAGE_METRIC_SCOPE) as lease:
+        assert lease
+        lease.record_transient_failure()
+    execution = _execution(tmp_path / "optout.txt")
+    execution = replace(
+        execution,
+        version=replace(execution.version, metric_enrichment=circuit),
+    )
+    package = _package()
+    destination = tmp_path / "index" / package.owner / package.repo / "Demo.json"
+    client = _FakeClient()
+
+    result = PackageRefreshService(
+        DatabaseRepositories(DatabaseSettings(tmp_path / "index.db")).packages,
+        client,
+        execution,
+    ).refresh(_request(package, destination))
+
+    assert result.outcome == "metadata_unavailable"
+    assert not client.text_requests
+    assert not destination.exists()
 
 
 @pytest.mark.parametrize(

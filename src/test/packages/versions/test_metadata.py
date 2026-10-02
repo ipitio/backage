@@ -2,6 +2,7 @@
 
 import base64
 import json
+from datetime import date, timedelta
 
 from bkg_py.packages.versions.metadata import (
     DownloadMetrics,
@@ -11,6 +12,7 @@ from bkg_py.packages.versions.metadata import (
     extract_download_metrics,
     extract_embedded_manifest,
     extract_oci_version_labels,
+    extract_package_download_metrics,
     extract_version_page_data,
     manifest_size,
     parse_metric_value,
@@ -60,6 +62,46 @@ def test_extract_download_metric_from_package_total_heading() -> None:
     """
 
     assert extract_download_metric(html, "Total downloads") == 96_901
+
+
+def test_package_chart_supplies_rolling_counts_without_legacy_labels() -> None:
+    """Dated bars from the current package-page shape supply rolling metrics."""
+
+    start = date(2026, 9, 2)
+    bars = "".join(
+        f'<rect data-date="{start + timedelta(days=index)}" '
+        f'data-merge-count="{index + 1}"></rect>'
+        for index in range(30)
+    )
+    html = (
+        '<span>Total downloads</span><h3 title="28103">28.1K</h3>'
+        '<div aria-label="Downloads for the last 30 days"><svg>'
+        f"{bars}</svg></div>"
+    )
+
+    assert extract_package_download_metrics(html) == DownloadMetrics(
+        total=28_103, month=465, week=189, day=30
+    )
+
+
+def test_package_chart_requires_complete_windows_and_valid_counts() -> None:
+    """A partial or malformed chart does not invent unavailable windows."""
+
+    bars = "".join(
+        f'<rect data-date="2026-09-{day:02d}" data-merge-count="{day - 1}"></rect>'
+        for day in range(25, 31)
+    )
+    html = (
+        '<span>Total downloads</span><h3 title="42">42</h3>'
+        '<div aria-label="Other chart"><rect data-date="2026-09-30" '
+        'data-merge-count="999"></rect></div>'
+        '<div aria-label="Downloads for the last 30 days"><svg>'
+        f"{bars}</svg></div>"
+    )
+    assert extract_package_download_metrics(html) == DownloadMetrics(42, -1, -1, 29)
+    assert extract_package_download_metrics(
+        html.replace('data-merge-count="29"', 'data-merge-count="-1"')
+    ) == DownloadMetrics(42, -1, -1, -1)
 
 
 def test_parse_version_listing_html_matches_github_rows() -> None:
