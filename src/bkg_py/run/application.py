@@ -374,7 +374,8 @@ class RunApplicationOperations:
                     self.application.stop.check,
                     self.execution.progress,
                     self.execution.diagnostic,
-                    self.execution.materialize_owner_trees,
+                    finalization_scope=self.application.stop.finalization_scope,
+                    materialize=self.execution.materialize_owner_trees,
                 ),
             )
             return service.run(request)

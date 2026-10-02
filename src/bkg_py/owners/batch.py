@@ -4,6 +4,7 @@ import re
 import secrets
 import time
 from collections.abc import Callable, Sequence
+from contextlib import AbstractContextManager
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from threading import Lock
@@ -204,6 +205,7 @@ class OwnerBatchExecution:  # pylint: disable=too-many-instance-attributes
     check_stop: Callable[[], None]
     progress: MessageSink
     diagnostic: MessageSink
+    finalization_scope: Callable[[], AbstractContextManager[None]]
     materialize: OwnerMaterializer = lambda _owners: None
     now: Callable[[], int] = lambda: int(time.time())
     token: Callable[[], str] = lambda: secrets.token_hex(16)
@@ -284,7 +286,8 @@ class OwnerBatchService:  # pylint: disable=too-few-public-methods
             if not self._materialize_wave(wave, wave_number):
                 return ExitStatus.GRACEFUL_STOP
             status, items = self._run_wave(wave, update, wave_number)
-            self._apply_items(items, claim_token, request.batch_marker)
+            with self.execution.finalization_scope():
+                self._apply_items(items, claim_token, request.batch_marker)
             if status is not ExitStatus.SUCCESS:
                 return status
             wave_number += 1
