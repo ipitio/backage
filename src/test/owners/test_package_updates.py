@@ -31,6 +31,7 @@ from bkg_py.owners.scan_pages import (
     OwnerScanPagesResult,
 )
 from bkg_py.owners.updates import OwnerScanOutcome, OwnerScanService
+from bkg_py.packages.discovery import PackageDiscoveryError
 from bkg_py.packages.registry.artifacts import ArtifactSizeResolver
 from bkg_py.packages.updates import (
     PackageRefreshError,
@@ -214,7 +215,11 @@ def test_owner_page_service_advances_multiple_pages_with_one_client(
                 <a href="/example/repo">repo</a>
                 <a rel="next" href="?page=2">next</a>
             """,
-            second_url: "<div></div>",
+            second_url: """
+                <div id="org-packages"><h3>0 packages</h3>
+                  <div class="blankslate"><h3>No results matched your search.</h3></div>
+                </div>
+            """,
         },
     )
     progress: list[str] = []
@@ -274,6 +279,64 @@ def test_owner_page_service_advances_multiple_pages_with_one_client(
         "Starting example page 2...",
         "Started example page 2",
     ]
+
+
+@pytest.mark.parametrize("start_page", [1, 2])
+def test_unrecognized_owner_page_keeps_cursor_and_package_inventory(
+    tmp_path: Path, start_page: int
+) -> None:
+    """Neither a new nor a resumed scan can advance across unknown HTML."""
+
+    repository = DatabaseRepositories(DatabaseSettings(tmp_path / "index.db"))
+    package = PackageRef("42", "orgs", "container", "example", "repo", "package")
+    repository.packages.write_package(
+        PackageRecord(package, 1, 1, 1, 1, 1, "2026-06-28")
+    )
+    marker = "batch-1:42:100"
+    repository.owners.begin_owner_scan("42", "example", marker, 100)
+    observed = (OwnerScanPackage("orgs", "container", "repo", "package"),)
+    if start_page == 2:
+        page = OwnerScanPage("42", marker, 1, 101)
+        repository.owners.observe_owner_scan_page(page, observed)
+        repository.owners.advance_owner_scan_page(page)
+    url = (
+        "https://github.com/orgs/example/packages?visibility=public&per_page=100"
+        f"&page={start_page}"
+    )
+    client = FakeGitHubClient(text_values={url: "<div>upstream changed</div>"})
+    refresh = OwnerPackageRefreshRequest(
+        "42",
+        "example",
+        (),
+        PackageBatch("2026-06-28", "batch-1"),
+        "versions",
+        tmp_path / "index",
+        PackageRefreshPolicy(True, False, 0),
+    )
+    service = OwnerPackageRefreshService(
+        repository.packages, client, _execution(tmp_path, [], [])
+    )
+    pages = OwnerScanPageService(
+        repository.owners,
+        client,
+        service,
+        OwnerScanPageExecution(lambda: None, lambda _message: None, now=lambda: 102),
+    )
+
+    with pytest.raises(PackageDiscoveryError, match="unrecognized package listing"):
+        OwnerScanService(repository.owners, client, pages, service).scan(
+            OwnerScanPagesRequest("orgs", marker, start_page, 0, refresh)
+        )
+
+    resumed = DatabaseRepositories(DatabaseSettings(tmp_path / "index.db"))
+    cursor = resumed.owners.current_owner_scan("42", "batch-1")
+    assert cursor is not None
+    assert cursor.next_page == start_page
+    assert resumed.owners.observed_owner_scan_packages("42", marker) == (
+        observed if start_page == 2 else ()
+    )
+    assert resumed.packages.package_snapshot(package, since="0000-00-00") is not None
+    assert not client.rest_requests
 
 
 @dataclass(frozen=True)

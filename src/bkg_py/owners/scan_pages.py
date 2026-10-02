@@ -8,6 +8,7 @@ from ..database.models import OwnerScanPage, OwnerScanWorkSelection
 from ..database.owner.scan_repository import OwnerScanRepository
 from ..packages.discovery import (
     OwnerListingClient,
+    PackageDiscoveryError,
     PackageListingRequest,
     fetch_package_listing_page,
 )
@@ -88,7 +89,6 @@ class OwnerScanPageService:  # pylint: disable=too-few-public-methods
         owner_id = refresh_request.owner_id
         owner = refresh_request.owner
         page_number = request.start_page
-        listing_unavailable = False
         first_page_empty = False
 
         for page_offset in range(request.max_pages):
@@ -102,12 +102,10 @@ class OwnerScanPageService:  # pylint: disable=too-few-public-methods
                     page_number,
                     request.mode,
                 ),
+                verify_empty_with_api=refresh_request.policy.use_rest_api,
             )
             page = fetched.page
             self.execution.progress(f"Started {owner} page {page_number}")
-            first_page_empty = first_page_empty or (
-                page_number == 1 and not page.packages
-            )
             if fetched.owner_missing:
                 return OwnerScanPagesResult(
                     page_number,
@@ -116,12 +114,13 @@ class OwnerScanPageService:  # pylint: disable=too-few-public-methods
                     first_page_empty=first_page_empty,
                 )
 
-            listing_unavailable = listing_unavailable or fetched.listing_unavailable
             if fetched.listing_unavailable:
-                self.execution.progress(
-                    f"Package listing unavailable for existing owner "
-                    f"{owner}; verifying known packages individually"
-                )
+                raise PackageDiscoveryError(fetched.diagnostic)
+            if fetched.diagnostic:
+                self.execution.progress(fetched.diagnostic)
+            first_page_empty = first_page_empty or (
+                page_number == 1 and not page.packages
+            )
 
             self.repository.observe_owner_scan_page(
                 OwnerScanPage(
@@ -165,12 +164,10 @@ class OwnerScanPageService:  # pylint: disable=too-few-public-methods
                     page_offset + 1,
                     completed=True,
                     first_page_empty=first_page_empty,
-                    listing_unavailable=listing_unavailable,
                 )
 
         return OwnerScanPagesResult(
             page_number,
             request.max_pages,
             first_page_empty=first_page_empty,
-            listing_unavailable=listing_unavailable,
         )

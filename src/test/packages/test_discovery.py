@@ -5,6 +5,7 @@ import pytest
 from bkg_py.database.models import OwnerScanPackage
 from bkg_py.github import GitHubNotFoundError
 from bkg_py.packages.discovery import (
+    PackageDiscoveryError,
     PackageListingPage,
     PackageListingRequest,
     PackageListingService,
@@ -13,6 +14,66 @@ from bkg_py.packages.discovery import (
 )
 
 from ..github.fake import FakeGitHubClient
+
+
+def _empty_listing(container: str) -> str:
+    return f"""
+        <div id="{container}">
+          <div class="Box-header"><h3><span>0</span> packages</h3></div>
+          <div class="blankslate"><svg><path></path></svg>
+            <h3>No results matched your search.</h3>
+          </div>
+        </div>
+    """
+
+
+def _empty_probe_paths(request: PackageListingRequest) -> tuple[str, ...]:
+    visibility = ""
+    if not request.authenticated:
+        visibility = "&visibility=public"
+    elif request.mode == 5:
+        visibility = "&visibility=private"
+    return tuple(
+        f"{request.owner_type}/{request.owner}/packages?package_type={kind}"
+        f"&per_page=1&page=1{visibility}"
+        for kind in ("container", "npm", "maven", "rubygems", "nuget", "docker")
+    )
+
+
+@pytest.mark.parametrize(
+    ("owner_type", "container"),
+    [("users", "user-packages-list"), ("orgs", "org-packages")],
+)
+def test_listing_parser_recognizes_explicit_empty_results(
+    owner_type: str, container: str
+) -> None:
+    """The complete package results region explicitly reports zero matches."""
+
+    request = PackageListingRequest(owner_type, "example", 1, 0)
+    assert parse_package_listing_html(_empty_listing(container), request) == (
+        PackageListingPage((), False)
+    )
+
+
+@pytest.mark.parametrize(
+    "html",
+    [
+        "<div></div>",
+        "<h1>Sign in to GitHub</h1>",
+        _empty_listing("unrelated-results"),
+        _empty_listing("org-packages").replace("0</span>", "1</span>"),
+        _empty_listing("org-packages").replace("blankslate", "unrelated"),
+        _empty_listing("org-packages").rsplit("</div>", maxsplit=1)[0],
+        _empty_listing("org-packages") + '<a rel="next" href="?page=2">Next</a>',
+    ],
+)
+def test_listing_parser_does_not_infer_empty_from_missing_package_links(
+    html: str,
+) -> None:
+    """Missing links, contradictory markers, and partial HTML remain unknown."""
+
+    with pytest.raises(PackageDiscoveryError, match="unrecognized package listing"):
+        parse_package_listing_html(html, PackageListingRequest("orgs", "example", 1, 0))
 
 
 def test_listing_parser_associates_repositories_and_deduplicates_packages() -> None:
@@ -97,7 +158,12 @@ def test_listing_service_preserves_mode_specific_urls(
 ) -> None:
     """The service preserves public, mixed, and private mode behavior."""
 
-    client = FakeGitHubClient(text_values={expected_url: "<div></div>"})
+    container = (
+        "user-packages-list"
+        if listing_request.owner_type == "users"
+        else "org-packages"
+    )
+    client = FakeGitHubClient(text_values={expected_url: _empty_listing(container)})
 
     page = PackageListingService(client).fetch(listing_request)
 
@@ -124,8 +190,8 @@ def test_listing_404_confirms_missing_owner_before_returning_an_empty_page() -> 
     assert client.rest_requests == ["users/departed"]
 
 
-def test_listing_404_verifies_known_packages_when_the_owner_still_exists() -> None:
-    """An existing owner with no listing enters package API verification."""
+def test_listing_404_stays_unavailable_when_the_owner_still_exists() -> None:
+    """An existing owner with no listing cannot be classified as empty."""
 
     request = PackageListingRequest("orgs", "available", 1, 0)
     client = FakeGitHubClient(
@@ -139,3 +205,120 @@ def test_listing_404_verifies_known_packages_when_the_owner_still_exists() -> No
     assert not fetched.owner_missing
     assert fetched.listing_unavailable
     assert client.rest_requests == ["orgs/available"]
+
+
+def test_unrecognized_listing_uses_bounded_api_checks_to_prove_empty() -> None:
+    """Every supported ecosystem must report an empty first API page."""
+
+    request = PackageListingRequest("orgs", "example", 1, 0)
+    paths = _empty_probe_paths(request)
+    client = FakeGitHubClient(
+        rest_values={path: [] for path in paths},
+        text_values={request.url(): "<div>changed upstream markup</div>"},
+    )
+
+    fetched = fetch_package_listing_page(client, request, verify_empty_with_api=True)
+
+    assert fetched.page == PackageListingPage((), False)
+    assert not fetched.owner_missing
+    assert not fetched.listing_unavailable
+    assert client.rest_requests == list(paths)
+    assert "API" in fetched.diagnostic
+
+
+@pytest.mark.parametrize("payload", [[{"name": "package"}], None, {"message": "oops"}])
+def test_inconclusive_api_check_does_not_complete_an_unrecognized_listing(
+    payload: object,
+) -> None:
+    """A nonempty, missing, or malformed API response cannot prove emptiness."""
+
+    request = PackageListingRequest("users", "example", 1, 0)
+    first_path = _empty_probe_paths(request)[0]
+    client = FakeGitHubClient(
+        rest_values={first_path: payload},
+        text_values={request.url(): "<div></div>"},
+    )
+
+    fetched = fetch_package_listing_page(client, request, verify_empty_with_api=True)
+
+    assert fetched.listing_unavailable
+    assert "API" in fetched.diagnostic
+    assert client.rest_requests == [first_path]
+
+
+def test_unrecognized_later_page_does_not_use_first_page_api_emptiness() -> None:
+    """The REST listing cursor cannot substitute for a later HTML page."""
+
+    request = PackageListingRequest("orgs", "example", 2, 0)
+    client = FakeGitHubClient(text_values={request.url(): "<div></div>"})
+
+    fetched = fetch_package_listing_page(client, request, verify_empty_with_api=True)
+
+    assert fetched.listing_unavailable
+    assert not client.rest_requests
+
+
+def test_nonempty_later_ecosystem_prevents_an_empty_owner_result() -> None:
+    """An empty container listing does not prove that other ecosystems are empty."""
+
+    request = PackageListingRequest("orgs", "example", 1, 0)
+    paths = _empty_probe_paths(request)
+    values: dict[str, object] = {path: [] for path in paths}
+    values[paths[-1]] = [{"name": "legacy-image"}]
+    client = FakeGitHubClient(
+        rest_values=values,
+        text_values={request.url(): "<div></div>"},
+    )
+
+    fetched = fetch_package_listing_page(client, request, verify_empty_with_api=True)
+
+    assert fetched.listing_unavailable
+    assert "nonempty inventory for docker" in fetched.diagnostic
+    assert client.rest_requests == list(paths)
+
+
+def test_recognized_public_empty_listing_does_not_spend_api_requests() -> None:
+    """An explicit public empty state keeps the usual scrape-only path."""
+
+    request = PackageListingRequest("orgs", "example", 1, 0)
+    client = FakeGitHubClient(
+        text_values={request.url(): _empty_listing("org-packages")}
+    )
+
+    fetched = fetch_package_listing_page(client, request, verify_empty_with_api=True)
+
+    assert not fetched.listing_unavailable
+    assert not client.rest_requests
+
+
+@pytest.mark.parametrize("mode", [4, 5])
+def test_private_capable_empty_first_page_requires_visibility_matching_api_checks(
+    mode: int,
+) -> None:
+    """Public HTML alone does not establish the absence of readable private work."""
+
+    request = PackageListingRequest("orgs", "example", 1, mode)
+    paths = _empty_probe_paths(request)
+    client = FakeGitHubClient(
+        rest_values={path: [] for path in paths},
+        text_values={request.url(): _empty_listing("org-packages")},
+    )
+
+    fetched = fetch_package_listing_page(client, request, verify_empty_with_api=True)
+
+    assert not fetched.listing_unavailable
+    assert client.rest_requests == list(paths)
+
+
+def test_recognized_private_terminal_page_preserves_html_pagination() -> None:
+    """A later zero-results page ends an already recognized private-capable scan."""
+
+    request = PackageListingRequest("orgs", "example", 2, 4)
+    client = FakeGitHubClient(
+        text_values={request.url(): _empty_listing("org-packages")}
+    )
+
+    fetched = fetch_package_listing_page(client, request, verify_empty_with_api=True)
+
+    assert not fetched.listing_unavailable
+    assert not client.rest_requests

@@ -135,9 +135,6 @@ class OwnerBatchEffects:
 
         with self._lock:
             pages = result.scan.pages if result.scan is not None else None
-            if pages is not None and pages.first_page_empty:
-                self._remove_manual_owner(owner.owner)
-
             if result.outcome == "missing":
                 self._retire(owner, remove_manual=True, announce=True)
             elif result.outcome == "paused":

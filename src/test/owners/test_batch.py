@@ -287,8 +287,8 @@ def test_completed_owner_claims_survive_a_real_graceful_stop(tmp_path: Path) -> 
     )
 
 
-def test_first_empty_page_removes_manual_owner_before_pause(tmp_path: Path) -> None:
-    """An authoritative empty first page consumes a manual source entry."""
+def test_paused_scan_keeps_manual_owner_until_completion(tmp_path: Path) -> None:
+    """An incomplete owner scan cannot consume its manual source entry."""
 
     def update(_request: OwnerUpdateRequest) -> OwnerLifecycleResult:
         return OwnerLifecycleResult(
@@ -309,7 +309,7 @@ def test_first_empty_page_removes_manual_owner_before_pause(tmp_path: Path) -> N
     )
 
     assert status == ExitStatus.SUCCESS
-    assert (tmp_path / "owners.txt").read_text(encoding="utf-8") == ""
+    assert (tmp_path / "owners.txt").read_text(encoding="utf-8") == "alpha\n"
 
 
 @pytest.mark.parametrize(
