@@ -137,6 +137,13 @@ Good candidates are protocol and format edges where the standard library is not
 enough. Poor candidates are wrappers around `bkg`'s SQLite schema, persisted
 `.env` state, CLI surface, output layout, or workflow orchestration.
 
+Handoff, scheduled-update admission, fork merge configuration, and fork source
+synchronization run directly from source in lightweight Actions jobs without
+installed Python packages. Keep their complete import paths standard-library
+only, including package initializers. Load publication parsers only when reading
+an endpoint. The regression suite exercises these commands in subprocesses with
+`python -S` so installed development dependencies cannot conceal startup errors.
+
 Container version sizing uses GHCR's OCI Distribution API through the existing
 pooled HTTP client. It resolves a multi-platform index to `linux/amd64` when
 available, otherwise the first runnable platform, and sums compressed layer

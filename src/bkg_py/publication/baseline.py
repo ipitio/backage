@@ -57,24 +57,19 @@ class _XmlParser(Protocol):  # pylint: disable=too-few-public-methods
         raise NotImplementedError
 
 
-# These libraries expose untyped APIs; keep their typed boundary local.
-_JSON = cast(_JsonParser, import_module("ijson"))
-_XML = cast(_XmlParser, import_module("defusedxml.ElementTree"))
-
-
 def _json_events(
-    source: BinaryIO, check_stop: Callable[[], None]
+    source: BinaryIO, check_stop: Callable[[], None], parser: _JsonParser
 ) -> Iterator[_JsonEvent]:
-    for index, event in enumerate(_JSON.parse(source, use_float=True)):
+    for index, event in enumerate(parser.parse(source, use_float=True)):
         if index % 1024 == 0:
             check_stop()
         yield event
 
 
 def _json_records(
-    source: BinaryIO, check_stop: Callable[[], None]
+    source: BinaryIO, check_stop: Callable[[], None], parser: _JsonParser
 ) -> Iterator[JsonValue]:
-    events = _json_events(source, check_stop)
+    events = _json_events(source, check_stop, parser)
     first = next(events, None)
     if first is None:
         raise PublicationError("empty previous JSON endpoint")
@@ -84,7 +79,7 @@ def _json_records(
         yield from events
 
     prefix = "item" if first[1] == "start_array" else ""
-    for value in _JSON.items(restored(), prefix, use_float=True):
+    for value in parser.items(restored(), prefix, use_float=True):
         yield cast(JsonValue, value)
 
 
@@ -128,7 +123,8 @@ def _xml_records(
     root: Element | None = None
     depth = 0
     aggregate = False
-    events = _XML.iterparse(
+    parser = cast(_XmlParser, import_module("defusedxml.ElementTree"))
+    events = parser.iterparse(
         source,
         ("start", "end"),
         forbid_dtd=True,
@@ -171,22 +167,23 @@ class PublicationBaseline:
     ) -> None:
         """Validate the complete baseline before any endpoint can be replaced."""
 
+        parse_errors: tuple[type[Exception], ...] = (
+            ValueError,
+            ParseError,
+            sqlite3.IntegrityError,
+        )
         try:
             with path.open("rb") as source:
-                records = (
-                    _xml_records(source, check_stop)
-                    if path.name.endswith(".xml")
-                    else _json_records(source, check_stop)
-                )
+                if path.name.endswith(".xml"):
+                    records = _xml_records(source, check_stop)
+                else:
+                    parser = cast(_JsonParser, import_module("ijson"))
+                    parse_errors += (parser.JSONError,)
+                    records = _json_records(source, check_stop, parser)
                 for value in records:
                     check_stop()
                     self._store(value, merge=merge)
-        except (
-            ValueError,
-            ParseError,
-            _JSON.JSONError,
-            sqlite3.IntegrityError,
-        ) as error:
+        except parse_errors as error:
             raise PublicationError(
                 f"cannot read publication baseline {path}: {error}"
             ) from error
