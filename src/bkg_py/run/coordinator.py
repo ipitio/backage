@@ -258,6 +258,14 @@ class RunCoordinator:  # pylint: disable=too-few-public-methods
                         run_status = decision.run_status
                         if decision.message:
                             self.execution.progress(decision.message)
+                except GracefulStop as error:
+                    run_status = int(ExitStatus.GRACEFUL_STOP)
+                    self.execution.diagnostic(
+                        f"Graceful stop requested: {str(error) or 'requested'}"
+                    )
+                    self.execution.progress(
+                        "Graceful stop requested; stopping after persisting state..."
+                    )
                 finally:
                     if mode.uses_global_discovery:
                         self._clean_planning_files(request.working_directory)
@@ -334,14 +342,12 @@ class RunCoordinator:  # pylint: disable=too-few-public-methods
             startup.package_plan.completed,
         )
         if transition.reset:
-            self.phases.reset_owner_queue(
-                self._batch_marker(),
-                self.execution.now(),
-            )
-            self.phases.prepare_package_plan(
+            status = self._restart_batch_work(
                 transition.batch_first_started,
                 request.working_directory,
             )
+            if status == ExitStatus.GRACEFUL_STOP:
+                return _PreparedOwnerWork(int(status))
 
         rest_first = self.state.get(StateKey.REST_TO_TOP) or "0"
         self._log_prequeue_elapsed_once()
@@ -363,7 +369,14 @@ class RunCoordinator:  # pylint: disable=too-few-public-methods
             batch_marker=self._batch_marker(),
         )
         status, result = self._prepare_owner_queue_interruptibly(queue_request)
-        if include_manual and status != ExitStatus.GRACEFUL_STOP:
+        if status == ExitStatus.SUCCESS and result is not None and not transition.reset:
+            status, result, queue_request = self._reopen_exhausted_batch(
+                queue_request,
+                result,
+                startup.package_plan,
+                request.today,
+            )
+        if queue_request.include_manual and status != ExitStatus.GRACEFUL_STOP:
             self.runtime.complete_daily_gate(_OWNER_QUEUE_GATE, request.today)
         self.state.set_many(
             {
@@ -376,6 +389,70 @@ class RunCoordinator:  # pylint: disable=too-few-public-methods
             _GlobalOwnerAdmission(queue_request, result) if result is not None else None
         )
         return _PreparedOwnerWork(int(status), admission)
+
+    def _reopen_exhausted_batch(
+        self,
+        request: OwnerQueuePhaseRequest,
+        admission: OwnerQueuePreparationResult,
+        package_plan: PackageWorkPlanSummary,
+        today: str,
+    ) -> tuple[
+        ExitStatus,
+        OwnerQueuePreparationResult | None,
+        OwnerQueuePhaseRequest,
+    ]:
+        """Reopen at most one pass when no unfinished owner work remains."""
+
+        if (
+            request.request_limit == 0
+            or admission.candidates
+            or admission.may_have_more
+            or self.phases.owner_queue_refs(request.batch_marker)
+        ):
+            return ExitStatus.SUCCESS, admission, request
+        transition = self.runtime.complete_batch_if_exhausted(
+            today,
+            package_plan.total,
+            package_plan.completed,
+            owner_candidates_exhausted=True,
+        )
+        if not transition.reset:
+            return ExitStatus.SUCCESS, admission, request
+
+        self.execution.progress(
+            "Exhausted owner candidates below the package completion target; "
+            "starting the next refresh pass..."
+        )
+        status = self._restart_batch_work(
+            transition.batch_first_started,
+            request.working_directory,
+        )
+        if status == ExitStatus.GRACEFUL_STOP:
+            return status, None, request
+        replacement = replace(
+            request,
+            include_manual=True,
+            now=self.execution.now(),
+            batch_marker=self._batch_marker(),
+        )
+        status, result = self._prepare_owner_queue_interruptibly(replacement)
+        return status, result, replacement
+
+    def _restart_batch_work(self, since: str, working_directory: Path) -> ExitStatus:
+        """Reset owner work and rebuild its plan without losing stop status."""
+
+        status = self._interruptible(
+            lambda: self.phases.reset_owner_queue(
+                self._batch_marker(), self.execution.now()
+            )
+        )
+        if status == ExitStatus.GRACEFUL_STOP:
+            return status
+
+        def prepare_plan() -> None:
+            self.phases.prepare_package_plan(since, working_directory)
+
+        return self._interruptible(prepare_plan)
 
     def _prepare_targeted_owner_queue(
         self,

@@ -100,7 +100,7 @@ def prepare_generation(
     legacy_refs: tuple[str, ...],
     now: int,
 ) -> tuple[OwnerQueueEntry, ...]:
-    """Recover one generation and import legacy state only when it is empty."""
+    """Recover interrupted and due work; import legacy state only if empty."""
 
     _validate_generation(generation)
     _validate_time(now)
@@ -122,6 +122,20 @@ def prepare_generation(
             where generation = ? and status = 'claimed'
             """,
             (now, generation),
+        )
+        connection.execute(
+            """
+            update "bkg_owner_queue"
+            set status = 'ready', outcome = '', finished_at = 0,
+                updated_at = ?
+            where generation = ? and status = 'completed'
+              and exists (
+                  select 1 from "bkg_owner_scans" failed
+                  where failed.owner_id = "bkg_owner_queue".owner_id
+                    and failed.status = 'failed' and failed.retry_after <= ?
+              )
+            """,
+            (now, generation, now),
         )
         row = connection.execute(
             'select count(*) from "bkg_owner_queue" where generation = ?',

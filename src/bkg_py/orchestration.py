@@ -136,13 +136,16 @@ class BatchRuntimeService:
         total: int,
         completed: int,
         *,
+        owner_candidates_exhausted: bool = False,
         marker_factory: MarkerFactory | None = None,
     ) -> BatchTransition:
-        """Start a new batch once the active batch reaches its completion target."""
+        """Advance after the target, or an exhausted owner pass with progress."""
 
         _validate_date(today)
         _validate_package_counts(total, completed)
-        if completed < _batch_completion_target(total):
+        if completed < _batch_completion_target(total) and not (
+            owner_candidates_exhausted and completed > 0
+        ):
             return BatchTransition(
                 reset=False,
                 batch_first_started=(

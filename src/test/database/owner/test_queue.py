@@ -6,10 +6,12 @@ from pathlib import Path
 import pytest
 
 from bkg_py.database.composition import DatabaseRepositories
+from bkg_py.database.models import OwnerScanFailure
 from bkg_py.database.owner.queue import (
     OwnerQueueAdmission,
     OwnerQueueCandidate,
     OwnerQueueCompletion,
+    OwnerQueueOutcome,
 )
 from bkg_py.database.settings import DatabaseSettings
 from bkg_py.database.support import DatabaseError
@@ -325,3 +327,63 @@ def test_retryable_and_promoted_completed_work_can_reactivate(tmp_path: Path) ->
     assert len(promoted) == 1
     assert promoted[0].reason == "manual"
     assert promoted[0].sequence == claimed[0].sequence
+
+
+@pytest.mark.parametrize("outcome", ["deferred", "updated"])
+def test_startup_recovers_due_failed_owners_despite_candidate_deduplication(
+    tmp_path: Path, outcome: OwnerQueueOutcome
+) -> None:
+    """Published partial work and failed listings both resume after backoff."""
+
+    repository = _repository(tmp_path)
+    repository.owner_queue.record_owner_queue_candidates(
+        "batch-1",
+        (OwnerQueueCandidate("Alpha", "connection"),),
+        (
+            OwnerQueueAdmission("1", "Alpha", "connection"),
+            OwnerQueueAdmission("2", "Beta", "connection"),
+        ),
+        100,
+    )
+    repository.owner_queue.claim_owner_queue_wave("batch-1", 2, "claim-1", 101)
+    for owner_id in ("1", "2"):
+        repository.owner_queue.finish_owner_queue_claim(
+            OwnerQueueCompletion(
+                "batch-1",
+                owner_id,
+                "claim-1",
+                outcome if owner_id == "1" else "updated",
+                102,
+            )
+        )
+    repository.owners.begin_owner_scan("1", "Alpha", "batch-1", 100)
+    retry_after = repository.owners.fail_owner_scan(
+        OwnerScanFailure("1", "Alpha", "batch-1", "inventory unavailable", 102)
+    )
+
+    restarted = _repository(tmp_path)
+    assert (
+        restarted.owner_queue.prepare_owner_queue("batch-1", (), retry_after - 1) == ()
+    )
+    resumed = restarted.owner_queue.prepare_owner_queue("batch-1", (), retry_after)
+
+    assert tuple(entry.ref for entry in resumed) == ("1/Alpha",)
+    assert resumed[0].sequence == 0
+    assert resumed[0].status == "ready"
+    assert restarted.owner_queue.known_owner_queue_candidates(
+        "batch-1", ("alpha",)
+    ) == frozenset({"alpha"})
+    assert (
+        restarted.owner_queue.prepare_owner_queue("batch-1", (), retry_after + 1)
+        == resumed
+    )
+    restarted.owner_queue.claim_owner_queue_wave(
+        "batch-1", 2, "claim-2", retry_after + 2
+    )
+    restarted.owner_queue.finish_owner_queue_claim(
+        OwnerQueueCompletion("batch-1", "1", "claim-2", "updated", retry_after + 3)
+    )
+    restarted.owners.clear_owner_backoff("1", "Alpha", retry_after + 3)
+    assert (
+        restarted.owner_queue.prepare_owner_queue("batch-1", (), retry_after + 4) == ()
+    )

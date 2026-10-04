@@ -159,6 +159,29 @@ def test_complete_batch_if_exhausted_uses_total_when_below_cap(
     assert state.get("BKG_BATCH_MARKER") == "batch-next"
 
 
+@pytest.mark.parametrize(("completed", "reset"), [(0, False), (9_558, True)])
+def test_exhausted_owner_candidates_can_roll_an_under_target_batch(
+    tmp_path: Path, completed: int, reset: bool
+) -> None:
+    """An exhausted pass with real progress cannot wait on historical counts."""
+
+    state = StateStore(tmp_path / "state.env")
+    state.set_many(
+        {StateKey.BATCH_FIRST_STARTED: "2026-10-03", StateKey.BATCH_MARKER: "batch-1"}
+    )
+
+    transition = BatchRuntimeService(state).complete_batch_if_exhausted(
+        "2026-10-04",
+        32_646,
+        completed,
+        owner_candidates_exhausted=True,
+        marker_factory=lambda: "batch-next",
+    )
+
+    assert transition.reset is reset
+    assert state.get(StateKey.BATCH_MARKER) == ("batch-next" if reset else "batch-1")
+
+
 def test_daily_gate_tracks_date_batch_directions_and_source_publish(
     tmp_path: Path,
 ) -> None:

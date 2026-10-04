@@ -132,7 +132,9 @@ class FakeRunPhases:  # pylint: disable=too-many-instance-attributes
                 if batch_index < len(self.owner_queue_batches)
                 else ()
             )
-            may_have_more = batch_index + 1 < len(self.owner_queue_batches)
+            may_have_more = bool(batch) and batch_index + 1 < len(
+                self.owner_queue_batches
+            )
         self._add_ready(batch)
         selected = tuple(owner.rsplit("/", maxsplit=1)[-1] for owner in batch)
         return OwnerQueuePreparationResult(
@@ -159,6 +161,7 @@ class FakeRunPhases:  # pylint: disable=too-many-instance-attributes
         """Reset the fake durable queue after batch rollover."""
 
         del batch_marker, now
+        self._record("reset-owner-queue")
         self.ready_owner_queue.clear()
         self.paused_owner_queue.clear()
 
@@ -478,6 +481,153 @@ def test_completed_batch_republishes_package_plan(tmp_path: Path) -> None:
     assert "package-plan" in phases.events
     assert state.get("BKG_BATCH_FIRST_STARTED") == "2026-07-13"
     assert state.get("BKG_BATCH_MARKER") != "batch-1"
+
+
+@pytest.mark.parametrize("next_batch", [(), ("1/one", "2/two")])
+def test_empty_completed_owner_pass_reopens_an_under_target_batch_once(
+    tmp_path: Path, next_batch: tuple[str, ...]
+) -> None:
+    """Below-target completion cannot indefinitely prevent a new refresh pass."""
+
+    state = StateStore(tmp_path / "state.env")
+    state.set_many(
+        {
+            StateKey.BATCH_MARKER: "batch-1",
+            StateKey.LAST_OWNERS_QUEUE_DATE: "2026-07-13|batch-1|0,1",
+        }
+    )
+    phases = FakeRunPhases(
+        state,
+        FakeRunOptions(
+            package_plan=PackageWorkPlanSummary(32_646, 9_558, 23_088),
+            owner_queue_batches=((), next_batch),
+        ),
+    )
+
+    status, state, phases, progress, diagnostics = _run(
+        tmp_path, RunMode.ALL_PUBLIC, source_published_today=True, phases=phases
+    )
+
+    assert status == ExitStatus.SUCCESS
+    assert len(phases.owner_queue_requests) == 2
+    assert phases.owner_queue_requests[0].batch_marker == "batch-1"
+    assert not phases.owner_queue_requests[0].include_manual
+    assert phases.owner_queue_requests[1].batch_marker == state.get(
+        StateKey.BATCH_MARKER
+    )
+    assert phases.owner_queue_requests[1].batch_marker != "batch-1"
+    assert phases.owner_queue_requests[1].include_manual
+    assert phases.events.count("package-plan") == 1
+    assert phases.updated_owner_queues == ([next_batch] if next_batch else [])
+    assert any("Exhausted owner candidates" in message for message in progress)
+    assert not diagnostics
+
+
+@pytest.mark.parametrize("queue_status", ["ready", "paused"])
+def test_unfinished_owner_work_prevents_exhaustion_rollover(
+    tmp_path: Path, queue_status: str
+) -> None:
+    """A due retry or paused cursor stays in its original batch."""
+
+    state = StateStore(tmp_path / "state.env")
+    phases = FakeRunPhases(state, FakeRunOptions(owner_queue_batches=((),)))
+    queue = (
+        phases.ready_owner_queue
+        if queue_status == "ready"
+        else phases.paused_owner_queue
+    )
+    queue.append("1/one")
+
+    status, state, phases, _, _ = _run(tmp_path, RunMode.ALL_PUBLIC, phases=phases)
+
+    assert status == ExitStatus.SUCCESS
+    assert state.get(StateKey.BATCH_MARKER) == "batch-1"
+    assert len(phases.owner_queue_requests) == 1
+    expected = [("1/one",)] if queue_status == "ready" else [(), ("1/one",)]
+    assert phases.updated_owner_queues == expected
+
+
+def test_disabled_owner_admission_does_not_reopen_the_batch(tmp_path: Path) -> None:
+    """An intentionally disabled admission window is not proof of exhaustion."""
+
+    state = StateStore(tmp_path / "state.env")
+    phases = FakeRunPhases(state, FakeRunOptions(owner_queue_batches=((),)))
+    coordinator = RunCoordinator(
+        state,
+        phases,
+        RunCoordinatorExecution(lambda _message: None, lambda _message: None),
+    )
+
+    status = coordinator.run(
+        RunCoordinatorRequest(
+            "2026-07-13", 1_000, RunMode.ALL_PUBLIC, "example", False, tmp_path, 0
+        )
+    )
+
+    assert status == ExitStatus.SUCCESS
+    assert state.get(StateKey.BATCH_MARKER) == "batch-1"
+    assert len(phases.owner_queue_requests) == 1
+    assert "package-plan" not in phases.events
+
+
+@pytest.mark.parametrize("stop_at", ["reset-owner-queue", "package-plan", "admission"])
+def test_stop_during_exhaustion_rollover_still_finalizes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, stop_at: str
+) -> None:
+    """Interrupted replacement work retains its generation and publication path."""
+
+    state = StateStore(tmp_path / "state.env")
+    phases = FakeRunPhases(
+        state,
+        FakeRunOptions(
+            owner_queue_batches=((),),
+            stop_at=stop_at,
+        ),
+    )
+    prepare = phases.prepare_owner_queue
+
+    def prepare_owner_queue(
+        request: OwnerQueuePhaseRequest,
+    ) -> OwnerQueuePreparationResult:
+        if stop_at == "admission" and request.batch_marker != "batch-1":
+            raise GracefulStop("replacement admission")
+        return prepare(request)
+
+    monkeypatch.setattr(phases, "prepare_owner_queue", prepare_owner_queue)
+
+    status, state, phases, _, _ = _run(tmp_path, RunMode.ALL_PUBLIC, phases=phases)
+
+    assert status == ExitStatus.GRACEFUL_STOP
+    assert state.get(StateKey.BATCH_MARKER) != "batch-1"
+    assert phases.events[-1] == "finalize:true"
+    assert not phases.updated_owner_queues
+    assert state.get(StateKey.LAST_OWNERS_QUEUE_DATE) is None
+
+
+@pytest.mark.parametrize("mode", [RunMode.ALL_PUBLIC, RunMode.OWN_PUBLIC])
+def test_stop_between_owner_phases_still_finalizes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mode: RunMode
+) -> None:
+    """A stop raised by a queue read cannot escape prepared-run finalization."""
+
+    state = StateStore(tmp_path / "state.env")
+    phases = FakeRunPhases(state)
+
+    def owner_queue_refs(_batch_marker: str) -> tuple[str, ...]:
+        raise GracefulStop("queue read")
+
+    monkeypatch.setattr(phases, "owner_queue_refs", owner_queue_refs)
+
+    status, state, phases, progress, diagnostics = _run(tmp_path, mode, phases=phases)
+
+    assert status == ExitStatus.GRACEFUL_STOP
+    assert state.get(StateKey.BATCH_MARKER) == "batch-1"
+    assert phases.events[-1] == "finalize:true"
+    assert not phases.updated_owner_queues
+    assert diagnostics == ["Graceful stop requested: queue read"]
+    assert progress[-1] == (
+        "Graceful stop requested; stopping after persisting state..."
+    )
 
 
 @pytest.mark.parametrize("paused", [False, True])
