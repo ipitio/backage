@@ -12,6 +12,7 @@ from ..packages.discovery import (
     PackageListingRequest,
     fetch_package_listing_page,
 )
+from ..packages.inventory_probe import PackageInventoryProbe
 from .package_updates import (
     OwnerPackageRefreshRequest,
     OwnerPackageRefreshService,
@@ -76,11 +77,18 @@ class OwnerScanPageService:  # pylint: disable=too-few-public-methods
         client: OwnerListingClient,
         package_refresh: OwnerPackageRefreshService,
         execution: OwnerScanPageExecution,
+        *,
+        inventory_probe: PackageInventoryProbe | None = None,
     ) -> None:
         self.repository = repository
         self.client = client
         self.package_refresh = package_refresh
         self.execution = execution
+        self.inventory_probe = (
+            inventory_probe
+            if inventory_probe is not None
+            else PackageInventoryProbe(check_stop=execution.check_stop)
+        )
 
     def scan(self, request: OwnerScanPagesRequest) -> OwnerScanPagesResult:
         """Process listing pages until the listing or this pass is complete."""
@@ -103,6 +111,7 @@ class OwnerScanPageService:  # pylint: disable=too-few-public-methods
                     request.mode,
                 ),
                 verify_empty_with_api=refresh_request.policy.use_rest_api,
+                inventory_probe=self.inventory_probe,
             )
             page = fetched.page
             self.execution.progress(f"Started {owner} page {page_number}")

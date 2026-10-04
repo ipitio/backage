@@ -282,8 +282,19 @@ def test_owner_page_service_advances_multiple_pages_with_one_client(
 
 
 @pytest.mark.parametrize("start_page", [1, 2])
+@pytest.mark.parametrize(
+    "html",
+    [
+        "<div>upstream changed</div>",
+        '<div id="org-packages"><h3>2 packages</h3><ul>'
+        '<li><a href="/orgs/example/packages/container/package/package">known</a>'
+        '<a href="/example/repo">repository</a></li>'
+        '<li><a href="/example/repo/packages/12345">legacy</a></li></ul></div>',
+    ],
+    ids=["unrecognized", "mixed-inventory"],
+)
 def test_unrecognized_owner_page_keeps_cursor_and_package_inventory(
-    tmp_path: Path, start_page: int
+    tmp_path: Path, start_page: int, html: str
 ) -> None:
     """Neither a new nor a resumed scan can advance across unknown HTML."""
 
@@ -303,7 +314,7 @@ def test_unrecognized_owner_page_keeps_cursor_and_package_inventory(
         "https://github.com/orgs/example/packages?visibility=public&per_page=100"
         f"&page={start_page}"
     )
-    client = FakeGitHubClient(text_values={url: "<div>upstream changed</div>"})
+    client = FakeGitHubClient(text_values={url: html})
     refresh = OwnerPackageRefreshRequest(
         "42",
         "example",

@@ -1,12 +1,13 @@
 """Fetch and parse GitHub owner package listing pages."""
 
 from dataclasses import dataclass
-from html.parser import HTMLParser
-from typing import Protocol, cast
+from typing import Protocol
 from urllib.parse import parse_qs, quote, urlencode, urlsplit
 
 from ..database.models import OwnerScanPackage
-from ..github import GitHubJsonResponse, GitHubNotFoundError
+from ..github import GitHubNotFoundError
+from .inventory_probe import PackageInventoryClient, PackageInventoryProbe
+from .listing_html import ListingHTMLParser, ListingMarkup
 
 _PAGE_SIZE = 100
 _OWNER_TYPES = frozenset({"orgs", "users"})
@@ -15,7 +16,8 @@ _PRIVATE_CAPABLE_MODE = 3
 _PRIVATE_ONLY_MODE = 5
 _PACKAGE_PATH_PARTS = 6
 _REPOSITORY_PATH_PARTS = 2
-_API_PACKAGE_TYPES = ("container", "npm", "maven", "rubygems", "nuget", "docker")
+_DIAGNOSTIC_PATH_LIMIT = 3
+_DIAGNOSTIC_PATH_LENGTH = 160
 
 
 class PackageDiscoveryError(RuntimeError):
@@ -24,6 +26,10 @@ class PackageDiscoveryError(RuntimeError):
 
 class _UnrecognizedPackageListingError(PackageDiscoveryError):
     """A fetched page does not establish a package listing or its absence."""
+
+
+class _IncompletePackageListingError(_UnrecognizedPackageListingError):
+    """Visible entries or a partial results region prevent complete coverage."""
 
 
 class PackageListingClient(Protocol):  # pylint: disable=too-few-public-methods
@@ -43,14 +49,10 @@ class PackageListingClient(Protocol):  # pylint: disable=too-few-public-methods
 
 class OwnerListingClient(
     PackageListingClient,
+    PackageInventoryClient,
     Protocol,
 ):  # pylint: disable=too-few-public-methods
     """GitHub operations used to classify a missing package listing."""
-
-    def rest_json_optional(self, path: str) -> GitHubJsonResponse | None:
-        """Return owner metadata or an absent-resource marker."""
-
-        raise NotImplementedError
 
 
 @dataclass(frozen=True)
@@ -76,6 +78,16 @@ class PackageListingRequest:
 
         return self.mode >= _PRIVATE_CAPABLE_MODE
 
+    @property
+    def visibility(self) -> str | None:
+        """Return the explicit visibility filter selected by the listing mode."""
+
+        if self.mode < _PUBLIC_ONLY_MODE_LIMIT:
+            return "public"
+        if self.mode == _PRIVATE_ONLY_MODE:
+            return "private"
+        return None
+
     def url(self) -> str:
         """Build the GitHub HTML listing URL for this request."""
 
@@ -85,10 +97,8 @@ class PackageListingRequest:
             query.append(("tab", "packages"))
         else:
             path = f"https://github.com/orgs/{self.owner}/packages"
-        if self.mode < _PUBLIC_ONLY_MODE_LIMIT:
-            query.append(("visibility", "public"))
-        elif self.mode == _PRIVATE_ONLY_MODE:
-            query.append(("visibility", "private"))
+        if self.visibility is not None:
+            query.append(("visibility", self.visibility))
         query.extend((("per_page", _PAGE_SIZE), ("page", self.page)))
         return f"{path}?{urlencode(query)}"
 
@@ -111,103 +121,19 @@ class PackageListingFetch:
     diagnostic: str = ""
 
 
-@dataclass(frozen=True)
-class _Anchor:
-    href: str
-    relations: frozenset[str]
-
-
-@dataclass
-class _EmptyListingRegion:
-    """Empty-state markers within one package results region."""
-
-    depth: int = 1
-    blank_depth: int = 0
-    heading_parts: list[str] | None = None
-    zero_count: bool = False
-    empty_heading: bool = False
-
-
-class _ListingParser(HTMLParser):
-    def __init__(self, owner_type: str) -> None:
-        super().__init__(convert_charrefs=True)
-        self.anchors: list[_Anchor] = []
-        self.empty_listing = False
-        self._container = (
-            "user-packages-list" if owner_type == "users" else "org-packages"
-        )
-        self._region: _EmptyListingRegion | None = None
-
-    def handle_starttag(
-        self,
-        tag: str,
-        attrs: list[tuple[str, str | None]],
-    ) -> None:
-        values = {key.casefold(): value or "" for key, value in attrs}
-        self._observe_start(tag, values)
-        if tag != "a":
-            return
-        href = values.get("href", "")
-        if not href:
-            return
-        self.anchors.append(
-            _Anchor(href, frozenset(values.get("rel", "").casefold().split()))
-        )
-
-    def _observe_start(self, tag: str, values: dict[str, str]) -> None:
-        if tag == "div":
-            if self._region is not None:
-                self._region.depth += 1
-            elif values.get("id") == self._container:
-                self._region = _EmptyListingRegion()
-        region = self._region
-        if region is None:
-            return
-        if tag == "div" and "blankslate" in values.get("class", "").split():
-            region.blank_depth = region.depth
-        elif tag == "h3":
-            region.heading_parts = []
-
-    def handle_data(self, data: str) -> None:
-        region = self._region
-        if region is not None and region.heading_parts is not None:
-            region.heading_parts.append(data)
-
-    def handle_endtag(self, tag: str) -> None:
-        region = self._region
-        if region is None:
-            return
-        if tag == "h3" and region.heading_parts is not None:
-            heading = " ".join("".join(region.heading_parts).split()).casefold()
-            region.zero_count = region.zero_count or heading == "0 packages"
-            region.empty_heading = region.empty_heading or (
-                region.blank_depth > 0 and heading == "no results matched your search."
-            )
-            region.heading_parts = None
-        if tag == "div":
-            if region.depth == region.blank_depth:
-                region.blank_depth = 0
-            region.depth -= 1
-            if region.depth == 0:
-                self.empty_listing = self.empty_listing or (
-                    region.zero_count and region.empty_heading
-                )
-                self._region = None
-
-
 def parse_package_listing_html(
     html: str,
     request: PackageListingRequest,
 ) -> PackageListingPage:
     """Parse package identities and pagination from one GitHub HTML page."""
 
-    parser = _ListingParser(request.owner_type)
+    parser = ListingHTMLParser(request.owner_type)
     parser.feed(html)
     parser.close()
     packages: dict[tuple[str, str], OwnerScanPackage] = {}
     pending: tuple[str, str] | None = None
 
-    for anchor in parser.anchors:
+    for anchor in parser.markup.entry_anchors:
         package = _package_path(anchor.href, request)
         if package is not None:
             if package == pending:
@@ -247,21 +173,80 @@ def parse_package_listing_html(
             ),
         )
     )
+    _require_listing_coverage(parser.markup, request, len(unique_packages))
     has_more = (
         any(
-            "next" in anchor.relations
-            or _links_to_later_page(anchor.href, request.page)
-            for anchor in parser.anchors
+            _is_listing_pagination(anchor.href, request)
+            and (
+                "next" in anchor.relations
+                or _links_to_later_page(anchor.href, request.page)
+            )
+            for anchor in parser.markup.anchors
         )
         or len(unique_packages) >= _PAGE_SIZE
     )
-    if not unique_packages and (not parser.empty_listing or has_more):
+    if not unique_packages and (not parser.markup.empty_listing or has_more):
         raise _UnrecognizedPackageListingError(
             f"unrecognized package listing for {request.owner} page {request.page}; "
-            f"html_chars={len(html)} anchors={len(parser.anchors)} "
-            f"empty_state={parser.empty_listing} has_more={has_more}"
+            f"html_chars={len(html)} anchors={len(parser.markup.anchors)} "
+            f"empty_state={parser.markup.empty_listing} has_more={has_more}"
         )
     return PackageListingPage(unique_packages, has_more)
+
+
+def _require_listing_coverage(
+    markup: ListingMarkup,
+    request: PackageListingRequest,
+    recognized_count: int,
+) -> None:
+    unresolved = {
+        urlsplit(anchor.href).path
+        for anchor in markup.entry_anchors
+        if _is_unresolved_package_link(anchor.href, request)
+    }
+    issues: list[str] = []
+    if unresolved:
+        samples = ",".join(
+            path[:_DIAGNOSTIC_PATH_LENGTH]
+            for path in sorted(unresolved)[:_DIAGNOSTIC_PATH_LIMIT]
+        )
+        issues.append(
+            f"unsupported package links (including repository-scoped entries): "
+            f"count={len(unresolved)} paths={samples}"
+        )
+    if markup.has_region and not markup.complete_region:
+        issues.append("package results region is incomplete")
+    if markup.package_count is not None and markup.package_count != recognized_count:
+        issues.append(
+            f"package count mismatch: declared={markup.package_count} "
+            f"recognized={recognized_count}"
+        )
+    if markup.entry_count and markup.entry_count != recognized_count:
+        issues.append(
+            f"package row coverage mismatch: rows={markup.entry_count} "
+            f"recognized={recognized_count}"
+        )
+    if issues:
+        raise _IncompletePackageListingError(
+            f"unrecognized package listing for {request.owner} page {request.page}; "
+            + "; ".join(issues)
+        )
+
+
+def _is_unresolved_package_link(href: str, request: PackageListingRequest) -> bool:
+    if _package_path(href, request) is not None:
+        return False
+    parts = _github_path_parts(href)
+    if len(parts) <= _REPOSITORY_PATH_PARTS + 1:
+        return False
+    return (
+        parts[0] == request.owner_type
+        and parts[1].casefold() == request.owner.casefold()
+        and parts[2] == "packages"
+    ) or (
+        parts[0].casefold() == request.owner.casefold()
+        and parts[2] in {"packages", "pkgs"}
+    )
 
 
 def _package_path(
@@ -271,7 +256,11 @@ def _package_path(
     parts = _github_path_parts(href)
     if len(parts) != _PACKAGE_PATH_PARTS:
         return None
-    if parts[:3] != [request.owner_type, request.owner, "packages"]:
+    if (
+        parts[0] != request.owner_type
+        or parts[1].casefold() != request.owner.casefold()
+        or parts[2] != "packages"
+    ):
         return None
     if parts[4] != "package" or not parts[3] or not parts[5]:
         return None
@@ -280,7 +269,11 @@ def _package_path(
 
 def _repository_path(href: str, owner: str) -> str | None:
     parts = _github_path_parts(href)
-    if len(parts) != _REPOSITORY_PATH_PARTS or parts[0] != owner or not parts[1]:
+    if (
+        len(parts) != _REPOSITORY_PATH_PARTS
+        or parts[0].casefold() != owner.casefold()
+        or not parts[1]
+    ):
         return None
     return parts[1]
 
@@ -318,6 +311,17 @@ def _links_to_later_page(href: str, current_page: int) -> bool:
     return False
 
 
+def _is_listing_pagination(href: str, request: PackageListingRequest) -> bool:
+    parsed = urlsplit(href)
+    if parsed.netloc and not _github_path_parts(href):
+        return False
+    path = parsed.path.rstrip("/").casefold()
+    expected = urlsplit(request.url()).path.casefold()
+    return (not path or path == expected) and parse_qs(parsed.query).get(
+        "tab", ["packages"]
+    ) == ["packages"]
+
+
 class PackageListingService:  # pylint: disable=too-few-public-methods
     """Load owner package listings through a shared GitHub client."""
 
@@ -339,11 +343,18 @@ def fetch_package_listing_page(
     request: PackageListingRequest,
     *,
     verify_empty_with_api: bool = False,
+    inventory_probe: PackageInventoryProbe | None = None,
 ) -> PackageListingFetch:
     """Fetch a listing, separating verified absence from unavailable inventory."""
 
     try:
         page = PackageListingService(client).fetch(request)
+    except _IncompletePackageListingError as error:
+        return PackageListingFetch(
+            PackageListingPage((), False),
+            listing_unavailable=True,
+            diagnostic=str(error),
+        )
     except _UnrecognizedPackageListingError as error:
         diagnostic = str(error)
     except GitHubNotFoundError:
@@ -363,7 +374,15 @@ def fetch_package_listing_page(
         )
 
     if request.page == 1 and verify_empty_with_api:
-        empty, api_diagnostic = _verify_empty_owner_listing(client, request)
+        probe = (
+            inventory_probe if inventory_probe is not None else PackageInventoryProbe()
+        )
+        empty, api_diagnostic = probe.verify_empty(
+            client,
+            request.owner_type,
+            request.owner,
+            visibility=request.visibility if request.authenticated else "public",
+        )
         if empty:
             return PackageListingFetch(
                 PackageListingPage((), False), diagnostic=api_diagnostic
@@ -374,31 +393,3 @@ def fetch_package_listing_page(
         listing_unavailable=True,
         diagnostic=diagnostic,
     )
-
-
-def _verify_empty_owner_listing(
-    client: OwnerListingClient, request: PackageListingRequest
-) -> tuple[bool, str]:
-    owner_path = f"{request.owner_type}/{quote(request.owner, safe='')}/packages"
-    for package_type in _API_PACKAGE_TYPES:
-        query: list[tuple[str, str | int]] = [
-            ("package_type", package_type),
-            ("per_page", 1),
-            ("page", 1),
-        ]
-        if not request.authenticated:
-            query.append(("visibility", "public"))
-        elif request.mode == _PRIVATE_ONLY_MODE:
-            query.append(("visibility", "private"))
-        response = client.rest_json_optional(f"{owner_path}?{urlencode(query)}")
-        if response is None:
-            return False, f"Package API unavailable for {package_type}"
-        value: object = response.value
-        if not isinstance(value, list) or response.next_url is not None:
-            return (
-                False,
-                f"Package API did not establish empty inventory for {package_type}",
-            )
-        if cast(list[object], value):
-            return False, f"Package API returned nonempty inventory for {package_type}"
-    return True, f"Verified empty package listing for {request.owner} via package API"

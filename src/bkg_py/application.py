@@ -41,6 +41,7 @@ from .owners.scan_pages import (
 )
 from .owners.updates import OwnerScanService
 from .packages.enrichment import RequestCircuit, RequestCircuitSettings
+from .packages.inventory_probe import PackageInventoryProbe
 from .packages.registry.artifacts import (
     ArtifactSizeResolver,
     ContainerArtifactSizeAdapter,
@@ -71,6 +72,7 @@ from .state import StateStore
 _STOP_BOUND_SERVICES = (
     "database",
     "owner_identity_cache",
+    "package_inventory_probe",
     "snapshots",
     "worker_runner",
     "process_runner",
@@ -141,7 +143,7 @@ class GitHubOperationClients:
 
 
 @dataclass
-class ApplicationContext:
+class ApplicationContext:  # pylint: disable=too-many-public-methods
     """Shared configuration and services for one bkg process."""
 
     settings: ApplicationSettings
@@ -290,6 +292,15 @@ class ApplicationContext:
         """Return GitHub settings captured for this process."""
 
         return self.settings.github
+
+    @cached_property
+    def package_inventory_probe(self) -> PackageInventoryProbe:
+        """Share credential-bound inventory capability checks across this run."""
+
+        return PackageInventoryProbe(
+            installation_token=self.github_settings.token.startswith("ghs_"),
+            check_stop=self.stop.check,
+        )
 
     @cached_property
     def github_rate_accounting(self) -> GitHubRateAccounting:
@@ -473,6 +484,7 @@ def _owner_lifecycle(
             application.stop.check,
             execution.progress,
         ),
+        inventory_probe=application.package_inventory_probe,
     )
     return OwnerLifecycleService(
         application.database.owners,

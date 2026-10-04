@@ -10,11 +10,38 @@ import bkg_py.cli
 from bkg_py.application import ApplicationContext, github_operation_clients
 from bkg_py.cli import build_parser, entrypoint, main
 from bkg_py.database.support import DatabaseError
+from bkg_py.github import GitHubResponseError
 from bkg_py.packages.registry.transport import PackageRegistryTransport
 from bkg_py.result import ExitStatus
 from bkg_py.workspace import update as workspace_update
 
+from .github.fake import FakeGitHubClient
+
 _ENVIRONMENT_CREDENTIAL_SOURCE = "environment"
+
+
+@pytest.mark.parametrize("prefix", ["ghs", "ghp"])
+def test_inventory_probe_uses_captured_credential_kind(
+    tmp_path: Path, prefix: str
+) -> None:
+    """Only captured installation credentials enable the API capability cache."""
+
+    application = ApplicationContext.from_mapping(
+        {"BKG_ENV": str(tmp_path / "env.env"), "GITHUB_TOKEN": f"{prefix}_placeholder"}
+    )
+    path = (
+        "users/example/packages?package_type=container&per_page=1&page=1"
+        "&visibility=public"
+    )
+    client = FakeGitHubClient(
+        rest_values={path: GitHubResponseError("Invalid argument.", status_code=400)}
+    )
+
+    for _ in range(2):
+        assert not application.package_inventory_probe.verify_empty(
+            client, "users", "example", visibility="public"
+        )[0]
+    assert client.rest_requests == [path] * (1 if prefix == "ghs" else 2)
 
 
 def test_context_constructs_services_lazily_and_reuses_them(
@@ -190,6 +217,7 @@ def test_run_configuration_rebinds_stop_aware_services(
     old_worker = application.worker_runner
     old_metrics = application.metric_enrichment
     old_version_listings = application.version_listing_recovery
+    old_inventory_probe = application.package_inventory_probe
     old_process_runner = application.process_runner
 
     application.configure_run(
@@ -204,6 +232,7 @@ def test_run_configuration_rebinds_stop_aware_services(
     assert application.worker_runner is not old_worker
     assert application.metric_enrichment is not old_metrics
     assert application.version_listing_recovery is not old_version_listings
+    assert application.package_inventory_probe is not old_inventory_probe
     assert application.process_runner is not old_process_runner
     assert (
         getattr(application.worker_runner.check_stop, "__self__", None)

@@ -58,13 +58,18 @@ class FakeGitHubClient:
         """Return one configured REST response."""
 
         self.rest_requests.append(path)
-        return GitHubJsonResponse(self.rest_values[path], httpx.Headers())
+        value = self.rest_values[path]
+        if isinstance(value, Exception):
+            raise value
+        return GitHubJsonResponse(value, httpx.Headers())
 
     def rest_json_optional(self, path: str) -> GitHubJsonResponse | None:
         """Return a configured REST response or an absent-resource marker."""
 
         self.rest_requests.append(path)
         value = self.rest_values[path]
+        if isinstance(value, Exception):
+            raise value
         if value is None:
             return None
         return GitHubJsonResponse(value, httpx.Headers())

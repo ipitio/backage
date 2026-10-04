@@ -3,7 +3,7 @@
 import pytest
 
 from bkg_py.database.models import OwnerScanPackage
-from bkg_py.github import GitHubNotFoundError
+from bkg_py.github import GitHubNotFoundError, GitHubResponseError
 from bkg_py.packages.discovery import (
     PackageDiscoveryError,
     PackageListingPage,
@@ -38,6 +38,106 @@ def _empty_probe_paths(request: PackageListingRequest) -> tuple[str, ...]:
         f"&per_page=1&page=1{visibility}"
         for kind in ("container", "npm", "maven", "rubygems", "nuget", "docker")
     )
+
+
+def _listing_region(entries: str, count: int = 1) -> str:
+    return (
+        '<div id="org-packages"><div class="Box-header">'
+        f"<h3>{count} package{'s' if count != 1 else ''}</h3></div>"
+        f"<ul>{entries}</ul></div>"
+    )
+
+
+_TYPED_ENTRY = (
+    '<li><a href="/orgs/example/packages/container/package/image">image</a>'
+    '<a href="/example/repo">repository</a></li>'
+)
+_LEGACY_ENTRY = (
+    '<li><a title="org.example.library" href="/example/repo/packages/12345">'
+    'org.example.library</a><a href="/example/repo">repository</a></li>'
+)
+
+
+@pytest.mark.parametrize(
+    "html",
+    [
+        _listing_region(_TYPED_ENTRY + _LEGACY_ENTRY, 2),
+        _listing_region(_TYPED_ENTRY, 2),
+        _listing_region(_TYPED_ENTRY).rsplit("</div>", maxsplit=1)[0],
+        _listing_region(_TYPED_ENTRY, 0),
+        '<div id="org-packages"><ul>'
+        + _TYPED_ENTRY.replace("<li>", '<li class="Box-row">')
+        + '<li class="Box-row"><a href="/example/other-route">unknown</a></li>'
+        "</ul></div>",
+    ],
+    ids=[
+        "mixed-links",
+        "missing-entry",
+        "truncated-region",
+        "contradictory-count",
+        "unrecognized-row-without-heading",
+    ],
+)
+def test_partial_nonempty_listing_cannot_complete_an_inventory(html: str) -> None:
+    """Recognizing some packages does not establish complete page coverage."""
+
+    with pytest.raises(PackageDiscoveryError, match="unrecognized package listing"):
+        parse_package_listing_html(html, PackageListingRequest("orgs", "example", 1, 0))
+
+
+def test_repository_scoped_entries_are_not_overruled_by_an_empty_api() -> None:
+    """An API's readable inventory cannot discard packages present in HTML."""
+
+    request = PackageListingRequest("orgs", "example", 1, 0)
+    client = FakeGitHubClient(
+        rest_values={path: [] for path in _empty_probe_paths(request)},
+        text_values={request.url(): _listing_region(_LEGACY_ENTRY)},
+    )
+
+    fetched = fetch_package_listing_page(client, request, verify_empty_with_api=True)
+
+    assert fetched.listing_unavailable
+    assert "repository-scoped" in fetched.diagnostic
+    assert "/example/repo/packages/12345" in fetched.diagnostic
+    assert not client.rest_requests
+
+
+def test_listing_coverage_ignores_links_outside_the_results_region() -> None:
+    """Global navigation and unrelated packages do not alter the owner's page."""
+
+    html = (
+        '<a href="/orgs/example/packages/npm/package/navigation">outside</a>'
+        '<a rel="next" href="https://other.example/?page=2">outside next</a>'
+        + _listing_region(_TYPED_ENTRY)
+    )
+
+    page = parse_package_listing_html(
+        html, PackageListingRequest("orgs", "EXAMPLE", 1, 0)
+    )
+
+    assert page == PackageListingPage(
+        (OwnerScanPackage("orgs", "container", "repo", "image"),), False
+    )
+
+
+def test_api_failure_retains_listing_context() -> None:
+    """An unavailable emptiness probe retains both owner and HTTP diagnostics."""
+
+    request = PackageListingRequest("users", "example", 1, 0)
+    client = FakeGitHubClient(
+        rest_values={
+            _empty_probe_paths(request)[0]: GitHubResponseError(
+                "GitHub returned HTTP 400: Invalid argument.", status_code=400
+            )
+        },
+        text_values={request.url(): "<div>changed upstream markup</div>"},
+    )
+
+    fetched = fetch_package_listing_page(client, request, verify_empty_with_api=True)
+
+    assert fetched.listing_unavailable
+    assert "example page 1" in fetched.diagnostic
+    assert "HTTP 400" in fetched.diagnostic
 
 
 @pytest.mark.parametrize(
@@ -207,10 +307,11 @@ def test_listing_404_stays_unavailable_when_the_owner_still_exists() -> None:
     assert client.rest_requests == ["orgs/available"]
 
 
-def test_unrecognized_listing_uses_bounded_api_checks_to_prove_empty() -> None:
+@pytest.mark.parametrize("mode", [0, 2])
+def test_unrecognized_listing_uses_bounded_api_checks_to_prove_empty(mode: int) -> None:
     """Every supported ecosystem must report an empty first API page."""
 
-    request = PackageListingRequest("orgs", "example", 1, 0)
+    request = PackageListingRequest("orgs", "example", 1, mode)
     paths = _empty_probe_paths(request)
     client = FakeGitHubClient(
         rest_values={path: [] for path in paths},
