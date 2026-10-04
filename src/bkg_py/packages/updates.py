@@ -388,6 +388,7 @@ class PackageRefreshService:  # pylint: disable=too-few-public-methods
                     since=request.since,
                     version_limit=-1,
                     legacy_table=request.legacy_table,
+                    previous_publication=destination,
                 ),
                 self.execution.check_stop,
             )

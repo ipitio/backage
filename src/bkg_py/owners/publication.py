@@ -108,6 +108,7 @@ class OwnerPublicationService:  # pylint: disable=too-few-public-methods
                     repo=repo,
                     size_hint_directory=size_hint_directory,
                     settings=self.aggregate_settings,
+                    previous_publication=destination,
                 ),
                 self.check_stop,
             )

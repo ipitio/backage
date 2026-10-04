@@ -115,8 +115,8 @@ class TestPublication:
             assert 1 in identifiers
             assert 6 in identifiers
 
-    def test_hard_limits_replace_independently_oversized_formats(self) -> None:
-        """Hard caps always leave valid minimal JSON and XML endpoints."""
+    def test_hard_limits_preserve_the_previous_pair(self) -> None:
+        """Oversized required data is retryable, never an empty publication."""
 
         with tempfile.TemporaryDirectory() as directory:
             source = Path(directory) / "package.json"
@@ -125,20 +125,20 @@ class TestPublication:
                 encoding="utf-8",
             )
 
-            result = publish_json_file(
-                source,
-                _never_stop,
-                PublicationLimits(
-                    maximum_bytes=10_000,
-                    hard_maximum_bytes=20,
-                ),
-            )
+            original = source.read_bytes()
+            xml_path = source.with_suffix(".xml")
+            xml_path.write_bytes(b"<xml><old>true</old></xml>")
+            original_xml = xml_path.read_bytes()
 
-            assert source.read_bytes() == b"{}\n"
-            empty_xml = b'<?xml version="1.0" encoding="UTF-8"?><xml></xml>\n'
-            assert source.with_suffix(".xml").read_bytes() == empty_xml
-            assert result.json_size == 3
-            assert result.xml_size == len(empty_xml)
+            with pytest.raises(PublicationError, match="hard byte limit"):
+                publish_json_file(
+                    source,
+                    _never_stop,
+                    PublicationLimits(maximum_bytes=20, hard_maximum_bytes=20),
+                )
+
+            assert source.read_bytes() == original
+            assert xml_path.read_bytes() == original_xml
 
     def test_interruption_preserves_previous_pair_and_cleans_temporary_files(
         self,
@@ -170,7 +170,7 @@ class TestPublication:
                     stop_after_staging,
                     PublicationLimits(
                         maximum_bytes=10_000,
-                        hard_maximum_bytes=20,
+                        hard_maximum_bytes=20_000,
                     ),
                 )
 

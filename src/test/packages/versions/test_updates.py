@@ -399,10 +399,10 @@ def test_force_refresh_reinspects_existing_same_day_versions(tmp_path: Path) -> 
     assert client.text_requests == [_detail_url("1", package_type="npm")]
 
 
-def test_refresh_pauses_failing_detail_requests_and_preserves_stored_metrics(
+def test_refresh_pauses_failing_detail_requests_and_records_unknown_counters(
     tmp_path: Path,
 ) -> None:
-    """Repeated transport failures use stored metrics without stalling the owner."""
+    """A failed observation must not give old counters a new observation date."""
 
     package = _package_ref()
     repository = DatabaseRepositories(DatabaseSettings(tmp_path / "index.db")).packages
@@ -465,7 +465,9 @@ def test_refresh_pauses_failing_detail_requests_and_preserves_stored_metrics(
         _detail_url("2", package_type="npm"),
         _detail_url("3", package_type="npm"),
     }
-    assert rows["1"].metrics == _record("1").metrics
+    assert rows["1"].metrics == VersionMetrics(
+        _record("1").metrics.size, -1, -1, -1, -1
+    )
     assert rows["1"].date == _TODAY
     assert rows["2"].metrics.downloads == -1
     assert rows["3"].metrics.downloads == -1

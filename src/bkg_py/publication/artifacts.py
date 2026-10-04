@@ -9,10 +9,11 @@ from pathlib import Path
 from ..config import ConfigError, read_int
 from ..files import atomic_path
 from ..runtime_names import EnvironmentVariable as Env
+from .baseline import publication_baseline
+from .values import JsonValue, PublicationError
 
 _XML_PREFIX = '<?xml version="1.0" encoding="UTF-8"?><xml>'
 _XML_SUFFIX = "</xml>"
-_EMPTY_XML = f"{_XML_PREFIX}{_XML_SUFFIX}\n".encode()
 _WRITE_CHUNK_SIZE = 1024 * 1024
 _MAX_TRIM_COUNT = 65536
 _CONTROL_CHARACTER_LIMIT = 32
@@ -22,7 +23,6 @@ _LEGACY_SIDECAR_MARKERS = tuple(
     for suffix in ("tmp", "abs", "rel")
 )
 
-JsonValue = dict[str, "JsonValue"] | list["JsonValue"] | str | int | float | bool | None
 StopCheck = Callable[[], None]
 
 
@@ -58,10 +58,6 @@ def remove_package_artifacts(destination: Path) -> None:
     for path in (destination, destination.with_suffix(".xml")):
         path.unlink(missing_ok=True)
     remove_legacy_package_sidecars(destination)
-
-
-class PublicationError(ValueError):
-    """A generated file cannot be parsed or serialized."""
 
 
 @dataclass(frozen=True)
@@ -122,7 +118,6 @@ class _TrimState:
 class _PreparedPublication:
     json_output: bytes
     xml_value: JsonValue
-    xml_is_empty: bool
     xml_size: int
     trimmed: bool
 
@@ -291,9 +286,9 @@ def _trim_version_holder(value: JsonValue, count: int) -> JsonValue:
     ):
         ordered = sorted(versions, key=lambda item: _numeric(_version_id(item)))
 
-    candidates = [item for item in ordered if _is_protected_version(item)] + ordered[
-        count:
-    ]
+    mandatory = [item for item in ordered if _is_protected_version(item)]
+    optional = [item for item in ordered if not _is_protected_version(item)]
+    candidates = mandatory + optional[count:]
     unique: dict[str, JsonValue] = {}
     for item in sorted(candidates, key=lambda item: _identifier_key(_version_id(item))):
         unique.setdefault(_identifier_key(_version_id(item)), item)
@@ -311,7 +306,12 @@ def _holder_with_most_versions(values: list[JsonValue]) -> int | None:
         return None
     return max(
         range(len(values)),
-        key=lambda index: (len(_version_list(values[index])), index),
+        key=lambda index: (
+            sum(
+                not _is_protected_version(item) for item in _version_list(values[index])
+            ),
+            index,
+        ),
     )
 
 
@@ -354,44 +354,8 @@ def _trim_largest_versions(value: JsonValue, count: int) -> JsonValue:
     return value
 
 
-def _download_date_key(value: JsonValue) -> tuple[int | float, str]:
-    if not isinstance(value, dict):
-        return 0, ""
-    date = value.get("date", "")
-    return _numeric(value.get("raw_downloads", 0)), (
-        date if isinstance(date, str) else ""
-    )
-
-
-def _drop_one_from_list(values: list[JsonValue]) -> list[JsonValue]:
-    if not values:
-        return []
-    index = min(range(len(values)), key=lambda item: _download_date_key(values[item]))
-    return values[:index] + values[index + 1 :]
-
-
-def _drop_one(value: JsonValue) -> JsonValue:
-    if isinstance(value, list):
-        return _drop_one_from_list(value)
-    if isinstance(value, dict):
-        packages = value.get("package")
-        if isinstance(packages, list):
-            result = dict(value)
-            result["package"] = _drop_one_from_list(packages)
-            return result
-        if not value:
-            return value
-        key = min(value, key=lambda item: _download_date_key(value[item]))
-        return {item: child for item, child in value.items() if item != key}
-    return value
-
-
 def _trim_once(value: JsonValue, count: int) -> JsonValue:
-    return (
-        _trim_largest_versions(value, count)
-        if _has_versions(value)
-        else _drop_one(value)
-    )
+    return _trim_largest_versions(value, count) if _has_versions(value) else value
 
 
 def _write_bytes(path: Path, data: bytes, check_stop: StopCheck) -> None:
@@ -445,13 +409,7 @@ def _advance_trim(state: _TrimState) -> bool:
     candidate_json = _compact_json(candidate)
 
     if len(candidate_json) >= json_size:
-        if state.delete_count < _MAX_TRIM_COUNT:
-            state.delete_count = min(state.delete_count * 2, _MAX_TRIM_COUNT)
-            return True
-        candidate = _drop_one(state.value)
-        candidate_json = _compact_json(candidate)
-        if len(candidate_json) >= json_size:
-            return False
+        return False
 
     state.value = candidate
     state.json_output = candidate_json
@@ -462,11 +420,12 @@ def _advance_trim(state: _TrimState) -> bool:
 
 def _prepare_publication(
     original_json: bytes,
+    value: JsonValue,
     limits: PublicationLimits,
     check_stop: StopCheck,
 ) -> _PreparedPublication:
     state = _TrimState(
-        value=_load_json(original_json),
+        value=value,
         json_output=original_json,
         target_json_size=limits.maximum_bytes,
     )
@@ -482,17 +441,16 @@ def _prepare_publication(
     if state.xml_size is None:
         state.xml_size = _xml_size(state.value, check_stop)
 
-    json_output = state.json_output
-    if len(json_output) >= limits.hard_maximum_bytes:
-        json_output = b"{}\n"
-
-    xml_is_empty = state.xml_size >= limits.hard_maximum_bytes
-    xml_size = len(_EMPTY_XML) if xml_is_empty else state.xml_size
+    if max(len(state.json_output), state.xml_size) >= limits.hard_maximum_bytes:
+        raise PublicationError(
+            "publication exceeds the hard byte limit after optional-version trimming: "
+            f"JSON={len(state.json_output)}, XML={state.xml_size}, "
+            f"limit={limits.hard_maximum_bytes}; retaining previous endpoints"
+        )
     return _PreparedPublication(
-        json_output=json_output,
+        json_output=state.json_output,
         xml_value=state.value,
-        xml_is_empty=xml_is_empty,
-        xml_size=xml_size,
+        xml_size=state.xml_size,
         trimmed=state.trimmed,
     )
 
@@ -509,8 +467,14 @@ def write_xml_file(
     check_stop()
     value = _load_json(source.read_bytes())
     xml_path = destination or _xml_path(source)
-    with atomic_path(xml_path) as temporary_path:
-        _write_xml(temporary_path, value, check_stop)
+    with publication_baseline(xml_path, check_stop, prefer_xml=True) as baseline:
+        preserved = baseline.preserve(value)
+    with atomic_path(xml_path) as temporary_xml:
+        _write_xml(temporary_xml, preserved, check_stop)
+        if preserved != value and xml_path == _xml_path(source):
+            with atomic_path(source) as temporary_json:
+                _write_bytes(temporary_json, _compact_json(preserved), check_stop)
+                check_stop()
         check_stop()
     return xml_path.stat().st_size
 
@@ -526,13 +490,22 @@ def publish_json_file(
     if not source.is_file():
         raise PublicationError(f"missing JSON file: {source}")
     publication_limits = limits or PublicationLimits()
+    json_path = destination or source
+    original_json = source.read_bytes()
+    value = _load_json(original_json)
+    with publication_baseline(
+        json_path, check_stop, prefer_xml=source == json_path
+    ) as baseline:
+        preserved = baseline.preserve(value)
+    if preserved != value:
+        original_json = _compact_json(preserved)
     prepared = _prepare_publication(
-        source.read_bytes(),
+        original_json,
+        preserved,
         publication_limits,
         check_stop,
     )
 
-    json_path = destination or source
     xml_path = _xml_path(json_path)
     check_stop()
     with (
@@ -540,10 +513,7 @@ def publish_json_file(
         atomic_path(json_path) as temporary_json,
     ):
         _write_bytes(temporary_json, prepared.json_output, check_stop)
-        if prepared.xml_is_empty:
-            _write_bytes(temporary_xml, _EMPTY_XML, check_stop)
-        else:
-            _write_xml(temporary_xml, prepared.xml_value, check_stop)
+        _write_xml(temporary_xml, prepared.xml_value, check_stop)
         check_stop()
     check_stop()
 

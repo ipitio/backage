@@ -22,6 +22,7 @@ from ..database.package.repository import PackageRepository
 from ..files import atomic_path, atomic_text_output
 from ..runtime_names import EnvironmentVariable as Env
 from .artifacts import JsonValue
+from .baseline import publication_baseline
 
 StopCheck = Callable[[], None]
 _METRIC_UNITS = ("", "k", "M", "B", "T", "P", "E", "Z", "Y")
@@ -91,6 +92,7 @@ class PackageRenderOptions:
     since: str
     version_limit: int
     legacy_table: str | None
+    previous_publication: Path | None = None
 
 
 @dataclass(frozen=True)
@@ -100,6 +102,7 @@ class DatabaseAggregateOptions:
     repo: str | None
     size_hint_directory: Path | None
     settings: AggregateSettings
+    previous_publication: Path | None = None
 
 
 def render_version_array(
@@ -209,13 +212,13 @@ def render_package_file(
             f"no package row found for {package.owner}/{package.package}"
         )
     check_stop()
-    _write_json_value(
-        destination,
-        render_package(
-            snapshot,
-            version_limit=options.version_limit,
-        ),
-    )
+    with publication_baseline(
+        options.previous_publication or destination, check_stop
+    ) as baseline:
+        value = baseline.preserve(
+            render_package(snapshot, version_limit=options.version_limit)
+        )
+    _write_json_value(destination, value)
     return bool(snapshot.versions.rows)
 
 
@@ -237,7 +240,12 @@ def render_database_aggregate(
     )
     count = 0
     first = True
-    with atomic_text_output(destination) as output:
+    with (
+        publication_baseline(
+            options.previous_publication or destination, check_stop
+        ) as baseline,
+        atomic_text_output(destination) as output,
+    ):
         output.write("[")
 
         def visit(snapshot: PackageSnapshot) -> None:
@@ -245,10 +253,13 @@ def render_database_aggregate(
             check_stop()
             if not first:
                 output.write(",")
-            _dump_json(
+            value = _preserve_package_endpoint(
                 render_package(snapshot, version_limit=version_limit),
-                output,
+                snapshot.package.record.package_ref,
+                options,
+                check_stop,
             )
+            _dump_json(baseline.preserve(value), output)
             first = False
             count += 1
 
@@ -259,6 +270,24 @@ def render_database_aggregate(
         )
         output.write("]\n")
     return count
+
+
+def _preserve_package_endpoint(
+    value: JsonValue,
+    package: PackageRef,
+    options: DatabaseAggregateOptions,
+    check_stop: StopCheck,
+) -> JsonValue:
+    directory = options.size_hint_directory
+    if directory is None:
+        return value
+    if options.repo is None:
+        directory = directory / package.repo
+    endpoint = directory / f"{package.package}.json"
+    if not endpoint.is_file() and not endpoint.with_suffix(".xml").is_file():
+        return value
+    with publication_baseline(endpoint, check_stop) as baseline:
+        return baseline.preserve(value)
 
 
 def render_file_aggregate(

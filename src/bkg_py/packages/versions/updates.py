@@ -193,28 +193,15 @@ class VersionDetailInspector:  # pylint: disable=too-few-public-methods
         if self.context.package_type == "container" and not tags:
             tags = extract_oci_version_labels(page_data.manifest)
 
-        if fallback is not None:
-            if size < 0:
-                size = fallback.metrics.size
-            if not tags:
-                tags = tuple(fallback.tags.split(","))
+        if fallback is not None and not tags:
+            tags = tuple(fallback.tags.split(","))
 
-        metrics = (
-            VersionMetrics(
-                size,
-                fallback.metrics.downloads,
-                fallback.metrics.downloads_month,
-                fallback.metrics.downloads_week,
-                fallback.metrics.downloads_day,
-            )
-            if fallback is not None
-            else VersionMetrics(
-                size,
-                page_data.metrics.total,
-                page_data.metrics.month,
-                page_data.metrics.week,
-                page_data.metrics.day,
-            )
+        metrics = VersionMetrics(
+            size,
+            page_data.metrics.total,
+            page_data.metrics.month,
+            page_data.metrics.week,
+            page_data.metrics.day,
         )
 
         return VersionRecord(

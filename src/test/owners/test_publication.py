@@ -20,7 +20,7 @@ from bkg_py.owners.publication import (
     OwnerPublicationRequest,
     OwnerPublicationService,
 )
-from bkg_py.publication import PublicationLimits
+from bkg_py.publication import PublicationLimits, publish_json_file
 from bkg_py.publication.rendering import AggregateSettings
 from bkg_py.runtime import GracefulStop
 
@@ -133,6 +133,68 @@ def test_interrupted_owner_publication_preserves_existing_pair(tmp_path: Path) -
     assert json_path.read_text(encoding="utf-8") == '{"old":true}\n'
     assert xml_path.read_text(encoding="utf-8") == "<old/>\n"
     assert not tuple(owner_directory.glob("..json.render.*"))
+
+
+@pytest.mark.parametrize(
+    "package_baseline", [False, True], ids=["aggregate", "package-endpoint"]
+)
+def test_owner_and_repository_outputs_preserve_known_metrics_from_db_unknowns(
+    tmp_path: Path, package_baseline: bool
+) -> None:
+    """Aggregates use dated package fallback even when rebuilt without old arrays."""
+
+    repository = DatabaseRepositories(DatabaseSettings(tmp_path / "index.db")).packages
+    package = _package("One", "alpha")
+    _write_package(repository, package)
+    request = OwnerPublicationRequest("42", "Example", tmp_path / "index")
+    service = _service(repository)
+    service.publish(request)
+    owner_directory = request.index_directory / request.owner
+    repo_directory = owner_directory / package.repo
+    if package_baseline:
+        value = json.loads((repo_directory / ".json").read_bytes())[0]
+        endpoint = repo_directory / "alpha.json"
+        endpoint.write_text(json.dumps(value), encoding="utf-8")
+        publish_json_file(endpoint, lambda: None)
+        for directory in (owner_directory, repo_directory):
+            (directory / ".json").unlink()
+            (directory / ".xml").unlink()
+    repository.write_package(PackageRecord(package, -1, -1, -1, -1, -1, "2026-07-01"))
+    repository.flush_version_stage(
+        VersionStage(
+            package,
+            "versions_One_alpha",
+            False,
+            (
+                VersionRecord(
+                    "1",
+                    "sha256:one",
+                    VersionMetrics(-1, -1, -1, -1, -1),
+                    "2026-07-01",
+                    "latest",
+                ),
+            ),
+        )
+    )
+
+    service.publish(request)
+
+    for directory in (owner_directory, repo_directory):
+        published = json.loads((directory / ".json").read_bytes())[0]
+        assert published["raw_downloads"] == 100
+        assert published["raw_size"] == 30
+        assert published["date"] == "2026-07-01"
+        assert published["metric_observations"]["downloads"] == {
+            "observed_on": _TODAY,
+            "stale": True,
+        }
+        assert published["version"][0]["raw_downloads"] == 100
+        assert "<raw_downloads>100</raw_downloads>" in (directory / ".xml").read_text(
+            encoding="utf-8"
+        )
+    snapshot = repository.package_snapshot(package, since="2026-07-01")
+    assert snapshot is not None
+    assert snapshot.package.record.downloads == -1
 
 
 def test_empty_owner_publication_removes_stale_aggregate_pair(tmp_path: Path) -> None:

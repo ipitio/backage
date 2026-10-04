@@ -14,7 +14,9 @@ authors = [
     { name = "ipitio", email = "ipitio@users.noreply.github.com" },
 ]
 dependencies = [
+    "defusedxml>=0.7,<1",
     "httpx>=0.26,<1",
+    "ijson>=3.4,<4",
 ]
 
 [dependency-groups]

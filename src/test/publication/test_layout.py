@@ -40,7 +40,6 @@ def test_publication_root_exposes_only_artifact_primitives() -> None:
     """The package root remains the small shared artifact API."""
 
     exported = {
-        PublicationError,
         PublicationLimits,
         PublicationResult,
         publish_json_file,
@@ -48,6 +47,7 @@ def test_publication_root_exposes_only_artifact_primitives() -> None:
         xml_chunks,
     }
     assert {value.__module__ for value in exported} == {"bkg_py.publication.artifacts"}
+    assert PublicationError.__module__ == "bkg_py.publication.values"
     assert JsonValue is not None
     assert set(bkg_py.publication.__all__) == {
         "JsonValue",

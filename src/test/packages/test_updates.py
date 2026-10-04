@@ -16,6 +16,7 @@ from bkg_py.database.models import (
     VersionRecord,
     VersionStage,
 )
+from bkg_py.database.package.repository import PackageRepository
 from bkg_py.database.settings import DatabaseSettings
 from bkg_py.github import GitHubNotFoundError, GitHubTransportError
 from bkg_py.packages.enrichment import (
@@ -41,7 +42,8 @@ from bkg_py.packages.updates import (
 from bkg_py.packages.versions.metadata import DownloadMetrics
 from bkg_py.packages.versions.selection import VersionSelectionSettings
 from bkg_py.packages.versions.updates import VersionRefreshExecution
-from bkg_py.publication import PublicationLimits
+from bkg_py.publication import PublicationLimits, publish_json_file
+from bkg_py.publication.rendering import PackageRenderOptions, render_package_file
 from bkg_py.runtime import GracefulStop
 
 from ..github.fake import FakeGitHubClient as _FakeClient
@@ -149,6 +151,29 @@ def _request(package: PackageRef, destination: Path) -> PackageRefreshRequest:
             mode=0,
         ),
     )
+
+
+def _seed_publication(
+    repository: PackageRepository,
+    package: PackageRef,
+    destination: Path,
+) -> None:
+    old_date = "2026-06-25"
+    repository.write_package(replace(_package_record(package), date=old_date))
+    repository.flush_version_stage(
+        VersionStage(
+            package, "legacy_versions", False, (replace(_version(), date=old_date),)
+        )
+    )
+    destination.parent.mkdir(parents=True)
+    render_package_file(
+        repository,
+        package,
+        destination,
+        PackageRenderOptions(old_date, -1, None),
+        lambda: None,
+    )
+    publish_json_file(destination, lambda: None)
 
 
 def test_optouts_support_literal_and_component_regex_entries() -> None:
@@ -388,6 +413,113 @@ def test_package_counters_use_the_current_page_not_sampled_versions(
         version_metrics.day,
     )
     assert client.text_requests == [package_url, version_url]
+
+
+@pytest.mark.parametrize(
+    "detail_failure", [False, True], ids=["missing-markup", "failed-request"]
+)
+def test_refresh_and_republication_keep_index_metrics_without_faking_db_observations(
+    tmp_path: Path, detail_failure: bool
+) -> None:
+    """The index keeps dated fallback values while current DB counters are unknown."""
+
+    package = _package()
+    repository = DatabaseRepositories(DatabaseSettings(tmp_path / "index.db")).packages
+    destination = tmp_path / "index" / package.owner / package.repo / "Demo.json"
+    _seed_publication(repository, package, destination)
+    package_url = "https://github.com/orgs/Example/packages/npm/package/Demo"
+    version_url = "https://github.com/orgs/Example/packages/npm/Demo/7"
+    api_path = "orgs/Example/packages/npm/Demo/versions?per_page=30&page=1"
+    client = _FakeClient(
+        rest_values={api_path: [{"id": 7, "name": "release-7", "tags": ["latest"]}]},
+        text_values={
+            package_url: "<main>No counters</main>",
+            version_url: GitHubTransportError("temporary failure")
+            if detail_failure
+            else "",
+        },
+    )
+    service = PackageRefreshService(
+        repository, client, _execution(tmp_path / "optout.txt")
+    )
+    request = _request(package, destination)
+
+    service.refresh(request)
+
+    snapshot = repository.package_snapshot(package, since=_TODAY)
+    assert snapshot is not None
+    assert snapshot.package.record.downloads == -1
+    assert snapshot.versions.rows[0].metrics.downloads == -1
+    assert snapshot.versions.rows[0].date == _TODAY
+    published = json.loads(destination.read_bytes())
+    assert published["raw_downloads"] == 1500
+    assert published["metric_observations"]["downloads"] == {
+        "observed_on": "2026-06-25",
+        "stale": True,
+    }
+    assert published["version"][0]["raw_downloads"] == 1500
+    assert (
+        published["version"][0]["metric_observations"]["downloads"]
+        == published["metric_observations"]["downloads"]
+    )
+    previous_requests = list(client.text_requests)
+
+    result = service.refresh(replace(request, policy=replace(request.policy, mode=1)))
+
+    assert not result.package_written
+    assert client.text_requests == previous_requests
+    assert json.loads(destination.read_bytes()) == published
+    assert "<raw_downloads>1500</raw_downloads>" in destination.with_suffix(
+        ".xml"
+    ).read_text(encoding="utf-8")
+
+
+def test_oversized_publication_keeps_files_and_pending_work_until_retry(
+    tmp_path: Path,
+) -> None:
+    """Hard caps cannot turn a failed publication into completed batch work."""
+
+    package = _package()
+    repository = DatabaseRepositories(DatabaseSettings(tmp_path / "index.db")).packages
+    destination = tmp_path / "index" / package.owner / package.repo / "Demo.json"
+    _seed_publication(repository, package, destination)
+    previous_json = destination.read_bytes()
+    previous_xml = destination.with_suffix(".xml").read_bytes()
+    client = _FakeClient(
+        rest_values={
+            "orgs/Example/packages/npm/Demo/versions?per_page=30&page=1": [
+                {"id": 7, "name": "release-7", "tags": ["latest"]}
+            ]
+        },
+        text_values={
+            "https://github.com/orgs/Example/packages/npm/package/Demo": _metrics_html(
+                DownloadMetrics(25, 0, 0, 0)
+            ),
+            "https://github.com/orgs/Example/packages/npm/Demo/7": "",
+        },
+    )
+    execution = _execution(tmp_path / "optout.txt")
+    request = replace(_request(package, destination), batch_marker="index-preservation")
+
+    with pytest.raises(PackageRefreshError, match="hard byte limit"):
+        PackageRefreshService(
+            repository,
+            client,
+            replace(execution, publication_limits=PublicationLimits(100, 100)),
+        ).refresh(request)
+
+    assert destination.read_bytes() == previous_json
+    assert destination.with_suffix(".xml").read_bytes() == previous_xml
+    assert repository.package_publication_pending(package)
+    assert not repository.package_completed_in_batch(package, request.batch_marker)
+    assert not list(destination.parent.glob(".Demo.json.*"))
+
+    result = PackageRefreshService(repository, client, execution).refresh(request)
+
+    assert result.outcome == "refreshed"
+    assert not repository.package_publication_pending(package)
+    assert repository.package_completed_in_batch(package, request.batch_marker)
+    assert json.loads(destination.read_bytes())["raw_downloads"] == 25
 
 
 def test_refresh_rejects_a_publication_marker_that_did_not_clear(
