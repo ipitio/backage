@@ -1,80 +1,100 @@
-"""Validate generated index files with the same results as the shell validator."""
+"""Check generated JSON and XML without modifying the input files."""
 
-import json
-import xml.etree.ElementTree as element_tree
+import sys
+from collections.abc import Iterator
+from importlib import import_module
 from pathlib import Path
+from typing import BinaryIO, Protocol, cast
+from xml.etree.ElementTree import Element, ParseError
 
 from .result import ExitStatus
 
-_MISSING = object()
+
+class _JsonParser(Protocol):  # pylint: disable=too-few-public-methods
+    """JSON syntax events without constructing the complete document."""
+
+    JSONError: type[Exception]
+
+    def basic_parse(
+        self, source: BinaryIO, *, multiple_values: bool
+    ) -> Iterator[tuple[str, object]]:
+        """Parse exactly one JSON document to the end of the input."""
+
+        raise NotImplementedError
 
 
-def _reject_json_constant(value: str) -> None:
-    raise ValueError(f"invalid JSON constant: {value}")
+class _XmlParser(Protocol):  # pylint: disable=too-few-public-methods
+    """Safe XML events used only while checking a file."""
+
+    def iterparse(
+        self,
+        source: BinaryIO,
+        events: tuple[str, str],
+        *,
+        forbid_dtd: bool,
+        forbid_entities: bool,
+        forbid_external: bool,
+    ) -> Iterator[tuple[str, Element]]:
+        """Read structural events without document types or entities."""
+
+        raise NotImplementedError
 
 
-def _last_json_value(text: str) -> object:
-    decoder = json.JSONDecoder(parse_constant=_reject_json_constant)
-    position = 0
-    last_value: object = _MISSING
-
-    while True:
-        while position < len(text) and text[position].isspace():
-            position += 1
-        if position >= len(text):
-            break
-        last_value, position = decoder.raw_decode(text, position)
-
-    if last_value is _MISSING:
-        raise ValueError("empty JSON input")
-    return last_value
-
-
-def _is_valid_json(path: Path) -> bool:
+def _is_valid_json(source: BinaryIO) -> bool:
+    parser = cast(_JsonParser, import_module("ijson"))
     try:
-        text = path.read_text(encoding="utf-8")
-        last_value = _last_json_value(text)
-    except OSError, UnicodeError, ValueError:
+        for _ in parser.basic_parse(source, multiple_values=False):
+            pass
+    except parser.JSONError, UnicodeError, ValueError:
         return False
-    return last_value is not None and last_value is not False
+    return True
 
 
-def _is_valid_xml(path: Path) -> bool:
+def _is_valid_xml(source: BinaryIO) -> bool:
+    parser = cast(_XmlParser, import_module("defusedxml.ElementTree"))
+    parents: list[Element] = []
     try:
-        element_tree.parse(path)
-    except OSError, element_tree.ParseError:
+        for event, element in parser.iterparse(
+            source,
+            ("start", "end"),
+            forbid_dtd=True,
+            forbid_entities=True,
+            forbid_external=True,
+        ):
+            if event == "start":
+                parents.append(element)
+            else:
+                parents.pop()
+                if parents:
+                    parents[-1].remove(element)
+                element.clear()
+    except ParseError, UnicodeError, ValueError, LookupError:
         return False
     return True
 
 
 def validate_generated_file(filename: str) -> ExitStatus:
-    """Report invalid generated JSON or XML and remove empty output files."""
+    """Return failure for unreadable, empty, malformed, or unsafe input."""
 
-    path = Path(filename) if filename else None
-    if path is None:
-        print(f"Empty file: {filename}")
-        return ExitStatus.SUCCESS
+    if not filename:
+        print(f"Empty file: {filename}", file=sys.stderr)
+        return ExitStatus.NON_FATAL
 
+    path = Path(filename)
+    file_type = "json" if path.suffix.casefold() == ".json" else "xml"
     try:
-        has_content = path.stat().st_size > 0
-    except OSError:
-        has_content = False
-
-    if not has_content:
-        print(f"Empty file: {filename}")
-        try:
-            path.unlink()
-        except FileNotFoundError:
-            pass
-        except OSError:
-            pass
-        return ExitStatus.SUCCESS
-
-    if filename.endswith(".json"):
-        if not _is_valid_json(path):
-            print(f"Invalid json: {filename}")
-        return ExitStatus.SUCCESS
-
-    if not _is_valid_xml(path):
-        print(f"Invalid xml: {filename}")
+        with path.open("rb") as source:
+            if not source.read(1):
+                print(f"Empty file: {filename}", file=sys.stderr)
+                return ExitStatus.NON_FATAL
+            source.seek(0)
+            valid = (
+                _is_valid_json(source) if file_type == "json" else _is_valid_xml(source)
+            )
+    except OSError as error:
+        print(f"Cannot read file: {filename}: {error}", file=sys.stderr)
+        return ExitStatus.NON_FATAL
+    if not valid:
+        print(f"Invalid {file_type}: {filename}", file=sys.stderr)
+        return ExitStatus.NON_FATAL
     return ExitStatus.SUCCESS
