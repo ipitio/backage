@@ -10,6 +10,7 @@ import bkg_py.packages.updates
 from bkg_py.concurrency import BoundedWorkerRunner, ConcurrencySettings
 from bkg_py.database.composition import DatabaseRepositories
 from bkg_py.database.models import (
+    OwnerScanPackage,
     PackageRecord,
     PackageRef,
     VersionMetrics,
@@ -18,7 +19,7 @@ from bkg_py.database.models import (
 )
 from bkg_py.database.package.repository import PackageRepository
 from bkg_py.database.settings import DatabaseSettings
-from bkg_py.github import GitHubNotFoundError, GitHubTransportError
+from bkg_py.github import GitHubNotFoundError, GitHubResponseError, GitHubTransportError
 from bkg_py.packages.enrichment import (
     METRIC_TEXT_REQUEST_POLICY,
     PACKAGE_METRIC_SCOPE,
@@ -151,6 +152,105 @@ def _request(package: PackageRef, destination: Path) -> PackageRefreshRequest:
             mode=0,
         ),
     )
+
+
+@pytest.mark.parametrize("inventory_available", [True, False])
+def test_legacy_refresh_reuses_durable_route_and_defers_unavailable_inventory(
+    tmp_path: Path, inventory_available: bool
+) -> None:
+    """After a restart, only a real version inventory can complete the package."""
+
+    package = replace(_package(), package_type="maven", package="org.example.library")
+    settings = DatabaseSettings(tmp_path / "index.db")
+    repository = DatabaseRepositories(settings)
+    repository.owners.begin_owner_scan("42", "Example", "scan", 100)
+    repository.owners.observe_owner_scan(
+        "42",
+        "scan",
+        (OwnerScanPackage("orgs", "maven", "Packages", package.package, "12345"),),
+        101,
+    )
+    destination = tmp_path / "index" / "library.json"
+    _seed_publication(repository.packages, package, destination)
+    baseline = (destination.read_bytes(), destination.with_suffix(".xml").read_bytes())
+    detail_url = "https://github.com/Example/Packages/packages/12345"
+    api_path = (
+        f"orgs/Example/packages/maven/{package.package}/versions?per_page=30&page=1"
+    )
+    client = _FakeClient(
+        rest_values={
+            f"orgs/Example/packages/maven/{package.package}": {
+                "id": 12345,
+                "package_type": "maven",
+                "name": package.package,
+                "repository": {"full_name": "Example/Packages"},
+            },
+            api_path: (
+                [{"id": 8, "name": "1.2.3+test"}]
+                if inventory_available
+                else GitHubResponseError(
+                    "installation token cannot read inventory", status_code=400
+                )
+            ),
+        },
+        text_values={
+            detail_url: _metrics_html(DownloadMetrics(10, 4, 2, 1)),
+            f"{detail_url}?version=1.2.3%2Btest": _metrics_html(
+                DownloadMetrics(5, 2, 1, 0)
+            ),
+        },
+    )
+    repository = DatabaseRepositories(settings)
+    service = PackageRefreshService(
+        repository.packages,
+        client,
+        _execution(
+            tmp_path / "optout.txt",
+            size_resolver=ArtifactSizeResolver(
+                {
+                    "maven": _FixedSizeAdapter(123),
+                }
+            ),
+        ),
+    )
+    request = replace(
+        _request(package, destination),
+        batch_marker="batch-1",
+        policy=PackageRefreshPolicy(False, False, 0),
+    )
+
+    result = service.refresh(request)
+
+    assert (
+        repository.packages.package_completed_in_batch(package, "batch-1")
+        == inventory_available
+    )
+    assert client.rest_requests == [
+        f"orgs/Example/packages/maven/{package.package}",
+        api_path,
+    ]
+    if inventory_available:
+        assert result.outcome == "refreshed"
+        records = repository.packages.version_rows(package, since=_TODAY).rows
+        assert [(record.version_id, record.name) for record in records] == [
+            ("8", "1.2.3+test")
+        ]
+        assert records[0].metrics.downloads == 5
+        assert client.text_requests == [
+            detail_url,
+            f"{detail_url}?version=1.2.3%2Btest",
+        ]
+    else:
+        assert result.outcome == "versions_unavailable"
+        assert not result.package_written
+        assert (
+            destination.read_bytes(),
+            destination.with_suffix(".xml").read_bytes(),
+        ) == baseline
+        assert not repository.packages.version_rows(package, since=_TODAY).rows
+        assert client.text_requests == [detail_url]
+    completion = repository.owners.complete_owner_scan("42", "scan", _TODAY, 102)
+    assert completion.pending_count == (0 if inventory_available else 1)
 
 
 def _seed_publication(

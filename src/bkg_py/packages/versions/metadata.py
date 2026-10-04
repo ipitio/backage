@@ -11,8 +11,9 @@ from datetime import date, timedelta
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from html.parser import HTMLParser
 from typing import cast
-from urllib.parse import unquote_plus
+from urllib.parse import unquote_plus, urlencode
 
+from ..legacy import LegacyPackageLink
 from .selection import VersionCandidate
 
 _DOWNLOAD_LABELS = {
@@ -136,10 +137,16 @@ class VersionListingContext:
     repo: str
     package_type: str
     package: str
+    source_package_id: str = ""
 
 
 def package_html_base_path(context: VersionListingContext) -> str:
-    """Return GitHub's owner-scoped package path without a leading slash."""
+    """Return GitHub's package route without a leading slash."""
+
+    if context.source_package_id:
+        return LegacyPackageLink(
+            context.owner, context.repo, context.source_package_id
+        ).path.lstrip("/")
 
     return (
         f"{context.owner_type}/{context.owner}/packages/"
@@ -150,6 +157,8 @@ def package_html_base_path(context: VersionListingContext) -> str:
 def package_detail_html_url(context: VersionListingContext) -> str:
     """Return the public package detail page URL."""
 
+    if context.source_package_id:
+        return f"https://github.com/{package_html_base_path(context)}"
     return (
         f"https://github.com/{context.owner_type}/{context.owner}/packages/"
         f"{context.package_type}/package/{context.package}"
@@ -175,9 +184,16 @@ def package_versions_html_url(
 def package_version_detail_html_url(
     context: VersionListingContext,
     version_id: str,
+    *,
+    version_name: str | None = None,
 ) -> str:
     """Return the public package version detail page URL."""
 
+    if context.source_package_id:
+        if not version_name:
+            raise ValueError("repository-scoped version route requires its name")
+        query = urlencode({"version": version_name})
+        return f"{package_detail_html_url(context)}?{query}"
     return f"https://github.com/{package_html_base_path(context)}/{version_id}"
 
 

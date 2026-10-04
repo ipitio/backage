@@ -1,7 +1,7 @@
 """Typed values stored in or loaded for the package metadata database."""
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -44,6 +44,7 @@ class OwnerScanPackage:
     package_type: str
     repo: str
     package: str
+    source_package_id: str = field(default="", compare=False)
 
 
 def load_owner_scan_packages(path: Path) -> tuple[OwnerScanPackage, ...]:

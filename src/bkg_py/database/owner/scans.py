@@ -19,6 +19,7 @@ from ..models import (
 )
 from ..package import progress as batch_progress
 from ..package import records as package_writes
+from ..package import routes as package_routes
 from ..support import DatabaseError, SqlIdentifier
 from ..support import transaction as _transaction
 
@@ -281,6 +282,27 @@ def _observe(
         for package in packages
     }
     package_values = tuple(identities.values())
+    if any(package.source_package_id for package in package_values):
+        row = connection.execute(
+            f"select owner from {_SCANS} where owner_id = ?", (owner_id,)
+        ).fetchone()
+        if row is None:
+            raise DatabaseError("active owner scan is missing")
+        owner = str(row[0])
+        for package in package_values:
+            if package.source_package_id:
+                package_routes.observe(
+                    connection,
+                    PackageRef(
+                        owner_id,
+                        package.owner_type,
+                        package.package_type,
+                        owner,
+                        package.repo,
+                        package.package,
+                    ),
+                    package.source_package_id,
+                )
     connection.executemany(
         f"""
         delete from {_SCAN_PACKAGES}
@@ -638,6 +660,7 @@ def _delete_packages(
             parameters,
         )
         batch_progress.retire_package(connection, package)
+        package_routes.retire_package(connection, package)
         catalog.retire_package(connection, package)
 
 
@@ -929,6 +952,7 @@ def retire_owner(
             deleted += cursor.rowcount
         package_writes.retire_owner_publications(connection, owner)
         batch_progress.retire_owner(connection, owner)
+        package_routes.retire_owner(connection, owner)
         catalog.retire_owner(connection, owner)
         connection.execute(
             f"""

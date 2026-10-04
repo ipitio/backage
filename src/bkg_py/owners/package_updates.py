@@ -214,9 +214,14 @@ class OwnerPackageRefreshService:
         )
         if result.outcome == "opted_out":
             self.execution.progress(f"{context} was opted out!")
-        elif result.outcome == "metadata_unavailable":
+        elif result.outcome in {"metadata_unavailable", "versions_unavailable"}:
+            unavailable = (
+                "metadata"
+                if result.outcome == "metadata_unavailable"
+                else "version inventory"
+            )
             self.execution.diagnostic(
-                f"Package metadata unavailable for {context}; leaving it pending"
+                f"Package {unavailable} unavailable for {context}; leaving it pending"
             )
         else:
             self.execution.progress(f"Refreshed {context}")

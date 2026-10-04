@@ -91,7 +91,10 @@ def test_repository_scoped_entries_are_not_overruled_by_an_empty_api() -> None:
     request = PackageListingRequest("orgs", "example", 1, 0)
     client = FakeGitHubClient(
         rest_values={path: [] for path in _empty_probe_paths(request)},
-        text_values={request.url(): _listing_region(_LEGACY_ENTRY)},
+        text_values={
+            request.url(): _listing_region(_LEGACY_ENTRY),
+            "https://github.com/example/repo/packages/12345": "<h1>Unknown format</h1>",
+        },
     )
 
     fetched = fetch_package_listing_page(client, request, verify_empty_with_api=True)
@@ -100,6 +103,94 @@ def test_repository_scoped_entries_are_not_overruled_by_an_empty_api() -> None:
     assert "repository-scoped" in fetched.diagnostic
     assert "/example/repo/packages/12345" in fetched.diagnostic
     assert not client.rest_requests
+
+
+def test_mixed_listing_resolves_maven_coordinates_without_rest() -> None:
+    """Repository-scoped Maven packages share a complete page with containers."""
+
+    request = PackageListingRequest("orgs", "example", 1, 0)
+    detail_url = "https://github.com/example/repo/packages/12345"
+    detail = (
+        '<clipboard-copy value="&lt;dependency&gt;'
+        "&lt;groupId&gt;org.example&lt;/groupId&gt;"
+        "&lt;artifactId&gt;library&lt;/artifactId&gt;"
+        '&lt;version&gt;1.2.3&lt;/version&gt;&lt;/dependency&gt;"></clipboard-copy>'
+    )
+    client = FakeGitHubClient(
+        text_values={
+            request.url(): _listing_region(_TYPED_ENTRY + _LEGACY_ENTRY, 2),
+            detail_url: detail,
+        }
+    )
+
+    fetched = fetch_package_listing_page(client, request, verify_empty_with_api=True)
+
+    assert not fetched.listing_unavailable
+    assert fetched.page.packages == (
+        OwnerScanPackage("orgs", "container", "repo", "image"),
+        OwnerScanPackage("orgs", "maven", "repo", "org.example.library"),
+    )
+    assert fetched.page.packages[1].source_package_id == "12345"
+    assert client.text_requests == [request.url(), detail_url]
+    assert not client.rest_requests
+
+
+def test_partial_legacy_listing_is_rejected_before_detail_requests() -> None:
+    """A truncated inventory cannot spend requests on resolving its entries."""
+
+    request = PackageListingRequest("orgs", "example", 1, 0)
+    client = FakeGitHubClient(
+        text_values={
+            request.url(): _listing_region(_LEGACY_ENTRY).rsplit("</div>", maxsplit=1)[
+                0
+            ]
+        }
+    )
+
+    fetched = fetch_package_listing_page(client, request)
+
+    assert fetched.listing_unavailable
+    assert client.text_requests == [request.url()]
+
+
+def test_duplicate_rows_preserve_coverage_without_duplicate_package_work() -> None:
+    """GitHub can advertise the same route twice without an unknown entry."""
+
+    entry = _TYPED_ENTRY.replace("<li>", '<li class="Box-row">')
+    page = parse_package_listing_html(
+        _listing_region(entry + entry, 2),
+        PackageListingRequest("orgs", "example", 1, 0),
+    )
+    assert page.packages == (OwnerScanPackage("orgs", "container", "repo", "image"),)
+
+
+def test_duplicate_anchors_cannot_cover_an_unknown_row() -> None:
+    """Two links to one package within a row do not validate another row."""
+
+    entry = _TYPED_ENTRY.replace("<li>", '<li class="Box-row">').replace(
+        "</li>",
+        '<a href="/orgs/example/packages/container/package/image">icon</a></li>',
+    )
+    html = _listing_region(entry + '<li class="Box-row">unknown</li>', 2)
+    with pytest.raises(PackageDiscoveryError, match="row coverage mismatch"):
+        parse_package_listing_html(html, PackageListingRequest("orgs", "example", 1, 0))
+
+
+def test_legacy_namesakes_cannot_collapse_distinct_numeric_packages() -> None:
+    """Separate legacy package IDs with the same coordinates stay unresolved."""
+
+    request = PackageListingRequest("orgs", "example", 1, 0)
+    entries = _LEGACY_ENTRY.replace("<li>", '<li class="Box-row">')
+    html = _listing_region(entries + entries.replace("12345", "54321"), 2)
+
+    with pytest.raises(PackageDiscoveryError, match="unsupported package links"):
+        parse_package_listing_html(
+            html,
+            request,
+            resolve_legacy=lambda link: OwnerScanPackage(
+                "orgs", "maven", link.repo, "org.example.library", link.package_id
+            ),
+        )
 
 
 def test_listing_coverage_ignores_links_outside_the_results_region() -> None:

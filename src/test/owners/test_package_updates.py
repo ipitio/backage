@@ -314,7 +314,12 @@ def test_unrecognized_owner_page_keeps_cursor_and_package_inventory(
         "https://github.com/orgs/example/packages?visibility=public&per_page=100"
         f"&page={start_page}"
     )
-    client = FakeGitHubClient(text_values={url: html})
+    client = FakeGitHubClient(
+        text_values={
+            url: html,
+            "https://github.com/example/repo/packages/12345": "<h1>Unknown format</h1>",
+        }
+    )
     refresh = OwnerPackageRefreshRequest(
         "42",
         "example",

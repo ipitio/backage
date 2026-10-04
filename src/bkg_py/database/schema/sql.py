@@ -2,6 +2,18 @@
 
 SCHEMA_SQL = (
     """
+    create table if not exists "bkg_package_routes" (
+        owner_id text not null,
+        owner_type text not null,
+        package_type text not null,
+        owner text not null,
+        repo text not null,
+        package text not null,
+        source_package_id text not null,
+        primary key (owner_id, owner_type, package_type, owner, repo, package)
+    ) without rowid
+    """,
+    """
     create table if not exists {owners} (
         owner_id text not null,
         owner text not null,

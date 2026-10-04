@@ -11,6 +11,7 @@ from ..support import sql as _sql
 from ..support import transaction as _transaction
 from ..values import package_values
 from . import progress as batch_progress
+from . import routes as package_routes
 
 _PUBLICATION_UPSERT = """
     insert into "bkg_package_publications" (
@@ -270,6 +271,7 @@ def retire(
             )
         clear_publication(connection, package)
         batch_progress.retire_package(connection, package)
+        package_routes.retire_package(connection, package)
         catalog.retire_package(connection, package)
 
 

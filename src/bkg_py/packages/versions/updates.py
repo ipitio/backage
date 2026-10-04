@@ -1,7 +1,7 @@
 """Detailed package-version inspection and transactional refresh orchestration."""
 
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from threading import Lock
 
@@ -169,7 +169,7 @@ class VersionDetailInspector:  # pylint: disable=too-few-public-methods
         """Fetch and normalize one candidate's current metrics and size."""
 
         html = self._get_optional_text(
-            self._detail_url(candidate.version_id),
+            self._detail_url(candidate),
             authenticated=self.execution.authenticated,
         )
         page_data = extract_version_page_data(html or "")
@@ -247,10 +247,12 @@ class VersionDetailInspector:  # pylint: disable=too-few-public-methods
             lease.record_success()
             return html
 
-    def _detail_url(self, version_id: str) -> str:
-        if version_id == "-1":
+    def _detail_url(self, candidate: VersionCandidate) -> str:
+        if candidate.version_id == "-1":
             return package_detail_html_url(self.context)
-        return package_version_detail_html_url(self.context, version_id)
+        return package_version_detail_html_url(
+            self.context, candidate.version_id, version_name=candidate.name
+        )
 
 
 class VersionRefreshService:  # pylint: disable=too-few-public-methods
@@ -276,6 +278,10 @@ class VersionRefreshService:  # pylint: disable=too-few-public-methods
         """Run a complete package-version refresh through one Python process."""
 
         self.repository.ensure_schema()
+        context = replace(
+            request.listing_context,
+            source_package_id=self.repository.package_source_id(request.package_ref),
+        )
         existing = self.repository.version_rows(
             request.package_ref,
             since=request.since,
@@ -283,7 +289,7 @@ class VersionRefreshService:  # pylint: disable=too-few-public-methods
         )
         selection = VersionCandidateLoader(
             self.client,
-            request.listing_context,
+            context,
             VersionCandidateLoaderSettings(
                 use_rest_api=request.policy.use_rest_api,
                 diagnostic=self.execution.diagnostic,
@@ -297,7 +303,7 @@ class VersionRefreshService:  # pylint: disable=too-few-public-methods
         )
         inspector = VersionDetailInspector(
             self.client,
-            request.listing_context,
+            context,
             VersionDetailExecution(
                 self.execution.size_resolver,
                 authenticated=request.policy.authenticate_html,

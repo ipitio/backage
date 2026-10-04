@@ -223,10 +223,12 @@ class PackageRefreshService:  # pylint: disable=too-few-public-methods
         )
         version_result: VersionRefreshResult | None = None
         advertised_metrics = _UNKNOWN_METRICS
+        source_package_id = self.repository.package_source_id(package)
         if not already_updated:
             advertised_metrics = self._package_metrics(
                 package,
                 authenticated=request.policy.authenticate_html,
+                source_package_id=source_package_id,
             )
             if advertised_metrics is None:
                 return PackageRefreshResult("metadata_unavailable")
@@ -235,6 +237,8 @@ class PackageRefreshService:  # pylint: disable=too-few-public-methods
                 today,
                 force_refresh=bool(request.batch_marker),
             )
+            if version_result is None and source_package_id:
+                return PackageRefreshResult("versions_unavailable")
 
         source = self.repository.version_rows(
             package,
@@ -274,8 +278,9 @@ class PackageRefreshService:  # pylint: disable=too-few-public-methods
         package: PackageRef,
         *,
         authenticated: bool,
+        source_package_id: str = "",
     ) -> DownloadMetrics | None:
-        context = _listing_context(package)
+        context = _listing_context(package, source_package_id=source_package_id)
         url = package_detail_html_url(context)
         enrichment = self.execution.version.metric_enrichment
         with enrichment.request(PACKAGE_METRIC_SCOPE) as lease:
@@ -347,7 +352,9 @@ class PackageRefreshService:  # pylint: disable=too-few-public-methods
                 self.execution.selection,
                 force_refresh=force_refresh,
             )
-        except VersionListingUnavailable:
+        except VersionListingUnavailable as error:
+            if self.repository.package_source_id(request.package_ref):
+                execution.diagnostic(str(error))
             return None
         except (
             DatabaseError,
@@ -475,13 +482,16 @@ def _numeric_version_id(value: str) -> int:
     return int(value) if value.isdecimal() else 0
 
 
-def _listing_context(package: PackageRef) -> VersionListingContext:
+def _listing_context(
+    package: PackageRef, *, source_package_id: str = ""
+) -> VersionListingContext:
     return VersionListingContext(
         owner_type=package.owner_type,
         owner=package.owner,
         repo=package.repo,
         package_type=package.package_type,
         package=package.package,
+        source_package_id=source_package_id,
     )
 
 

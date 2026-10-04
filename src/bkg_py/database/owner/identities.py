@@ -7,6 +7,7 @@ from ..catalog import packages as catalog
 from ..history import package_history, version_history
 from ..kernel import DatabaseComponent
 from ..models import OwnerIdentityCleanup, PackageRef
+from ..package import routes as package_routes
 from ..settings import DatabaseSettings
 from ..support import DatabaseError, SqlFragment, SqlIdentifier
 from ..support import sql as _sql
@@ -125,7 +126,7 @@ def _retire_owner_aliases(
             owner,
             packages,
         )
-        owner_tables = [owners]
+        owner_tables = [owners, package_routes.TABLE]
         if _table_exists(connection, settings.packages_table):
             owner_tables.append(_SqlIdentifier(settings.packages_table))
         if versions is not None:
@@ -234,14 +235,18 @@ def _has_alias_rows_for_tables(
         union all
         select 1 from {scans}
         where {alias_condition}
+        union all
+        select 1 from {routes}
+        where {alias_condition}
         limit 1
         """,
             packages=packages,
             owners=owners,
             scans=scans,
+            routes=package_routes.TABLE,
             alias_condition=_alias_condition(),
         ),
-        (owner_id, owner, owner, owner_id) * 3,
+        (owner_id, owner, owner, owner_id) * 4,
     ).fetchone()
     return row is not None
 

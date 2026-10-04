@@ -21,7 +21,9 @@ class ListingMarkup:
     has_region: bool = False
     complete_region: bool = False
     package_count: int | None = None
-    entry_count: int = 0
+    entry_rows: list[list[ListingAnchor]] = field(
+        default_factory=list[list[ListingAnchor]]
+    )
     empty_listing: bool = False
 
     @property
@@ -29,6 +31,12 @@ class ListingMarkup:
         """Prefer links within the package results over global navigation."""
 
         return self.listing_anchors if self.has_region else self.anchors
+
+    @property
+    def entry_count(self) -> int:
+        """Count rendered rows, including duplicate package links in separate rows."""
+
+        return len(self.entry_rows)
 
 
 @dataclass
@@ -38,6 +46,7 @@ class _ListingRegion:
     heading_parts: list[str] | None = None
     package_count: int | None = None
     empty_heading: bool = False
+    row_depth: int = 0
 
 
 class ListingHTMLParser(HTMLParser):
@@ -67,6 +76,8 @@ class ListingHTMLParser(HTMLParser):
         self.markup.anchors.append(anchor)
         if self._region is not None:
             self.markup.listing_anchors.append(anchor)
+            if self._region.row_depth:
+                self.markup.entry_rows[-1].append(anchor)
 
     def _observe_start(self, tag: str, values: dict[str, str]) -> None:
         if tag == "div":
@@ -80,8 +91,12 @@ class ListingHTMLParser(HTMLParser):
         if region is None:
             return
         classes = values.get("class", "").split()
-        if tag == "li" and "Box-row" in classes:
-            self.markup.entry_count += 1
+        if tag == "li":
+            if "Box-row" in classes:
+                self.markup.entry_rows.append([])
+                region.row_depth = 1
+            elif region.row_depth:
+                region.row_depth += 1
         if tag == "div" and "blankslate" in classes:
             region.blank_depth = region.depth
         elif tag == "h3":
@@ -96,6 +111,8 @@ class ListingHTMLParser(HTMLParser):
         region = self._region
         if region is None:
             return
+        if tag == "li" and region.row_depth:
+            region.row_depth -= 1
         if tag == "h3" and region.heading_parts is not None:
             heading = " ".join("".join(region.heading_parts).split()).casefold()
             number, _, unit = heading.rpartition(" ")

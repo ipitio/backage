@@ -44,6 +44,7 @@ from ..values import (
 from . import planning as package_plans
 from . import progress as batch_progress
 from . import records as package_records
+from . import routes as package_routes
 from .rendering import (
     OWNER_VERSION_LIMIT_SQL,
     OWNER_VERSION_ROWS_SQL,
@@ -56,6 +57,16 @@ _SqlIdentifier = SqlIdentifier
 
 class PackageRepository(DatabaseComponent):  # pylint: disable=too-many-public-methods
     """Provide normalized and legacy package metadata operations."""
+
+    def package_source_id(self, package: PackageRef) -> str:
+        """Return a lazily discovered repository-scoped package route, if any."""
+
+        if package.package_type != "maven":
+            return ""
+        self.ensure_schema()
+        return self._run_read(
+            lambda connection: package_routes.source_package_id(connection, package)
+        )
 
     def write_package(self, record: PackageRecord) -> None:
         """Insert or replace one normalized package record."""
@@ -587,6 +598,7 @@ class PackageRepository(DatabaseComponent):  # pylint: disable=too-many-public-m
                     )
                     """
                 )
+                package_routes.prune_orphans(connection)
 
         self._run_write(prune_normalized)
 

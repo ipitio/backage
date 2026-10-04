@@ -1,12 +1,18 @@
 """Fetch and parse GitHub owner package listing pages."""
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Protocol
 from urllib.parse import parse_qs, quote, urlencode, urlsplit
 
 from ..database.models import OwnerScanPackage
-from ..github import GitHubNotFoundError
+from ..github import GitHubError, GitHubNotFoundError
 from .inventory_probe import PackageInventoryClient, PackageInventoryProbe
+from .legacy import (
+    LegacyPackageLink,
+    legacy_package_link,
+    parse_legacy_package_identity,
+)
 from .listing_html import ListingHTMLParser, ListingMarkup
 
 _PAGE_SIZE = 100
@@ -124,16 +130,92 @@ class PackageListingFetch:
 def parse_package_listing_html(
     html: str,
     request: PackageListingRequest,
+    *,
+    resolve_legacy: Callable[[LegacyPackageLink], OwnerScanPackage | None]
+    | None = None,
 ) -> PackageListingPage:
     """Parse package identities and pagination from one GitHub HTML page."""
 
     parser = ListingHTMLParser(request.owner_type)
     parser.feed(html)
     parser.close()
+    packages = _typed_packages(parser.markup, request)
+    legacy_links = {
+        urlsplit(anchor.href).path: link
+        for anchor in parser.markup.entry_anchors
+        if (link := legacy_package_link(anchor.href, request.owner)) is not None
+    }
+    resolved_paths: set[str] = set()
+    if resolve_legacy is not None and legacy_links:
+        # Reject truncated or incomplete listings before requesting detail pages.
+        _require_listing_coverage(
+            parser.markup,
+            request,
+            len(packages) + len(legacy_links),
+            resolved_paths=set(legacy_links),
+        )
+        for path, link in legacy_links.items():
+            identity = resolve_legacy(link)
+            if identity is not None:
+                key = (identity.package_type, identity.package)
+                previous = packages.get(key)
+                if previous is not None and (
+                    previous != identity
+                    or previous.source_package_id != identity.source_package_id
+                ):
+                    continue
+                packages[key] = identity
+                resolved_paths.add(path)
+
+    unique_packages = tuple(
+        sorted(
+            packages.values(),
+            key=lambda package: (
+                package.package_type,
+                package.repo,
+                package.package,
+            ),
+        )
+    )
+    _require_listing_coverage(
+        parser.markup, request, len(unique_packages), resolved_paths=resolved_paths
+    )
+    has_more = (
+        any(
+            _is_listing_pagination(anchor.href, request)
+            and (
+                "next" in anchor.relations
+                or _links_to_later_page(anchor.href, request.page)
+            )
+            for anchor in parser.markup.anchors
+        )
+        or max(len(unique_packages), parser.markup.entry_count) >= _PAGE_SIZE
+    )
+    if not unique_packages and (not parser.markup.empty_listing or has_more):
+        raise _UnrecognizedPackageListingError(
+            f"unrecognized package listing for {request.owner} page {request.page}; "
+            f"html_chars={len(html)} anchors={len(parser.markup.anchors)} "
+            f"empty_state={parser.markup.empty_listing} has_more={has_more}"
+        )
+    return PackageListingPage(unique_packages, has_more)
+
+
+def _typed_packages(
+    markup: ListingMarkup, request: PackageListingRequest
+) -> dict[tuple[str, str], OwnerScanPackage]:
+    """Associate typed package links with repositories without crossing legacy rows."""
+
     packages: dict[tuple[str, str], OwnerScanPackage] = {}
     pending: tuple[str, str] | None = None
 
-    for anchor in parser.markup.entry_anchors:
+    for anchor in markup.entry_anchors:
+        if legacy_package_link(anchor.href, request.owner) is not None:
+            if pending is not None:
+                packages.setdefault(
+                    pending, _package_without_repository(request, pending)
+                )
+                pending = None
+            continue
         package = _package_path(anchor.href, request)
         if package is not None:
             if package == pending:
@@ -163,47 +245,27 @@ def parse_package_listing_html(
             _package_without_repository(request, pending),
         )
 
-    unique_packages = tuple(
-        sorted(
-            packages.values(),
-            key=lambda package: (
-                package.package_type,
-                package.repo,
-                package.package,
-            ),
-        )
-    )
-    _require_listing_coverage(parser.markup, request, len(unique_packages))
-    has_more = (
-        any(
-            _is_listing_pagination(anchor.href, request)
-            and (
-                "next" in anchor.relations
-                or _links_to_later_page(anchor.href, request.page)
-            )
-            for anchor in parser.markup.anchors
-        )
-        or len(unique_packages) >= _PAGE_SIZE
-    )
-    if not unique_packages and (not parser.markup.empty_listing or has_more):
-        raise _UnrecognizedPackageListingError(
-            f"unrecognized package listing for {request.owner} page {request.page}; "
-            f"html_chars={len(html)} anchors={len(parser.markup.anchors)} "
-            f"empty_state={parser.markup.empty_listing} has_more={has_more}"
-        )
-    return PackageListingPage(unique_packages, has_more)
+    return packages
 
 
 def _require_listing_coverage(
     markup: ListingMarkup,
     request: PackageListingRequest,
     recognized_count: int,
+    *,
+    resolved_paths: set[str] | None = None,
 ) -> None:
     unresolved = {
         urlsplit(anchor.href).path
         for anchor in markup.entry_anchors
         if _is_unresolved_package_link(anchor.href, request)
+        and urlsplit(anchor.href).path not in (resolved_paths or ())
     }
+    coverage_count = (
+        _recognized_rows(markup, request, resolved_paths or set())
+        if markup.entry_rows
+        else recognized_count
+    )
     issues: list[str] = []
     if unresolved:
         samples = ",".join(
@@ -216,21 +278,40 @@ def _require_listing_coverage(
         )
     if markup.has_region and not markup.complete_region:
         issues.append("package results region is incomplete")
-    if markup.package_count is not None and markup.package_count != recognized_count:
+    if markup.package_count is not None and markup.package_count != coverage_count:
         issues.append(
             f"package count mismatch: declared={markup.package_count} "
-            f"recognized={recognized_count}"
+            f"recognized={coverage_count}"
         )
-    if markup.entry_count and markup.entry_count != recognized_count:
+    if markup.entry_count and markup.entry_count != coverage_count:
         issues.append(
             f"package row coverage mismatch: rows={markup.entry_count} "
-            f"recognized={recognized_count}"
+            f"recognized={coverage_count}"
         )
     if issues:
         raise _IncompletePackageListingError(
             f"unrecognized package listing for {request.owner} page {request.page}; "
             + "; ".join(issues)
         )
+
+
+def _recognized_rows(
+    markup: ListingMarkup, request: PackageListingRequest, resolved_paths: set[str]
+) -> int:
+    """Require one recognized route per row, without counting repeated anchors."""
+
+    recognized = 0
+    for row in markup.entry_rows:
+        routes: set[tuple[str, ...]] = set()
+        for anchor in row:
+            package = _package_path(anchor.href, request)
+            if package is not None:
+                routes.add(("typed", *package))
+            path = urlsplit(anchor.href).path
+            if path in resolved_paths:
+                routes.add(("legacy", path))
+        recognized += len(routes) == 1
+    return recognized
 
 
 def _is_unresolved_package_link(href: str, request: PackageListingRequest) -> bool:
@@ -335,7 +416,17 @@ class PackageListingService:  # pylint: disable=too-few-public-methods
             request.url(),
             authenticated=request.authenticated,
         )
-        return parse_package_listing_html(html, request)
+
+        def resolve(link: LegacyPackageLink) -> OwnerScanPackage | None:
+            try:
+                detail = self.client.get_text(
+                    link.url, authenticated=request.authenticated
+                )
+            except GitHubError:
+                return None
+            return parse_legacy_package_identity(detail, link, request.owner_type)
+
+        return parse_package_listing_html(html, request, resolve_legacy=resolve)
 
 
 def fetch_package_listing_page(

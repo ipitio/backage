@@ -2,7 +2,8 @@
 
 from collections.abc import Callable, Collection, Iterator
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Protocol, cast
+from urllib.parse import unquote, urlencode
 
 from ...github import GitHubError, GitHubJsonResponse, GitHubTextRequestPolicy
 from ..enrichment import (
@@ -97,12 +98,38 @@ class VersionCandidateLoader:  # pylint: disable=too-few-public-methods
     ) -> VersionSelectionResult:
         """Fetch only the pages needed by the candidate selection policy."""
 
+        if self.context.source_package_id:
+            self._verify_legacy_identity()
         return select_version_candidates(
             self._version_pages(),
             self._tagged_pages(),
             settings=settings,
             already_updated=already_updated,
         )
+
+    def _verify_legacy_identity(self) -> None:
+        """Never join a repository-scoped package to another package's versions."""
+
+        path = self._api_package_path()
+        with self.request_recovery.request(_API_LISTING_SCOPE) as lease:
+            if not lease:
+                raise VersionListingUnavailable(
+                    "GitHub version listing is temporarily paused"
+                )
+            try:
+                response = self.client.rest_json(path)
+            except GitHubError as error:
+                self._record_failure(lease, error)
+                raise VersionListingUnavailable(
+                    f"Repository-scoped package identity unavailable for {path}: "
+                    f"{error}"
+                ) from error
+            lease.record_success()
+        if not _matching_legacy_identity(response.value, self.context):
+            raise VersionListingUnavailable(
+                f"Repository-scoped package identity mismatch for {path}; "
+                "retaining package for retry"
+            )
 
     def _version_pages(self) -> Iterator[VersionCandidatePage]:
         """Yield normal listing pages until GitHub reports the final page."""
@@ -118,6 +145,8 @@ class VersionCandidateLoader:  # pylint: disable=too-few-public-methods
     def _tagged_pages(self) -> Iterator[VersionCandidatePage]:
         """Yield tagged listing pages until GitHub reports the final page."""
 
+        if self.context.source_package_id:
+            return
         page_number = 1
         while True:
             html = self._get_text(self._tagged_page_url(page_number))
@@ -134,7 +163,18 @@ class VersionCandidateLoader:  # pylint: disable=too-few-public-methods
     def _load_version_page(self, page_number: int) -> VersionCandidatePage:
         """Load one normal page, preferring REST and falling back to HTML."""
 
-        candidates = self._load_api_page(page_number) if self.use_rest_api else None
+        legacy_route = bool(self.context.source_package_id)
+        candidates = (
+            self._load_api_page(page_number)
+            if self.use_rest_api or legacy_route
+            else None
+        )
+        if candidates is None and legacy_route:
+            raise VersionListingUnavailable(
+                f"Repository-scoped version inventory unavailable for "
+                f"{self.context.owner}/{self.context.package}; "
+                "HTML exposes version names but not stable numeric IDs"
+            )
         if candidates is None:
             html = self._get_text(self._version_page_url(page_number))
             candidates = tuple(
@@ -158,13 +198,13 @@ class VersionCandidateLoader:  # pylint: disable=too-few-public-methods
                 cooldown = self._record_failure(lease, error)
                 self.diagnostic(
                     f"Version API page {page_number} failed ({error}); "
-                    "falling back to HTML"
+                    + self._api_fallback_description()
                 )
                 if cooldown is not None:
                     self.diagnostic(
                         "Pausing GitHub version-listing API requests for "
                         f"{cooldown:g}s after repeated transient failures; "
-                        "using the HTML fallback"
+                        + self._api_fallback_description()
                     )
                 return None
             lease.record_success()
@@ -173,6 +213,14 @@ class VersionCandidateLoader:  # pylint: disable=too-few-public-methods
             return ()
 
         candidates = version_candidates_from_value(response.value)
+        if self.context.source_package_id and not _usable_legacy_candidates(
+            response.value, candidates
+        ):
+            self.diagnostic(
+                f"Version API page {page_number} returned unusable data; "
+                + self._api_fallback_description()
+            )
+            return None
         if not candidates or any(
             candidate.version_id == "-1" for candidate in candidates
         ):
@@ -182,6 +230,13 @@ class VersionCandidateLoader:  # pylint: disable=too-few-public-methods
             )
             return None
         return candidates
+
+    def _api_fallback_description(self) -> str:
+        return (
+            "retaining repository-scoped package for retry"
+            if self.context.source_package_id
+            else "falling back to HTML"
+        )
 
     def _get_text(self, url: str) -> str:
         """Fetch one public HTML page with a package-specific error."""
@@ -221,10 +276,16 @@ class VersionCandidateLoader:  # pylint: disable=too-few-public-methods
     def _api_page_path(self, page_number: int) -> str:
         """Return the REST path for one package-version page."""
 
+        query = urlencode({"per_page": _PAGE_SIZE, "page": page_number})
+        return f"{self._api_package_path()}/versions?{query}"
+
+    def _api_package_path(self) -> str:
+        """Return the canonical REST package identity path."""
+
         context = self.context
         return (
             f"{context.owner_type}/{context.owner}/packages/{context.package_type}/"
-            f"{context.package}/versions?per_page={_PAGE_SIZE}&page={page_number}"
+            f"{context.package}"
         )
 
     def _version_page_url(self, page_number: int) -> str:
@@ -236,3 +297,51 @@ class VersionCandidateLoader:  # pylint: disable=too-few-public-methods
         """Return the tagged-filter HTML URL for one package-version page."""
 
         return package_versions_html_url(self.context, page_number, tagged=True)
+
+
+def _usable_legacy_candidates(
+    value: object, candidates: tuple[VersionCandidate, ...]
+) -> bool:
+    """Do not substitute anonymous records for authoritative Maven versions."""
+
+    if not isinstance(value, list):
+        return False
+    for item in cast(list[object], value):
+        if not isinstance(item, dict):
+            return False
+        name = cast(dict[str, object], item).get("name")
+        if not isinstance(name, str) or not name:
+            return False
+    return (
+        bool(candidates)
+        and len({item.version_id for item in candidates}) == len(candidates)
+        and all(
+            item.version_id.isascii()
+            and item.version_id.isdigit()
+            and int(item.version_id) > 0
+            for item in candidates
+        )
+    )
+
+
+def _matching_legacy_identity(value: object, context: VersionListingContext) -> bool:
+    """Require matching numeric identity, ecosystem, coordinates, and repository."""
+
+    if not isinstance(value, dict):
+        return False
+    package = cast(dict[str, object], value)
+    package_id = package.get("id")
+    if isinstance(package_id, bool) or str(package_id) != context.source_package_id:
+        return False
+    if package.get("package_type") != context.package_type or package.get(
+        "name"
+    ) != unquote(context.package):
+        return False
+    repository = package.get("repository")
+    if not isinstance(repository, dict):
+        return False
+    full_name = cast(dict[str, object], repository).get("full_name")
+    return (
+        isinstance(full_name, str)
+        and full_name.casefold() == f"{context.owner}/{context.repo}".casefold()
+    )

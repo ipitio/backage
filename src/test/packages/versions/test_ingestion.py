@@ -84,6 +84,97 @@ _TAGGED_PAGE_1 = (
     "libre-closet/versions?filters%5Bversion_type%5D=tagged&page=1"
 )
 
+_LEGACY_CONTEXT = VersionListingContext(
+    "orgs", "Example", "repo", "maven", "org.example.library", "12345"
+)
+_LEGACY_API_PAGE = (
+    "orgs/Example/packages/maven/org.example.library/versions?per_page=30&page=1"
+)
+_LEGACY_API_PACKAGE = "orgs/Example/packages/maven/org.example.library"
+_LEGACY_IDENTITY = {
+    "id": 12345,
+    "package_type": "maven",
+    "name": "org.example.library",
+    "repository": {"full_name": "Example/repo"},
+}
+
+
+def test_legacy_versions_require_authoritative_ids_but_no_tagged_scrape() -> None:
+    """Only ID discovery uses REST, even when ordinary enrichment prefers HTML."""
+
+    client = _FakePageClient(
+        rest_values={
+            _LEGACY_API_PACKAGE: _LEGACY_IDENTITY,
+            _LEGACY_API_PAGE: [{"id": 7, "name": "1.2.3"}],
+        }
+    )
+    result = VersionCandidateLoader(
+        client, _LEGACY_CONTEXT, VersionCandidateLoaderSettings(use_rest_api=False)
+    ).select(VersionSelectionSettings())
+
+    assert result.selected_ids == ("7",)
+    assert not result.used_fallback
+    assert result.candidates[0].name == "1.2.3"
+    assert result.tag_pages_read == 0
+    assert client.rest_requests == [_LEGACY_API_PACKAGE, _LEGACY_API_PAGE]
+    assert not client.text_requests
+
+
+@pytest.mark.parametrize(
+    "response",
+    [
+        [],
+        {"message": "unavailable"},
+        [{"id": -1, "name": "1.2.3"}],
+        [{"id": 0, "name": "1.2.3"}],
+        [{"id": 7}],
+        [{"id": 7, "name": {"invalid": "version"}}],
+        [{"id": 7, "name": "1"}, {"id": 7, "name": "2"}],
+        GitHubError("package versions API unavailable"),
+    ],
+)
+def test_unavailable_legacy_versions_do_not_generate_an_anonymous_record(
+    response: object,
+) -> None:
+    """Unknown inventory stays retryable instead of falling back to ID -1."""
+
+    client = _FakePageClient(
+        rest_values={
+            _LEGACY_API_PACKAGE: _LEGACY_IDENTITY,
+            _LEGACY_API_PAGE: response,
+        }
+    )
+    loader = VersionCandidateLoader(
+        client, _LEGACY_CONTEXT, VersionCandidateLoaderSettings(use_rest_api=False)
+    )
+    with pytest.raises(VersionListingUnavailable, match="stable numeric IDs"):
+        loader.select(VersionSelectionSettings())
+    assert not client.text_requests
+
+
+@pytest.mark.parametrize(
+    "identity",
+    [
+        {**_LEGACY_IDENTITY, "id": 54321},
+        {**_LEGACY_IDENTITY, "package_type": "container"},
+        {**_LEGACY_IDENTITY, "repository": {"full_name": "Example/other"}},
+        GitHubError("package identity is not readable"),
+    ],
+)
+def test_legacy_identity_must_match_before_requesting_versions(
+    identity: object,
+) -> None:
+    """An API's namesake in another repository cannot supply this package's IDs."""
+
+    client = _FakePageClient(rest_values={_LEGACY_API_PACKAGE: identity})
+    loader = VersionCandidateLoader(
+        client, _LEGACY_CONTEXT, VersionCandidateLoaderSettings(use_rest_api=False)
+    )
+    with pytest.raises(VersionListingUnavailable, match="package identity"):
+        loader.select(VersionSelectionSettings())
+    assert client.rest_requests == [_LEGACY_API_PACKAGE]
+    assert not client.text_requests
+
 
 def _api_candidates(start: int, stop: int) -> list[dict[str, object]]:
     return [

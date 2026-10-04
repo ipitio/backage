@@ -61,6 +61,7 @@ _CLUSTER_FILES = {
         "records.py",
         "rendering.py",
         "repository.py",
+        "routes.py",
     },
     "schema": {"__init__.py", "lifecycle.py", "sql.py"},
 }
