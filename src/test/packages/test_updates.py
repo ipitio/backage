@@ -574,10 +574,13 @@ def test_refresh_and_republication_keep_index_metrics_without_faking_db_observat
     ).read_text(encoding="utf-8")
 
 
-def test_oversized_publication_keeps_files_and_pending_work_until_retry(
+@pytest.mark.parametrize("failure", ["hard_limit", "xml_replace"])
+def test_failed_publication_keeps_files_and_pending_work_until_retry(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    failure: str,
 ) -> None:
-    """Hard caps cannot turn a failed publication into completed batch work."""
+    """Hard caps and late rename failures keep the pair and unfinished work."""
 
     package = _package()
     repository = DatabaseRepositories(DatabaseSettings(tmp_path / "index.db")).packages
@@ -600,12 +603,32 @@ def test_oversized_publication_keeps_files_and_pending_work_until_retry(
     )
     execution = _execution(tmp_path / "optout.txt")
     request = replace(_request(package, destination), batch_marker="index-preservation")
+    original_replace = Path.replace
 
-    with pytest.raises(PackageRefreshError, match="hard byte limit"):
+    def fail_xml(path: Path, target: str | Path) -> Path:
+        if path.parent == destination.parent and Path(
+            target
+        ) == destination.with_suffix(".xml"):
+            raise OSError("XML replacement failed")
+        return original_replace(path, target)
+
+    if failure == "xml_replace":
+        monkeypatch.setattr(Path, "replace", fail_xml)
+    failed_execution = (
+        replace(execution, publication_limits=PublicationLimits(100, 100))
+        if failure == "hard_limit"
+        else execution
+    )
+    with pytest.raises(
+        PackageRefreshError,
+        match="hard byte limit"
+        if failure == "hard_limit"
+        else "XML replacement failed",
+    ):
         PackageRefreshService(
             repository,
             client,
-            replace(execution, publication_limits=PublicationLimits(100, 100)),
+            failed_execution,
         ).refresh(request)
 
     assert destination.read_bytes() == previous_json
@@ -614,6 +637,7 @@ def test_oversized_publication_keeps_files_and_pending_work_until_retry(
     assert not repository.package_completed_in_batch(package, request.batch_marker)
     assert not list(destination.parent.glob(".Demo.json.*"))
 
+    monkeypatch.setattr(Path, "replace", original_replace)
     result = PackageRefreshService(repository, client, execution).refresh(request)
 
     assert result.outcome == "refreshed"

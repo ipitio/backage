@@ -24,6 +24,7 @@ from ..database.owner.queue import (
     OwnerQueueOutcome,
 )
 from ..files import atomic_text_output
+from ..publication.promotion import PublicationRecoveryError
 from ..result import ExitStatus
 from ..runtime import GracefulStop, peak_resident_memory_mib
 from ..runtime_names import legacy_owner_page_key, legacy_owner_scan_key
@@ -338,6 +339,11 @@ class OwnerBatchService:  # pylint: disable=too-few-public-methods
             completed.value
             for completed in sorted(result.completed, key=lambda item: item.index)
         )
+        if any(
+            isinstance(failure.error, PublicationRecoveryError)
+            for failure in result.failures
+        ):
+            return ExitStatus.NON_FATAL, items
         if result.stopped:
             return ExitStatus.GRACEFUL_STOP, items
         if not result.ok:

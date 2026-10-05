@@ -4,8 +4,12 @@ from pathlib import Path
 
 import pytest
 
+from bkg_py.application import ApplicationContext
 from bkg_py.cli import main
+from bkg_py.publication.promotion import PublicationRecoveryError
 from bkg_py.result import ExitStatus
+from bkg_py.run.commands import RunCommandOptions, execute_application
+from bkg_py.run.coordinator import RunCoordinator, RunCoordinatorRequest
 from bkg_py.state import StateStore
 
 
@@ -56,6 +60,33 @@ def test_clean_mode_runs_startup_and_publication_without_snapshot(
     assert (index_directory / ".xml").is_file()
     assert not (root / ".snapshot").exists()
     assert StateStore(state_path).get("BKG_TIMEOUT") is None
+
+
+def test_failed_publication_recovery_returns_a_cli_diagnostic(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """A terminal recovery error reports failure without an uncaught traceback."""
+
+    def fail_run(_coordinator: RunCoordinator, _request: RunCoordinatorRequest) -> int:
+        raise PublicationRecoveryError(
+            "previous outputs retained at recovery directory"
+        )
+
+    monkeypatch.setattr(RunCoordinator, "run", fail_run)
+    application = ApplicationContext.from_mapping(
+        {"BKG_ROOT": str(tmp_path), "BKG_ENV": str(tmp_path / "state.env")}
+    )
+
+    status = execute_application(
+        RunCommandOptions(mode=2, working_directory=tmp_path), application
+    )
+
+    assert status == ExitStatus.NON_FATAL
+    assert capsys.readouterr().err == (
+        "previous outputs retained at recovery directory\n"
+    )
 
 
 def _write_publication_sources(root: Path) -> None:

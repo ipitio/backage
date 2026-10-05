@@ -19,9 +19,10 @@ from ..database.models import (
 )
 from ..database.support import DatabaseError
 from ..files import atomic_binary_output, atomic_text_output
-from ..publication import PublicationLimits, publish_json_file
+from ..publication import PublicationError, PublicationLimits, publish_json_file
 from ..publication.artifacts import is_legacy_package_sidecar
 from ..publication.dashboard import DASHBOARD_SCHEMA_VERSION, publish_dashboard
+from ..publication.promotion import is_publication_backup
 from ..publication.release import release_tag as release_tag_for_date
 from ..publication.site_shell import (
     GitHubRepositoryIdentity,
@@ -435,6 +436,11 @@ def _cleanup_sidecars(index_directory: Path, check_stop: StopCheck) -> None:
     for index, path in enumerate(index_directory.rglob("*")):
         if index % 1024 == 0:
             check_stop()
+        if is_publication_backup(path):
+            raise PublicationError(
+                f"unfinished paired publication at {path}; "
+                "recover retained outputs before publishing the index"
+            )
         if not path.is_file() or not is_legacy_package_sidecar(path.name):
             continue
         with suppress(OSError):

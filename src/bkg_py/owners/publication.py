@@ -36,7 +36,7 @@ class OwnerPublicationResult:
 
 
 class OwnerPublicationService:  # pylint: disable=too-few-public-methods
-    """Publish one owner's aggregate endpoints as atomic JSON/XML pairs."""
+    """Publish owner aggregates with failure-safe JSON/XML replacement."""
 
     def __init__(
         self,

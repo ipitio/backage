@@ -16,7 +16,9 @@ def _destination_mode(path: Path, default_mode: int) -> int:
         return default_mode
 
 
-def _sync_directory(path: Path) -> None:
+def sync_directory(path: Path) -> None:
+    """Persist directory-entry changes to disk."""
+
     descriptor = os.open(path, os.O_RDONLY)
     try:
         os.fsync(descriptor)
@@ -45,7 +47,7 @@ def atomic_path(
         with temporary_path.open("rb") as file:
             os.fsync(file.fileno())
         temporary_path.replace(destination)
-        _sync_directory(destination.parent)
+        sync_directory(destination.parent)
     finally:
         with suppress(FileNotFoundError):
             temporary_path.unlink()

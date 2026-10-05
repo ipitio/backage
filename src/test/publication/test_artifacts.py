@@ -1,11 +1,13 @@
 """Tests for bounded JSON and XML publication."""
 
 import json
+import stat
 import tempfile
 from pathlib import Path
 
 import pytest
 
+import bkg_py.files
 from bkg_py.publication import (
     JsonValue,
     PublicationError,
@@ -14,6 +16,7 @@ from bkg_py.publication import (
     write_xml_file,
     xml_chunks,
 )
+from bkg_py.publication.promotion import PublicationRecoveryError, is_publication_backup
 from bkg_py.runtime import GracefulStop
 
 
@@ -192,3 +195,130 @@ class TestPublication:
                 write_xml_file(source, _never_stop)
 
             assert xml_path.read_text(encoding="utf-8") == "<xml>old</xml>"
+
+
+@pytest.mark.parametrize("existing", ["both", "json", "xml", "neither"])
+@pytest.mark.parametrize("failed_endpoint", ["json", "xml"])
+def test_replace_failure_restores_previous_outputs(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    existing: str,
+    failed_endpoint: str,
+) -> None:
+    """A late rename failure restores bytes, modes, and originally absent files."""
+
+    source = tmp_path / "source.json"
+    source.write_text('{"notes":"new"}', encoding="utf-8")
+    destination = tmp_path / "package.json"
+    endpoints = {"json": destination, "xml": destination.with_suffix(".xml")}
+    previous = {"json": b'{"notes":"old"}', "xml": b"<xml>old</xml>"}
+    for extension, path in endpoints.items():
+        if existing in ("both", extension):
+            path.write_bytes(previous[extension])
+            path.chmod(0o640)
+    replace = Path.replace
+
+    def fail_replace(path: Path, target: str | Path) -> Path:
+        if path.parent == tmp_path and Path(target) == endpoints[failed_endpoint]:
+            raise OSError("endpoint replacement failed")
+        return replace(path, target)
+
+    monkeypatch.setattr(Path, "replace", fail_replace)
+
+    with pytest.raises(OSError, match="endpoint replacement failed"):
+        publish_json_file(source, _never_stop, destination=destination)
+
+    for extension, path in endpoints.items():
+        if existing in ("both", extension):
+            assert path.read_bytes() == previous[extension]
+            assert stat.S_IMODE(path.stat().st_mode) == 0o640
+        else:
+            assert not path.exists()
+    assert sorted(path.name for path in tmp_path.iterdir()) == sorted(
+        ["source.json", *(path.name for path in endpoints.values() if path.exists())]
+    )
+
+
+def test_directory_sync_failure_restores_previous_pair(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Failure after the first rename also restores both old endpoints."""
+
+    source = tmp_path / "source.json"
+    source.write_text('{"notes":"new"}', encoding="utf-8")
+    destination = tmp_path / "package.json"
+    destination.write_bytes(b'{"notes":"old"}')
+    xml_path = destination.with_suffix(".xml")
+    xml_path.write_bytes(b"<xml>old</xml>")
+    sync = bkg_py.files.sync_directory
+    failed = False
+
+    def fail_once(path: Path) -> None:
+        nonlocal failed
+        if not failed:
+            failed = True
+            raise OSError("directory sync failed")
+        sync(path)
+
+    monkeypatch.setattr(bkg_py.files, "sync_directory", fail_once)
+
+    with pytest.raises(OSError, match="directory sync failed"):
+        publish_json_file(source, _never_stop, destination=destination)
+
+    assert destination.read_bytes() == b'{"notes":"old"}'
+    assert xml_path.read_bytes() == b"<xml>old</xml>"
+    assert not list(tmp_path.glob(".bkg-pair-*"))
+
+
+def test_failed_restoration_retains_backups_and_raises_fatal_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A second filesystem failure cannot destroy the last known good files."""
+
+    source = tmp_path / "source.json"
+    source.write_text('{"notes":"new"}', encoding="utf-8")
+    destination = tmp_path / "package.json"
+    destination.write_bytes(b'{"notes":"old"}')
+    xml_path = destination.with_suffix(".xml")
+    xml_path.write_bytes(b"<xml>old</xml>")
+    replace = Path.replace
+
+    def fail_replace(path: Path, target: str | Path) -> Path:
+        if Path(target) == xml_path or path.name.endswith(".restore"):
+            raise OSError("filesystem unavailable")
+        return replace(path, target)
+
+    monkeypatch.setattr(Path, "replace", fail_replace)
+
+    with pytest.raises(PublicationRecoveryError, match="previous outputs retained"):
+        publish_json_file(source, _never_stop, destination=destination)
+
+    backups = [path for path in tmp_path.iterdir() if is_publication_backup(path)]
+    assert len(backups) == 1
+    assert (backups[0] / "json.previous").read_bytes() == b'{"notes":"old"}'
+    assert (backups[0] / "xml.previous").read_bytes() == b"<xml>old</xml>"
+    assert not list(tmp_path.glob(".package.json.*"))
+    assert not list(tmp_path.glob(".package.xml.*"))
+
+
+def test_symlink_destination_is_rejected_before_replacing_either_file(
+    tmp_path: Path,
+) -> None:
+    """Publication does not replace symlinks or alter their targets."""
+
+    source = tmp_path / "source.json"
+    source.write_text('{"notes":"new"}', encoding="utf-8")
+    destination = tmp_path / "package.json"
+    destination.write_bytes(b'{"notes":"old"}')
+    target = tmp_path / "external.xml"
+    target.write_bytes(b"<xml>old</xml>")
+    xml_path = destination.with_suffix(".xml")
+    xml_path.symlink_to(target)
+
+    with pytest.raises(OSError, match="not a regular file"):
+        publish_json_file(source, _never_stop, destination=destination)
+
+    assert destination.read_bytes() == b'{"notes":"old"}'
+    assert xml_path.is_symlink()
+    assert target.read_bytes() == b"<xml>old</xml>"
+    assert not list(tmp_path.glob(".bkg-pair-*"))

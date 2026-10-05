@@ -24,6 +24,7 @@ from ..packages.updates import (
 )
 from ..packages.versions.ingestion import VersionPageClient
 from ..publication import PublicationError
+from ..publication.promotion import PublicationRecoveryError
 
 MessageSink = Callable[[str], None]
 
@@ -168,6 +169,9 @@ class OwnerPackageRefreshService:
             lambda package: self._refresh_one(request, package, version_settings),
             task_name=lambda package: package.package,
         )
+        for failure in run_result.failures:
+            if isinstance(failure.error, PublicationRecoveryError):
+                raise failure.error
         if run_result.stop is not None:
             raise run_result.stop
         if not run_result.ok:

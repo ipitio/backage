@@ -3,7 +3,7 @@
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from threading import Event
+from threading import Barrier, Event
 
 import pytest
 
@@ -22,6 +22,7 @@ from bkg_py.owners.lifecycle import OwnerLifecycleResult
 from bkg_py.owners.operations import OwnerUpdateRequest
 from bkg_py.owners.scan_pages import OwnerScanPagesResult
 from bkg_py.owners.updates import OwnerScanOutcome
+from bkg_py.publication.promotion import PublicationRecoveryError
 from bkg_py.result import ExitStatus
 from bkg_py.runtime import GracefulStop, StopController
 from bkg_py.state import StateStore
@@ -343,6 +344,31 @@ def test_owner_batch_maps_worker_failures(
     assert any(
         diagnostic_fragment in message for message in harness.messages.diagnostic
     )
+
+
+@pytest.mark.parametrize("concurrent_stop", [False, True])
+def test_owner_batch_aborts_after_failed_restoration(
+    tmp_path: Path, concurrent_stop: bool
+) -> None:
+    """A concurrent stop must not turn an unrestored endpoint into a success."""
+
+    queued = ("1/alpha", "2/beta") if concurrent_stop else ("1/alpha",)
+    barrier = Barrier(len(queued))
+
+    def update(request: OwnerUpdateRequest) -> OwnerLifecycleResult:
+        barrier.wait(timeout=5)
+        if request.owner == "beta":
+            raise GracefulStop("concurrent stop")
+        raise PublicationRecoveryError("retained outputs")
+
+    harness = _service(tmp_path, update, queued=queued)
+
+    status = harness.service.run(
+        OwnerBatchRequest("2026-07-01", "batch-1", "2026-07-02")
+    )
+
+    assert status == ExitStatus.NON_FATAL
+    assert any("retained outputs" in message for message in harness.messages.diagnostic)
 
 
 def test_owner_queue_parser_validates_and_deduplicates() -> None:

@@ -22,6 +22,7 @@ from bkg_py.database.models import (
 )
 from bkg_py.database.settings import DatabaseSettings
 from bkg_py.database.support import DatabaseError
+from bkg_py.publication import PublicationError
 from bkg_py.publication.site_shell import SITE_SHELL_VERSION
 from bkg_py.run.publication import (
     RunPublicationIdentity,
@@ -145,6 +146,7 @@ def test_run_publication_hydrates_outputs_and_prunes_transient_state(
     working.mkdir()
     sidecars = index / "owner" / "repo"
     sidecars.mkdir(parents=True)
+    (index / ".bkg-pair-repository").mkdir()
     for name in ("a.json.tmp", "b.json.abs.2", "c.json.rel.worker", "d.json.tmp123"):
         (sidecars / name).write_text("temporary", encoding="utf-8")
     published_names = (
@@ -260,6 +262,39 @@ def test_run_publication_hydrates_outputs_and_prunes_transient_state(
         "BKG_TIMEOUT": "1",
         "UNKNOWN": "kept",
     }
+
+
+@pytest.mark.parametrize("marker_present", [False, True])
+def test_run_publication_rejects_retained_pair_backups(
+    tmp_path: Path, marker_present: bool
+) -> None:
+    """Unfinished restoration blocks summaries and keeps recovery files private."""
+
+    root = tmp_path / "repo"
+    index = root / "index"
+    _write_sources(root)
+    backup = index / "owner" / "repo" / ".bkg-pair-aborted"
+    backup.mkdir(parents=True)
+    if marker_present:
+        (backup / ".bkg-publication-backup").touch()
+    (backup / "json.previous").write_bytes(b'{"notes":"old"}')
+    service = RunPublicationService(
+        _publication_repositories(_InventoryRepository(PackageInventory(1, 1, 1))),
+        StateStore(tmp_path / "state.env"),
+        lambda: None,
+    )
+    request = RunPublicationRequest(
+        RunPublicationPaths(root, index, tmp_path, root / "site-shell"),
+        RunPublicationIdentity("example", "backage", "master"),
+        "2026-07-02",
+    )
+
+    with pytest.raises(PublicationError, match="recover retained outputs"):
+        service.publish(request)
+
+    assert (backup / "json.previous").read_bytes() == b'{"notes":"old"}'
+    assert not (root / "README.md").exists()
+    assert not (index / ".json").exists()
 
 
 def test_run_publication_retains_dashboard_when_projection_fails(

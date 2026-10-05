@@ -3,6 +3,7 @@
 import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
+from threading import Barrier
 
 import pytest
 
@@ -44,6 +45,7 @@ from bkg_py.packages.updates import (
 from bkg_py.packages.versions.selection import VersionSelectionSettings
 from bkg_py.packages.versions.updates import VersionRefreshExecution
 from bkg_py.publication import PublicationLimits
+from bkg_py.publication.promotion import PublicationRecoveryError
 from bkg_py.runtime import GracefulStop
 
 from ..github.fake import FakeGitHubClient
@@ -167,6 +169,49 @@ def test_owner_package_refresh_propagates_graceful_stop(
     )
 
     with pytest.raises(GracefulStop, match="test stop"):
+        service.refresh(request)
+
+
+@pytest.mark.parametrize("concurrent_stop", [False, True])
+def test_owner_package_refresh_propagates_failed_restoration(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    concurrent_stop: bool,
+) -> None:
+    """Unrestored files abort the run even when a sibling stops gracefully."""
+
+    count = 2 if concurrent_stop else 1
+    barrier = Barrier(count)
+
+    def refresh(
+        _service: PackageRefreshService,
+        request: PackageRefreshRequest,
+    ) -> PackageRefreshResult:
+        barrier.wait(timeout=5)
+        if request.package_ref.package == "pkg-1":
+            raise GracefulStop("concurrent stop")
+        raise PublicationRecoveryError("retained outputs")
+
+    monkeypatch.setattr(PackageRefreshService, "refresh", refresh)
+    service = OwnerPackageRefreshService(
+        DatabaseRepositories(DatabaseSettings(tmp_path / "index.db")).packages,
+        FakeGitHubClient(),
+        _execution(tmp_path, [], []),
+    )
+    request = OwnerPackageRefreshRequest(
+        "42",
+        "example",
+        tuple(
+            OwnerScanPackage("orgs", "container", "repo", f"pkg-{index}")
+            for index in range(count)
+        ),
+        PackageBatch("2026-06-28"),
+        "versions",
+        tmp_path / "index",
+        PackageRefreshPolicy(True, True, 0),
+    )
+
+    with pytest.raises(PublicationRecoveryError, match="retained outputs"):
         service.refresh(request)
 
 

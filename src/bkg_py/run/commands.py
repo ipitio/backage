@@ -12,6 +12,7 @@ from ..config import RuntimeConfig
 from ..database.support import DatabaseError
 from ..discovery import DiscoveryError
 from ..github import GitHubError
+from ..publication.promotion import PublicationRecoveryError
 from ..result import ExitStatus
 from ..runtime import GracefulStop
 from ..snapshots import SnapshotError
@@ -162,6 +163,7 @@ def execute_prepared_application(
         DiscoveryError,
         GitHubError,
         OSError,
+        PublicationRecoveryError,
         SnapshotError,
         StateValueError,
         ValueError,
