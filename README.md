@@ -155,6 +155,12 @@ versions represented in an endpoint. Each unavailable raw counter is `-1`;
 zero is a known value, and a newly reported total may be lower than an earlier
 observation. Republishing stored data preserves its observation date.
 
+Version counts describe this endpoint's `version` array, not GitHub's full
+inventory or historical observations. `raw_versions` counts unique numeric
+version IDs; `raw_tagged` counts those with at least one nonempty tag. Synthetic
+`id=-1` entries do not contribute. Bounded aggregates may therefore report
+fewer versions than a detailed package endpoint.
+
 <details>
 
 <summary>Package</summary>
@@ -169,8 +175,8 @@ observation. Republishing stored data preserves its observation date.
 |       `package`       |    string    | The package name                                        |
 |        `date`         |    string    | The most recent date the package was refreshed          |
 |        `size`         |    string    | Formatted best size from the newest sized version       |
-|      `versions`       |    string    | Formatted count of all versions recently tracked        |
-|       `tagged`        |    string    | Formatted count of all tagged versions recently tracked |
+|      `versions`       |    string    | Formatted count of versions represented here            |
+|       `tagged`        |    string    | Formatted count of tagged versions represented here     |
 |     `owner_rank`      |    string    | Formatted rank by downloads within the owner            |
 |      `repo_rank`      |    string    | Formatted rank by downloads within the repository       |
 |      `downloads`      |    string    | Formatted count of all downloads                        |
@@ -178,8 +184,8 @@ observation. Republishing stored data preserves its observation date.
 |   `downloads_week`    |    string    | Formatted count of all downloads in the last week       |
 |    `downloads_day`    |    string    | Formatted count of all downloads in the last day        |
 |      `raw_size`       |    number    | Best size from the newest sized version, in bytes       |
-|    `raw_versions`     |    number    | Count of versions ever tracked                          |
-|     `raw_tagged`      |    number    | Count of tagged versions ever tracked                   |
+|    `raw_versions`     |    number    | Count of unique numeric version IDs represented here    |
+|     `raw_tagged`      |    number    | Count of represented version IDs with nonempty tags     |
 |   `raw_owner_rank`    |    number    | Rank by downloads within the owner                      |
 |    `raw_repo_rank`    |    number    | Rank by downloads within the repository                 |
 |    `raw_downloads`    |    number    | Count of all downloads                                  |
