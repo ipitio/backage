@@ -1,7 +1,6 @@
 """Render package metadata and bounded owner aggregates."""
 
 import json
-import math
 import os
 import tempfile
 from collections.abc import Callable, Mapping, Sequence
@@ -23,11 +22,10 @@ from ..files import atomic_path, atomic_text_output
 from ..runtime_names import EnvironmentVariable as Env
 from .artifacts import JsonValue
 from .baseline import publication_baseline
+from .formatting import human_metric, human_size
+from .version_counts import refresh_version_counts, version_count_fields
 
 StopCheck = Callable[[], None]
-_METRIC_UNITS = ("", "k", "M", "B", "T", "P", "E", "Z", "Y")
-_SIZE_UNITS = ("", "kB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB")
-_HUMAN_SCALE_THRESHOLD = 999.9
 
 
 class RenderingError(ValueError):
@@ -149,16 +147,12 @@ def render_package(
     ranked = snapshot.package
     package = ranked.record
     package_ref = package.package_ref
-    numeric_ids = {
-        row.version_id
-        for row in snapshot.versions.rows
-        if _numeric_identifier(row.version_id) is not None
-    }
-    tagged_ids = {
-        row.version_id
-        for row in snapshot.versions.rows
-        if _numeric_identifier(row.version_id) is not None and row.tags
-    }
+    versions = render_version_array(
+        snapshot.versions,
+        package,
+        version_limit=version_limit,
+    )
+    counts = version_count_fields(versions)
     return {
         "owner_type": package_ref.owner_type,
         "package_type": package_ref.package_type,
@@ -167,29 +161,25 @@ def render_package(
         "repo": package_ref.repo,
         "package": package_ref.package,
         "date": package.date,
-        "size": _human_size(package.size),
-        "versions": _human_metric(len(numeric_ids)),
-        "tagged": _human_metric(len(tagged_ids)),
-        "owner_rank": _human_metric(ranked.owner_rank),
-        "repo_rank": _human_metric(ranked.repo_rank),
-        "downloads": _human_metric(package.downloads),
-        "downloads_month": _human_metric(package.downloads_month),
-        "downloads_week": _human_metric(package.downloads_week),
-        "downloads_day": _human_metric(package.downloads_day),
+        "size": human_size(package.size),
+        "versions": counts["versions"],
+        "tagged": counts["tagged"],
+        "owner_rank": human_metric(ranked.owner_rank),
+        "repo_rank": human_metric(ranked.repo_rank),
+        "downloads": human_metric(package.downloads),
+        "downloads_month": human_metric(package.downloads_month),
+        "downloads_week": human_metric(package.downloads_week),
+        "downloads_day": human_metric(package.downloads_day),
         "raw_size": package.size,
-        "raw_versions": len(numeric_ids),
-        "raw_tagged": len(tagged_ids),
+        "raw_versions": counts["raw_versions"],
+        "raw_tagged": counts["raw_tagged"],
         "raw_owner_rank": ranked.owner_rank,
         "raw_repo_rank": ranked.repo_rank,
         "raw_downloads": package.downloads,
         "raw_downloads_month": package.downloads_month,
         "raw_downloads_week": package.downloads_week,
         "raw_downloads_day": package.downloads_day,
-        "version": render_version_array(
-            snapshot.versions,
-            package,
-            version_limit=version_limit,
-        ),
+        "version": versions,
     }
 
 
@@ -218,6 +208,7 @@ def render_package_file(
         value = baseline.preserve(
             render_package(snapshot, version_limit=options.version_limit)
         )
+    refresh_version_counts(value)
     _write_json_value(destination, value)
     return bool(snapshot.versions.rows)
 
@@ -259,7 +250,9 @@ def render_database_aggregate(
                 options,
                 check_stop,
             )
-            _dump_json(baseline.preserve(value), output)
+            preserved = baseline.preserve(value)
+            refresh_version_counts(preserved)
+            _dump_json(preserved, output)
             first = False
             count += 1
 
@@ -395,6 +388,7 @@ def _write_file_aggregate(
             check_stop()
             package = _load_package_json(path)
             _limit_file_versions(package, version_limit)
+            refresh_version_counts(package)
             if not first:
                 output.write(",")
             _dump_json(package, output)
@@ -511,11 +505,11 @@ def _render_version(
         "date": version.date,
         "newest": version.version_id == str(newest_id),
         "latest": version.version_id == str(latest_id),
-        "size": _human_size(metrics.size),
-        "downloads": _human_metric(metrics.downloads),
-        "downloads_month": _human_metric(metrics.downloads_month),
-        "downloads_week": _human_metric(metrics.downloads_week),
-        "downloads_day": _human_metric(metrics.downloads_day),
+        "size": human_size(metrics.size),
+        "downloads": human_metric(metrics.downloads),
+        "downloads_month": human_metric(metrics.downloads_month),
+        "downloads_week": human_metric(metrics.downloads_week),
+        "downloads_day": human_metric(metrics.downloads_day),
         "raw_size": metrics.size,
         "raw_downloads": metrics.downloads,
         "raw_downloads_month": metrics.downloads_month,
@@ -532,11 +526,11 @@ def _fallback_version(package: PackageRecord) -> dict[str, JsonValue]:
         "date": package.date,
         "newest": True,
         "latest": True,
-        "size": _human_size(package.size),
-        "downloads": _human_metric(package.downloads),
-        "downloads_month": _human_metric(package.downloads_month),
-        "downloads_week": _human_metric(package.downloads_week),
-        "downloads_day": _human_metric(package.downloads_day),
+        "size": human_size(package.size),
+        "downloads": human_metric(package.downloads),
+        "downloads_month": human_metric(package.downloads_month),
+        "downloads_week": human_metric(package.downloads_week),
+        "downloads_day": human_metric(package.downloads_day),
         "raw_size": package.size,
         "raw_downloads": package.downloads,
         "raw_downloads_month": package.downloads_month,
@@ -578,31 +572,6 @@ def _compact_tags(value: str) -> str:
 
 def _owner_identifier(value: str) -> JsonValue:
     return int(value) if value.isdecimal() else value
-
-
-def _human_metric(value: int) -> str:
-    return _human_units(value, _METRIC_UNITS, spaced=False)
-
-
-def _human_size(value: int) -> str:
-    return _human_units(value, _SIZE_UNITS, spaced=True)
-
-
-def _human_units(
-    value: int,
-    units: Sequence[str],
-    *,
-    spaced: bool,
-) -> str:
-    scaled = float(value)
-    unit = 0
-    while scaled > _HUMAN_SCALE_THRESHOLD and unit < len(units) - 1:
-        scaled /= 1000
-        unit += 1
-    truncated = math.trunc(scaled * 10) / 10
-    number = str(int(truncated)) if truncated.is_integer() else str(truncated)
-    separator = " " if spaced and units[unit] else ""
-    return f"{number}{separator}{units[unit]}"
 
 
 def _package_json_paths(directory: Path) -> tuple[Path, ...]:

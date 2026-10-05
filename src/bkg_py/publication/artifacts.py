@@ -12,6 +12,7 @@ from ..runtime_names import EnvironmentVariable as Env
 from .baseline import publication_baseline
 from .promotion import staged_output_pair
 from .values import JsonValue, PublicationError
+from .version_counts import refresh_version_counts
 
 _XML_PREFIX = '<?xml version="1.0" encoding="UTF-8"?><xml>'
 _XML_SUFFIX = "</xml>"
@@ -299,6 +300,7 @@ def _trim_version_holder(value: JsonValue, count: int) -> JsonValue:
         unique.values(),
         key=lambda item: _numeric(_version_id(item)),
     )
+    refresh_version_counts(result)
     return result
 
 
@@ -470,7 +472,8 @@ def write_xml_file(
     xml_path = destination or _xml_path(source)
     with publication_baseline(xml_path, check_stop, prefer_xml=True) as baseline:
         preserved = baseline.preserve(value)
-    if preserved != value and xml_path == _xml_path(source):
+    counts_changed = refresh_version_counts(preserved)
+    if (counts_changed or preserved != value) and xml_path == _xml_path(source):
         with staged_output_pair(source, xml_path) as (temporary_json, temporary_xml):
             _write_bytes(temporary_json, _compact_json(preserved), check_stop)
             _write_xml(temporary_xml, preserved, check_stop)
@@ -500,7 +503,8 @@ def publish_json_file(
         json_path, check_stop, prefer_xml=source == json_path
     ) as baseline:
         preserved = baseline.preserve(value)
-    if preserved != value:
+    counts_changed = refresh_version_counts(preserved)
+    if counts_changed or preserved != value:
         original_json = _compact_json(preserved)
     prepared = _prepare_publication(
         original_json,

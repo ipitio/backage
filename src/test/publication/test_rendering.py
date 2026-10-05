@@ -4,6 +4,7 @@ import json
 import sqlite3
 import time
 import tracemalloc
+from dataclasses import replace
 from pathlib import Path
 from typing import cast
 
@@ -13,8 +14,11 @@ from bkg_py.database.composition import DatabaseRepositories
 from bkg_py.database.models import (
     PackageRecord,
     PackageRef,
+    PackageSnapshot,
+    RankedPackage,
     VersionMetrics,
     VersionRecord,
+    VersionSource,
     VersionStage,
 )
 from bkg_py.database.package.repository import PackageRepository
@@ -108,9 +112,16 @@ def _json_array(path: Path) -> list[dict[str, object]]:
 class TestRendering:
     """Exercise deterministic package and aggregate output behavior."""
 
+    @pytest.mark.parametrize(
+        ("limit", "identifiers", "tagged"),
+        [(-1, [1, 2, 3, 4, 5], 2), (0, [1, 5], 1), (2, [1, 4, 5], 1)],
+    )
     def test_package_rendering_preserves_marks_limits_and_formats(
         self,
         tmp_path: Path,
+        limit: int,
+        identifiers: list[int],
+        tagged: int,
     ) -> None:
         """Package JSON retains existing marks, limits, and humanized fields."""
 
@@ -136,16 +147,47 @@ class TestRendering:
         )
 
         assert snapshot is not None
-        rendered = render_package(snapshot, version_limit=2)
+        rendered = render_package(snapshot, version_limit=limit)
         versions = cast(list[dict[str, object]], rendered["version"])
 
-        assert [version["id"] for version in versions] == [1, 4, 5]
+        assert [version["id"] for version in versions] == identifiers
         assert versions[0]["latest"] is True
         assert versions[-1]["newest"] is True
         assert rendered["size"] == "400"
         assert rendered["downloads"] == "1k"
-        assert rendered["raw_versions"] == 5
-        assert rendered["raw_tagged"] == 2
+        assert rendered["raw_versions"] == len(identifiers)
+        assert rendered["raw_tagged"] == tagged
+        assert rendered["versions"] == str(len(identifiers))
+        assert rendered["tagged"] == str(tagged)
+
+    @pytest.mark.parametrize(
+        ("rows", "count"),
+        [
+            (
+                (
+                    replace(_version(1, tags="old-tag"), date="2026-06-09"),
+                    _version(1, tags=", , "),
+                    _version(2),
+                ),
+                2,
+            ),
+            ((), 0),
+        ],
+    )
+    def test_counts_exclude_historical_tags_and_synthetic_versions(
+        self, rows: tuple[VersionRecord, ...], count: int
+    ) -> None:
+        """Counts exclude historical rows and synthetic placeholders."""
+
+        snapshot = PackageSnapshot(
+            RankedPackage(_package_record(_package()), owner_rank=1, repo_rank=1),
+            VersionSource("normalized", rows),
+        )
+
+        rendered = render_package(snapshot, version_limit=-1)
+
+        assert rendered["raw_versions"] == count
+        assert rendered["raw_tagged"] == 0
 
     def test_database_aggregate_ignores_files_and_filters_repository(
         self,
@@ -260,8 +302,11 @@ class TestRendering:
             lambda: None,
         )
 
-        versions = cast(list[dict[str, object]], _json_array(output)[0]["version"])
+        rendered = _json_array(output)[0]
+        versions = cast(list[dict[str, object]], rendered["version"])
         assert [version["id"] for version in versions] == [1, 4, 5]
+        assert rendered["raw_versions"] == 3
+        assert rendered["raw_tagged"] == 1
 
     def test_file_aggregate_adapts_to_exact_byte_budget(
         self,
@@ -273,17 +318,23 @@ class TestRendering:
         source.mkdir(parents=True)
         package = {
             "package": "demo",
+            "raw_versions": 5,
+            "raw_tagged": 2,
+            "versions": "5",
+            "tagged": "2",
             "version": [
                 {
                     "id": number,
                     "latest": number == 1,
                     "newest": number == 5,
+                    "tags": ["latest"] if number == 1 else [],
                     "notes": "x" * 2000,
                 }
                 for number in range(1, 6)
             ],
         }
-        (source / "demo.json").write_text(json.dumps(package), encoding="utf-8")
+        original = json.dumps(package)
+        (source / "demo.json").write_text(original, encoding="utf-8")
         two = tmp_path / "two.json"
         render_file_aggregate(
             source.parent,
@@ -301,9 +352,22 @@ class TestRendering:
             check_stop=lambda: None,
         )
 
-        versions = cast(list[dict[str, object]], _json_array(adaptive)[0]["version"])
+        rendered = _json_array(adaptive)[0]
+        versions = cast(list[dict[str, object]], rendered["version"])
         assert [version["id"] for version in versions] == [1, 4, 5]
+        assert rendered["raw_versions"] == 3
+        assert rendered["raw_tagged"] == 1
+        assert (source / "demo.json").read_text(encoding="utf-8") == original
         assert adaptive.stat().st_size <= target
+        unlimited = tmp_path / "unlimited.json"
+        render_file_aggregate(
+            source.parent,
+            unlimited,
+            settings=AggregateSettings(version_limit=-1),
+            check_stop=lambda: None,
+        )
+        assert _json_array(unlimited)[0]["raw_versions"] == 5
+        assert _json_array(unlimited)[0]["raw_tagged"] == 1
 
     def test_interrupted_database_aggregate_preserves_destination(
         self,

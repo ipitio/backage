@@ -94,16 +94,26 @@ class TestPublication:
                     "id": identifier,
                     "latest": identifier == 1,
                     "newest": identifier == 6,
+                    "tags": ["latest"] if identifier == 1 else [],
                     "notes": "x" * 250,
                 }
                 for identifier in [6, 1, 5, 2, 4, 3]
             ]
             source.write_text(
-                json.dumps({"package": "demo", "version": versions}),
+                json.dumps(
+                    {
+                        "package": "demo",
+                        "raw_versions": 6,
+                        "raw_tagged": 1,
+                        "versions": "6",
+                        "tagged": "1",
+                        "version": versions,
+                    }
+                ),
                 encoding="utf-8",
             )
             limits = PublicationLimits(
-                maximum_bytes=750,
+                maximum_bytes=1_000,
                 hard_maximum_bytes=10_000,
             )
 
@@ -117,6 +127,11 @@ class TestPublication:
             assert identifiers == sorted(identifiers)
             assert 1 in identifiers
             assert 6 in identifiers
+            assert published["raw_versions"] == len(identifiers)
+            assert published["raw_tagged"] == 1
+            xml = source.with_suffix(".xml").read_text(encoding="utf-8")
+            assert f"<raw_versions>{len(identifiers)}</raw_versions>" in xml
+            assert "<raw_tagged>1</raw_tagged>" in xml
 
     def test_hard_limits_preserve_the_previous_pair(self) -> None:
         """Oversized required data is retryable, never an empty publication."""
@@ -195,6 +210,65 @@ class TestPublication:
                 write_xml_file(source, _never_stop)
 
             assert xml_path.read_text(encoding="utf-8") == "<xml>old</xml>"
+
+
+@pytest.mark.parametrize("shape", ["package", "array", "wrapper"])
+def test_publication_repairs_represented_counts(tmp_path: Path, shape: str) -> None:
+    """Existing count fields follow the selected array in both output formats."""
+
+    package: JsonValue = {
+        "raw_versions": 99,
+        "raw_tagged": 88,
+        "versions": "99",
+        "tagged": "88",
+        "version": [{"id": 1, "tags": ["latest"]}, {"id": 2, "tags": []}],
+    }
+    value = (
+        [package, package]
+        if shape == "array"
+        else {"package": [package, package]}
+        if shape == "wrapper"
+        else package
+    )
+    source = tmp_path / "package.json"
+    source.write_text(json.dumps(value), encoding="utf-8")
+
+    result = publish_json_file(source, _never_stop)
+
+    output = json.loads(source.read_bytes())
+    if shape == "array":
+        packages = output
+    elif shape == "wrapper":
+        packages = output["package"]
+    else:
+        packages = [output]
+    assert not result.trimmed
+    for published in packages:
+        assert published["raw_versions"] == 2
+        assert published["raw_tagged"] == 1
+        assert published["versions"] == "2"
+        assert published["tagged"] == "1"
+    xml = source.with_suffix(".xml").read_text(encoding="utf-8")
+    assert xml.count("<raw_versions>2</raw_versions>") == len(packages)
+    assert xml.count("<raw_tagged>1</raw_tagged>") == len(packages)
+
+
+def test_xml_repair_also_corrects_json_version_counts(tmp_path: Path) -> None:
+    """Count-only corrections promote JSON and XML together, without trimming."""
+
+    source = tmp_path / "package.json"
+    source.write_text(
+        '{"raw_versions":99,"versions":"99","version":[{"id":5}]}',
+        encoding="utf-8",
+    )
+
+    write_xml_file(source, _never_stop)
+
+    published = json.loads(source.read_bytes())
+    assert published["raw_versions"] == 1
+    assert published["versions"] == "1"
+    xml = source.with_suffix(".xml").read_text(encoding="utf-8")
+    assert "<raw_versions>1</raw_versions>" in xml
 
 
 @pytest.mark.parametrize("existing", ["both", "json", "xml", "neither"])

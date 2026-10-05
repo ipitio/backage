@@ -202,10 +202,14 @@ def test_pair_publication_preserves_metrics_in_every_entrypoint(
     """A missing JSON endpoint or direct XML conversion cannot erase known XML."""
 
     destination = tmp_path / "demo.json"
-    _write(destination, _package())
+    previous = _package()
+    previous.update(raw_versions=1, versions="1", raw_tagged=0, tagged="0")
+    _write(destination, previous)
     publish_json_file(destination, lambda: None)
     source = tmp_path / "source.json"
-    _write(source, _unobserved())
+    current = _unobserved()
+    current.update(raw_versions=-1, versions="-1", raw_tagged=-1, tagged="-1")
+    _write(source, current)
     if baseline == "xml":
         destination.unlink()
     if baseline == "json-unknown":
@@ -220,10 +224,18 @@ def test_pair_publication_preserves_metrics_in_every_entrypoint(
     else:
         publish_json_file(source, lambda: None, destination=destination)
 
-    published: object = json.loads(destination.read_bytes())
+    published = cast(JsonValue, json.loads(destination.read_bytes()))
     assert isinstance(published, dict)
     assert published["raw_downloads"] == 1500
     assert published["raw_size"] == 123
+    assert published["raw_versions"] == 1
+    assert published["raw_tagged"] == 0
+    assert published["versions"] == "1"
+    assert published["tagged"] == "0"
+    observations = published["metric_observations"]
+    assert isinstance(observations, dict)
+    assert "versions" not in observations
+    assert "tagged" not in observations
     xml = destination.with_suffix(".xml").read_text(encoding="utf-8")
     assert "<raw_downloads>1500</raw_downloads>" in xml
     assert f"<observed_on>{_OLD_DATE}</observed_on><stale>true</stale>" in xml
