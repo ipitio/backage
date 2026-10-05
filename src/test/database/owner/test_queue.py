@@ -387,3 +387,155 @@ def test_startup_recovers_due_failed_owners_despite_candidate_deduplication(
     assert (
         restarted.owner_queue.prepare_owner_queue("batch-1", (), retry_after + 4) == ()
     )
+
+
+@pytest.mark.parametrize("status", ["ready", "claimed", "paused"])
+def test_recovered_queue_rows_respect_persisted_owner_cooldown(
+    tmp_path: Path, status: str
+) -> None:
+    """A stale queue row cannot retry a failed owner before its saved deadline."""
+
+    repository = _repository(tmp_path)
+    repository.owner_queue.admit_owner_queue(
+        "batch-1",
+        (
+            OwnerQueueAdmission("1", "Alpha", "connection"),
+            OwnerQueueAdmission("2", "Beta", "connection"),
+        ),
+        100,
+    )
+    if status != "ready":
+        repository.owner_queue.claim_owner_queue_wave("batch-1", 1, "old-claim", 101)
+    if status == "paused":
+        repository.owner_queue.finish_owner_queue_claim(
+            OwnerQueueCompletion("batch-1", "1", "old-claim", "paused", 102)
+        )
+    repository.owners.begin_owner_scan("1", "Alpha", "batch-1", 100)
+    retry_after = repository.owners.fail_owner_scan(
+        OwnerScanFailure("1", "Alpha", "batch-1", "inventory unavailable", 102)
+    )
+
+    restarted = _repository(tmp_path)
+    remaining = restarted.owner_queue.prepare_owner_queue("batch-1", (), 103)
+    assert tuple(entry.owner for entry in remaining) == ("Beta",)
+    claimed = restarted.owner_queue.claim_owner_queue_wave(
+        "batch-1", 2, "new-claim", 104
+    )
+    assert tuple(entry.owner for entry in claimed) == ("Beta",)
+    restarted.owner_queue.finish_owner_queue_claim(
+        OwnerQueueCompletion("batch-1", "2", "new-claim", "updated", 105)
+    )
+    assert restarted.owner_queue.activate_paused_owner_queue("batch-1", 106) == 0
+    assert restarted.owner_queue.owner_queue_entries("batch-1") == ()
+    assert (
+        restarted.owner_queue.prepare_owner_queue("batch-1", (), retry_after - 1) == ()
+    )
+    resumed = restarted.owner_queue.prepare_owner_queue("batch-1", (), retry_after)
+    assert tuple(entry.owner for entry in resumed) == ("Alpha",)
+    assert resumed[0].sequence == 0
+
+
+@pytest.mark.parametrize("previous", ["absent", "deferred", "ready"])
+def test_automatic_admission_cannot_bypass_owner_cooldown(
+    tmp_path: Path, previous: str
+) -> None:
+    """Fresh rows, retries, and stronger automatic priorities all honor backoff."""
+
+    repository = _repository(tmp_path)
+    repository.owners.begin_owner_scan("1", "Alpha", "batch-1", 100)
+    if previous != "absent":
+        repository.owner_queue.admit_owner_queue(
+            "batch-1", (OwnerQueueAdmission("1", "Alpha", "connection"),), 100
+        )
+    if previous == "deferred":
+        repository.owner_queue.claim_owner_queue_wave("batch-1", 1, "old-claim", 101)
+        repository.owner_queue.finish_owner_queue_claim(
+            OwnerQueueCompletion("batch-1", "1", "old-claim", "deferred", 102)
+        )
+    retry_after = repository.owners.fail_owner_scan(
+        OwnerScanFailure("1", "Alpha", "batch-1", "inventory unavailable", 102)
+    )
+
+    repository.owner_queue.record_owner_queue_candidates(
+        "batch-1",
+        (OwnerQueueCandidate("Alpha", "partially-updated"),),
+        (OwnerQueueAdmission("1", "Alpha", "partially-updated"),),
+        103,
+    )
+
+    assert repository.owner_queue.owner_queue_entries("batch-1") == ()
+    assert (
+        repository.owner_queue.claim_owner_queue_wave("batch-1", 1, "claim", 104) == ()
+    )
+    assert repository.owner_queue.known_owner_queue_candidates(
+        "batch-1", ("Alpha",)
+    ) == frozenset({"alpha"})
+    resumed = repository.owner_queue.prepare_owner_queue("batch-1", (), retry_after)
+    assert tuple(entry.owner for entry in resumed) == ("Alpha",)
+    assert resumed[0].reason == "partially-updated"
+
+
+@pytest.mark.parametrize("reason", ["manual", "optout"])
+def test_explicit_admission_overrides_backoff_only_until_restart(
+    tmp_path: Path, reason: str
+) -> None:
+    """An explicit override admits work but does not survive as a stale claim."""
+
+    repository = _repository(tmp_path)
+    repository.owners.begin_owner_scan("1", "Alpha", "batch-1", 100)
+    repository.owners.fail_owner_scan(
+        OwnerScanFailure("1", "Alpha", "batch-1", "inventory unavailable", 102)
+    )
+    repository.owner_queue.admit_owner_queue(
+        "batch-1", (OwnerQueueAdmission("1", "Alpha", "connection"),), 103
+    )
+
+    repository.owner_queue.admit_owner_queue(
+        "batch-1", (OwnerQueueAdmission("1", "Alpha", reason),), 104
+    )
+    claimed = repository.owner_queue.claim_owner_queue_wave("batch-1", 1, "claim", 105)
+    assert tuple(entry.owner for entry in claimed) == ("Alpha",)
+    assert claimed[0].reason == reason
+
+    restarted = _repository(tmp_path)
+    assert restarted.owner_queue.prepare_owner_queue("batch-1", (), 106) == ()
+    assert (
+        restarted.owner_queue.claim_owner_queue_wave("batch-1", 1, "retry", 107) == ()
+    )
+    restarted.owner_queue.admit_owner_queue(
+        "batch-1", (OwnerQueueAdmission("1", "Alpha", reason),), 108
+    )
+    assert (
+        len(restarted.owner_queue.claim_owner_queue_wave("batch-1", 1, "fresh", 109))
+        == 1
+    )
+
+
+def test_automatic_admission_preserves_an_active_claim(tmp_path: Path) -> None:
+    """A failure saved by a worker does not let admission steal its parent claim."""
+
+    repository = _repository(tmp_path)
+    repository.owner_queue.admit_owner_queue(
+        "batch-1", (OwnerQueueAdmission("1", "Alpha", "connection"),), 100
+    )
+    claimed = repository.owner_queue.claim_owner_queue_wave("batch-1", 1, "claim", 101)
+    repository.owners.begin_owner_scan("1", "Alpha", "batch-1", 101)
+    repository.owners.fail_owner_scan(
+        OwnerScanFailure("1", "Alpha", "batch-1", "inventory unavailable", 102)
+    )
+
+    assert (
+        repository.owner_queue.admit_owner_queue(
+            "batch-1", (OwnerQueueAdmission("1", "Alpha", "partially-updated"),), 103
+        )
+        == ()
+    )
+    remaining = repository.owner_queue.owner_queue_entries("batch-1")
+    assert len(remaining) == 1
+    assert remaining[0].status == "claimed"
+    assert remaining[0].claim_token == claimed[0].claim_token
+    assert remaining[0].claimed_at == claimed[0].claimed_at
+    repository.owner_queue.finish_owner_queue_claim(
+        OwnerQueueCompletion("batch-1", "1", "claim", "deferred", 104)
+    )
+    assert repository.owner_queue.prepare_owner_queue("batch-1", (), 105) == ()

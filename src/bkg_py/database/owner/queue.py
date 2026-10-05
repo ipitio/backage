@@ -126,6 +126,20 @@ def prepare_generation(
         connection.execute(
             """
             update "bkg_owner_queue"
+            set status = 'completed', outcome = 'deferred',
+                claim_token = '', claimed_at = 0, finished_at = ?, updated_at = ?
+            where generation = ? and status in ('ready', 'paused')
+              and exists (
+                  select 1 from "bkg_owner_scans" failed
+                  where failed.owner_id = "bkg_owner_queue".owner_id
+                    and failed.status = 'failed' and failed.retry_after > ?
+              )
+            """,
+            (now, now, generation, now),
+        )
+        connection.execute(
+            """
+            update "bkg_owner_queue"
             set status = 'ready', outcome = '', finished_at = 0,
                 updated_at = ?
             where generation = ? and status = 'completed'
@@ -447,14 +461,17 @@ def _admit(
             """,
             (generation, admission.owner_id, owner_key, admission.owner_id),
         ).fetchone()
+        cooling_down = (row is None or str(row[2]) != "claimed") and _retry_blocked(
+            connection, admission, now
+        )
         if row is None:
             connection.execute(
                 """
                 insert into "bkg_owner_queue" (
                     generation, owner_id, owner, owner_key, priority, sequence,
                     reason, status, attempt_after, claim_token, claimed_at,
-                    created_at, updated_at
-                ) values (?, ?, ?, ?, ?, ?, ?, 'ready', 0, '', 0, ?, ?)
+                    outcome, finished_at, created_at, updated_at
+                ) values (?, ?, ?, ?, ?, ?, ?, ?, 0, '', 0, ?, ?, ?, ?)
                 """,
                 (
                     generation,
@@ -464,28 +481,39 @@ def _admit(
                     priority,
                     next_sequence,
                     admission.reason,
+                    "completed" if cooling_down else "ready",
+                    "deferred" if cooling_down else "",
+                    now if cooling_down else 0,
                     now,
                     now,
                 ),
             )
-            added_ids.append(admission.owner_id)
+            if not cooling_down:
+                added_ids.append(admission.owner_id)
             next_sequence += 1
             continue
         persisted_id = str(row[0])
         persisted_priority = int(row[1])
-        reactivated = str(row[2]) == "completed" and (
-            str(row[3]) == "deferred"
-            or admission.reason == "optout"
-            or priority < persisted_priority
+        reactivated = (
+            not cooling_down
+            and str(row[2]) == "completed"
+            and (
+                str(row[3]) == "deferred"
+                or admission.reason == "optout"
+                or priority < persisted_priority
+            )
         )
         connection.execute(
             """
             update "bkg_owner_queue"
             set owner_id = ?, owner = ?, owner_key = ?,
                 priority = ?, reason = ?,
-                status = case when ? then 'ready' else status end,
-                outcome = case when ? then '' else outcome end,
-                finished_at = case when ? then 0 else finished_at end,
+                status = case when ? then 'completed'
+                              when ? then 'ready' else status end,
+                outcome = case when ? then 'deferred'
+                               when ? then '' else outcome end,
+                finished_at = case when ? then ?
+                                   when ? then 0 else finished_at end,
                 updated_at = ?
             where generation = ? and owner_id = ?
             """,
@@ -497,8 +525,12 @@ def _admit(
                 admission.reason
                 if priority < persisted_priority
                 else _persisted_reason(connection, generation, persisted_id),
+                cooling_down,
                 reactivated,
+                cooling_down,
                 reactivated,
+                cooling_down,
+                now,
                 reactivated,
                 now,
                 generation,
@@ -512,6 +544,25 @@ def _admit(
     added = set(added_ids)
     return tuple(
         entry for entry in entries(connection, generation) if entry.owner_id in added
+    )
+
+
+def _retry_blocked(
+    connection: sqlite3.Connection, admission: OwnerQueueAdmission, now: int
+) -> bool:
+    """Apply persisted backoff unless this admission is a fresh explicit request."""
+
+    if admission.reason in {"manual", "optout"}:
+        return False
+    return (
+        connection.execute(
+            """
+            select 1 from "bkg_owner_scans"
+            where owner_id = ? and status = 'failed' and retry_after > ?
+            """,
+            (admission.owner_id, now),
+        ).fetchone()
+        is not None
     )
 
 
