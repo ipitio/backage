@@ -1,30 +1,30 @@
 {
   "catalog": {
-    "owners": 2894,
-    "packages": 40753,
-    "repositories": 16431
+    "owners": 2893,
+    "packages": 40925,
+    "repositories": 16486
   },
-  "data_date": "2026-11-11",
+  "data_date": "2026-11-12",
   "identity": {
     "branch": "master",
     "name": "backage",
     "owner": "ipitio"
   },
   "observations_written": {
-    "package_rows": 2133,
-    "version_rows": 41689
+    "package_rows": 183,
+    "version_rows": 4207
   },
-  "outcome": "graceful_stop",
-  "publication_date": "2026-11-12",
+  "outcome": "completed",
+  "publication_date": "2026-11-13",
   "release": {
-    "asset_id": 737704916,
+    "asset_id": 741582458,
     "tag": "v2026.11.0"
   },
-  "run_id": "43108867552",
+  "run_id": "43325769525",
   "schema_version": 1,
   "snapshot": {
     "name": "index.db",
-    "sha256": "e44930287df5a3adf9f6edc7c0509474ff068f52f99e89b1c8338423d8a55d7a",
-    "size_bytes": 825077760
+    "sha256": "570b6a365798f51292804bc1fa9b3c6b00459a8efbd418b258b8bb3650c2d080",
+    "size_bytes": 842510336
   }
 }
