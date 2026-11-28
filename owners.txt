@@ -34,9 +34,6 @@
 3172293/andreby
 3172396/icamefortheshow
 3172435/danielgheoltan
-3172437/taylorlett
-3172439/aniruddhghatpande
-3172440/freefirex
 3172441/soo6otho
 3172442/yarpaks
 3172443/stephenp1983
@@ -340,4 +337,3 @@
 3172861/gridalien
 3172862/jhairo
 3172863/alem10182
-3172864/BashyBinary
